@@ -8,10 +8,16 @@ using System.Windows.Forms;
 
 namespace racman
 {
-    public partial class SLY3PositionEditor : Form
+    /// <summary>
+    /// Live position, character info, per-axis freezes and warp locations for any game that
+    /// describes its memory with a <see cref="PositionEditorLayout"/>.
+    /// </summary>
+    public partial class PositionEditor : Form
     {
-        private sly3 game;
-        private SLY3Form mainForm;
+        private IGame game;
+        private PositionEditorLayout layout;
+        private IPositionEditorHost host;
+        private Func<string, string> getMapDisplayName;
         private System.Windows.Forms.Timer pollTimer;
 
         private float? frozenPosX;
@@ -38,16 +44,25 @@ namespace racman
         private List<WarpLocation> displayedWarps = new List<WarpLocation>();
         private string currentMapIndicator = "";
 
-        private static readonly string UserWarpFile = "sly3_user_warps.txt";
-        private static readonly string BuiltinWarpFile = "data/sly3_warp_locations.txt";
+        private readonly string userWarpFile;
+        private readonly string builtinWarpFile;
 
         private StatusLine statusLine;
 
-        public SLY3PositionEditor(sly3 game, SLY3Form mainForm = null)
+        /// <param name="getMapDisplayName">Turns a map name such as "Y$KFv_ext" into a readable
+        /// one, or returns null when it doesn't know it.</param>
+        /// <param name="host">The Practice window, for Fly Mode and Infinite Jump. Optional.</param>
+        public PositionEditor(IGame game, PositionEditorLayout layout, Func<string, string> getMapDisplayName, IPositionEditorHost host = null)
         {
             this.game = game;
-            this.mainForm = mainForm;
+            this.layout = layout;
+            this.getMapDisplayName = getMapDisplayName;
+            this.host = host;
+            userWarpFile = $"{layout.warpFilePrefix}_user_warps.txt";
+            builtinWarpFile = $"data/{layout.warpFilePrefix}_warp_locations.txt";
+
             InitializeComponent();
+            Text = $"SluMAN :: Position Editor ({layout.gameName})";
             statusLine = new StatusLine(this, false);
             func.BindEnter(xPosTextBox, setXPosButton);
             func.BindEnter(yPosTextBox, setYPosButton);
@@ -63,17 +78,24 @@ namespace racman
             pollTimer.Start();
         }
 
+        private bool FlyModeEnabled => host != null && host.FlyModeEnabled;
+        private bool InfiniteJumpEnabled => host != null && host.InfiniteJumpEnabled;
+
+        // Transform addresses for one axis (0 = X, 1 = Y, 2 = Z).
+        private uint PositionAddress(uint transformPtr, uint axis) => transformPtr + layout.positionOffset + axis * 4;
+        private uint VelocityAddress(uint transformPtr, uint axis) => transformPtr + layout.velocityOffset + axis * 4;
+
         private bool TryResolvePointers(out uint entityPtr, out uint transformPtr)
         {
             entityPtr = 0;
             transformPtr = 0;
             try
             {
-                byte[] epBytes = game.api.ReadMemory(game.pid, 0x5EC654, 4);
+                byte[] epBytes = game.api.ReadMemory(game.pid, layout.activeCharacterPtr, 4);
                 entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
                 if (entityPtr == 0) return false;
 
-                byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + 0x44, 4);
+                byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + layout.transformOffset, 4);
                 transformPtr = BitConverter.ToUInt32(tpBytes.Reverse().ToArray(), 0);
                 return transformPtr != 0;
             }
@@ -102,13 +124,53 @@ namespace racman
             game.api.WriteMemory(game.pid, address, b);
         }
 
+        /// <summary>
+        /// Sets one axis of the position and stops movement along it, where the game's velocity
+        /// offset is known.
+        /// </summary>
+        private void WritePosition(uint transformPtr, uint axis, float value)
+        {
+            WriteFloat(PositionAddress(transformPtr, axis), value);
+            if (layout.velocityOffset != 0)
+            {
+                WriteFloat(VelocityAddress(transformPtr, axis), 0f);
+            }
+        }
+
+        /// <summary>
+        /// Makes fly mode take the current height on its next tick, after a load moved the player.
+        /// </summary>
+        public void ResetFlyHeight()
+        {
+            prevFlyMode = false;
+        }
+
+        /// <summary>
+        /// Turns off the X, Y and Z freezes. Called when a load starts, since the frozen
+        /// coordinates belong to the map being left.
+        /// </summary>
+        public void ClearPositionFreezes()
+        {
+            bool anyCleared = freezePosXCheckBox.Checked || freezePosYCheckBox.Checked || freezePosZCheckBox.Checked;
+
+            // Unchecking runs each box's handler, which clears its frozen value.
+            freezePosXCheckBox.Checked = false;
+            freezePosYCheckBox.Checked = false;
+            freezePosZCheckBox.Checked = false;
+
+            if (anyCleared)
+            {
+                Console.WriteLine("Load started, position freezes cleared.");
+            }
+        }
+
         private void PollTimer_Tick(object sender, EventArgs e)
         {
             string mapIndicator = ReadCurrentMapIndicator();
             if (mapIndicator != currentMapIndicator && mapIndicator.Length > 0)
             {
                 currentMapIndicator = mapIndicator;
-                string mapName = GetMapDisplayName(mapIndicator);
+                string mapName = getMapDisplayName != null ? getMapDisplayName(mapIndicator) : null;
                 currentMapLabel.Text = "Current map: " + (mapName ?? mapIndicator);
                 RefreshWarpDropdown(mapIndicator);
             }
@@ -121,31 +183,28 @@ namespace racman
 
             try
             {
-                bool flyModeEnabled = mainForm != null && mainForm.flyModeCheckBox.Checked;
+                bool flyModeEnabled = FlyModeEnabled;
 
-                // Position freezes — also zero corresponding velocity axis
+                // Position freezes; each also stops movement on its axis.
                 if (frozenPosX.HasValue)
                 {
-                    WriteFloat(transformPtr + 0x130, frozenPosX.Value);
-                    WriteFloat(transformPtr + 0x1B0, 0f);
+                    WritePosition(transformPtr, 0, frozenPosX.Value);
                 }
                 if (frozenPosY.HasValue)
                 {
-                    WriteFloat(transformPtr + 0x134, frozenPosY.Value);
-                    WriteFloat(transformPtr + 0x1B4, 0f);
+                    WritePosition(transformPtr, 1, frozenPosY.Value);
                 }
                 if (!flyModeEnabled && frozenPosZ.HasValue)
                 {
-                    WriteFloat(transformPtr + 0x138, frozenPosZ.Value);
-                    WriteFloat(transformPtr + 0x1B8, 0f);
+                    WritePosition(transformPtr, 2, frozenPosZ.Value);
                 }
 
-                // Fly mode: freeze Z pos + Z vel, adjust height with L2/R2, amplify horizontal movement
+                // Fly mode: hold Z, adjust height with L2/R2, amplify horizontal movement with R1.
                 if (flyModeEnabled && !prevFlyMode)
                 {
-                    flyFrozenZ = ReadFloat(transformPtr + 0x138);
-                    prevFlyPosX = ReadFloat(transformPtr + 0x130);
-                    prevFlyPosY = ReadFloat(transformPtr + 0x134);
+                    flyFrozenZ = ReadFloat(PositionAddress(transformPtr, 2));
+                    prevFlyPosX = ReadFloat(PositionAddress(transformPtr, 0));
+                    prevFlyPosY = ReadFloat(PositionAddress(transformPtr, 1));
                     zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
                 }
                 prevFlyMode = flyModeEnabled;
@@ -155,16 +214,15 @@ namespace racman
                     if ((Inputs.RawInputs & 0x1) != 0) flyFrozenZ += FlyHeightStep;   // L2 = up
                     if ((Inputs.RawInputs & 0x2) != 0) flyFrozenZ -= FlyHeightStep;   // R2 = down
 
-                    WriteFloat(transformPtr + 0x138, flyFrozenZ);
-                    WriteFloat(transformPtr + 0x1B8, 0f);
+                    WritePosition(transformPtr, 2, flyFrozenZ);
                     // Don't overwrite a value the user is typing.
                     if (!zPosTextBox.Focused)
                     {
                         zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
                     }
 
-                    float curX = ReadFloat(transformPtr + 0x130);
-                    float curY = ReadFloat(transformPtr + 0x134);
+                    float curX = ReadFloat(PositionAddress(transformPtr, 0));
+                    float curY = ReadFloat(PositionAddress(transformPtr, 1));
                     if ((Inputs.RawInputs & 0x8) != 0)  // R1 = horizontal boost
                     {
                         float deltaX = curX - prevFlyPosX;
@@ -173,8 +231,8 @@ namespace racman
                         {
                             float newX = prevFlyPosX + deltaX * FlyBoostMultiplier;
                             float newY = prevFlyPosY + deltaY * FlyBoostMultiplier;
-                            WriteFloat(transformPtr + 0x130, newX);
-                            WriteFloat(transformPtr + 0x134, newY);
+                            WriteFloat(PositionAddress(transformPtr, 0), newX);
+                            WriteFloat(PositionAddress(transformPtr, 1), newY);
                             curX = newX;
                             curY = newY;
                         }
@@ -183,40 +241,46 @@ namespace racman
                     prevFlyPosY = curY;
                 }
 
-                // Infinite jump — write full 4 bytes; LSB is what the game checks
-                if (mainForm != null && mainForm.infiniteJumpCheckBox.Checked)
-                    game.api.WriteMemory(game.pid, entityPtr + 0x338, (uint)0);
+                // Infinite jump: write the full 4 bytes; the LSB is what the game checks.
+                if (InfiniteJumpEnabled && layout.infiniteJumpOffset != 0)
+                {
+                    game.api.WriteMemory(game.pid, entityPtr + layout.infiniteJumpOffset, (uint)0);
+                }
 
-                // Read current state for display labels
-                int entityId = ReadInt(entityPtr + 0x18);
-                int health = ReadInt(entityPtr + 0x168);
-                int gadgetPower = ReadInt(entityPtr + 0x170);
-                float opacity = ReadFloat(entityPtr + 0x104);
-                float rotation = ReadFloat(entityPtr + 0x1AC);
+                // Current state for the labels.
+                entityIdValueLabel.Text = layout.entityIdOffset != 0 ? ReadInt(entityPtr + layout.entityIdOffset).ToString() : "N/A";
+                healthValueLabel.Text = layout.healthOffset != 0 ? ReadInt(entityPtr + layout.healthOffset).ToString() : "N/A";
+                gadgetPowerValueLabel.Text = layout.gadgetPowerOffset != 0 ? ReadInt(entityPtr + layout.gadgetPowerOffset).ToString() : "N/A";
+                opacityValueLabel.Text = layout.opacityOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.opacityOffset)) : "N/A";
+                rotationValueLabel.Text = layout.rotationOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.rotationOffset)) : "N/A";
 
-                float posX = ReadFloat(transformPtr + 0x130);
-                float posY = ReadFloat(transformPtr + 0x134);
-                float posZ = ReadFloat(transformPtr + 0x138);
-                float velX = ReadFloat(transformPtr + 0x1B0);
-                float velY = ReadFloat(transformPtr + 0x1B4);
-                float velZ = ReadFloat(transformPtr + 0x1B8);
-                float hSpeed = (float)Math.Sqrt(velX * velX + velY * velY);
+                xPosLiveLabel.Text = FormatFloat(ReadFloat(PositionAddress(transformPtr, 0)));
+                yPosLiveLabel.Text = FormatFloat(ReadFloat(PositionAddress(transformPtr, 1)));
+                zPosLiveLabel.Text = FormatFloat(ReadFloat(PositionAddress(transformPtr, 2)));
 
-                entityIdValueLabel.Text = entityId.ToString();
-                healthValueLabel.Text = health.ToString();
-                gadgetPowerValueLabel.Text = gadgetPower.ToString();
-                opacityValueLabel.Text = opacity.ToString("F3", CultureInfo.InvariantCulture);
-                rotationValueLabel.Text = rotation.ToString("F3", CultureInfo.InvariantCulture);
-                xPosLiveLabel.Text = posX.ToString("F3", CultureInfo.InvariantCulture);
-                yPosLiveLabel.Text = posY.ToString("F3", CultureInfo.InvariantCulture);
-                zPosLiveLabel.Text = posZ.ToString("F3", CultureInfo.InvariantCulture);
-                hSpeedLabel.Text = hSpeed.ToString("F3", CultureInfo.InvariantCulture);
-                zVelLiveLabel.Text = velZ.ToString("F3", CultureInfo.InvariantCulture);
+                if (layout.velocityOffset != 0)
+                {
+                    float velX = ReadFloat(VelocityAddress(transformPtr, 0));
+                    float velY = ReadFloat(VelocityAddress(transformPtr, 1));
+                    float velZ = ReadFloat(VelocityAddress(transformPtr, 2));
+                    hSpeedLabel.Text = FormatFloat((float)Math.Sqrt(velX * velX + velY * velY));
+                    zVelLiveLabel.Text = FormatFloat(velZ);
+                }
+                else
+                {
+                    hSpeedLabel.Text = "N/A";
+                    zVelLiveLabel.Text = "N/A";
+                }
             }
             catch
             {
                 SetLabelsUnavailable();
             }
+        }
+
+        private static string FormatFloat(float value)
+        {
+            return value.ToString("F3", CultureInfo.InvariantCulture);
         }
 
         private void SetLabelsUnavailable()
@@ -253,8 +317,7 @@ namespace racman
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WriteFloat(transformPtr + 0x130, val);
-                WriteFloat(transformPtr + 0x1B0, 0f);
+                WritePosition(transformPtr, 0, val);
                 if (freezePosXCheckBox.Checked) frozenPosX = val;
             }
             catch { }
@@ -266,8 +329,7 @@ namespace racman
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WriteFloat(transformPtr + 0x134, val);
-                WriteFloat(transformPtr + 0x1B4, 0f);
+                WritePosition(transformPtr, 1, val);
                 if (freezePosYCheckBox.Checked) frozenPosY = val;
             }
             catch { }
@@ -279,78 +341,52 @@ namespace racman
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WriteFloat(transformPtr + 0x138, val);
-                WriteFloat(transformPtr + 0x1B8, 0f);
+                WritePosition(transformPtr, 2, val);
                 if (freezePosZCheckBox.Checked) frozenPosZ = val;
-                if (mainForm != null && mainForm.flyModeCheckBox.Checked) flyFrozenZ = val;
+                if (FlyModeEnabled) flyFrozenZ = val;
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Starts or stops freezing one axis. Starting takes the current position and shows it in
+        /// the axis's box.
+        /// </summary>
+        private void ToggleAxisFreeze(CheckBox checkBox, TextBox textBox, uint axis, ref float? frozenValue)
+        {
+            if (!checkBox.Checked)
+            {
+                frozenValue = null;
+                return;
+            }
+            try
+            {
+                if (TryResolvePointers(out _, out uint tp))
+                {
+                    float live = ReadFloat(PositionAddress(tp, axis));
+                    frozenValue = live;
+                    textBox.Text = FormatFloat(live);
+                }
             }
             catch { }
         }
 
         private void freezePosXCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            if (freezePosXCheckBox.Checked)
-            {
-                try
-                {
-                    if (TryResolvePointers(out _, out uint tp))
-                    {
-                        float live = ReadFloat(tp + 0x130);
-                        frozenPosX = live;
-                        xPosTextBox.Text = live.ToString("F3", CultureInfo.InvariantCulture);
-                    }
-                }
-                catch { }
-            }
-            else
-            {
-                frozenPosX = null;
-            }
+            ToggleAxisFreeze(freezePosXCheckBox, xPosTextBox, 0, ref frozenPosX);
         }
 
         private void freezePosYCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            if (freezePosYCheckBox.Checked)
-            {
-                try
-                {
-                    if (TryResolvePointers(out _, out uint tp))
-                    {
-                        float live = ReadFloat(tp + 0x134);
-                        frozenPosY = live;
-                        yPosTextBox.Text = live.ToString("F3", CultureInfo.InvariantCulture);
-                    }
-                }
-                catch { }
-            }
-            else
-            {
-                frozenPosY = null;
-            }
+            ToggleAxisFreeze(freezePosYCheckBox, yPosTextBox, 1, ref frozenPosY);
         }
 
         private void freezePosZCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            if (freezePosZCheckBox.Checked)
-            {
-                try
-                {
-                    if (TryResolvePointers(out _, out uint tp))
-                    {
-                        float live = ReadFloat(tp + 0x138);
-                        frozenPosZ = live;
-                        zPosTextBox.Text = live.ToString("F3", CultureInfo.InvariantCulture);
-                    }
-                }
-                catch { }
-            }
-            else
-            {
-                frozenPosZ = null;
-            }
+            ToggleAxisFreeze(freezePosZCheckBox, zPosTextBox, 2, ref frozenPosZ);
         }
 
-        private void SLY3PositionEditor_FormClosing(object sender, FormClosingEventArgs e)
+        private void PositionEditor_FormClosing(object sender, FormClosingEventArgs e)
         {
             pollTimer.Stop();
             pollTimer.Dispose();
@@ -362,12 +398,8 @@ namespace racman
         {
             try
             {
-                byte[] b = game.api.ReadMemory(game.pid, 0x78D2C8, 32);
-                int nullIdx = -1;
-                for (int i = 0; i < b.Length; i++)
-                {
-                    if (b[i] == 0) { nullIdx = i; break; }
-                }
+                byte[] b = game.api.ReadMemory(game.pid, layout.mapNameAddress, 32);
+                int nullIdx = Array.IndexOf(b, (byte)0);
                 if (nullIdx < 0) nullIdx = b.Length;
                 return Encoding.ASCII.GetString(b, 0, nullIdx);
             }
@@ -375,16 +407,6 @@ namespace racman
             {
                 return "";
             }
-        }
-
-        private string GetMapDisplayName(string indicator)
-        {
-            foreach (sly3.MapData m in game.maps)
-            {
-                if (m.indicator == indicator)
-                    return m.naturalName;
-            }
-            return null;
         }
 
         private void RefreshWarpDropdown(string mapIndicator)
@@ -448,13 +470,10 @@ namespace racman
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WriteFloat(transformPtr + 0x130, loc.X);
-                WriteFloat(transformPtr + 0x134, loc.Y);
-                WriteFloat(transformPtr + 0x138, loc.Z);
-                WriteFloat(transformPtr + 0x1B0, 0f);
-                WriteFloat(transformPtr + 0x1B4, 0f);
-                WriteFloat(transformPtr + 0x1B8, 0f);
-                if (mainForm != null && mainForm.flyModeCheckBox.Checked) flyFrozenZ = loc.Z;
+                WritePosition(transformPtr, 0, loc.X);
+                WritePosition(transformPtr, 1, loc.Y);
+                WritePosition(transformPtr, 2, loc.Z);
+                if (FlyModeEnabled) flyFrozenZ = loc.Z;
             }
             catch { }
         }
@@ -472,9 +491,9 @@ namespace racman
 
             try
             {
-                float x = ReadFloat(transformPtr + 0x130);
-                float y = ReadFloat(transformPtr + 0x134);
-                float z = ReadFloat(transformPtr + 0x138);
+                float x = ReadFloat(PositionAddress(transformPtr, 0));
+                float y = ReadFloat(PositionAddress(transformPtr, 1));
+                float z = ReadFloat(PositionAddress(transformPtr, 2));
 
                 userWarps.RemoveAll(w => w.MapIndicator == currentMapIndicator && w.Name == name);
                 userWarps.Add(new WarpLocation { Name = name, MapIndicator = currentMapIndicator, X = x, Y = y, Z = z, IsUserDefined = true });
@@ -512,12 +531,12 @@ namespace racman
             statusLine.Info($"Deleted the warp \"{loc.Name}\".");
         }
 
-        private void LoadBuiltinWarps()
+        private static List<WarpLocation> ReadWarpFile(string path, bool isUserDefined)
         {
-            builtinWarps.Clear();
-            if (!File.Exists(BuiltinWarpFile)) return;
+            List<WarpLocation> warps = new List<WarpLocation>();
+            if (!File.Exists(path)) return warps;
 
-            foreach (string line in File.ReadAllLines(BuiltinWarpFile))
+            foreach (string line in File.ReadAllLines(path))
             {
                 string trimmed = line.Trim();
                 if (trimmed.StartsWith("#") || string.IsNullOrEmpty(trimmed)) continue;
@@ -529,29 +548,19 @@ namespace racman
                 if (!float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)) continue;
                 if (!float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float z)) continue;
 
-                builtinWarps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, IsUserDefined = false });
+                warps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, IsUserDefined = isUserDefined });
             }
+            return warps;
+        }
+
+        private void LoadBuiltinWarps()
+        {
+            builtinWarps = ReadWarpFile(builtinWarpFile, false);
         }
 
         private void LoadUserWarps()
         {
-            userWarps.Clear();
-            if (!File.Exists(UserWarpFile)) return;
-
-            foreach (string line in File.ReadAllLines(UserWarpFile))
-            {
-                string trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-
-                string[] parts = trimmed.Split('|');
-                if (parts.Length != 5) continue;
-
-                if (!float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)) continue;
-                if (!float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)) continue;
-                if (!float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float z)) continue;
-
-                userWarps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, IsUserDefined = true });
-            }
+            userWarps = ReadWarpFile(userWarpFile, true);
         }
 
         private void SaveUserWarps()
@@ -562,7 +571,7 @@ namespace racman
                 WarpLocation w = userWarps[i];
                 lines[i] = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}", w.MapIndicator, w.Name, w.X, w.Y, w.Z);
             }
-            File.WriteAllLines(UserWarpFile, lines);
+            File.WriteAllLines(userWarpFile, lines);
         }
 
         private void lblGadgetPower_Click(object sender, EventArgs e) { }

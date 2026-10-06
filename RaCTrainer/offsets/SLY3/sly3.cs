@@ -349,6 +349,46 @@ namespace racman
             });
         }
 
+        public override void SetupLoadWatcher()
+        {
+            WatchLoads(addr.loadingState);
+        }
+
+        public PositionEditorLayout GetPositionEditorLayout()
+        {
+            return new PositionEditorLayout
+            {
+                gameName = "Sly 3",
+                warpFilePrefix = "sly3",
+                activeCharacterPtr = sly3.addr.activeCharacterPtr,
+                mapNameAddress = sly3.addr.mapAOB,
+                transformOffset = sly3.addr.transformOffset,
+                positionOffset = sly3.addr.coordsOffsetX,
+                velocityOffset = 0x1B0,
+                entityIdOffset = 0x18,
+                healthOffset = sly3.addr.healthEntityOffset,
+                gadgetPowerOffset = 0x170,
+                opacityOffset = 0x104,
+                rotationOffset = 0x1AC,
+                infiniteJumpOffset = 0x338,
+            };
+        }
+
+        /// <summary>
+        /// The readable name of a map such as "Y$KFv_ext", or null when it isn't in the list.
+        /// </summary>
+        public string GetMapDisplayName(string indicator)
+        {
+            foreach (MapData m in maps)
+            {
+                if (m.indicator == indicator)
+                {
+                    return m.naturalName;
+                }
+            }
+            return null;
+        }
+
         public void SetupWebManPopUp()
         {
             if (this.api is Ratchetron)
@@ -499,6 +539,22 @@ namespace racman
             api.WriteMemory(pid, 0x6CCD70, ConvertFloatToBytes(1.0f));
         }
 
+        /// <summary>
+        /// True when the active character's entity exists, which it doesn't during and right after
+        /// a load.
+        /// </summary>
+        public bool IsPlayerLoaded()
+        {
+            try
+            {
+                return GetEntityAddress() != 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private uint GetEntityAddress()
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.activeCharacterPtr, 4);
@@ -566,6 +622,11 @@ namespace racman
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.deathBarriersPointer, 4);
             uint ptr = BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
+            if (ptr == 0)
+            {
+                // Not set up yet (during a load); writing would land near address 0.
+                return;
+            }
             api.WriteMemory(pid, ptr + 0x2C, ConvertIntToBytes(disabled ? 1 : 0));
         }
 

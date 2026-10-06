@@ -234,11 +234,12 @@
     <Compile Include="SLY3\SLY3GadgetsForm.Designer.cs">
       <DependentUpon>SLY3GadgetsForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\SLY3PositionEditor.cs">
+    <Compile Include="PositionEditorLayout.cs" />
+    <Compile Include="PositionEditor.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\SLY3PositionEditor.Designer.cs">
-      <DependentUpon>SLY3PositionEditor.cs</DependentUpon>
+    <Compile Include="PositionEditor.Designer.cs">
+      <DependentUpon>PositionEditor.cs</DependentUpon>
     </Compile>
     <Compile Include="SLY3\SLY3Speedrun.cs">
       <SubType>Form</SubType>
@@ -309,8 +310,8 @@
     <EmbeddedResource Include="SLY3\SLY3GadgetsForm.resx">
       <DependentUpon>SLY3GadgetsForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\SLY3PositionEditor.resx">
-      <DependentUpon>SLY3PositionEditor.cs</DependentUpon>
+    <EmbeddedResource Include="PositionEditor.resx">
+      <DependentUpon>PositionEditor.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="SLY3\SLY3Speedrun.resx">
       <DependentUpon>SLY3Speedrun.cs</DependentUpon>
