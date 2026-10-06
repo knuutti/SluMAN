@@ -26,6 +26,7 @@ namespace racman
             this.game = game;
             InitializeComponent();
             statusLine = new StatusLine(this, true);
+            func.BindEnter(healthTextBox, setHealthButton);
 
             mapComboBox.Items.AddRange(game.GetMapNames());
             mapComboBox.SelectedIndex = 0;

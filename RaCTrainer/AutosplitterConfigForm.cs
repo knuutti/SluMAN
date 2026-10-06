@@ -63,6 +63,7 @@ namespace racman
         {
             InitializeComponent();
             statusLine = new StatusLine(this, false);
+            func.BindEnter(textBox1, applyChangesButton);
 
             Route.form = this;
 
@@ -277,13 +278,9 @@ namespace racman
 
         private void removeButton_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show($"This will remove the split route ({SelectedRoute.Name}) from your computer. This action cannot be undone! Are you sure you want to proceed?",
-                "Warning",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Warning);
-
-            if (result == DialogResult.OK)
+            if (ConfirmButton.Confirm(removeButton, "?", statusLine, $"Click the red button again to delete {SelectedRoute.Name}. This can't be undone."))
             {
+                string deletedName = SelectedRoute.Name;
                 File.Delete($"usr/{SelectedRoute.Name}.usr");
                 routeSelectionListBox.Items.Remove(SelectedRoute);
                 grid.Rows.Clear();
@@ -292,6 +289,7 @@ namespace racman
                 applyChangesButton.Enabled = false;
                 textBox1.Enabled = false;
                 textBox1.Text = string.Empty;
+                statusLine.Info($"Deleted {deletedName}.");
             }
         }
 

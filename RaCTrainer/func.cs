@@ -53,6 +53,27 @@ namespace racman
             }
         }
 
+        /// <summary>
+        /// Pressing Enter in the box clicks the button, as if the user had clicked it. The key
+        /// press is swallowed so Windows doesn't beep.
+        /// </summary>
+        public static void BindEnter(Control box, Button button)
+        {
+            box.KeyDown += (sender, e) =>
+            {
+                if (e.KeyCode != Keys.Enter)
+                {
+                    return;
+                }
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                if (button.Enabled)
+                {
+                    button.PerformClick();
+                }
+            };
+        }
+
         public static WebClient client = new WebClient();
         public static int pid = AttachPS3Form.pid;
         public static IPS3API api;
