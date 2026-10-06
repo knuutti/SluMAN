@@ -137,6 +137,7 @@
     <Compile Include="FlagViewer.Designer.cs">
       <DependentUpon>FlagViewer.cs</DependentUpon>
     </Compile>
+    <Compile Include="GameReconnect.cs" />
     <Compile Include="IGame.cs" />
     <Compile Include="StatusLine.cs" />
     <Compile Include="InputDisplay.cs">
