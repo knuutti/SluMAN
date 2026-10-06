@@ -32,10 +32,9 @@ namespace racman
 
             currentVerLabel.Text = "SluMAN v" + Assembly.GetEntryAssembly().GetName().Version.ToString(3);
 
-#if !DEBUG
             AutoUpdater.RunUpdateAsAdmin = false;
-            AutoUpdater.Start("https://raw.githubusercontent.com/knuutti/SluMAN/master/update.xml");
-#endif
+            // Handling this event stops AutoUpdater from opening its dialog by itself.
+            AutoUpdater.CheckForUpdateEvent += AutoUpdater_CheckForUpdateEvent;
 
             if (File.Exists(Environment.CurrentDirectory + @"\config.txt"))
             {
@@ -78,6 +77,103 @@ namespace racman
             }
 
             ConfigureCombos.GetCombos();
+
+#if !DEBUG
+            if (func.GetConfigData("config.txt", CheckForUpdatesKey) != "false")
+            {
+                StartUpdateCheck(false);
+            }
+#endif
+        }
+
+        private const string UpdateXmlUrl = "https://raw.githubusercontent.com/knuutti/SluMAN/master/update.xml";
+        private const string CheckForUpdatesKey = "checkForUpdates";
+
+        private UpdateInfoEventArgs availableUpdate = null;
+        private bool manualUpdateCheck = false;
+
+        /// <summary>
+        /// Checks update.xml in the background. The result shows next to the version label; nothing
+        /// opens unless the user clicks it or the release is marked mandatory.
+        /// </summary>
+        private void StartUpdateCheck(bool manual)
+        {
+            manualUpdateCheck = manual;
+            if (manual)
+            {
+                ShowUpdateText("Checking...", false);
+            }
+            AutoUpdater.Start(UpdateXmlUrl);
+        }
+
+        private void AutoUpdater_CheckForUpdateEvent(UpdateInfoEventArgs args)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => AutoUpdater_CheckForUpdateEvent(args)));
+                return;
+            }
+
+            bool manual = manualUpdateCheck;
+            manualUpdateCheck = false;
+
+            if (args == null || args.Error != null)
+            {
+                Console.WriteLine($"Update check failed: {(args == null ? "no response" : args.Error.Message)}");
+                if (manual)
+                {
+                    ShowUpdateText("Check failed", false);
+                }
+                return;
+            }
+
+            if (!args.IsUpdateAvailable)
+            {
+                availableUpdate = null;
+                if (manual)
+                {
+                    ShowUpdateText("Up to date", false);
+                }
+                else
+                {
+                    updateLinkLabel.Visible = false;
+                }
+                return;
+            }
+
+            availableUpdate = args;
+            string version = args.CurrentVersion.ToString();
+            Version parsed;
+            if (Version.TryParse(version, out parsed))
+            {
+                version = parsed.ToString(3);
+            }
+            ShowUpdateText($"v{version} available", true);
+            toolTip.SetToolTip(updateLinkLabel, $"SluMAN {version} is available. Click to see what's new and update.");
+
+            if (args.Mandatory != null && args.Mandatory.Value)
+            {
+                AutoUpdater.ShowUpdateForm(args);
+            }
+        }
+
+        private void ShowUpdateText(string text, bool isLink)
+        {
+            updateLinkLabel.Text = text;
+            updateLinkLabel.LinkArea = isLink ? new LinkArea(0, text.Length) : new LinkArea(0, 0);
+            updateLinkLabel.Visible = true;
+            if (!isLink)
+            {
+                toolTip.SetToolTip(updateLinkLabel, null);
+            }
+        }
+
+        private void updateLinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            if (availableUpdate != null)
+            {
+                AutoUpdater.ShowUpdateForm(availableUpdate);
+            }
         }
 
         public static string ip;
@@ -229,7 +325,7 @@ namespace racman
 
         private void currentVerLabel_Click(object sender, EventArgs e)
         {
-
+            StartUpdateCheck(true);
         }
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
