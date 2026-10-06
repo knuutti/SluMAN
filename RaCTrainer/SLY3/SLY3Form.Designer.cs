@@ -36,6 +36,7 @@ namespace racman
             this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.switchGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.inputDisplayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.configureButtonCombosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.powerOffPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.rebootPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -123,6 +124,7 @@ namespace racman
             this.menuToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.switchGameToolStripMenuItem,
             this.inputDisplayToolStripMenuItem,
+            this.configureButtonCombosToolStripMenuItem,
             this.toolStripSeparator1,
             this.powerOffPS3ToolStripMenuItem,
             this.rebootPS3ToolStripMenuItem});
@@ -143,6 +145,13 @@ namespace racman
             this.inputDisplayToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
             this.inputDisplayToolStripMenuItem.Text = "Input Display";
             this.inputDisplayToolStripMenuItem.Click += new System.EventHandler(this.inputDisplayButton_Click);
+            // 
+            // configureButtonCombosToolStripMenuItem
+            // 
+            this.configureButtonCombosToolStripMenuItem.Name = "configureButtonCombosToolStripMenuItem";
+            this.configureButtonCombosToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
+            this.configureButtonCombosToolStripMenuItem.Text = "Controller Combos...";
+            this.configureButtonCombosToolStripMenuItem.Click += new System.EventHandler(this.configureButtonCombosToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
@@ -824,6 +833,7 @@ namespace racman
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem switchGameToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem inputDisplayToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
         private System.Windows.Forms.ComboBox mapComboBox;
         private System.Windows.Forms.Button loadMapButton;
         private System.Windows.Forms.Button gadgetButton;

@@ -30,134 +30,211 @@ namespace racman
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConfigureCombos));
-            this.label1 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
-            this.savePositionTextBox = new System.Windows.Forms.TextBox();
-            this.loadPositionTextBox = new System.Windows.Forms.TextBox();
-            this.loadSetAsideComboTextBox = new System.Windows.Forms.TextBox();
-            this.dieTextBox = new System.Windows.Forms.TextBox();
             this.infoText = new System.Windows.Forms.Label();
-            this.textBoxRunScript = new System.Windows.Forms.TextBox();
-            this.label6 = new System.Windows.Forms.Label();
+            this.savePositionLabel = new System.Windows.Forms.Label();
+            this.savePositionTextBox = new System.Windows.Forms.TextBox();
+            this.savePositionClearButton = new System.Windows.Forms.Button();
+            this.loadPositionLabel = new System.Windows.Forms.Label();
+            this.loadPositionTextBox = new System.Windows.Forms.TextBox();
+            this.loadPositionClearButton = new System.Windows.Forms.Button();
+            this.loadGameLabel = new System.Windows.Forms.Label();
+            this.loadGameTextBox = new System.Windows.Forms.TextBox();
+            this.loadGameClearButton = new System.Windows.Forms.Button();
+            this.runScriptLabel = new System.Windows.Forms.Label();
+            this.runScriptTextBox = new System.Windows.Forms.TextBox();
+            this.runScriptClearButton = new System.Windows.Forms.Button();
+            this.combosEnabledCheckBox = new System.Windows.Forms.CheckBox();
+            this.statusLabel = new System.Windows.Forms.Label();
+            this.closeButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
-            //
-            // label1
-            //
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(9, 12);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(75, 13);
-            this.label1.TabIndex = 0;
-            this.label1.Text = "Save Position:";
-            //
-            // label2
-            //
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(9, 56);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(74, 13);
-            this.label2.TabIndex = 1;
-            this.label2.Text = "Load Position:";
-            //
-            // label3
-            //
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 101);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(26, 13);
-            this.label3.TabIndex = 2;
-            this.label3.Text = "Die:";
-            //
-            // label4
-            //
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(9, 141);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(95, 13);
-            this.label4.TabIndex = 3;
-            this.label4.Text = "Load set aside file:";
-            //
-            // savePositionTextBox
-            //
-            this.savePositionTextBox.Location = new System.Drawing.Point(12, 29);
-            this.savePositionTextBox.Name = "savePositionTextBox";
-            this.savePositionTextBox.Size = new System.Drawing.Size(126, 20);
-            this.savePositionTextBox.TabIndex = 5;
-            this.savePositionTextBox.Click += new System.EventHandler(this.savePositionTextBox_Click);
-            //
-            // loadPositionTextBox
-            //
-            this.loadPositionTextBox.Location = new System.Drawing.Point(12, 73);
-            this.loadPositionTextBox.Name = "loadPositionTextBox";
-            this.loadPositionTextBox.Size = new System.Drawing.Size(126, 20);
-            this.loadPositionTextBox.TabIndex = 6;
-            this.loadPositionTextBox.Click += new System.EventHandler(this.loadPositionTextBox_Click);
-            //
-            // loadSetAsideComboTextBox
-            //
-            this.loadSetAsideComboTextBox.Location = new System.Drawing.Point(12, 154);
-            this.loadSetAsideComboTextBox.Name = "loadSetAsideComboTextBox";
-            this.loadSetAsideComboTextBox.Size = new System.Drawing.Size(126, 20);
-            this.loadSetAsideComboTextBox.TabIndex = 7;
-            this.loadSetAsideComboTextBox.Click += new System.EventHandler(this.switchPositionTextBox_Click);
-            //
-            // dieTextBox
-            //
-            this.dieTextBox.Location = new System.Drawing.Point(12, 118);
-            this.dieTextBox.Name = "dieTextBox";
-            this.dieTextBox.Size = new System.Drawing.Size(126, 20);
-            this.dieTextBox.TabIndex = 8;
-            this.dieTextBox.Click += new System.EventHandler(this.dieTextBox_Click);
             //
             // infoText
             //
-            this.infoText.AutoSize = true;
-            this.infoText.Location = new System.Drawing.Point(12, 223);
+            this.infoText.Location = new System.Drawing.Point(12, 9);
             this.infoText.Name = "infoText";
-            this.infoText.Size = new System.Drawing.Size(27, 13);
-            this.infoText.TabIndex = 10;
-            this.infoText.Text = "stuff";
+            this.infoText.Size = new System.Drawing.Size(300, 42);
+            this.infoText.TabIndex = 0;
+            this.infoText.Text = "Click a box, then press the buttons on your controller. The combo is saved when y" +
+    "ou let go. Combos only work in Practice Mode.";
             //
-            // textBoxRunScript
+            // savePositionLabel
             //
-            this.textBoxRunScript.Location = new System.Drawing.Point(12, 200);
-            this.textBoxRunScript.Name = "textBoxRunScript";
-            this.textBoxRunScript.Size = new System.Drawing.Size(126, 20);
-            this.textBoxRunScript.TabIndex = 12;
-            this.textBoxRunScript.Click += new System.EventHandler(this.textBoxRunScript_Click);
+            this.savePositionLabel.AutoSize = true;
+            this.savePositionLabel.Location = new System.Drawing.Point(12, 62);
+            this.savePositionLabel.Name = "savePositionLabel";
+            this.savePositionLabel.Size = new System.Drawing.Size(75, 13);
+            this.savePositionLabel.TabIndex = 1;
+            this.savePositionLabel.Text = "Save Position:";
             //
-            // label6
+            // savePositionTextBox
             //
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(9, 183);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(97, 13);
-            this.label6.TabIndex = 11;
-            this.label6.Text = "Run Current Script:";
+            this.savePositionTextBox.BackColor = System.Drawing.SystemColors.Window;
+            this.savePositionTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.savePositionTextBox.Location = new System.Drawing.Point(110, 59);
+            this.savePositionTextBox.Name = "savePositionTextBox";
+            this.savePositionTextBox.ReadOnly = true;
+            this.savePositionTextBox.Size = new System.Drawing.Size(140, 20);
+            this.savePositionTextBox.TabIndex = 2;
+            this.savePositionTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
+            //
+            // savePositionClearButton
+            //
+            this.savePositionClearButton.Location = new System.Drawing.Point(256, 57);
+            this.savePositionClearButton.Name = "savePositionClearButton";
+            this.savePositionClearButton.Size = new System.Drawing.Size(56, 23);
+            this.savePositionClearButton.TabIndex = 3;
+            this.savePositionClearButton.Text = "Clear";
+            this.savePositionClearButton.UseVisualStyleBackColor = true;
+            this.savePositionClearButton.Click += new System.EventHandler(this.clearButton_Click);
+            //
+            // loadPositionLabel
+            //
+            this.loadPositionLabel.AutoSize = true;
+            this.loadPositionLabel.Location = new System.Drawing.Point(12, 92);
+            this.loadPositionLabel.Name = "loadPositionLabel";
+            this.loadPositionLabel.Size = new System.Drawing.Size(74, 13);
+            this.loadPositionLabel.TabIndex = 4;
+            this.loadPositionLabel.Text = "Load Position:";
+            //
+            // loadPositionTextBox
+            //
+            this.loadPositionTextBox.BackColor = System.Drawing.SystemColors.Window;
+            this.loadPositionTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.loadPositionTextBox.Location = new System.Drawing.Point(110, 89);
+            this.loadPositionTextBox.Name = "loadPositionTextBox";
+            this.loadPositionTextBox.ReadOnly = true;
+            this.loadPositionTextBox.Size = new System.Drawing.Size(140, 20);
+            this.loadPositionTextBox.TabIndex = 5;
+            this.loadPositionTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
+            //
+            // loadPositionClearButton
+            //
+            this.loadPositionClearButton.Location = new System.Drawing.Point(256, 87);
+            this.loadPositionClearButton.Name = "loadPositionClearButton";
+            this.loadPositionClearButton.Size = new System.Drawing.Size(56, 23);
+            this.loadPositionClearButton.TabIndex = 6;
+            this.loadPositionClearButton.Text = "Clear";
+            this.loadPositionClearButton.UseVisualStyleBackColor = true;
+            this.loadPositionClearButton.Click += new System.EventHandler(this.clearButton_Click);
+            //
+            // loadGameLabel
+            //
+            this.loadGameLabel.AutoSize = true;
+            this.loadGameLabel.Location = new System.Drawing.Point(12, 122);
+            this.loadGameLabel.Name = "loadGameLabel";
+            this.loadGameLabel.Size = new System.Drawing.Size(63, 13);
+            this.loadGameLabel.TabIndex = 7;
+            this.loadGameLabel.Text = "Load Game:";
+            //
+            // loadGameTextBox
+            //
+            this.loadGameTextBox.BackColor = System.Drawing.SystemColors.Window;
+            this.loadGameTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.loadGameTextBox.Location = new System.Drawing.Point(110, 119);
+            this.loadGameTextBox.Name = "loadGameTextBox";
+            this.loadGameTextBox.ReadOnly = true;
+            this.loadGameTextBox.Size = new System.Drawing.Size(140, 20);
+            this.loadGameTextBox.TabIndex = 8;
+            this.loadGameTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
+            //
+            // loadGameClearButton
+            //
+            this.loadGameClearButton.Location = new System.Drawing.Point(256, 117);
+            this.loadGameClearButton.Name = "loadGameClearButton";
+            this.loadGameClearButton.Size = new System.Drawing.Size(56, 23);
+            this.loadGameClearButton.TabIndex = 9;
+            this.loadGameClearButton.Text = "Clear";
+            this.loadGameClearButton.UseVisualStyleBackColor = true;
+            this.loadGameClearButton.Click += new System.EventHandler(this.clearButton_Click);
+            //
+            // runScriptLabel
+            //
+            this.runScriptLabel.AutoSize = true;
+            this.runScriptLabel.Location = new System.Drawing.Point(12, 152);
+            this.runScriptLabel.Name = "runScriptLabel";
+            this.runScriptLabel.Size = new System.Drawing.Size(61, 13);
+            this.runScriptLabel.TabIndex = 10;
+            this.runScriptLabel.Text = "Run Script:";
+            //
+            // runScriptTextBox
+            //
+            this.runScriptTextBox.BackColor = System.Drawing.SystemColors.Window;
+            this.runScriptTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.runScriptTextBox.Location = new System.Drawing.Point(110, 149);
+            this.runScriptTextBox.Name = "runScriptTextBox";
+            this.runScriptTextBox.ReadOnly = true;
+            this.runScriptTextBox.Size = new System.Drawing.Size(140, 20);
+            this.runScriptTextBox.TabIndex = 11;
+            this.runScriptTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
+            //
+            // runScriptClearButton
+            //
+            this.runScriptClearButton.Location = new System.Drawing.Point(256, 147);
+            this.runScriptClearButton.Name = "runScriptClearButton";
+            this.runScriptClearButton.Size = new System.Drawing.Size(56, 23);
+            this.runScriptClearButton.TabIndex = 12;
+            this.runScriptClearButton.Text = "Clear";
+            this.runScriptClearButton.UseVisualStyleBackColor = true;
+            this.runScriptClearButton.Click += new System.EventHandler(this.clearButton_Click);
+            //
+            // combosEnabledCheckBox
+            //
+            this.combosEnabledCheckBox.AutoSize = true;
+            this.combosEnabledCheckBox.Location = new System.Drawing.Point(15, 184);
+            this.combosEnabledCheckBox.Name = "combosEnabledCheckBox";
+            this.combosEnabledCheckBox.Size = new System.Drawing.Size(103, 17);
+            this.combosEnabledCheckBox.TabIndex = 13;
+            this.combosEnabledCheckBox.Text = "Combos enabled";
+            this.combosEnabledCheckBox.UseVisualStyleBackColor = true;
+            this.combosEnabledCheckBox.CheckedChanged += new System.EventHandler(this.combosEnabledCheckBox_CheckedChanged);
+            //
+            // statusLabel
+            //
+            this.statusLabel.Location = new System.Drawing.Point(12, 210);
+            this.statusLabel.Name = "statusLabel";
+            this.statusLabel.Size = new System.Drawing.Size(300, 30);
+            this.statusLabel.TabIndex = 14;
+            //
+            // closeButton
+            //
+            this.closeButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            this.closeButton.Location = new System.Drawing.Point(237, 245);
+            this.closeButton.Name = "closeButton";
+            this.closeButton.Size = new System.Drawing.Size(75, 23);
+            this.closeButton.TabIndex = 15;
+            this.closeButton.Text = "Close";
+            this.closeButton.UseVisualStyleBackColor = true;
             //
             // ConfigureCombos
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(241, 311);
-            this.Controls.Add(this.textBoxRunScript);
-            this.Controls.Add(this.label6);
-            this.Controls.Add(this.infoText);
-            this.Controls.Add(this.dieTextBox);
-            this.Controls.Add(this.loadSetAsideComboTextBox);
+            this.CancelButton = this.closeButton;
+            this.ClientSize = new System.Drawing.Size(324, 280);
+            this.Controls.Add(this.closeButton);
+            this.Controls.Add(this.statusLabel);
+            this.Controls.Add(this.combosEnabledCheckBox);
+            this.Controls.Add(this.runScriptClearButton);
+            this.Controls.Add(this.runScriptTextBox);
+            this.Controls.Add(this.runScriptLabel);
+            this.Controls.Add(this.loadGameClearButton);
+            this.Controls.Add(this.loadGameTextBox);
+            this.Controls.Add(this.loadGameLabel);
+            this.Controls.Add(this.loadPositionClearButton);
             this.Controls.Add(this.loadPositionTextBox);
+            this.Controls.Add(this.loadPositionLabel);
+            this.Controls.Add(this.savePositionClearButton);
             this.Controls.Add(this.savePositionTextBox);
-            this.Controls.Add(this.label4);
-            this.Controls.Add(this.label3);
-            this.Controls.Add(this.label2);
-            this.Controls.Add(this.label1);
+            this.Controls.Add(this.savePositionLabel);
+            this.Controls.Add(this.infoText);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
             this.Name = "ConfigureCombos";
-            this.Text = "k";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            this.Text = "Controller Combos";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.ConfigureCombos_FormClosing);
-            this.Load += new System.EventHandler(this.ConfigureCombos_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -165,16 +242,21 @@ namespace racman
 
         #endregion
 
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.TextBox savePositionTextBox;
-        private System.Windows.Forms.TextBox loadPositionTextBox;
-        private System.Windows.Forms.TextBox loadSetAsideComboTextBox;
-        private System.Windows.Forms.TextBox dieTextBox;
         private System.Windows.Forms.Label infoText;
-        private System.Windows.Forms.TextBox textBoxRunScript;
-        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label savePositionLabel;
+        private System.Windows.Forms.TextBox savePositionTextBox;
+        private System.Windows.Forms.Button savePositionClearButton;
+        private System.Windows.Forms.Label loadPositionLabel;
+        private System.Windows.Forms.TextBox loadPositionTextBox;
+        private System.Windows.Forms.Button loadPositionClearButton;
+        private System.Windows.Forms.Label loadGameLabel;
+        private System.Windows.Forms.TextBox loadGameTextBox;
+        private System.Windows.Forms.Button loadGameClearButton;
+        private System.Windows.Forms.Label runScriptLabel;
+        private System.Windows.Forms.TextBox runScriptTextBox;
+        private System.Windows.Forms.Button runScriptClearButton;
+        private System.Windows.Forms.CheckBox combosEnabledCheckBox;
+        private System.Windows.Forms.Label statusLabel;
+        private System.Windows.Forms.Button closeButton;
     }
 }

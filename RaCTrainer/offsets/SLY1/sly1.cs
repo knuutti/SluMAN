@@ -46,33 +46,14 @@ namespace racman
             (addr.clockwerkHealth, 4),
         };
 
+        // TODO: Sly 1 position saving and reloading are not implemented yet.
         public override void SavePosition() { }
         public override void LoadPosition() { }
+        public override void LoadGame() { }
 
         public override void CheckInputs(object sender, EventArgs e)
         {
-            // TODO: Implement controller combos for Sly 1
-            /*
-            if (Inputs.RawInputs == ConfigureCombos.saveCombo && inputCheck)
-            {
-                SavePosition();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == ConfigureCombos.loadCombo && inputCheck)
-            {
-                LoadPosition();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == ConfigureCombos.runScriptCombo && inputCheck)
-            {
-                AttachPS3Form.scripting?.RunCurrentCode();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == 0x00 && !inputCheck)
-            {
-                inputCheck = true;
-            }
-            */
+            RunCombos();
         }
 
         protected override void SetupInputDisplayMemorySubsButtons()
