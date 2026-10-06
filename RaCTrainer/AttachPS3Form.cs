@@ -124,7 +124,14 @@ namespace racman
         {
             if (!api.Connect())
             {
-                MessageBox.Show("Couldn't connect to the game.");
+                if (api is RPCS3)
+                {
+                    MessageBox.Show("Couldn't connect to RPCS3. Start the game in RPCS3, then try again.", "Couldn't connect");
+                }
+                else
+                {
+                    MessageBox.Show($"Couldn't connect to the PS3 at {ip}. Check the IP address and that webMAN MOD is running.", "Couldn't connect");
+                }
                 return;
             }
 
@@ -133,9 +140,12 @@ namespace racman
                 game = func.current_game(ip);
                 pid = func.current_pid(ip);
             }
-            catch
+            catch (Exception ex)
             {
-                MessageBox.Show("invalid ip/web exception.");
+                Console.WriteLine(ex);
+                string source = api is RPCS3 ? "RPCS3" : $"the PS3 at {ip}. Check that webMAN MOD is running";
+                MessageBox.Show($"Couldn't read the running game from {source}.", "Couldn't connect");
+                return;
             }
 
             if (pid == 0)
@@ -202,12 +212,12 @@ namespace racman
                     }
                     else
                     {
-                            modLoaderForm = new ModLoaderForm();
+                        // Set first: these windows show the app-wide messages when no game form is open.
+                        notSupported = true;
+                        modLoaderForm = new ModLoaderForm();
                         modLoaderForm.Show();
-
                         memoryForm = new MemoryForm();
                         memoryForm.Show();
-                        notSupported = true;
                     }
                 }
                 else

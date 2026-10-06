@@ -28,9 +28,14 @@ namespace racman
             public string name;
         }
 
+        private StatusLine statusLine;
+
         public MemoryForm()
         {
             InitializeComponent();
+            // With no game form open (unsupported game), this window shows the app-wide messages.
+            statusLine = new StatusLine(this, AttachPS3Form.notSupported);
+            func.BindEnter(registerAddressTextBox, addMemoryWatchButton);
             SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
 
             watchedMemoryAddressesListView.DoubleBuffering(true);
@@ -149,7 +154,8 @@ namespace racman
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Address must be hexadecimal. Error in MemoryForm: " + ex.ToString());
+                statusLine.Error("The address must be hexadecimal, for example 7B4CE0.");
+                Console.WriteLine(ex.Message);
                 return;
             }
 
@@ -228,7 +234,9 @@ namespace racman
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("Error in MemoryForm: " + ex.ToString());
+                        watched.isFrozen = false;
+                        statusLine.Error($"Couldn't freeze 0x{watched.address:X}: {ex.Message}");
+                        Console.WriteLine(ex);
                     }
                 }
             }
@@ -263,9 +271,14 @@ namespace racman
                                 api.WriteMemory(api.getCurrentPID(), watched.address, watched.size, BitConverter.GetBytes(value).Take((int)watched.size).Reverse().ToArray());
                             }
                         }
+                        catch (FormatException)
+                        {
+                            statusLine.Error(watched.isFloat ? "Enter a number, for example 1.5." : "Enter a whole number.");
+                        }
                         catch (Exception ex)
                         {
-                            MessageBox.Show("Error in MemoryForm: " + ex.ToString());
+                            statusLine.Error($"Couldn't write to 0x{watched.address:X}: {ex.Message}");
+                            Console.WriteLine(ex);
                         }
                     }
                 }
@@ -337,12 +350,7 @@ namespace racman
             catch (Exception ex)
             {
                 Console.WriteLine(ex.StackTrace);
-                MessageBox.Show(
-                    "Unable to create or write to file. This may be caused by an invalid name.",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                statusLine.Error("Couldn't save the watchlist. Check that the name has no \\ / : * ? \" < > | characters.");
             }
         }
 
@@ -370,7 +378,7 @@ namespace racman
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error reading watchlist file: " + ex.Message);
+                statusLine.Error($"Couldn't read the watchlist: {ex.Message}");
             }
         }
 
@@ -388,12 +396,7 @@ namespace racman
             catch (Exception ex)
             {
                 Console.WriteLine(ex.StackTrace);
-                MessageBox.Show(
-                    "Unable to create or write to file. This may be caused by an invalid name.",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                statusLine.Error("Couldn't save the watchlist. Check that the name has no \\ / : * ? \" < > | characters.");
             }
 
             UpdateWatchlists();

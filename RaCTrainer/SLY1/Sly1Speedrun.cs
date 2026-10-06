@@ -22,10 +22,13 @@ namespace racman
         public string gameNameId = "NPUA80663";
         public AutosplitterHelper autosplitter;
 
+        private StatusLine statusLine;
+
         public Sly1Speedrun(sly1 game)
         {
             this.game = game;
             InitializeComponent();
+            statusLine = new StatusLine(this, true);
 
             ApplySavedPreferences();
 

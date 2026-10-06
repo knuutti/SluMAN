@@ -190,7 +190,8 @@ namespace racman
                 }
                 catch
                 {
-                    MessageBox.Show($"Error sending request to WebMAN. Tried to call for URL {url}", "WebMAN Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    func.Status("Couldn't reach webMAN on the PS3. Check that it's still running.", true);
+                    Console.WriteLine($"WebMAN request failed: {url}");
                 }
             }
         }

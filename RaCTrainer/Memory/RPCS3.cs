@@ -123,9 +123,12 @@ namespace racman.Memory
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// RPCS3 has no on-screen notifications, so these go to the status line.
+        /// </summary>
         public override void Notify(string message)
         {
-            System.Windows.Forms.MessageBox.Show(message);
+            func.Status(message);
         }
 
 

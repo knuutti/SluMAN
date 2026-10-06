@@ -434,7 +434,7 @@ namespace racman
         {
             if (mapIndex < 0 || mapIndex >= maps.Length)
             {
-                MessageBox.Show("Invalid map index", "Error");
+                func.Status("Select a map to load first.", true);
                 return;
             }
 
@@ -454,7 +454,7 @@ namespace racman
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load map: {ex.Message}", "Error");
+                func.Status($"Couldn't load the map: {ex.Message}", true);
             }
         }
 

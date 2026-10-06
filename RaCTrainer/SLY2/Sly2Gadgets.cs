@@ -18,10 +18,13 @@ namespace racman
         private ItemCheckEventHandler bentleyItemCheckHandler;
         private ItemCheckEventHandler murrayItemCheckHandler;
 
+        private StatusLine statusLine;
+
         public Sly2Gadgets(sly2 game)
         {
             this.game = game;
             InitializeComponent();
+            statusLine = new StatusLine(this, false);
             LoadGadgets();
             PopulateBindingComboBoxes();
             LoadGadgetBindings();
@@ -494,7 +497,7 @@ namespace racman
         {
             if (runFileComboBox.SelectedItem == null)
             {
-                MessageBox.Show("Please select a run file to save to.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                statusLine.Error("Select a run file to save to first.");
                 return;
             }
 

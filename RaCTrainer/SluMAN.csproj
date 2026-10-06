@@ -112,6 +112,7 @@
       <DependentUpon>AutosplitterConfigForm.cs</DependentUpon>
     </Compile>
     <Compile Include="AutosplitterHelper.cs" />
+    <Compile Include="ConfirmButton.cs" />
     <Compile Include="ConfigureCombos.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -137,6 +138,7 @@
       <DependentUpon>FlagViewer.cs</DependentUpon>
     </Compile>
     <Compile Include="IGame.cs" />
+    <Compile Include="StatusLine.cs" />
     <Compile Include="InputDisplay.cs">
       <SubType>Form</SubType>
     </Compile>

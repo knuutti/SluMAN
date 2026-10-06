@@ -41,11 +41,18 @@ namespace racman
         private static readonly string UserWarpFile = "sly3_user_warps.txt";
         private static readonly string BuiltinWarpFile = "data/sly3_warp_locations.txt";
 
+        private StatusLine statusLine;
+
         public SLY3PositionEditor(sly3 game, SLY3Form mainForm = null)
         {
             this.game = game;
             this.mainForm = mainForm;
             InitializeComponent();
+            statusLine = new StatusLine(this, false);
+            func.BindEnter(xPosTextBox, setXPosButton);
+            func.BindEnter(yPosTextBox, setYPosButton);
+            func.BindEnter(zPosTextBox, setZPosButton);
+            func.BindEnter(warpNameTextBox, saveWarpButton);
 
             LoadBuiltinWarps();
             LoadUserWarps();
@@ -150,7 +157,11 @@ namespace racman
 
                     WriteFloat(transformPtr + 0x138, flyFrozenZ);
                     WriteFloat(transformPtr + 0x1B8, 0f);
-                    zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    // Don't overwrite a value the user is typing.
+                    if (!zPosTextBox.Focused)
+                    {
+                        zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    }
 
                     float curX = ReadFloat(transformPtr + 0x130);
                     float curY = ReadFloat(transformPtr + 0x134);
@@ -222,9 +233,23 @@ namespace racman
             zVelLiveLabel.Text = "N/A";
         }
 
+        /// <summary>
+        /// Reads a typed coordinate. Shows a message and returns false when it isn't a number.
+        /// </summary>
+        private bool TryParseCoordinate(string text, out float value)
+        {
+            if (float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                && !float.IsNaN(value) && !float.IsInfinity(value))
+            {
+                return true;
+            }
+            statusLine.Error("Enter a number, for example -125.5.");
+            return false;
+        }
+
         private void setXPosButton_Click(object sender, EventArgs e)
         {
-            if (!float.TryParse(xPosTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float val)) return;
+            if (!TryParseCoordinate(xPosTextBox.Text, out float val)) return;
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
@@ -237,7 +262,7 @@ namespace racman
 
         private void setYPosButton_Click(object sender, EventArgs e)
         {
-            if (!float.TryParse(yPosTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float val)) return;
+            if (!TryParseCoordinate(yPosTextBox.Text, out float val)) return;
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
@@ -250,7 +275,7 @@ namespace racman
 
         private void setZPosButton_Click(object sender, EventArgs e)
         {
-            if (!float.TryParse(zPosTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float val)) return;
+            if (!TryParseCoordinate(zPosTextBox.Text, out float val)) return;
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
@@ -439,7 +464,7 @@ namespace racman
             string name = warpNameTextBox.Text.Trim();
             if (string.IsNullOrEmpty(name))
             {
-                MessageBox.Show("Enter a name for the warp location.", "Name Required");
+                statusLine.Error("Enter a name for the warp location.");
                 return;
             }
             if (currentMapIndicator == "") return;
@@ -476,9 +501,15 @@ namespace racman
             WarpLocation loc = displayedWarps[idx];
             if (!loc.IsUserDefined) return;
 
+            if (!ConfirmButton.Confirm(deleteWarpButton, "Confirm", statusLine, $"Click Confirm to delete the warp \"{loc.Name}\"."))
+            {
+                return;
+            }
+
             userWarps.RemoveAll(w => w.MapIndicator == loc.MapIndicator && w.Name == loc.Name);
             SaveUserWarps();
             RefreshWarpDropdown(currentMapIndicator);
+            statusLine.Info($"Deleted the warp \"{loc.Name}\".");
         }
 
         private void LoadBuiltinWarps()
