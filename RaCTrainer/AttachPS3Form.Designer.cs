@@ -29,6 +29,7 @@ namespace racman
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(AttachPS3Form));
             this.IPTextBox = new System.Windows.Forms.TextBox();
             this.attachButton = new System.Windows.Forms.Button();
@@ -36,6 +37,8 @@ namespace racman
             this.currentVerLabel = new System.Windows.Forms.Label();
             this.attachRestrictedButton = new System.Windows.Forms.Button();
             this.rpcs3CheckBox = new System.Windows.Forms.CheckBox();
+            this.updateLinkLabel = new System.Windows.Forms.LinkLabel();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
             // 
             // IPTextBox
@@ -73,7 +76,21 @@ namespace racman
             this.currentVerLabel.Size = new System.Drawing.Size(79, 13);
             this.currentVerLabel.TabIndex = 3;
             this.currentVerLabel.Text = "SluMAN v0.0.0";
+            this.currentVerLabel.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.toolTip.SetToolTip(this.currentVerLabel, "Click to check for updates");
             this.currentVerLabel.Click += new System.EventHandler(this.currentVerLabel_Click);
+            // 
+            // updateLinkLabel
+            // 
+            this.updateLinkLabel.AutoSize = true;
+            this.updateLinkLabel.Location = new System.Drawing.Point(98, 187);
+            this.updateLinkLabel.Name = "updateLinkLabel";
+            this.updateLinkLabel.Size = new System.Drawing.Size(88, 13);
+            this.updateLinkLabel.TabIndex = 6;
+            this.updateLinkLabel.TabStop = true;
+            this.updateLinkLabel.Text = "Update available";
+            this.updateLinkLabel.Visible = false;
+            this.updateLinkLabel.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.updateLinkLabel_LinkClicked);
             // 
             // attachRestrictedButton
             // 
@@ -101,6 +118,7 @@ namespace racman
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(194, 218);
+            this.Controls.Add(this.updateLinkLabel);
             this.Controls.Add(this.rpcs3CheckBox);
             this.Controls.Add(this.attachRestrictedButton);
             this.Controls.Add(this.currentVerLabel);
@@ -127,6 +145,8 @@ namespace racman
         private System.Windows.Forms.Button attachButton;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label currentVerLabel;
+        private System.Windows.Forms.LinkLabel updateLinkLabel;
+        private System.Windows.Forms.ToolTip toolTip;
         private System.Windows.Forms.Button attachRestrictedButton;
         private System.Windows.Forms.CheckBox rpcs3CheckBox;
     }
