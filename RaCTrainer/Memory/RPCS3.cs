@@ -108,8 +108,6 @@ namespace racman.Memory
 
                     if (match.Success)
                     {
-                        Console.WriteLine($"Match found: {match.Value}");
-
                         return match.Value;
                     }
                 }

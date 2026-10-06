@@ -1,6 +1,6 @@
 namespace racman
 {
-    partial class SLY3PositionEditor
+    partial class PositionEditor
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -13,7 +13,7 @@ namespace racman
 
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SLY3PositionEditor));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PositionEditor));
             this.charInfoGroupBox = new System.Windows.Forms.GroupBox();
             this.lblEntityId = new System.Windows.Forms.Label();
             this.entityIdValueLabel = new System.Windows.Forms.Label();
@@ -491,7 +491,7 @@ namespace racman
             this.currentMapLabel.TabIndex = 5;
             this.currentMapLabel.Text = "Current map: -";
             //
-            // SLY3PositionEditor
+            // PositionEditor
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -502,9 +502,9 @@ namespace racman
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
-            this.Name = "SLY3PositionEditor";
+            this.Name = "PositionEditor";
             this.Text = "SluMAN :: Position Editor (Sly 3)";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SLY3PositionEditor_FormClosing);
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.PositionEditor_FormClosing);
             this.charInfoGroupBox.ResumeLayout(false);
             this.charInfoGroupBox.PerformLayout();
             this.positionGroupBox.ResumeLayout(false);

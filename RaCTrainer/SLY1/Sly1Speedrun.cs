@@ -34,6 +34,8 @@ namespace racman
 
             game.SetupInputDisplayMemorySubs();
 
+            GameReconnect.WatchRpcs3(this, game.api, gameNameId, true);
+
             if (func.api is Ratchetron r)
             {
                 r.setDisconnectCallback(() =>
@@ -103,43 +105,9 @@ namespace racman
 
         private void ReconnectGame()
         {
-            int pid = 0;
-            int attempts = 0;
-            int maxAttempts = 30;
-
-            while (pid == 0 && attempts < maxAttempts)
+            GameReconnect.Result result = GameReconnect.WaitForGame(game.api, gameNameId, "Sly 1", out int pid, out string runningTitleId);
+            if (GameReconnect.HandleOtherResult(result, this, "Sly 1", runningTitleId, true))
             {
-                Thread.Sleep(3000);
-                attempts++;
-
-                try
-                {
-                    if (game.api.getGameTitleID() != this.gameNameId)
-                    {
-                        Console.WriteLine("Different game loaded.");
-                        return;
-                    }
-                    Console.WriteLine(game.api.getGameTitleID());
-                    pid = game.api.getCurrentPID();
-                    if (pid != 0)
-                    {
-                        Console.WriteLine($"Sly 1: Game detected after {attempts * 3} seconds (PID: {pid})");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Sly 1: Still waiting for game... ({attempts * 3}s elapsed)");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Sly 1: Error checking game status: {ex.Message}");
-                }
-            }
-
-            if (pid == 0)
-            {
-                Console.WriteLine("Sly 1: Game did not start within 90 seconds");
-                game.api.Notify("Sly 1: Reconnection timeout");
                 return;
             }
 
@@ -171,6 +139,7 @@ namespace racman
 
             game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Speedrun Mode)");
             Console.WriteLine("Game reconnected.");
+            func.Status("Reconnected to Sly 1.");
         }
 
         private void alwaysOnTopCheckBox_CheckedChanged(object sender, EventArgs e)
@@ -185,7 +154,7 @@ namespace racman
 
         private void Sly1Speedrun_FormClosed(object sender, FormClosedEventArgs e)
         {
-            if (Program.AttachPS3Form.Visible == false)
+            if (Program.AttachPS3Form.Visible == false && !AttachPS3Form.switchPending)
             {
                 Program.AttachPS3Form.Close();
                 Environment.Exit(0);

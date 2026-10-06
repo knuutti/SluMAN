@@ -10,13 +10,16 @@ using System.Reflection;
 
 namespace racman
 {
-    public partial class SLY3Form : Form
+    public partial class SLY3Form : Form, IPositionEditorHost
     {
         private const string PrefersAlwaysOnTopKey = "prefersAlwaysOnTop";
 
         public Form InputDisplay;
         public Form GadgetsWindow;
-        public Form PositionEditor;
+        private PositionEditor positionEditorWindow;
+
+        public bool FlyModeEnabled => flyModeCheckBox.Checked;
+        public bool InfiniteJumpEnabled => infiniteJumpCheckBox.Checked;
         public sly3 game;
         public string gameNameId;
 
@@ -48,6 +51,7 @@ namespace racman
 
             game.CheckRunFileConfig();
 
+            GameReconnect.WatchRpcs3(this, game.api, gameNameId, false);
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
             game.combosActive = true;
             game.InputsTimer.Start();
@@ -65,6 +69,136 @@ namespace racman
             freezeTimer.Interval = 16;
             freezeTimer.Tick += FreezeTimer_Tick;
             freezeTimer.Start();
+
+            reapplyTimer.Interval = ReapplyDelayMs;
+            reapplyTimer.Tick += reapplyTimer_Tick;
+            game.LoadFinished += game_LoadFinished;
+            game.LoadStarted += game_LoadStarted;
+            game.SetupLoadWatcher();
+        }
+
+        private void game_LoadStarted()
+        {
+            // Raised on the subscription thread. Position freezes hold coordinates from the old
+            // map, so drop them as soon as the load begins rather than writing them all through it.
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    PositionEditor positionEditor = positionEditorWindow;
+                    if (positionEditor != null && !positionEditor.IsDisposed)
+                    {
+                        positionEditor.ClearPositionFreezes();
+                    }
+                }));
+            }
+            catch
+            {
+                // The form closed in between.
+            }
+        }
+
+        // How long to wait after a load finishes before re-applying, so the game has set up the
+        // player entity.
+        private const int ReapplyDelayMs = 500;
+        private readonly Timer reapplyTimer = new Timer();
+
+        private void game_LoadFinished()
+        {
+            // Raised on the subscription thread.
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    reapplyAttempts = 0;
+                    reapplyTimer.Stop();
+                    reapplyTimer.Start();
+                }));
+            }
+            catch
+            {
+                // The form closed in between.
+            }
+        }
+
+        // Retries while the player entity doesn't exist yet: 10 x 500 ms.
+        private const int MaxReapplyAttempts = 10;
+        private int reapplyAttempts = 0;
+
+        private void reapplyTimer_Tick(object sender, EventArgs e)
+        {
+            reapplyTimer.Stop();
+
+            if (!game.IsPlayerLoaded())
+            {
+                reapplyAttempts++;
+                if (reapplyAttempts < MaxReapplyAttempts)
+                {
+                    reapplyTimer.Start();
+                }
+                else
+                {
+                    reapplyAttempts = 0;
+                    Console.WriteLine("Load finished, but the player didn't appear; toggles not re-applied.");
+                }
+                return;
+            }
+
+            reapplyAttempts = 0;
+            ReapplyToggles();
+        }
+
+        /// <summary>
+        /// Applies the checked game toggles again after a load. A load can move the player entity
+        /// and other dynamic addresses, so a value written or frozen before it may now be in the
+        /// wrong place. Toggles that run every tick (infinite health, gadget power, jump) already
+        /// look the address up each time and need nothing here.
+        /// </summary>
+        private void ReapplyToggles()
+        {
+            // Fly mode holds the height it had when switched on; take the new map's height instead.
+            prevFlyModeState = false;
+            PositionEditor positionEditor = positionEditorWindow;
+            if (positionEditor != null && !positionEditor.IsDisposed)
+            {
+                positionEditor.ResetFlyHeight();
+            }
+
+            List<string> applied = new List<string>();
+            Reapply(invulnerabilityCheckBox, () => game.SetInvulnerability(true), applied);
+            Reapply(guardAICheckBox, () => game.SetGuardAI(true), applied);
+            Reapply(deathBarriersCheckBox, () => game.SetDeathBarriers(true), applied);
+            Reapply(gameClockCheckBox, () => game.SetGameClockFrozen(true), applied);
+
+            if (applied.Count > 0)
+            {
+                Console.WriteLine($"Load finished, re-applied: {string.Join(", ", applied)}");
+            }
+        }
+
+        private void Reapply(CheckBox toggle, Action apply, List<string> applied)
+        {
+            if (!toggle.Checked)
+            {
+                return;
+            }
+            try
+            {
+                apply();
+                applied.Add(toggle.Text);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Couldn't re-apply {toggle.Text} after load: {ex.Message}");
+            }
         }
 
         private void FreezeTimer_Tick(object sender, EventArgs e)
@@ -79,7 +213,7 @@ namespace racman
             }
 
             // Fly mode and infinite jump are handled by the Position Editor when it is open
-            bool posEditorOpen = PositionEditor != null && !PositionEditor.IsDisposed;
+            bool posEditorOpen = positionEditorWindow != null && !positionEditorWindow.IsDisposed;
             if (posEditorOpen)
             {
                 prevFlyModeState = false;
@@ -208,6 +342,10 @@ namespace racman
 
         private void SLY3Form_FormClosing(object sender, FormClosingEventArgs e)
         {
+            game.LoadFinished -= game_LoadFinished;
+            game.LoadStarted -= game_LoadStarted;
+            reapplyTimer.Stop();
+
             // Make sure all child forms are closed
             if (InputDisplay != null && !InputDisplay.IsDisposed)
             {
@@ -316,21 +454,21 @@ namespace racman
 
         private void positionEditorButton_Click(object sender, EventArgs e)
         {
-            if (PositionEditor == null || PositionEditor.IsDisposed)
+            if (positionEditorWindow == null || positionEditorWindow.IsDisposed)
             {
-                PositionEditor = new SLY3PositionEditor(game, this);
-                PositionEditor.FormClosed += PositionEditor_FormClosed;
-                PositionEditor.Show();
+                positionEditorWindow = new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this);
+                positionEditorWindow.FormClosed += PositionEditor_FormClosed;
+                positionEditorWindow.Show();
             }
             else
             {
-                PositionEditor.Focus();
+                positionEditorWindow.Focus();
             }
         }
 
         private void PositionEditor_FormClosed(object sender, FormClosedEventArgs e)
         {
-            PositionEditor = null;
+            positionEditorWindow = null;
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
@@ -470,51 +608,17 @@ namespace racman
             {
                 GadgetsWindow.Close();
             }
-            if (PositionEditor != null && !PositionEditor.IsDisposed)
+            if (positionEditorWindow != null && !positionEditorWindow.IsDisposed)
             {
-                PositionEditor.Close();
+                positionEditorWindow.Close();
             }
         }
 
         private void ReconnectGame()
         {
-            int pid = 0;
-            int attempts = 0;
-            int maxAttempts = 30;
-
-            while (pid == 0 && attempts < maxAttempts)
+            GameReconnect.Result result = GameReconnect.WaitForGame(game.api, gameNameId, "Sly 3", out int pid, out string runningTitleId);
+            if (GameReconnect.HandleOtherResult(result, this, "Sly 3", runningTitleId, false))
             {
-                Thread.Sleep(3000);
-                attempts++;
-
-                try
-                {
-                    if (game.api.getGameTitleID() != gameNameId)
-                    {
-                        Console.WriteLine("Different game detected.");
-                        return;
-                    }
-
-                    pid = game.api.getCurrentPID();
-                    if (pid != 0)
-                    {
-                        Console.WriteLine($"Sly 3: Game detected after {attempts * 3} seconds (PID: {pid})");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Sly 3: Still waiting for game... ({attempts * 3}s elapsed)");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Sly 3: Error checking game status: {ex.Message}");
-                }
-            }
-
-            if (pid == 0)
-            {
-                Console.WriteLine("Sly 3: Game did not start within 90 seconds");
-                game.api.Notify("Sly 3: Reconnection timeout");
                 return;
             }
 
@@ -527,6 +631,7 @@ namespace racman
 
             // Re-establish memory subscriptions
             game.SetupInputDisplayMemorySubs();
+            game.SetupLoadWatcher();
 
             // Restart input timer if needed
             if (InputDisplay != null && !InputDisplay.IsDisposed)
@@ -536,6 +641,7 @@ namespace racman
 
             game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Practice Mode)");
             Console.WriteLine("Sly 3: Reconnection complete");
+            func.Status("Reconnected to Sly 3.");
         }
 
         private void SetCoinsFromTextBox()
@@ -580,7 +686,7 @@ namespace racman
 
         private void SLY3Form_FormClosed(object sender, FormClosedEventArgs e)
         {
-            if (Program.AttachPS3Form.Visible == false)
+            if (Program.AttachPS3Form.Visible == false && !AttachPS3Form.switchPending)
             {
                 Program.AttachPS3Form.Close();
                 Environment.Exit(0);

@@ -61,6 +61,14 @@ namespace racman
             public uint parisCinemaState;
             public uint rajanHealth;
 
+            // Per-character health and gadget power (juice). 0 means not known for this version.
+            public uint healthSly;
+            public uint healthBentley;
+            public uint healthMurray;
+            public uint juiceSly;
+            public uint juiceBentley;
+            public uint juiceMurray;
+
             public AddressValues Clone()
             {
                 return (AddressValues)MemberwiseClone();
@@ -166,6 +174,14 @@ namespace racman
                 blimpStarted = 0x7AD150,
                 parisCinemaState = 0x7A9AC0,
                 rajanHealth = 0x35C2AE2C,
+
+                // From SluMAN-EXT (utility.lua)
+                healthSly = 0x7A8360,
+                healthBentley = 0x7A8378,
+                healthMurray = 0x7A8390,
+                juiceSly = 0x7A8364,
+                juiceBentley = 0x7A837C,
+                juiceMurray = 0x7A8394,
             };
 
             versions[GameIdKOR] = kor;
@@ -179,6 +195,13 @@ namespace racman
             pal.inputOffset = 0x500EF6;
             pal.analogOffsetLeft = 0x500E7C;
             pal.analogOffsetRight = 0x500EB0;
+            // Not found for PAL yet.
+            pal.healthSly = 0;
+            pal.healthBentley = 0;
+            pal.healthMurray = 0;
+            pal.juiceSly = 0;
+            pal.juiceBentley = 0;
+            pal.juiceMurray = 0;
 
             versions[GameIdPAL] = pal;
 
@@ -239,6 +262,17 @@ namespace racman
         public uint blimpStarted => values.blimpStarted;
         public uint parisCinemaState => values.parisCinemaState;
         public uint rajanHealth => values.rajanHealth;
+        public uint healthSly => values.healthSly;
+        public uint healthBentley => values.healthBentley;
+        public uint healthMurray => values.healthMurray;
+        public uint juiceSly => values.juiceSly;
+        public uint juiceBentley => values.juiceBentley;
+        public uint juiceMurray => values.juiceMurray;
+
+        /// <summary>
+        /// True when this version's per-character health and gadget power addresses are known.
+        /// </summary>
+        public bool HasCharacterStats => values.healthSly != 0 && values.juiceSly != 0;
 
         public enum LoadTypes : uint
         {
@@ -546,17 +580,199 @@ namespace racman
         public void SetHealth(int health)
         {
             var currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
-            uint currentCharacterHealth = 0x7A8360;
+            // The hard-coded fallbacks keep the old behaviour on versions without known addresses.
+            uint currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthSly : 0x7A8360;
             if (currentCharacterId[3] == 8)
             {
-                currentCharacterHealth = 0x7A8360;
+                currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthBentley : 0x7A8378;
             }
             else if (currentCharacterId[3] == 9)
             {
-                currentCharacterHealth = 0x7A8390;
+                currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthMurray : 0x7A8390;
             }
             byte[] healthBytes = ConvertIntToBytes(health);
             api.WriteMemory(pid, currentCharacterHealth, 4, healthBytes);
+        }
+
+        // Values the toggles hold, from SluMAN-EXT: full health per character and full gadget power.
+        private const uint FullHealthSlyBentley = 40;
+        private const uint FullHealthMurray = 60;
+        private const uint FullGadgetPower = 100;
+
+        private int invulnerabilityFreezeSubID = -1;
+        private readonly List<int> infiniteHealthSubIDs = new List<int>();
+        private readonly List<int> infiniteGadgetPowerSubIDs = new List<int>();
+        private int gameClockFreezeSubID = -1;
+
+        private void ReleaseFreeze(ref int subID)
+        {
+            if (subID != -1)
+            {
+                try { api.ReleaseSubID(subID); } catch { }
+                subID = -1;
+            }
+        }
+
+        private void ReleaseFreezes(List<int> subIDs)
+        {
+            foreach (int subID in subIDs)
+            {
+                try { api.ReleaseSubID(subID); } catch { }
+            }
+            subIDs.Clear();
+        }
+
+        private uint GetEntityAddress()
+        {
+            byte[] ptrBytes = api.ReadMemory(pid, sly2.addr.activeCharacterPtr, 4);
+            return BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
+        }
+
+        /// <summary>
+        /// True when the active character's entity exists, which it doesn't during and right after
+        /// a load.
+        /// </summary>
+        public bool IsPlayerLoaded()
+        {
+            try
+            {
+                return GetEntityAddress() != 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Freezes the active character's invulnerability flag. The flag is on the character
+        /// entity, so it has to be applied again after a load or a character switch.
+        /// </summary>
+        public void SetInvulnerability(bool enabled)
+        {
+            ReleaseFreeze(ref invulnerabilityFreezeSubID);
+
+            uint entity = GetEntityAddress();
+            if (entity == 0)
+            {
+                return;
+            }
+
+            if (enabled)
+            {
+                invulnerabilityFreezeSubID = api.FreezeMemory(pid, entity + 0x27C, 1u);
+            }
+            else
+            {
+                api.WriteMemory(pid, entity + 0x27C, ConvertIntToBytes(0));
+            }
+        }
+
+        /// <summary>
+        /// Holds every character at full health, so switching characters keeps it on.
+        /// </summary>
+        public void SetInfiniteHealth(bool enabled)
+        {
+            ReleaseFreezes(infiniteHealthSubIDs);
+            if (!enabled || !sly2.addr.HasCharacterStats)
+            {
+                return;
+            }
+            infiniteHealthSubIDs.Add(api.FreezeMemory(pid, sly2.addr.healthSly, FullHealthSlyBentley));
+            infiniteHealthSubIDs.Add(api.FreezeMemory(pid, sly2.addr.healthBentley, FullHealthSlyBentley));
+            infiniteHealthSubIDs.Add(api.FreezeMemory(pid, sly2.addr.healthMurray, FullHealthMurray));
+        }
+
+        /// <summary>
+        /// Holds every character's gadget power full.
+        /// </summary>
+        public void SetInfiniteGadgetPower(bool enabled)
+        {
+            ReleaseFreezes(infiniteGadgetPowerSubIDs);
+            if (!enabled || !sly2.addr.HasCharacterStats)
+            {
+                return;
+            }
+            infiniteGadgetPowerSubIDs.Add(api.FreezeMemory(pid, sly2.addr.juiceSly, FullGadgetPower));
+            infiniteGadgetPowerSubIDs.Add(api.FreezeMemory(pid, sly2.addr.juiceBentley, FullGadgetPower));
+            infiniteGadgetPowerSubIDs.Add(api.FreezeMemory(pid, sly2.addr.juiceMurray, FullGadgetPower));
+        }
+
+        /// <summary>
+        /// Freezes the game speed at 0, the same way Sly 3's Freeze Game Clock does.
+        /// </summary>
+        public void SetGameClockFrozen(bool frozen)
+        {
+            ReleaseFreeze(ref gameClockFreezeSubID);
+
+            if (frozen)
+            {
+                byte[] zero = ConvertFloatToBytes(0.0f);
+                api.WriteMemory(pid, sly2.addr.gameSpeed, zero);
+                gameClockFreezeSubID = api.FreezeMemory(pid, sly2.addr.gameSpeed, 4, IPS3API.MemoryCondition.Any, zero);
+            }
+            else
+            {
+                api.WriteMemory(pid, sly2.addr.gameSpeed, ConvertFloatToBytes(1.0f));
+            }
+        }
+
+        public override void SetupLoadWatcher()
+        {
+            WatchLoads(sly2.addr.loadingState);
+        }
+
+        private int infiniteJumpFreezeSubID = -1;
+
+        /// <summary>
+        /// Holds the active character's jump counter at 0. It's on the character entity, so it
+        /// has to be applied again after a load.
+        /// </summary>
+        public void SetInfiniteJump(bool enabled)
+        {
+            ReleaseFreeze(ref infiniteJumpFreezeSubID);
+            if (!enabled)
+            {
+                return;
+            }
+
+            uint entity = GetEntityAddress();
+            if (entity == 0)
+            {
+                return;
+            }
+            infiniteJumpFreezeSubID = api.FreezeMemory(pid, entity + 0x2C8, 0u);
+        }
+
+        public PositionEditorLayout GetPositionEditorLayout()
+        {
+            // Velocity and the Character Info fields aren't known for Sly 2 yet, so the editor
+            // shows N/A for them. Health lives per character in the save data, not on the entity.
+            return new PositionEditorLayout
+            {
+                gameName = "Sly 2",
+                warpFilePrefix = "sly2",
+                activeCharacterPtr = sly2.addr.activeCharacterPtr,
+                mapNameAddress = sly2.addr.mapAOB,
+                transformOffset = sly2.addr.transformOffset,
+                positionOffset = sly2.addr.coordsOffsetX,
+            };
+        }
+
+        /// <summary>
+        /// The readable name of a map such as "Y$KFf_nightclub_exterior", or null when it isn't in
+        /// the list.
+        /// </summary>
+        public string GetMapDisplayName(string indicator)
+        {
+            foreach (MapData m in maps)
+            {
+                if (m.indicator == indicator)
+                {
+                    return m.naturalName;
+                }
+            }
+            return null;
         }
 
         public void SetGadgetUnlocks(byte[] gadgetBytes)

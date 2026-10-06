@@ -216,7 +216,47 @@ namespace racman
             AttachGameEvent(false);
         }
 
+        /// <summary>
+        /// True while a game form is closing to switch to another game. The game forms check it so
+        /// closing doesn't exit the app.
+        /// </summary>
+        public static bool switchPending = false;
+        private static bool pendingSpeedrunMode = false;
+
+        public static bool IsSupportedTitle(string titleId)
+        {
+            return titleId == "NPEA00343" || titleId == "NPUA80663" || sly2.SupportsGameId(titleId);
+        }
+
+        /// <summary>
+        /// Called by a game form just before it closes to switch games: once its window is gone,
+        /// attach again in the given mode.
+        /// </summary>
+        public static void RequestAttachAfterClose(bool speedrunMode)
+        {
+            switchPending = true;
+            pendingSpeedrunMode = speedrunMode;
+        }
+
         private void Attach(IPS3API api, Boolean speedrunMode = false)
+        {
+            AttachAndShowGame(api, speedrunMode);
+
+            // The game form's dialog has returned. If it closed to switch games, attach to the new
+            // one. Show this form first so a failed attach leaves something on screen.
+            if (switchPending)
+            {
+                switchPending = false;
+                bool mode = pendingSpeedrunMode;
+                BeginInvoke(new Action(() =>
+                {
+                    Show();
+                    AttachGameEvent(mode);
+                }));
+            }
+        }
+
+        private void AttachAndShowGame(IPS3API api, Boolean speedrunMode)
         {
             if (!api.Connect())
             {
