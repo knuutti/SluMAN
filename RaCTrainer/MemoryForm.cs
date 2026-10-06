@@ -35,6 +35,7 @@ namespace racman
             InitializeComponent();
             // With no game form open (unsupported game), this window shows the app-wide messages.
             statusLine = new StatusLine(this, AttachPS3Form.notSupported);
+            func.BindEnter(registerAddressTextBox, addMemoryWatchButton);
             SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
 
             watchedMemoryAddressesListView.DoubleBuffering(true);

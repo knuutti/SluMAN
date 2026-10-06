@@ -112,6 +112,7 @@
       <DependentUpon>AutosplitterConfigForm.cs</DependentUpon>
     </Compile>
     <Compile Include="AutosplitterHelper.cs" />
+    <Compile Include="ConfirmButton.cs" />
     <Compile Include="ConfigureCombos.cs">
       <SubType>Form</SubType>
     </Compile>
