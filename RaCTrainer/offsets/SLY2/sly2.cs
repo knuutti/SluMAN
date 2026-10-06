@@ -361,28 +361,7 @@ namespace racman
 
         public override void CheckInputs(object sender, EventArgs e)
         {
-            // TODO: Implement controller combos for Sly 2
-            /*
-            if (Inputs.RawInputs == ConfigureCombos.saveCombo && inputCheck)
-            {
-                SavePosition();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == ConfigureCombos.loadCombo && inputCheck)
-            {
-                LoadPosition();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == ConfigureCombos.runScriptCombo && inputCheck)
-            {
-                AttachPS3Form.scripting?.RunCurrentCode();
-                inputCheck = false;
-            }
-            if (Inputs.RawInputs == 0x00 && !inputCheck)
-            {
-                inputCheck = true;
-            }
-            */
+            RunCombos();
         }
 
         protected override void SetupInputDisplayMemorySubsButtons()
@@ -495,38 +474,45 @@ namespace racman
             return transformPtr + sly2.addr.coordsOffsetX;
         }
 
+        /// <summary>
+        /// The config key a position slot is stored under, per map so each map keeps its own slots.
+        /// </summary>
+        private string SavedPositionKey()
+        {
+            string mapIndicator = ReadMapIndicator(sly2.addr.mapAOB);
+            if (mapIndicator == "")
+            {
+                throw new InvalidOperationException("Couldn't read the current map.");
+            }
+            return mapIndicator + "SavedPos" + selectedPositionIndex;
+        }
+
         public override void SavePosition()
         {
-            try
-            {
-                uint coordsAddress = GetPlayerCoordsAddress();
+            string key = SavedPositionKey();
+            uint coordsAddress = GetPlayerCoordsAddress();
 
-                string position = api.ReadMemoryStr(pid, coordsAddress, 12);
-                func.ChangeFileLines("config.txt", position, maps[mapIndex].indicator + "SavedPos" + selectedPositionIndex);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to save position: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            string position = api.ReadMemoryStr(pid, coordsAddress, 12);
+            func.ChangeFileLines("config.txt", position, key);
         }
 
         public override void LoadPosition()
         {
-            try
+            string key = SavedPositionKey();
+            string position = func.GetConfigData("config.txt", key);
+            if (position == "")
             {
-                Console.WriteLine(maps[mapIndex].indicator + "SavedPos" + selectedPositionIndex);
-                string position = func.GetConfigData("config.txt", maps[mapIndex].indicator + "SavedPos" + selectedPositionIndex);
-                if (position != "")
-                {
-                    uint coordsAddress = GetPlayerCoordsAddress();
+                Console.WriteLine($"No saved position for {key}");
+                return;
+            }
 
-                    api.WriteMemory(pid, coordsAddress, 12, position);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to load position: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            uint coordsAddress = GetPlayerCoordsAddress();
+            api.WriteMemory(pid, coordsAddress, 12, position);
+        }
+
+        public override void LoadGame()
+        {
+            TriggerGameLoad((uint)Sly2Addresses.LoadTypes.Fast);
         }
 
         protected override void SetupInputDisplayMemorySubsAnalogs()

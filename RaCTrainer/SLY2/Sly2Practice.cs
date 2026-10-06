@@ -34,6 +34,10 @@ namespace racman
 
             game.CheckRunFileConfig();
 
+            // Controller combos run on the inputs timer, so it runs for as long as the form is open.
+            game.combosActive = true;
+            game.InputsTimer.Start();
+
             if (func.api is Ratchetron r)
             {
                 r.setDisconnectCallback(() => { DisconnectGame(false); });
@@ -80,6 +84,12 @@ namespace racman
             DisconnectGame();
             this.Close();
             Program.AttachPS3Form.Show();
+        }
+
+        private void configureButtonCombosToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ConfigureCombos configureCombos = new ConfigureCombos();
+            configureCombos.ShowDialog(this);
         }
 
         private void inputDisplayToolStripMenuItem_Click(object sender, EventArgs e)
