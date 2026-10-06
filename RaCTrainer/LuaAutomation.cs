@@ -471,7 +471,8 @@ namespace racman
             }
             catch (System.Net.Sockets.SocketException ex)
             {
-                MessageBox.Show("Error in LuaAutomation: " + ex.ToString());
+                func.Status($"Lua script network error: {ex.Message}", true);
+                Console.WriteLine(ex);
                 return new byte[] { };
             }
         }

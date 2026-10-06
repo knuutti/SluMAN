@@ -57,9 +57,12 @@ namespace racman
             }
         }
 
+        private StatusLine statusLine;
+
         public AutosplitterConfigForm()
         {
             InitializeComponent();
+            statusLine = new StatusLine(this, false);
 
             Route.form = this;
 
@@ -185,7 +188,7 @@ namespace racman
         {
             if (grid.Rows.Count - 1 > maxRows)
             {
-                MessageBox.Show($"That's too many rows. The maximum is {maxRows}. Your changes have not been saved.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                statusLine.Error($"A route can have at most {maxRows} rows. Your changes were not saved.");
                 return;
             }
             string oldName = SelectedRoute.Name;
@@ -216,16 +219,12 @@ namespace racman
             try
             {
                 File.WriteAllBytes(filename, SelectedRoute.ByteArray);
+                statusLine.Info($"Saved {SelectedRoute.Name}.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.StackTrace);
-                MessageBox.Show(
-                    "Unable to create or write to file. This may be caused by an invalid name. Your changes have been saved locally but not to disk.",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                statusLine.Error("Couldn't save the route file. Check that the name has no \\ / : * ? \" < > | characters. Your changes are kept until SluMAN closes.");
             }
         }
 
@@ -298,11 +297,14 @@ namespace racman
 
         private void openFromFileButton_Click(object sender, EventArgs e)
         {
-            openFileDialog1.ShowDialog(this);
+            if (openFileDialog1.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
 
             if (DoesNameExist(Path.GetFileNameWithoutExtension(openFileDialog1.FileName)))
             {
-                MessageBox.Show("Copy could not be completed because a file with the same name exists. Please remove or rename the other file.");
+                statusLine.Error("A route with that name already exists. Rename or delete it first.");
                 return;
             }
             else
@@ -310,7 +312,7 @@ namespace racman
                 File.Copy(openFileDialog1.FileName, $"usr/{Path.GetFileName(openFileDialog1.FileName)}");
             }
             LoadRoute($"usr/{Path.GetFileName(openFileDialog1.FileName)}");
-            MessageBox.Show($"Loaded {Path.GetFileNameWithoutExtension(openFileDialog1.FileName)} from {openFileDialog1.FileName}");
+            statusLine.Info($"Loaded {Path.GetFileNameWithoutExtension(openFileDialog1.FileName)} from {openFileDialog1.FileName}");
         }
 
         private bool DoesNameExist(string name)

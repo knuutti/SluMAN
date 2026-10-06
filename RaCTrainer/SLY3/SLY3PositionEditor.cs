@@ -41,11 +41,14 @@ namespace racman
         private static readonly string UserWarpFile = "sly3_user_warps.txt";
         private static readonly string BuiltinWarpFile = "data/sly3_warp_locations.txt";
 
+        private StatusLine statusLine;
+
         public SLY3PositionEditor(sly3 game, SLY3Form mainForm = null)
         {
             this.game = game;
             this.mainForm = mainForm;
             InitializeComponent();
+            statusLine = new StatusLine(this, false);
 
             LoadBuiltinWarps();
             LoadUserWarps();
@@ -439,7 +442,7 @@ namespace racman
             string name = warpNameTextBox.Text.Trim();
             if (string.IsNullOrEmpty(name))
             {
-                MessageBox.Show("Enter a name for the warp location.", "Name Required");
+                statusLine.Error("Enter a name for the warp location.");
                 return;
             }
             if (currentMapIndicator == "") return;

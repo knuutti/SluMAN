@@ -20,9 +20,13 @@ namespace racman
 
         bool reloading = false;
 
+        private StatusLine statusLine;
+
         public ModLoaderForm()
         {
             InitializeComponent();
+            // With no game form open (unsupported game), this window shows the app-wide messages.
+            statusLine = new StatusLine(this, AttachPS3Form.notSupported);
 
             gameModFolder = $"{Directory.GetCurrentDirectory()}\\mods\\{AttachPS3Form.game}\\";
 
@@ -268,7 +272,7 @@ namespace racman
 
                         if (directoryName == "")
                         {
-                            MessageBox.Show("Invalid or corrupt mod. Redownload the ZIP or ask the mod developer for help.");
+                            statusLine.Error("This ZIP isn't a valid mod. Download it again, or ask the mod's author for help.");
                             return;
                         }
 
@@ -314,10 +318,10 @@ namespace racman
 
                         if (upgrade)
                         {
-                            MessageBox.Show($"{mod.name} upgraded to version {mod.version}!");
+                            statusLine.Info($"{mod.name} upgraded to version {mod.version}.");
                         } else
                         {
-                            MessageBox.Show($"{mod.name} version {mod.version} installed.");
+                            statusLine.Info($"{mod.name} version {mod.version} installed.");
                         }
 
 
@@ -325,7 +329,8 @@ namespace racman
                     } catch (IOException ex)
                     {
                         // There's apparently no easy way to tell ZipFile.ExtractToDirectory to overwrite files smh
-                        MessageBox.Show("Failed to extract ZIP: " + ex.ToString());
+                        statusLine.Error($"Couldn't extract the ZIP: {ex.Message}");
+                        Console.WriteLine(ex);
                     } finally
                     {
                         Directory.Delete($"{System.IO.Path.GetTempPath()}\\racman\\", true);

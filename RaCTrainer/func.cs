@@ -33,6 +33,26 @@ namespace racman
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
 
+        /// <summary>
+        /// Raised by <see cref="Status"/>. Game forms show these on their <see cref="StatusLine"/>.
+        /// </summary>
+        public static event Action<string, bool> StatusMessage;
+
+        /// <summary>
+        /// Shows a message on the open game form's status line instead of a dialog. Safe to call
+        /// from any thread. Also written to the console window.
+        /// </summary>
+        public static void Status(string message, bool isError = false)
+        {
+            Console.WriteLine(isError ? $"Error: {message}" : message);
+
+            Action<string, bool> handler = StatusMessage;
+            if (handler != null)
+            {
+                handler(message, isError);
+            }
+        }
+
         public static WebClient client = new WebClient();
         public static int pid = AttachPS3Form.pid;
         public static IPS3API api;

@@ -137,6 +137,7 @@
       <DependentUpon>FlagViewer.cs</DependentUpon>
     </Compile>
     <Compile Include="IGame.cs" />
+    <Compile Include="StatusLine.cs" />
     <Compile Include="InputDisplay.cs">
       <SubType>Form</SubType>
     </Compile>

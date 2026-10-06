@@ -29,10 +29,13 @@ namespace racman
         private const float FlyHeightStep = 20.0f;
         private const float FlyBoostMultiplier = 8.0f;
 
+        private StatusLine statusLine;
+
         public SLY3Form(sly3 game, string gameNameId = "NPEA00343")
         {
             this.game = game;
             InitializeComponent();
+            statusLine = new StatusLine(this, true);
 
             mapComboBox.Items.AddRange(game.GetMapNames());
             mapComboBox.SelectedIndex = 0;
@@ -188,14 +191,8 @@ namespace racman
         {
             if (e.KeyCode == Keys.Enter)
             {
-                try
-                {
-                    game.SetCoinCount(int.Parse(coinsTextBox.Text));
-                }
-                catch
-                {
-                    MessageBox.Show("Please enter a valid number", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                e.SuppressKeyPress = true;
+                SetCoinsFromTextBox();
             }
         }
 
@@ -546,7 +543,7 @@ namespace racman
             }
             else
             {
-                MessageBox.Show("Please enter a valid number for coins.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                statusLine.Error("Coins must be a whole number.");
             }
         }
 
@@ -560,7 +557,7 @@ namespace racman
             }
             else
             {
-                MessageBox.Show("Please enter a valid number for health.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                statusLine.Error("Health must be a whole number.");
             }
         }
 

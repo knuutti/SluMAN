@@ -23,11 +23,14 @@ namespace racman
         public string gameNameId;
         public AutosplitterHelper autosplitter;
 
+        private StatusLine statusLine;
+
         public SLY2Speedrun(sly2 game, string gameNameId = "NPHA80175")
         {
             this.game = game;
             this.gameNameId = gameNameId;
             InitializeComponent();
+            statusLine = new StatusLine(this, true);
 
             ApplySavedPreferences();
 
@@ -131,7 +134,7 @@ namespace racman
         {
             if (runFileComboBox.SelectedItem == null)
             {
-                MessageBox.Show("Please select a run file to load.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                statusLine.Error("Select a run file to load first.");
                 return;
             }
 
@@ -174,7 +177,8 @@ namespace racman
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading complete run file: {ex.Message}", "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                statusLine.Error($"Couldn't load the run file: {ex.Message}");
+                Console.WriteLine(ex);
             }
         }
 
@@ -261,7 +265,8 @@ namespace racman
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading gadget configuration: {ex.Message}", "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                statusLine.Error($"Couldn't load the gadget setup: {ex.Message}");
+                Console.WriteLine(ex);
             }
         }
 
