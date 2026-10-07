@@ -30,7 +30,7 @@ namespace racman
             console = new RacManConsole();
             scripting = new RacmanScripting();
 
-            currentVerLabel.Text = "SluMAN v" + Assembly.GetEntryAssembly().GetName().Version.ToString(3);
+            currentVerLabel.Text = "SluMAN " + func.VersionText;
 
             AutoUpdater.RunUpdateAsAdmin = false;
             // Handling this event stops AutoUpdater from opening its dialog by itself.
@@ -98,6 +98,16 @@ namespace racman
         /// </summary>
         private void StartUpdateCheck(bool manual)
         {
+            if (func.IsDevBuild)
+            {
+                // Local builds have no real version to compare against update.xml.
+                if (manual)
+                {
+                    ShowUpdateText("Dev build, no update check", false);
+                }
+                return;
+            }
+
             manualUpdateCheck = manual;
             if (manual)
             {
@@ -295,7 +305,7 @@ namespace racman
                 if (speedrunMode)
                 {
                     Hide();
-                    func.api.Notify($"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected (Speedrun Mode)");
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
                     SLY3Speedrun sly3 = new SLY3Speedrun(new sly3(func.api));
                     gameName = "SLY 3 (PAL, PSN)";
                     sly3.ShowDialog();
@@ -303,7 +313,7 @@ namespace racman
                 else
                 {
                     Hide();
-                    func.api.Notify($"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected (Practice Mode)");
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
                     SLY3Form sly3 = new SLY3Form(new sly3(func.api));
                     gameName = "SLY 3 (PAL, PSN)";
                     sly3.ShowDialog();
@@ -312,7 +322,7 @@ namespace racman
             else if (game == "NPUA80663")
             {
                 Hide();
-                func.api.Notify($"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected (Speedrun Mode)");
+                func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
                 Sly1Speedrun sly1 = new Sly1Speedrun(new sly1(func.api));
                 gameName = "SLY 1 (NTSC, PSN)";
                 sly1.ShowDialog();
@@ -322,7 +332,7 @@ namespace racman
                 if (speedrunMode)
                 {
                     Hide();
-                    func.api.Notify($"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected (Speedrun Mode)");
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
                     SLY2Speedrun sly2Speedrun = new SLY2Speedrun(new sly2(func.api, game), game);
                     gameName = sly2.GetDisplayName(game);
                     sly2Speedrun.ShowDialog();
@@ -330,7 +340,7 @@ namespace racman
                 else
                 {
                     Hide();
-                    func.api.Notify($"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected (Practice Mode)");
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
                     Sly2Practice sly2Practice = new Sly2Practice(new sly2(func.api, game), game);
                     gameName = sly2.GetDisplayName(game);
                     sly2Practice.ShowDialog();

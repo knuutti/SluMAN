@@ -1,0 +1,75 @@
+name: Release
+
+# Merging a release/vX.Y.Z PR into master publishes vX.Y.Z: builds it, creates the tag and the
+# GitHub release with SluMAN.zip attached, points update.xml at it, and posts to Discord.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+jobs:
+  build:
+    if: github.event.pull_request.merged && startsWith(github.head_ref, 'release/v')
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_REF: ${{ github.head_ref }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Read version from branch name
+        id: version
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Branch '$HEAD_REF' isn't named release/vX.Y.Z"
+            exit 1
+          fi
+          echo "VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "tag=v${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: SluMAN
+          path: SluMAN
+
+      - name: Zip
+        run: cd SluMAN && zip -qr ../SluMAN.zip .
+
+      - name: Create release
+        run: |
+          gh release create "v$VERSION" SluMAN.zip \
+            --target "$MERGE_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
+
+      - name: Point update.xml at the new release
+        run: |
+          sed -i -E \
+            -e "s#<version>[^<]*</version>#<version>$VERSION.0</version>#" \
+            -e "s#/releases/download/v[^/]+/#/releases/download/v$VERSION/#" \
+            update.xml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release v$VERSION"
+          git push origin master
+
+  # Releases created by this workflow don't trigger discord-release.yml on their own
+  # (GitHub doesn't start workflows from events caused by its own token), so call it here.
+  notify:
+    needs: release
+    uses: ./.github/workflows/discord-release.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit

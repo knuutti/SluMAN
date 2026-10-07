@@ -1,0 +1,45 @@
+name: Build
+
+# Builds every PR and uploads the result as the "SluMAN" artifact, so the exact build can be
+# downloaded and tested. Also called by release.yml to build what gets released.
+#
+# Builds from a release/vX.Y.Z branch get version X.Y.Z stamped in. Everything else keeps the
+# 0.0.0.0 placeholder from AssemblyInfo.cs and shows up as "dev build" in the app.
+
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Stamp version
+        shell: pwsh
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if ($env:HEAD_REF -match '^release/v(\d+\.\d+\.\d+)$') {
+            $version = $Matches[1]
+            $file = 'RaCTrainer/Properties/AssemblyInfo.cs'
+            (Get-Content $file) -replace 'Version\("[^"]*"\)', "Version(""$version.0"")" | Set-Content $file
+            Write-Host "Stamped version $version"
+          } else {
+            Write-Host "Not a release branch, building as dev build"
+          }
+
+      - name: Restore packages
+        run: msbuild SluMAN.sln /t:Restore /p:RestorePackagesConfig=true /v:m
+
+      - name: Build
+        run: msbuild RaCTrainer/SluMAN.csproj /p:Configuration=Release /p:Platform=x64 /v:m
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SluMAN
+          path: RaCTrainer/bin/x64/Release/
+          if-no-files-found: error

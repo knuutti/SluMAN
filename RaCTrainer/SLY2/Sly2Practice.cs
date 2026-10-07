@@ -485,7 +485,7 @@ namespace racman
                 game.InputsTimer.Start();
             }
 
-            game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Practice Mode)");
+            game.api.Notify($"SluMAN {func.VersionText} (Practice Mode)");
             Console.WriteLine("Sly 2: Reconnection complete");
             func.Status("Reconnected to Sly 2.");
         }

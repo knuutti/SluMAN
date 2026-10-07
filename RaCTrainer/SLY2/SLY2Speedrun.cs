@@ -173,7 +173,7 @@ namespace racman
 
                 var loadType = (uint)Sly2Addresses.LoadTypes.RunFile;
 
-                game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)}: Loading {runFileComboBox.SelectedItem} run file.");
+                game.api.Notify($"SluMAN {func.VersionText}: Loading {runFileComboBox.SelectedItem} run file.");
 
                 game.TriggerGameLoad(loadType);
             }
@@ -429,7 +429,7 @@ namespace racman
 
             game.SetupInputDisplayMemorySubs();
 
-            game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Speedrun Mode)");
+            game.api.Notify($"SluMAN {func.VersionText} (Speedrun Mode)");
             Console.WriteLine("Game reconnected.");
             func.Status("Reconnected to Sly 2.");
         }

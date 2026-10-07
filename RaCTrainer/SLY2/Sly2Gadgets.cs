@@ -502,7 +502,7 @@ namespace racman
             }
 
             SaveGadgetsToRunFile();
-            game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)}: Gadget settings saved to {runFileComboBox.SelectedItem} run file.");
+            game.api.Notify($"SluMAN {func.VersionText}: Gadget settings saved to {runFileComboBox.SelectedItem} run file.");
         }
 
         private void saveButton_Click(object sender, EventArgs e)

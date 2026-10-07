@@ -183,7 +183,7 @@ namespace racman
                     SetTutorialComplete();
                 }
 
-                game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)}: Loading {runFileComboBox.SelectedItem} run file.");
+                game.api.Notify($"SluMAN {func.VersionText}: Loading {runFileComboBox.SelectedItem} run file.");
 
                 game.TriggerGameLoad(loadType);
             }
@@ -461,7 +461,7 @@ namespace racman
                 autosplitter.StartAutosplitterForGame(this.game);
             }
 
-            game.api.Notify($"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Speedrun Mode)");
+            game.api.Notify($"SluMAN {func.VersionText} (Speedrun Mode)");
             Console.WriteLine("Sly 3: Reconnection complete");
             func.Status("Reconnected to Sly 3.");
         }
