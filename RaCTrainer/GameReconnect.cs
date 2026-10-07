@@ -15,6 +15,13 @@ namespace racman
         private const int PollIntervalMs = 3000;
         private const int MaxWaitMs = 90000;
 
+        /// <summary>
+        /// Raised when a rebooted game is running again, before the game form sets itself up.
+        /// Subscriptions don't survive a reboot, so windows that hold their own (the memory
+        /// window) use this to set them up again. Raised on a background thread.
+        /// </summary>
+        public static event Action GameReconnected;
+
         public enum Result
         {
             /// <summary>The same game is running again.</summary>
@@ -53,6 +60,11 @@ namespace racman
                     {
                         pid = currentPid;
                         Console.WriteLine($"{gameName}: game detected after {(waited + PollIntervalMs) / 1000} s (PID: {pid})");
+                        Action handler = GameReconnected;
+                        if (handler != null)
+                        {
+                            handler();
+                        }
                         return Result.Reconnected;
                     }
 

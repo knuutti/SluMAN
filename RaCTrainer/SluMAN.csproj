@@ -99,6 +99,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AddressExpression.cs" />
     <Compile Include="AttachPS3Form.cs">
       <SubType>Form</SubType>
     </Compile>

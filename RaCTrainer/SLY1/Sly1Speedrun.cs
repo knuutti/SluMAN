@@ -215,5 +215,10 @@ namespace racman
             this.Close();
             Program.AttachPS3Form.Show();
         }
+
+        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MemoryForm.ShowFor(this);
+        }
     }
 }

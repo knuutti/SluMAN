@@ -415,17 +415,7 @@ namespace racman
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MemoryForm memoryForm = Application.OpenForms["MemoryForm"] as MemoryForm;
-
-            if (memoryForm != null)
-            {
-                memoryForm.Activate();
-            }
-            else
-            {
-                memoryForm = new MemoryForm();
-                memoryForm.Show();
-            }
+            MemoryForm.ShowFor(this);
         }
 
         private void loadMapButton_Click(object sender, EventArgs e)

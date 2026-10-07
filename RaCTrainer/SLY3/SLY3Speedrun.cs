@@ -471,5 +471,10 @@ namespace racman
             DisconnectGame();
             ReconnectGame();
         }
+
+        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MemoryForm.ShowFor(this);
+        }
     }
 }
