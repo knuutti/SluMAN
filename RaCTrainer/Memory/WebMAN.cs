@@ -117,7 +117,7 @@ namespace racman
         public static void DisplayVersionPopUp(string ip, string message = null)
         {
             string popupMessage = string.IsNullOrWhiteSpace(message)
-                ? $"SluMAN v{Assembly.GetEntryAssembly().GetName().Version.ToString(3)} (Practice Mode)"
+                ? $"SluMAN {func.VersionText} (Practice Mode)"
                 : message;
 
             string encodedMessage = Uri.EscapeDataString(popupMessage);

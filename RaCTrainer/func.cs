@@ -54,6 +54,23 @@ namespace racman
         }
 
         /// <summary>
+        /// True for local builds. The repo keeps the version at 0.0.0.0 and the release workflow
+        /// stamps the real one from the release branch name.
+        /// </summary>
+        public static bool IsDevBuild
+        {
+            get { return typeof(func).Assembly.GetName().Version.Major == 0; }
+        }
+
+        /// <summary>
+        /// The version as shown to users, e.g. "v1.0.10", or "dev build" for local builds.
+        /// </summary>
+        public static string VersionText
+        {
+            get { return IsDevBuild ? "dev build" : "v" + typeof(func).Assembly.GetName().Version.ToString(3); }
+        }
+
+        /// <summary>
         /// Pressing Enter in the box clicks the button, as if the user had clicked it. The key
         /// press is swallowed so Windows doesn't beep.
         /// </summary>
