@@ -18,6 +18,12 @@ namespace racman
         public Form GadgetsWindow;
         private PositionEditor positionEditorWindow;
 
+        // One window: the Practice controls on the first tab, the tools on the others.
+        private PracticeTabs practiceTabs;
+        private const string GadgetsTab = "Gadgets";
+        private const string PositionTab = "Position Editor";
+        private const string MemoryTab = "Memory";
+
         public bool FlyModeEnabled => flyModeCheckBox.Checked;
         public bool InfiniteJumpEnabled => infiniteJumpCheckBox.Checked;
         public sly3 game;
@@ -75,6 +81,13 @@ namespace racman
             game.LoadFinished += game_LoadFinished;
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
+
+            practiceTabs = new PracticeTabs(this, "Practice");
+            practiceTabs.AddTool(GadgetsTab, () => new SLY3GadgetsForm(game));
+            practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
+            practiceTabs.AddTool(MemoryTab, () => new MemoryForm());
+            practiceTabs.ToolCreated += practiceTabs_ToolCreated;
+            practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
 
         private void game_LoadStarted()
@@ -342,6 +355,8 @@ namespace racman
 
         private void SLY3Form_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // The tools' own cleanup (subscriptions, timers) runs when they close.
+            practiceTabs.CloseAll();
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();
@@ -415,7 +430,31 @@ namespace racman
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MemoryForm.ShowFor(this);
+            practiceTabs.Show(MemoryTab);
+        }
+
+        private void practiceTabs_ToolCreated(string title, Form form)
+        {
+            if (title == GadgetsTab)
+            {
+                GadgetsWindow = form;
+            }
+            else if (title == PositionTab)
+            {
+                positionEditorWindow = (PositionEditor)form;
+            }
+        }
+
+        private void practiceTabs_ToolClosed(string title)
+        {
+            if (title == GadgetsTab)
+            {
+                GadgetsWindow = null;
+            }
+            else if (title == PositionTab)
+            {
+                positionEditorWindow = null;
+            }
         }
 
         private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
@@ -430,40 +469,12 @@ namespace racman
 
         private void gadgetsButton_Click(object sender, EventArgs e)
         {
-            if (GadgetsWindow == null || GadgetsWindow.IsDisposed)
-            {
-                GadgetsWindow = new SLY3GadgetsForm(game);
-                GadgetsWindow.FormClosed += GadgetsWindow_FormClosed;
-                GadgetsWindow.Show();
-            }
-            else
-            {
-                GadgetsWindow.Focus();
-            }
-        }
-
-        private void GadgetsWindow_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            GadgetsWindow = null;
+            practiceTabs.Show(GadgetsTab);
         }
 
         private void positionEditorButton_Click(object sender, EventArgs e)
         {
-            if (positionEditorWindow == null || positionEditorWindow.IsDisposed)
-            {
-                positionEditorWindow = new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this);
-                positionEditorWindow.FormClosed += PositionEditor_FormClosed;
-                positionEditorWindow.Show();
-            }
-            else
-            {
-                positionEditorWindow.Focus();
-            }
-        }
-
-        private void PositionEditor_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            positionEditorWindow = null;
+            practiceTabs.Show(PositionTab);
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
