@@ -9,91 +9,6 @@ namespace racman
 {
     public partial class InputDisplay : Form
     {
-        public struct InputPlot
-        {
-            public int drawX { get; set; }
-            public int drawY { get; set; }
-            public int spriteX { get; set; }
-            public int spriteY { get; set; }
-            public int spriteWidth { get; set; }
-            public int spriteHeight { get; set; }
-        }
-
-        class ControllerSkin
-        {
-
-            public Image image;
-            public Dictionary<string, InputPlot> buttons;
-            public int analogPitch = 32;
-
-
-            public static ControllerSkin Load(string skinPath)
-            {
-                var skin = new ControllerSkin();
-                skin.buttons = new Dictionary<string, InputPlot>();
-
-                var config = File.ReadAllText(skinPath + "\\skin.txt");
-
-                foreach (var line in config.Split('\n'))
-                {
-                    if (line.Length < 2 || line[0] == '#')
-                    {
-                        continue;
-                    }
-
-                    var components = line.Split(':');
-                    if (components.Length < 2) 
-                    {
-                        continue;
-                    }
-
-                    string buttonName = components[0];
-
-                    if (buttonName == "imageName")
-                    {
-                        using (Image rawImage = Image.FromFile(skinPath + "\\" + components[1].Trim()))
-                        {
-                            // Convert to pre-multiplied alpha format. GDI+ DrawImage is up to 6x faster
-                            // with Format32bppPArgb vs the default Format32bppArgb loaded from PNG.
-                            // Without this, white/light skins cause high CPU because per-pixel alpha
-                            // math can't be short-circuited for non-zero RGB values.
-                            Bitmap bmp = new Bitmap(rawImage.Width, rawImage.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-                            using (Graphics g = Graphics.FromImage(bmp))
-                                g.DrawImage(rawImage, 0, 0, rawImage.Width, rawImage.Height);
-                            skin.image = bmp;
-                        }
-                        continue;
-                    }
-
-                    if (buttonName == "analogPitch")
-                    {
-                        skin.analogPitch = int.Parse(components[1].Trim());
-                        continue;
-                    }
-
-                    var plot = components[1].Split(',').Select(thing => int.Parse(thing.Trim())).ToArray();
-                    
-                    if (plot.Length < 6)
-                    {
-                        continue;
-                    }
-
-
-                    var inputPlot = new InputPlot();
-                    inputPlot.drawX         = plot[0];
-                    inputPlot.drawY         = plot[1];
-                    inputPlot.spriteX       = plot[2];
-                    inputPlot.spriteY       = plot[3];
-                    inputPlot.spriteWidth   = plot[4];
-                    inputPlot.spriteHeight  = plot[5];
-
-                    skin.buttons[buttonName] = inputPlot;
-                }
-
-                return skin;
-            }
-        }
-
         public System.Windows.Forms.Timer timer;
         ControllerSkin controllerSkin;
         private readonly List<ToolStripMenuItem> skinMenuItems = new List<ToolStripMenuItem>();
@@ -104,15 +19,13 @@ namespace racman
         }
         private void InputDisplay_Load(object sender, EventArgs e)
         {
-            if (Directory.Exists("controllerskins"))
+            foreach (string skinName in ControllerSkin.SkinNames())
             {
-                foreach(var skinName in Directory.EnumerateDirectories("controllerskins"))
-                {
-                    skinComboBox.Items.Add(skinName.Replace("controllerskins\\", ""));
-                }
+                skinComboBox.Items.Add(skinName);
             }
 
             BuildSkinContextMenu();
+            BuildObsMenu();
 
             // controllerSkin = ControllerSkin.Load(Directory.EnumerateDirectories("controllerskins").First());
             try
@@ -242,7 +155,8 @@ namespace racman
 
             var skinName = skinComboBox.Items[skinIndex].ToString();
 
-            controllerSkin = ControllerSkin.Load($"controllerskins\\{skinName}");
+            controllerSkin = ControllerSkin.Load(skinName);
+            ObsPadServer.SelectedSkin = skinName;
 
             func.ChangeFileLines("config.txt", skinIndex.ToString(), "InputDisplaySkin");
 
@@ -282,6 +196,102 @@ namespace racman
             {
                 this.BackColor = colorDialog1.Color;
                 func.ChangeFileLines("config.txt", this.BackColor.ToArgb().ToString(), "InputDisplayBackColor");
+            }
+        }
+
+        // --- OBS Browser Source ---
+
+        private ToolStripMenuItem serveForObsMenuItem;
+        private ToolStripMenuItem copyObsUrlMenuItem;
+        private ToolStripMenuItem changeObsPortMenuItem;
+
+        private void BuildObsMenu()
+        {
+            serveForObsMenuItem = new ToolStripMenuItem("Serve for OBS");
+            serveForObsMenuItem.Click += serveForObsMenuItem_Click;
+            copyObsUrlMenuItem = new ToolStripMenuItem("Copy OBS URL");
+            copyObsUrlMenuItem.Click += copyObsUrlMenuItem_Click;
+            changeObsPortMenuItem = new ToolStripMenuItem("Change OBS Port...");
+            changeObsPortMenuItem.Click += changeObsPortMenuItem_Click;
+
+            contextMenuStrip1.Items.Add(new ToolStripSeparator());
+            contextMenuStrip1.Items.Add(serveForObsMenuItem);
+            contextMenuStrip1.Items.Add(copyObsUrlMenuItem);
+            contextMenuStrip1.Items.Add(changeObsPortMenuItem);
+            contextMenuStrip1.Opening += (sender, e) => UpdateObsMenu();
+        }
+
+        private void UpdateObsMenu()
+        {
+            serveForObsMenuItem.Checked = ObsPadServer.Enabled;
+            copyObsUrlMenuItem.Enabled = ObsPadServer.IsRunning;
+            copyObsUrlMenuItem.ToolTipText = ObsPadServer.IsRunning ? ObsPadServer.Url : ObsPadServer.LastError;
+        }
+
+        /// <summary>The size to give the Browser Source: the skin's base image.</summary>
+        private string ObsSourceSize()
+        {
+            InputPlot basePlot;
+            if (controllerSkin != null && controllerSkin.buttons.TryGetValue("base", out basePlot))
+            {
+                return $"{basePlot.spriteWidth} x {basePlot.spriteHeight}";
+            }
+            return "the skin's size";
+        }
+
+        private void serveForObsMenuItem_Click(object sender, EventArgs e)
+        {
+            bool enable = !ObsPadServer.Enabled;
+            ObsPadServer.Enabled = enable;
+            if (!enable)
+            {
+                func.Status("Stopped serving the input display for OBS.");
+            }
+            else if (ObsPadServer.IsRunning)
+            {
+                func.Status($"Serving the input display for OBS at {ObsPadServer.Url}.");
+            }
+            else
+            {
+                func.Status(ObsPadServer.LastError, true);
+            }
+        }
+
+        private void copyObsUrlMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText(ObsPadServer.Url);
+                func.Status($"Copied {ObsPadServer.Url}. In OBS, add a Browser Source with that URL and size {ObsSourceSize()}.");
+            }
+            catch
+            {
+                func.Status($"Couldn't copy to the clipboard. The URL is {ObsPadServer.Url}", true);
+            }
+        }
+
+        private void changeObsPortMenuItem_Click(object sender, EventArgs e)
+        {
+            SimpleInputDialogForm dialog = new SimpleInputDialogForm("OBS port", ObsPadServer.Port.ToString());
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            int port;
+            if (!int.TryParse(dialog.inputTextBox.Text.Trim(), out port) || port < 1024 || port > 65535)
+            {
+                func.Status("Enter a port between 1024 and 65535.", true);
+                return;
+            }
+
+            if (ObsPadServer.ChangePort(port))
+            {
+                func.Status($"The OBS input display is now at {ObsPadServer.Url}. Update the URL in OBS.");
+            }
+            else
+            {
+                func.Status(ObsPadServer.LastError, true);
             }
         }
     }

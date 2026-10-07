@@ -112,6 +112,7 @@
     </Compile>
     <Compile Include="AutosplitterHelper.cs" />
     <Compile Include="ConfirmButton.cs" />
+    <Compile Include="ControllerSkin.cs" />
     <Compile Include="ConfigureCombos.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -138,6 +139,7 @@
     </Compile>
     <Compile Include="GameReconnect.cs" />
     <Compile Include="IGame.cs" />
+    <Compile Include="ObsPadServer.cs" />
     <Compile Include="StatusLine.cs" />
     <Compile Include="InputDisplay.cs">
       <SubType>Form</SubType>
@@ -268,6 +270,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FlagViewer.resx">
       <DependentUpon>FlagViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ObsPad.html">
+      <LogicalName>ObsPad.html</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="InputDisplay.resx">
       <DependentUpon>InputDisplay.cs</DependentUpon>

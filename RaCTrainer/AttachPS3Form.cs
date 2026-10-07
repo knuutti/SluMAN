@@ -78,6 +78,9 @@ namespace racman
 
             ConfigureCombos.GetCombos();
 
+            // The OBS input display page; a busy port is only logged, the Input Display menu shows it.
+            ObsPadServer.StartFromConfig();
+
 #if !DEBUG
             if (func.GetConfigData("config.txt", CheckForUpdatesKey) != "false")
             {
