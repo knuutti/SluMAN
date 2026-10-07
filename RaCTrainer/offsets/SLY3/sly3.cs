@@ -269,7 +269,7 @@ namespace racman
             {
                 throw new InvalidOperationException("Couldn't read the current map.");
             }
-            return mapIndicator + "SavedPos" + selectedPositionIndex;
+            return SavedPositionKey(mapIndicator, selectedPositionIndex);
         }
 
         public override void SavePosition()
@@ -279,6 +279,7 @@ namespace racman
 
             string position = api.ReadMemoryStr(pid, coordsAddress, 12);
             func.ChangeFileLines("config.txt", position, key);
+            OnPositionSaved();
         }
 
         public override void LoadPosition()

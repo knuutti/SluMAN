@@ -19,7 +19,88 @@ namespace racman
 
         public Timer InputsTimer = new Timer();
 
-        public int selectedPositionIndex { get; set; }
+        /// <summary>How many saved position slots each map has.</summary>
+        public const int PositionSlotCount = 8;
+
+        private const string PositionSlotKey = "positionSlot";
+        private int selectedPosition = ReadSelectedPositionSlot();
+
+        /// <summary>
+        /// The slot that Save Position and Load Position use, from the controller combos as well as
+        /// the Position Editor. Remembered across launches.
+        /// </summary>
+        public int selectedPositionIndex
+        {
+            get { return selectedPosition; }
+            set
+            {
+                int slot = Math.Max(0, Math.Min(PositionSlotCount - 1, value));
+                if (slot == selectedPosition)
+                {
+                    return;
+                }
+                selectedPosition = slot;
+                func.ChangeFileLines("config.txt", slot.ToString(), PositionSlotKey);
+            }
+        }
+
+        private static int ReadSelectedPositionSlot()
+        {
+            try
+            {
+                int slot;
+                if (int.TryParse(func.GetConfigData("config.txt", PositionSlotKey), out slot) && slot >= 0 && slot < PositionSlotCount)
+                {
+                    return slot;
+                }
+            }
+            catch
+            {
+                // No readable config.txt yet.
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// A map name made safe for config.txt, whose keys may only hold letters, digits, '_' and
+        /// '-'. Map names such as "Y$KFv_ext" contain '$', which made their keys unreadable.
+        /// </summary>
+        public static string ConfigKeyForMap(string mapIndicator)
+        {
+            StringBuilder key = new StringBuilder(mapIndicator.Length);
+            foreach (char c in mapIndicator)
+            {
+                key.Append(char.IsLetterOrDigit(c) || c == '_' || c == '-' ? c : '_');
+            }
+            return key.ToString();
+        }
+
+        /// <summary>The config key holding a slot's coordinates on a map.</summary>
+        public static string SavedPositionKey(string mapIndicator, int slot)
+        {
+            return ConfigKeyForMap(mapIndicator) + "SavedPos" + slot;
+        }
+
+        /// <summary>The config key holding a slot's name on a map.</summary>
+        public static string SavedPositionNameKey(string mapIndicator, int slot)
+        {
+            return ConfigKeyForMap(mapIndicator) + "SavedPosName" + slot;
+        }
+
+        /// <summary>
+        /// Raised after a position is saved, from a combo or the Position Editor, so open views can
+        /// refresh. Raised on the thread that saved, which is the UI thread for both.
+        /// </summary>
+        public event Action PositionSaved;
+
+        protected void OnPositionSaved()
+        {
+            Action handler = PositionSaved;
+            if (handler != null)
+            {
+                handler();
+            }
+        }
 
         protected IGame(IPS3API api)
         {
