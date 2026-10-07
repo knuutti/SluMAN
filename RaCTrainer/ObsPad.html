@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SluMAN Input Display</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; transition: opacity 0.3s, filter 0.3s; }
+  canvas.offline { opacity: 0.35; filter: grayscale(1); }
+</style>
+</head>
+<body>
+<canvas id="pad" class="offline"></canvas>
+<script>
+// Served by SluMAN for an OBS Browser Source. Add ?skin=<folder> to pin a skin; otherwise the
+// page follows the skin chosen in SluMAN's Input Display.
+"use strict";
+
+var BITS = {
+  l2: 0x1, r2: 0x2, l1: 0x4, r1: 0x8,
+  triangle: 0x10, circle: 0x20, cross: 0x40, square: 0x80,
+  select: 0x100, l3: 0x200, r3: 0x400, start: 0x800,
+  up: 0x1000, right: 0x2000, down: 0x4000, left: 0x8000
+};
+
+// Sprite name for each button that is drawn only while held.
+var HELD = [
+  ["left", "dpadLeft"], ["right", "dpadRight"], ["down", "dpadDown"], ["up", "dpadUp"],
+  ["cross", "cross"], ["circle", "circle"], ["triangle", "triangle"], ["square", "square"],
+  ["select", "select"], ["start", "start"],
+  ["r1", "r1"], ["l1", "l1"], ["l2", "l2"], ["r2", "r2"]
+];
+
+var OFFLINE_AFTER_MS = 3000;
+
+var canvas = document.getElementById("pad");
+var ctx = canvas.getContext("2d");
+var pinnedSkin = new URLSearchParams(location.search).get("skin");
+var skin = null;
+var sheet = null;
+var loadingSkin = null;
+var state = { mask: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
+var lastEvent = 0;
+
+function skinQuery(name) {
+  return name ? "?skin=" + encodeURIComponent(name) : "";
+}
+
+function loadSkin(name) {
+  if (loadingSkin === name) return;
+  loadingSkin = name;
+  fetch("/skin.json" + skinQuery(name), { cache: "no-store" })
+    .then(function (response) { return response.json(); })
+    .then(function (json) {
+      var image = new Image();
+      image.onload = function () {
+        skin = json;
+        sheet = image;
+        canvas.width = json.width;
+        canvas.height = json.height;
+        loadingSkin = null;
+        draw();
+      };
+      image.onerror = function () { loadingSkin = null; };
+      image.src = "/skin.png" + skinQuery(json.name) + (json.name ? "&" : "?") + "t=" + Date.now();
+    })
+    .catch(function () { loadingSkin = null; });
+}
+
+function drawPlot(name, dx, dy) {
+  var plot = skin.buttons[name];
+  if (!plot) return;
+  ctx.drawImage(sheet, plot.spriteX, plot.spriteY, plot.spriteWidth, plot.spriteHeight,
+    plot.drawX + (dx || 0), plot.drawY + (dy || 0), plot.spriteWidth, plot.spriteHeight);
+}
+
+function held(button) {
+  return (state.mask & BITS[button]) !== 0;
+}
+
+function draw() {
+  if (!skin || !sheet) return;
+  var pitch = skin.analogPitch;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawPlot("base");
+
+  // Same as the Input Display window: the "r3"/"l3" sprite while the stick is pressed in,
+  // "r3Press"/"l3Press" otherwise, moved by the stick position.
+  drawPlot(held("r3") ? "r3" : "r3Press", state.rx * pitch, state.ry * pitch);
+  drawPlot(held("l3") ? "l3" : "l3Press", state.lx * pitch, state.ly * pitch);
+
+  for (var i = 0; i < HELD.length; i++) {
+    if (held(HELD[i][0])) drawPlot(HELD[i][1]);
+  }
+}
+
+function setOnline(online) {
+  canvas.classList.toggle("offline", !online);
+}
+
+function connect() {
+  var events = new EventSource("/events");
+  events.onmessage = function (event) {
+    lastEvent = Date.now();
+    setOnline(true);
+    var data = JSON.parse(event.data);
+    state = data;
+    if (!skin) {
+      // The first load failed, e.g. SluMAN wasn't running yet when OBS opened the page.
+      loadSkin(pinnedSkin || data.skin);
+    } else if (!pinnedSkin && data.skin && data.skin !== skin.name) {
+      loadSkin(data.skin);
+    }
+    draw();
+  };
+  // EventSource reconnects by itself, so the source can stay in the scene while SluMAN restarts.
+  events.onerror = function () { setOnline(false); };
+}
+
+setInterval(function () {
+  if (Date.now() - lastEvent > OFFLINE_AFTER_MS) setOnline(false);
+}, 1000);
+
+loadSkin(pinnedSkin);
+connect();
+</script>
+</body>
+</html>

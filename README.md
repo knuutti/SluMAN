@@ -30,5 +30,16 @@ Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` 
 
 Some features may unfortunately not be supported on RPCS3.
 
+## Input display in OBS
+SluMAN serves the input display as a web page that OBS can show with a transparent background, so no chroma key is needed.
+
+1. In SluMAN, open the Input Display, right-click it and choose **Copy OBS URL**. The default URL is `http://127.0.0.1:9674/pad`.
+2. In OBS, add a **Browser Source** and paste the URL.
+3. Set the width and height to the skin's size. SluMAN shows it when you copy the URL; DS3 skins are 800 × 558.
+
+The page follows the skin chosen in SluMAN. To give a source its own skin, add `?skin=` and the folder name from `controllerskins`, for example `http://127.0.0.1:9674/pad?skin=Compact`. The pad turns grey while SluMAN isn't running and comes back when it starts again.
+
+The page is only reachable from your own PC, so it needs no firewall rule. **Serve for OBS** and **Change OBS Port...** are in the same right-click menu.
+
 ## Acknowledgements
 This project is a fork of [racman](https://github.com/MichaelRelaxen/racman). Huge thank you for the work of the racman and [Ratchetron](https://github.com/bordplate/Ratchetron) developers, without your contributions this project would not be possible!
