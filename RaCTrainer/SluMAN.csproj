@@ -161,6 +161,9 @@
     <Compile Include="MemoryForm.Designer.cs">
       <DependentUpon>MemoryForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="MemoryViewerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModLoaderForm.cs">
       <SubType>Form</SubType>
     </Compile>

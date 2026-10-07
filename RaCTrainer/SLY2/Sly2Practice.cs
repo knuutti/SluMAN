@@ -23,6 +23,7 @@ namespace racman
         private const string GadgetsTab = "Gadgets";
         private const string PositionTab = "Position Editor";
         private const string MemoryTab = "Memory";
+        private const string ViewerTab = "Memory Viewer";
         public sly2 game;
         public string gameNameId;
 
@@ -75,7 +76,9 @@ namespace racman
             practiceTabs = new PracticeTabs(this, "Practice");
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
-            practiceTabs.AddTool(MemoryTab, () => new MemoryForm());
+            // The watch list and the hex viewer open each other's tabs.
+            practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
+            practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }

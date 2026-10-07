@@ -59,21 +59,27 @@ namespace racman
         /// Opens the memory window, or brings it forward when it's already open. It's owned by
         /// <paramref name="owner"/>, so it closes with that game window.
         /// </summary>
-        public static void ShowFor(Form owner)
+        public static MemoryForm ShowFor(Form owner)
         {
             MemoryForm memoryForm = Application.OpenForms["MemoryForm"] as MemoryForm;
             if (memoryForm != null)
             {
                 memoryForm.Activate();
-                return;
+                return memoryForm;
             }
 
             memoryForm = new MemoryForm();
             memoryForm.Show(owner);
+            return memoryForm;
         }
 
-        public MemoryForm()
+        // Opens (or selects) the hex viewer. Supplied by the window that hosts this one, so a
+        // Practice window can switch tabs; otherwise the viewer opens as its own window.
+        private readonly Func<MemoryViewerForm> openViewer;
+
+        public MemoryForm(Func<MemoryViewerForm> openViewer = null)
         {
+            this.openViewer = openViewer ?? (() => MemoryViewerForm.ShowFor(this));
             InitializeComponent();
             // With no game form open (unsupported game), this window shows the app-wide messages.
             statusLine = new StatusLine(this, AttachPS3Form.notSupported);
@@ -427,13 +433,57 @@ namespace racman
                 return;
             }
 
-            AddMemoryWatch(expression, registerAddressTypeCombo.Text, "New watch");
+            AddWatchAndRename(expression, registerAddressTypeCombo.Text);
+        }
+
+        /// <summary>
+        /// Adds a watch at a plain address, as the hex viewer's "Add watch" does, and starts
+        /// renaming it.
+        /// </summary>
+        public void AddWatchAt(uint address, string type)
+        {
+            if (!SupportsSubscriptions)
+            {
+                statusLine.Error("Memory watches need Ratchetron or RPCS3. The old WebMAN API can't watch memory.");
+                return;
+            }
+
+            AddressExpression expression;
+            string error;
+            AddressExpression.TryParse(address.ToString("X"), out expression, out error);
+            AddWatchAndRename(expression, type);
+            statusLine.Info($"Added a {type} watch at {address:X}. Type a name for it.");
+        }
+
+        private void AddWatchAndRename(AddressExpression expression, string type)
+        {
+            AddMemoryWatch(expression, type, "New watch");
             SaveCurrentWatchlist();
 
             // Let the user name it right away.
             ListViewItem added = watchedMemoryAddressesListView.Items[watchedMemoryAddressesListView.Items.Count - 1];
             added.EnsureVisible();
+            added.Selected = true;
             added.BeginEdit();
+        }
+
+        private void hexViewerButton_Click(object sender, EventArgs e)
+        {
+            openViewer();
+        }
+
+        private void MenuStripShowInViewer_Click(object sender, EventArgs e)
+        {
+            WatchedAddress watched = Watched(watchedMemoryAddressesListView.FocusedItem);
+            if (watched == null)
+            {
+                return;
+            }
+            MemoryViewerForm viewer = openViewer();
+            if (viewer != null)
+            {
+                viewer.ShowAddress(watched.expression.ToString());
+            }
         }
 
         private void watchedMemoryAddressesListView_AfterLabelEdit(object sender, LabelEditEventArgs e)
@@ -501,6 +551,7 @@ namespace racman
             menuStrip.Items.Add(watched != null && watched.isFrozen ? "Unfreeze" : "Freeze", null, MenuStripEditValue_Freeze);
             menuStrip.Items.Add("Rename", null, (s, args) => focusedItem.BeginEdit());
             menuStrip.Items.Add("Copy address", null, MenuStripCopyAddress_Click);
+            menuStrip.Items.Add("Show in viewer", null, MenuStripShowInViewer_Click);
             menuStrip.Items.Add(new ToolStripSeparator());
             menuStrip.Items.Add("Delete", null, MenuStripDelete_Click);
             menuStrip.Show(Cursor.Position);
