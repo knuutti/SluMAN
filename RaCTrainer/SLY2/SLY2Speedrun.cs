@@ -453,5 +453,10 @@ namespace racman
         {
             MemoryForm.ShowFor(this);
         }
+
+        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            UserData.OpenInExplorer();
+        }
     }
 }

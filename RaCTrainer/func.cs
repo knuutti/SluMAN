@@ -179,7 +179,9 @@ namespace racman
 
         public static void ChangeFileLines(string filename, string contents, string keyword)
         {
-            string[] data = File.ReadAllLines("config.txt");
+            // Only config.txt is ever written; it lives in the user data folder.
+            string configPath = UserData.ConfigPath;
+            string[] data = File.ReadAllLines(configPath);
             bool found = false;
 
             for (int i = 0; i < data.Length; i++)
@@ -203,11 +205,11 @@ namespace racman
                     new_data[i] = data[i];
                 }
                 new_data[data.Length] = keyword + " = " + contents;
-                File.WriteAllLines("config.txt", new_data);
+                File.WriteAllLines(configPath, new_data);
             }
             else
             {
-                File.WriteAllLines("config.txt", data);
+                File.WriteAllLines(configPath, data);
             }
 
 
@@ -215,7 +217,8 @@ namespace racman
 
         public static string GetConfigData(string filename, string keyword)
         {
-            string[] data = File.ReadAllLines(filename);
+            // config.txt is the user's; other files (data/*.txt) ship next to SluMAN.exe.
+            string[] data = File.ReadAllLines(filename == "config.txt" ? UserData.ConfigPath : filename);
 
             for (int i = 0; i < data.Length; i++)
             {

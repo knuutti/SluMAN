@@ -15,7 +15,8 @@ namespace racman
     public partial class AutosplitterConfigForm : Form
     {
         public Route SelectedRoute => routeSelectionListBox.SelectedItem as Route;
-        private const string filePath = "usr";
+        // Split routes are the user's own files.
+        private static string filePath => UserData.Path("usr");
         private static int maxRows = (AutosplitterHelper.mmfConfigBytes / 2);
 
         private int previousIndex = -1;
@@ -132,9 +133,9 @@ namespace racman
                         SelectedRoute.Name = newName;
 
                         // Rename the file
-                        if (File.Exists($"usr/{oldName}.usr"))
+                        if (File.Exists($"{filePath}/{oldName}.usr"))
                         {
-                            File.Move($"usr/{oldName}.usr", $"usr/{SelectedRoute.Name}.usr");
+                            File.Move($"{filePath}/{oldName}.usr", $"{filePath}/{SelectedRoute.Name}.usr");
                         }
                     }
                     else
@@ -201,9 +202,9 @@ namespace racman
                 SelectedRoute.Name = newName;
 
                 // Rename the file
-                if (File.Exists($"usr/{oldName}.usr"))
+                if (File.Exists($"{filePath}/{oldName}.usr"))
                 {
-                    File.Move($"usr/{oldName}.usr", $"usr/{SelectedRoute.Name}.usr");
+                    File.Move($"{filePath}/{oldName}.usr", $"{filePath}/{SelectedRoute.Name}.usr");
                 }
             }
             else
@@ -216,7 +217,7 @@ namespace racman
             routeSelectionListBox.Items[routeSelectionListBox.SelectedIndex] = routeSelectionListBox.SelectedItem;
 
             // Save route to disk
-            string filename = $"usr/{SelectedRoute.Name}.usr";
+            string filename = $"{filePath}/{SelectedRoute.Name}.usr";
             try
             {
                 File.WriteAllBytes(filename, SelectedRoute.ByteArray);
@@ -281,7 +282,7 @@ namespace racman
             if (ConfirmButton.Confirm(removeButton, "?", statusLine, $"Click the red button again to delete {SelectedRoute.Name}. This can't be undone."))
             {
                 string deletedName = SelectedRoute.Name;
-                File.Delete($"usr/{SelectedRoute.Name}.usr");
+                File.Delete($"{filePath}/{SelectedRoute.Name}.usr");
                 routeSelectionListBox.Items.Remove(SelectedRoute);
                 grid.Rows.Clear();
                 removeButton.Enabled = false;
@@ -307,9 +308,9 @@ namespace racman
             }
             else
             {
-                File.Copy(openFileDialog1.FileName, $"usr/{Path.GetFileName(openFileDialog1.FileName)}");
+                File.Copy(openFileDialog1.FileName, $"{filePath}/{Path.GetFileName(openFileDialog1.FileName)}");
             }
-            LoadRoute($"usr/{Path.GetFileName(openFileDialog1.FileName)}");
+            LoadRoute($"{filePath}/{Path.GetFileName(openFileDialog1.FileName)}");
             statusLine.Info($"Loaded {Path.GetFileNameWithoutExtension(openFileDialog1.FileName)} from {openFileDialog1.FileName}");
         }
 

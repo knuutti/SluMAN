@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Windows.Forms;
 using System.Reflection;
 
@@ -17,6 +18,12 @@ namespace racman
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            // Files SluMAN ships with (data, controllerskins, mods, autosplitters) are opened by
+            // relative path, so a shortcut with another working folder mustn't break them.
+            Directory.SetCurrentDirectory(Application.StartupPath);
+            UserData.Prepare();
+
             Start();
         }
 

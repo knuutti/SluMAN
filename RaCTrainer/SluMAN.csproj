@@ -142,6 +142,7 @@
     <Compile Include="IGame.cs" />
     <Compile Include="ObsPadServer.cs" />
     <Compile Include="StatusLine.cs" />
+    <Compile Include="UserData.cs" />
     <Compile Include="InputDisplay.cs">
       <SubType>Form</SubType>
     </Compile>
