@@ -57,6 +57,19 @@ namespace racman
             this.saveWarpButton = new System.Windows.Forms.Button();
             this.deleteWarpButton = new System.Windows.Forms.Button();
             this.currentMapLabel = new System.Windows.Forms.Label();
+            this.savedPositionsGroupBox = new System.Windows.Forms.GroupBox();
+            this.slotGrid = new System.Windows.Forms.DataGridView();
+            this.slotNumberColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.slotNameColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.slotXColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.slotYColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.slotZColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.saveSlotButton = new System.Windows.Forms.Button();
+            this.loadSlotButton = new System.Windows.Forms.Button();
+            this.clearSlotButton = new System.Windows.Forms.Button();
+            this.slotInfoLabel = new System.Windows.Forms.Label();
+            this.savedPositionsGroupBox.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.slotGrid)).BeginInit();
             this.charInfoGroupBox.SuspendLayout();
             this.positionGroupBox.SuspendLayout();
             this.warpGroupBox.SuspendLayout();
@@ -491,11 +504,130 @@ namespace racman
             this.currentMapLabel.TabIndex = 5;
             this.currentMapLabel.Text = "Current map: -";
             //
+            // savedPositionsGroupBox
+            //
+            this.savedPositionsGroupBox.Controls.Add(this.slotGrid);
+            this.savedPositionsGroupBox.Controls.Add(this.saveSlotButton);
+            this.savedPositionsGroupBox.Controls.Add(this.loadSlotButton);
+            this.savedPositionsGroupBox.Controls.Add(this.clearSlotButton);
+            this.savedPositionsGroupBox.Controls.Add(this.slotInfoLabel);
+            this.savedPositionsGroupBox.Location = new System.Drawing.Point(482, 10);
+            this.savedPositionsGroupBox.Name = "savedPositionsGroupBox";
+            this.savedPositionsGroupBox.Size = new System.Drawing.Size(330, 394);
+            this.savedPositionsGroupBox.TabIndex = 3;
+            this.savedPositionsGroupBox.TabStop = false;
+            this.savedPositionsGroupBox.Text = "Saved Positions (this map)";
+            //
+            // slotGrid
+            //
+            this.slotGrid.AllowUserToAddRows = false;
+            this.slotGrid.AllowUserToDeleteRows = false;
+            this.slotGrid.AllowUserToResizeRows = false;
+            this.slotGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.slotGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.slotGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.slotNumberColumn,
+            this.slotNameColumn,
+            this.slotXColumn,
+            this.slotYColumn,
+            this.slotZColumn});
+            this.slotGrid.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnKeystrokeOrF2;
+            this.slotGrid.Location = new System.Drawing.Point(10, 20);
+            this.slotGrid.MultiSelect = false;
+            this.slotGrid.Name = "slotGrid";
+            this.slotGrid.RowHeadersVisible = false;
+            this.slotGrid.ScrollBars = System.Windows.Forms.ScrollBars.None;
+            this.slotGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.slotGrid.Size = new System.Drawing.Size(310, 222);
+            this.slotGrid.TabIndex = 0;
+            this.slotGrid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.slotGrid_CellEndEdit);
+            this.slotGrid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.slotGrid_CellDoubleClick);
+            this.slotGrid.SelectionChanged += new System.EventHandler(this.slotGrid_SelectionChanged);
+            //
+            // slotNumberColumn
+            //
+            this.slotNumberColumn.FillWeight = 12F;
+            this.slotNumberColumn.HeaderText = "#";
+            this.slotNumberColumn.Name = "slotNumberColumn";
+            this.slotNumberColumn.ReadOnly = true;
+            this.slotNumberColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // slotNameColumn
+            //
+            this.slotNameColumn.FillWeight = 46F;
+            this.slotNameColumn.HeaderText = "Name";
+            this.slotNameColumn.MaxInputLength = 48;
+            this.slotNameColumn.Name = "slotNameColumn";
+            this.slotNameColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // slotXColumn
+            //
+            this.slotXColumn.FillWeight = 26F;
+            this.slotXColumn.HeaderText = "X";
+            this.slotXColumn.Name = "slotXColumn";
+            this.slotXColumn.ReadOnly = true;
+            this.slotXColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // slotYColumn
+            //
+            this.slotYColumn.FillWeight = 26F;
+            this.slotYColumn.HeaderText = "Y";
+            this.slotYColumn.Name = "slotYColumn";
+            this.slotYColumn.ReadOnly = true;
+            this.slotYColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // slotZColumn
+            //
+            this.slotZColumn.FillWeight = 26F;
+            this.slotZColumn.HeaderText = "Z";
+            this.slotZColumn.Name = "slotZColumn";
+            this.slotZColumn.ReadOnly = true;
+            this.slotZColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // saveSlotButton
+            //
+            this.saveSlotButton.Location = new System.Drawing.Point(10, 250);
+            this.saveSlotButton.Name = "saveSlotButton";
+            this.saveSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.saveSlotButton.TabIndex = 1;
+            this.saveSlotButton.Text = "Save Here";
+            this.saveSlotButton.UseVisualStyleBackColor = true;
+            this.saveSlotButton.Click += new System.EventHandler(this.saveSlotButton_Click);
+            //
+            // loadSlotButton
+            //
+            this.loadSlotButton.Location = new System.Drawing.Point(116, 250);
+            this.loadSlotButton.Name = "loadSlotButton";
+            this.loadSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.loadSlotButton.TabIndex = 2;
+            this.loadSlotButton.Text = "Load";
+            this.loadSlotButton.UseVisualStyleBackColor = true;
+            this.loadSlotButton.Click += new System.EventHandler(this.loadSlotButton_Click);
+            //
+            // clearSlotButton
+            //
+            this.clearSlotButton.Location = new System.Drawing.Point(222, 250);
+            this.clearSlotButton.Name = "clearSlotButton";
+            this.clearSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.clearSlotButton.TabIndex = 3;
+            this.clearSlotButton.Text = "Clear";
+            this.clearSlotButton.UseVisualStyleBackColor = true;
+            this.clearSlotButton.Click += new System.EventHandler(this.clearSlotButton_Click);
+            //
+            // slotInfoLabel
+            //
+            this.slotInfoLabel.Location = new System.Drawing.Point(8, 292);
+            this.slotInfoLabel.Name = "slotInfoLabel";
+            this.slotInfoLabel.Size = new System.Drawing.Size(312, 92);
+            this.slotInfoLabel.TabIndex = 4;
+            this.slotInfoLabel.Text = "The Save Position and Load Position combos use the selected slot.";
+            //
             // PositionEditor
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(484, 414);
+            this.ClientSize = new System.Drawing.Size(824, 414);
+            this.Controls.Add(this.savedPositionsGroupBox);
             this.Controls.Add(this.charInfoGroupBox);
             this.Controls.Add(this.positionGroupBox);
             this.Controls.Add(this.warpGroupBox);
@@ -507,6 +639,8 @@ namespace racman
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.PositionEditor_FormClosing);
             this.charInfoGroupBox.ResumeLayout(false);
             this.charInfoGroupBox.PerformLayout();
+            this.savedPositionsGroupBox.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.slotGrid)).EndInit();
             this.positionGroupBox.ResumeLayout(false);
             this.positionGroupBox.PerformLayout();
             this.warpGroupBox.ResumeLayout(false);
@@ -560,5 +694,16 @@ namespace racman
         private System.Windows.Forms.Button saveWarpButton;
         private System.Windows.Forms.Button deleteWarpButton;
         private System.Windows.Forms.Label currentMapLabel;
+        private System.Windows.Forms.GroupBox savedPositionsGroupBox;
+        private System.Windows.Forms.DataGridView slotGrid;
+        private System.Windows.Forms.DataGridViewTextBoxColumn slotNumberColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn slotNameColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn slotXColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn slotYColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn slotZColumn;
+        private System.Windows.Forms.Button saveSlotButton;
+        private System.Windows.Forms.Button loadSlotButton;
+        private System.Windows.Forms.Button clearSlotButton;
+        private System.Windows.Forms.Label slotInfoLabel;
     }
 }

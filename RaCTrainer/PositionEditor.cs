@@ -72,6 +72,17 @@ namespace racman
             LoadBuiltinWarps();
             LoadUserWarps();
 
+            fillingSlots = true;
+            for (int i = 0; i < IGame.PositionSlotCount; i++)
+            {
+                slotGrid.Rows.Add((i + 1).ToString(), "", "", "", "");
+            }
+            slotGrid.Rows[game.selectedPositionIndex].Selected = true;
+            slotGrid.CurrentCell = slotGrid.Rows[game.selectedPositionIndex].Cells[0];
+            fillingSlots = false;
+            RefreshSlots();
+            game.PositionSaved += game_PositionSaved;
+
             pollTimer = new System.Windows.Forms.Timer();
             pollTimer.Interval = 10;
             pollTimer.Tick += PollTimer_Tick;
@@ -173,6 +184,7 @@ namespace racman
                 string mapName = getMapDisplayName != null ? getMapDisplayName(mapIndicator) : null;
                 currentMapLabel.Text = "Current map: " + (mapName ?? mapIndicator);
                 RefreshWarpDropdown(mapIndicator);
+                RefreshSlots();
             }
 
             if (!TryResolvePointers(out uint entityPtr, out uint transformPtr))
@@ -388,8 +400,214 @@ namespace racman
 
         private void PositionEditor_FormClosing(object sender, FormClosingEventArgs e)
         {
+            game.PositionSaved -= game_PositionSaved;
             pollTimer.Stop();
             pollTimer.Dispose();
+        }
+
+        // --- Saved Positions ---
+
+        // True while the table is being filled in code, so its events don't act on it.
+        private bool fillingSlots;
+
+        private int SelectedSlot => slotGrid.CurrentRow != null ? slotGrid.CurrentRow.Index : game.selectedPositionIndex;
+
+        /// <summary>
+        /// Reads a saved position: 24 hex digits holding X, Y and Z as big-endian floats.
+        /// </summary>
+        private static bool TryParseSavedPosition(string hex, out float x, out float y, out float z)
+        {
+            x = y = z = 0;
+            if (hex == null || hex.Length != 24)
+            {
+                return false;
+            }
+            try
+            {
+                byte[] bytes = new byte[12];
+                for (int i = 0; i < 12; i++)
+                {
+                    bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+                }
+                x = BitConverter.ToSingle(bytes.Skip(0).Take(4).Reverse().ToArray(), 0);
+                y = BitConverter.ToSingle(bytes.Skip(4).Take(4).Reverse().ToArray(), 0);
+                z = BitConverter.ToSingle(bytes.Skip(8).Take(4).Reverse().ToArray(), 0);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool SlotHasPosition(int slot)
+        {
+            float x, y, z;
+            return currentMapIndicator != ""
+                && TryParseSavedPosition(func.GetConfigData("config.txt", IGame.SavedPositionKey(currentMapIndicator, slot)), out x, out y, out z);
+        }
+
+        private string SlotName(int slot)
+        {
+            return currentMapIndicator == "" ? "" : func.GetConfigData("config.txt", IGame.SavedPositionNameKey(currentMapIndicator, slot));
+        }
+
+        /// <summary>
+        /// Fills the table with the current map's slots. Called when the map changes and after a
+        /// save, including one from a combo.
+        /// </summary>
+        private void RefreshSlots()
+        {
+            if (slotGrid.IsCurrentCellInEditMode)
+            {
+                // Don't throw away a name being typed; the edit's end refreshes it.
+                return;
+            }
+
+            fillingSlots = true;
+            try
+            {
+                for (int i = 0; i < IGame.PositionSlotCount; i++)
+                {
+                    DataGridViewRow row = slotGrid.Rows[i];
+                    row.Cells[slotNameColumn.Index].Value = SlotName(i);
+
+                    float x, y, z;
+                    string hex = currentMapIndicator == "" ? "" : func.GetConfigData("config.txt", IGame.SavedPositionKey(currentMapIndicator, i));
+                    bool saved = TryParseSavedPosition(hex, out x, out y, out z);
+                    row.Cells[slotXColumn.Index].Value = saved ? x.ToString("F1", CultureInfo.InvariantCulture) : "";
+                    row.Cells[slotYColumn.Index].Value = saved ? y.ToString("F1", CultureInfo.InvariantCulture) : "";
+                    row.Cells[slotZColumn.Index].Value = saved ? z.ToString("F1", CultureInfo.InvariantCulture) : "";
+                }
+            }
+            finally
+            {
+                fillingSlots = false;
+            }
+
+            bool mapKnown = currentMapIndicator != "";
+            saveSlotButton.Enabled = mapKnown;
+            loadSlotButton.Enabled = mapKnown;
+            clearSlotButton.Enabled = mapKnown;
+            UpdateSlotInfo();
+        }
+
+        private void UpdateSlotInfo()
+        {
+            int slot = game.selectedPositionIndex;
+            string name = SlotName(slot);
+            string slotText = name == "" ? $"slot {slot + 1}" : $"slot {slot + 1} ({name})";
+            slotInfoLabel.Text = $"The Save Position and Load Position combos use {slotText}.\n\n"
+                + "Each map has its own slots. Select a slot and type to name it; double-click a slot to load it.";
+        }
+
+        private void game_PositionSaved()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+            RefreshSlots();
+        }
+
+        private void slotGrid_SelectionChanged(object sender, EventArgs e)
+        {
+            if (fillingSlots || slotGrid.CurrentRow == null)
+            {
+                return;
+            }
+            game.selectedPositionIndex = slotGrid.CurrentRow.Index;
+            UpdateSlotInfo();
+        }
+
+        private void slotGrid_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (fillingSlots || e.ColumnIndex != slotNameColumn.Index)
+            {
+                return;
+            }
+
+            if (currentMapIndicator == "")
+            {
+                RefreshSlots();
+                return;
+            }
+
+            object value = slotGrid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value;
+            // config.txt is one entry per line, so a name can't span lines.
+            string name = (value == null ? "" : value.ToString()).Replace("\r", " ").Replace("\n", " ").Trim();
+            func.ChangeFileLines("config.txt", name, IGame.SavedPositionNameKey(currentMapIndicator, e.RowIndex));
+            RefreshSlots();
+        }
+
+        private void slotGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            // Double-clicking the name edits it instead.
+            if (e.RowIndex >= 0 && e.ColumnIndex != slotNameColumn.Index)
+            {
+                LoadSlot(e.RowIndex);
+            }
+        }
+
+        private void saveSlotButton_Click(object sender, EventArgs e)
+        {
+            int slot = SelectedSlot;
+            game.selectedPositionIndex = slot;
+            try
+            {
+                game.SavePosition();
+                statusLine.Info($"Saved slot {slot + 1}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't save slot {slot + 1}: {ex.Message}");
+            }
+        }
+
+        private void loadSlotButton_Click(object sender, EventArgs e)
+        {
+            LoadSlot(SelectedSlot);
+        }
+
+        private void LoadSlot(int slot)
+        {
+            if (!SlotHasPosition(slot))
+            {
+                statusLine.Error($"Slot {slot + 1} is empty on this map.");
+                return;
+            }
+
+            game.selectedPositionIndex = slot;
+            try
+            {
+                game.LoadPosition();
+                // Fly mode would otherwise pull the player back to the height it was holding.
+                ResetFlyHeight();
+                statusLine.Info($"Loaded slot {slot + 1}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't load slot {slot + 1}: {ex.Message}");
+            }
+        }
+
+        private void clearSlotButton_Click(object sender, EventArgs e)
+        {
+            int slot = SelectedSlot;
+            if (!SlotHasPosition(slot) && SlotName(slot) == "")
+            {
+                return;
+            }
+
+            if (!ConfirmButton.Confirm(clearSlotButton, "Confirm", statusLine, $"Click Confirm to clear slot {slot + 1} on this map."))
+            {
+                return;
+            }
+
+            func.ChangeFileLines("config.txt", "", IGame.SavedPositionKey(currentMapIndicator, slot));
+            func.ChangeFileLines("config.txt", "", IGame.SavedPositionNameKey(currentMapIndicator, slot));
+            RefreshSlots();
+            statusLine.Info($"Cleared slot {slot + 1}.");
         }
 
         // --- Warp Locations ---
