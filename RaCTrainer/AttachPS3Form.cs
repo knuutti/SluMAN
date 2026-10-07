@@ -36,25 +36,8 @@ namespace racman
             // Handling this event stops AutoUpdater from opening its dialog by itself.
             AutoUpdater.CheckForUpdateEvent += AutoUpdater_CheckForUpdateEvent;
 
-            if (File.Exists(Environment.CurrentDirectory + @"\config.txt"))
-            {
-                ip = func.GetConfigData("config.txt", "ip");//ip = File.ReadAllText(Environment.CurrentDirectory + @"\config.txt");
-            }
-            else
-            {
-                // Try to copy the template config.txt from the source directory
-                string sourceConfigPath = Path.Combine(Application.StartupPath, "..", "..", "..", "config.txt");
-                if (File.Exists(sourceConfigPath))
-                {
-                    File.Copy(sourceConfigPath, "config.txt");
-                }
-                else
-                {
-                    // Fallback: create empty config if template not found
-                    var config = File.Create("config.txt");
-                    config.Close();
-                }
-            }
+            // config.txt always exists: UserData.Prepare creates it at startup.
+            ip = func.GetConfigData("config.txt", "ip");
             IPTextBox.Text = ip;
 
             // Make a confirm alert dialog to make sure the user confirms to the terms of service

@@ -58,7 +58,7 @@ namespace racman
             this.layout = layout;
             this.getMapDisplayName = getMapDisplayName;
             this.host = host;
-            userWarpFile = $"{layout.warpFilePrefix}_user_warps.txt";
+            userWarpFile = UserData.Path($"{layout.warpFilePrefix}_user_warps.txt");
             builtinWarpFile = $"data/{layout.warpFilePrefix}_warp_locations.txt";
 
             InitializeComponent();

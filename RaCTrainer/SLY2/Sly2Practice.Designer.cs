@@ -62,6 +62,7 @@
             this.inputDisplayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.configureButtonCombosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.memoryUtilitiesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openUserDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.powerOffPs3Button = new System.Windows.Forms.ToolStripMenuItem();
             this.rebootPS3Button = new System.Windows.Forms.ToolStripMenuItem();
@@ -666,6 +667,7 @@
             this.inputDisplayToolStripMenuItem,
             this.configureButtonCombosToolStripMenuItem,
             this.memoryUtilitiesToolStripMenuItem,
+            this.openUserDataToolStripMenuItem,
             this.toolStripSeparator1,
             this.powerOffPs3Button,
             this.rebootPS3Button});
@@ -700,6 +702,13 @@
             this.memoryUtilitiesToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
             this.memoryUtilitiesToolStripMenuItem.Text = "Memory Utilities...";
             this.memoryUtilitiesToolStripMenuItem.Click += new System.EventHandler(this.memoryUtilitiesToolStripMenuItem_Click);
+            // 
+            // openUserDataToolStripMenuItem
+            // 
+            this.openUserDataToolStripMenuItem.Name = "openUserDataToolStripMenuItem";
+            this.openUserDataToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
+            this.openUserDataToolStripMenuItem.Text = "Open User Data Folder";
+            this.openUserDataToolStripMenuItem.Click += new System.EventHandler(this.openUserDataToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
@@ -812,6 +821,7 @@
         private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripMenuItem memoryUtilitiesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openUserDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem powerOffPs3Button;
         private System.Windows.Forms.ToolStripMenuItem rebootPS3Button;
         private System.Windows.Forms.Label label3;

@@ -30,6 +30,13 @@ Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` 
 
 Some features may unfortunately not be supported on RPCS3.
 
+## Your files
+SluMAN keeps your settings, saved positions, watchlists, split routes and warp locations in `%APPDATA%\SluMAN`, so they don't depend on where you extracted SluMAN and updates never touch them. **Tools → Open User Data Folder** opens it.
+
+The first time a new version starts, it copies these files over from the SluMAN folder, if you have them there. The originals stay where they were.
+
+To keep everything next to `SluMAN.exe` instead, for example on a USB stick, create an empty file named `portable.txt` in the SluMAN folder.
+
 ## Input display in OBS
 SluMAN serves the input display as a web page that OBS can show with a transparent background, so no chroma key is needed.
 

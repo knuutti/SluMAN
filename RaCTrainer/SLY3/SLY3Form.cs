@@ -418,6 +418,11 @@ namespace racman
             MemoryForm.ShowFor(this);
         }
 
+        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            UserData.OpenInExplorer();
+        }
+
         private void loadMapButton_Click(object sender, EventArgs e)
         {
             game.LoadMap(mapComboBox.SelectedIndex);

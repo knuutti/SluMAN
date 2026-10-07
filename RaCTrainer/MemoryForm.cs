@@ -678,9 +678,11 @@ namespace racman
         // Title IDs such as NPEA00343 are letters and digits, so they are safe in a config key.
         private static string CurrentWatchlistKey => "watchlist_" + (AttachPS3Form.game ?? "");
 
+        private static string WatchlistsFolder => UserData.Path("watchlists");
+
         private static string WatchlistPath(string listName)
         {
-            return $"watchlists/{AttachPS3Form.game}-{listName}.mw";
+            return Path.Combine(WatchlistsFolder, $"{AttachPS3Form.game}-{listName}.mw");
         }
 
         private void MemoryForm_Load(object sender, EventArgs e)
@@ -741,7 +743,7 @@ namespace racman
                 return;
             }
 
-            Directory.CreateDirectory("watchlists");
+            Directory.CreateDirectory(WatchlistsFolder);
             SaveWatchListToFile(WatchlistPath(currentWatchlist));
         }
 
@@ -755,11 +757,11 @@ namespace racman
             // The list in use is always offered, even before its file exists.
             watchlistItems.Add(currentWatchlist);
 
-            if (!Directory.Exists("watchlists"))
+            if (!Directory.Exists(WatchlistsFolder))
                 return;
 
             // Only the current game's lists.
-            foreach (string filePath in Directory.GetFiles("watchlists", $"{gamePrefix}*.mw"))
+            foreach (string filePath in Directory.GetFiles(WatchlistsFolder, $"{gamePrefix}*.mw"))
             {
                 string fileName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -844,7 +846,7 @@ namespace racman
                 return;
             }
 
-            Directory.CreateDirectory("watchlists");
+            Directory.CreateDirectory(WatchlistsFolder);
             if (!SaveWatchListToFile(WatchlistPath(listName)))
             {
                 return;
