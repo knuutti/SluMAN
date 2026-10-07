@@ -237,6 +237,43 @@ namespace racman
 
         }
 
+        // Live data (subscriptions) arrives over UDP from the PS3. Windows Firewall can drop it
+        // silently while everything sent over TCP still works.
+        private long receivedDataPackets = 0;
+
+        /// <summary>How many live data packets have arrived since connecting.</summary>
+        public long ReceivedDataPackets => Interlocked.Read(ref receivedDataPackets);
+
+        /// <summary>
+        /// Raised when the data channel is open and has subscriptions but nothing arrives, which
+        /// almost always means a firewall is dropping it. Raised on a background thread.
+        /// </summary>
+        public event Action DataChannelSilent;
+
+        // The server resends every subscription about every 500 ms, so this is many missed packets.
+        private const int SilentAfterMs = 6000;
+
+        private void WatchForSilentDataChannel()
+        {
+            Thread.Sleep(SilentAfterMs);
+            if (!this.connected || ReceivedDataPackets > 0)
+            {
+                return;
+            }
+            if (this.memSubCallbacks.Count == 0)
+            {
+                // Nothing subscribed, so nothing would have been sent.
+                return;
+            }
+
+            Console.WriteLine($"No live data received in {SilentAfterMs / 1000} s; a firewall is probably blocking it.");
+            Action handler = DataChannelSilent;
+            if (handler != null)
+            {
+                handler();
+            }
+        }
+
         private void DataChannelReceive()
         {
             IPEndPoint end = new IPEndPoint(IPAddress.Any, 0);
@@ -246,6 +283,7 @@ namespace racman
                 try
                 {
                     byte[] cmdBuf = this.udpClient.Receive(ref end);
+                    Interlocked.Increment(ref receivedDataPackets);
                     byte command = cmdBuf.Take(1).ToArray()[0];
 
                     switch (command)
@@ -307,7 +345,8 @@ namespace racman
                 {
                     if (port++ > 5000)
                     {
-                        MessageBox.Show("Tried to open data connection on all ports between 4000 and 5000, but that failed. Did you deny RaCMAN firewall access?");
+                        // Binding fails only when the ports are taken; a firewall doesn't stop it.
+                        MessageBox.Show("SluMAN couldn't open a local port for live data (it tried 4000 to 5000). Another program may be using them. Close it and attach again.", "Couldn't open a port");
                         return;
                     }
                 }
@@ -337,6 +376,10 @@ namespace racman
                 Thread dataThread = new Thread(this.DataChannelReceive);
                 dataThread.IsBackground = true; // Critical: Mark as background thread so app can exit
                 dataThread.Start();
+
+                Thread watchThread = new Thread(this.WatchForSilentDataChannel);
+                watchThread.IsBackground = true;
+                watchThread.Start();
             } else if (returnValue[0] == 2)
             {
                 Console.WriteLine("Tried to open data channel, but server says we already have one open.");

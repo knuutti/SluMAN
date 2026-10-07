@@ -213,6 +213,13 @@ namespace racman
 
             func.api = this.useOldAPI ? (IPS3API)new WebMAN(ip) : (IPS3API)new Ratchetron(ip);
 
+            Ratchetron ratchetron = func.api as Ratchetron;
+            if (ratchetron != null)
+            {
+                // Offers a firewall rule when live data from the PS3 never arrives.
+                ratchetron.DataChannelSilent += () => FirewallHelper.OnDataChannelSilent(ratchetron);
+            }
+
             if (!this.useOldAPI)
             {
                 if (!func.PrepareRatchetron(ip))
