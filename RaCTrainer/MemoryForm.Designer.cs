@@ -48,14 +48,15 @@ namespace racman
             //
             this.registerAddressTextBox.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.registerAddressTextBox.Location = new System.Drawing.Point(12, 496);
-            this.registerAddressTextBox.MaximumSize = new System.Drawing.Size(106, 20);
-            this.registerAddressTextBox.MinimumSize = new System.Drawing.Size(106, 20);
+            this.registerAddressTextBox.MaximumSize = new System.Drawing.Size(150, 20);
+            this.registerAddressTextBox.MinimumSize = new System.Drawing.Size(150, 20);
             this.registerAddressTextBox.Name = "registerAddressTextBox";
-            this.registerAddressTextBox.Size = new System.Drawing.Size(106, 20);
+            this.registerAddressTextBox.Size = new System.Drawing.Size(150, 20);
             this.registerAddressTextBox.TabIndex = 0;
             //
             // registerAddressTypeCombo
             //
+            this.registerAddressTypeCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.registerAddressTypeCombo.FormattingEnabled = true;
             this.registerAddressTypeCombo.Items.AddRange(new object[] {
             "Int32",
@@ -64,13 +65,13 @@ namespace racman
             "Byte",
             "Float",
             "Pointer"});
-            this.registerAddressTypeCombo.Location = new System.Drawing.Point(122, 496);
-            this.registerAddressTypeCombo.MaximumSize = new System.Drawing.Size(121, 0);
-            this.registerAddressTypeCombo.MinimumSize = new System.Drawing.Size(121, 0);
+            this.registerAddressTypeCombo.Location = new System.Drawing.Point(166, 496);
+            this.registerAddressTypeCombo.MaximumSize = new System.Drawing.Size(77, 0);
+            this.registerAddressTypeCombo.MinimumSize = new System.Drawing.Size(77, 0);
             this.registerAddressTypeCombo.Name = "registerAddressTypeCombo";
-            this.registerAddressTypeCombo.Size = new System.Drawing.Size(121, 21);
+            this.registerAddressTypeCombo.Size = new System.Drawing.Size(77, 21);
             this.registerAddressTypeCombo.TabIndex = 1;
-            this.registerAddressTypeCombo.Text = "Int32";
+            this.registerAddressTypeCombo.SelectedIndex = 0;
             //
             // addMemoryWatchButton
             //
@@ -128,7 +129,7 @@ namespace racman
             this.saveWatchListButton.Name = "saveWatchListButton";
             this.saveWatchListButton.Size = new System.Drawing.Size(90, 21);
             this.saveWatchListButton.TabIndex = 7;
-            this.saveWatchListButton.Text = "Save";
+            this.saveWatchListButton.Text = "Save As";
             this.saveWatchListButton.UseVisualStyleBackColor = true;
             this.saveWatchListButton.Click += new System.EventHandler(this.saveWatchListButton_Click);
             //
@@ -137,14 +138,14 @@ namespace racman
             this.addressLabel.AutoSize = true;
             this.addressLabel.Location = new System.Drawing.Point(9, 480);
             this.addressLabel.Name = "addressLabel";
-            this.addressLabel.Size = new System.Drawing.Size(48, 13);
+            this.addressLabel.Size = new System.Drawing.Size(101, 13);
             this.addressLabel.TabIndex = 8;
-            this.addressLabel.Text = "Address:";
+            this.addressLabel.Text = "Address or pointer:";
             //
             // typeLabel
             //
             this.typeLabel.AutoSize = true;
-            this.typeLabel.Location = new System.Drawing.Point(119, 480);
+            this.typeLabel.Location = new System.Drawing.Point(163, 480);
             this.typeLabel.Name = "typeLabel";
             this.typeLabel.Size = new System.Drawing.Size(34, 13);
             this.typeLabel.TabIndex = 9;
@@ -164,9 +165,9 @@ namespace racman
             this.watchlistsLabel.AutoSize = true;
             this.watchlistsLabel.Location = new System.Drawing.Point(9, 519);
             this.watchlistsLabel.Name = "watchlistsLabel";
-            this.watchlistsLabel.Size = new System.Drawing.Size(59, 13);
+            this.watchlistsLabel.Size = new System.Drawing.Size(205, 13);
             this.watchlistsLabel.TabIndex = 11;
-            this.watchlistsLabel.Text = "Watchlists:";
+            this.watchlistsLabel.Text = "Watchlist (changes save automatically):";
             //
             // memoryWatchLabel
             //
@@ -198,7 +199,7 @@ namespace racman
             this.MinimizeBox = false;
             this.Name = "MemoryForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "Memory utilities";
+            this.Text = "SluMAN :: Memory Utilities";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MemoryForm_FormClosing);
             this.Load += new System.EventHandler(this.MemoryForm_Load);
             this.ResumeLayout(false);

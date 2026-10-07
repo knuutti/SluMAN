@@ -543,5 +543,10 @@ namespace racman
         {
             game.LoadJob(jobComboBox.Text);
         }
+
+        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MemoryForm.ShowFor(this);
+        }
     }
 }

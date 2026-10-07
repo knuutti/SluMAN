@@ -448,5 +448,10 @@ namespace racman
                 Environment.Exit(0);
             }
         }
+
+        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MemoryForm.ShowFor(this);
+        }
     }
 }
