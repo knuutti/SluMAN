@@ -23,6 +23,7 @@ namespace racman
         private const string GadgetsTab = "Gadgets";
         private const string PositionTab = "Position Editor";
         private const string MemoryTab = "Memory";
+        private const string ViewerTab = "Memory Viewer";
 
         public bool FlyModeEnabled => flyModeCheckBox.Checked;
         public bool InfiniteJumpEnabled => infiniteJumpCheckBox.Checked;
@@ -85,7 +86,9 @@ namespace racman
             practiceTabs = new PracticeTabs(this, "Practice");
             practiceTabs.AddTool(GadgetsTab, () => new SLY3GadgetsForm(game));
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
-            practiceTabs.AddTool(MemoryTab, () => new MemoryForm());
+            // The watch list and the hex viewer open each other's tabs.
+            practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
+            practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }

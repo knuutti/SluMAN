@@ -37,6 +37,7 @@ namespace racman
             this.AddressColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.ValueColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.saveWatchListButton = new System.Windows.Forms.Button();
+            this.hexViewerButton = new System.Windows.Forms.Button();
             this.addressLabel = new System.Windows.Forms.Label();
             this.typeLabel = new System.Windows.Forms.Label();
             this.savedWatchlistsComboBox = new System.Windows.Forms.ComboBox();
@@ -133,6 +134,16 @@ namespace racman
             this.saveWatchListButton.UseVisualStyleBackColor = true;
             this.saveWatchListButton.Click += new System.EventHandler(this.saveWatchListButton_Click);
             //
+            // hexViewerButton
+            //
+            this.hexViewerButton.Location = new System.Drawing.Point(326, 535);
+            this.hexViewerButton.Name = "hexViewerButton";
+            this.hexViewerButton.Size = new System.Drawing.Size(90, 21);
+            this.hexViewerButton.TabIndex = 13;
+            this.hexViewerButton.Text = "Hex Viewer...";
+            this.hexViewerButton.UseVisualStyleBackColor = true;
+            this.hexViewerButton.Click += new System.EventHandler(this.hexViewerButton_Click);
+            //
             // addressLabel
             //
             this.addressLabel.AutoSize = true;
@@ -189,6 +200,7 @@ namespace racman
             this.Controls.Add(this.typeLabel);
             this.Controls.Add(this.addressLabel);
             this.Controls.Add(this.saveWatchListButton);
+            this.Controls.Add(this.hexViewerButton);
             this.Controls.Add(this.watchedMemoryAddressesListView);
             this.Controls.Add(this.addMemoryWatchButton);
             this.Controls.Add(this.registerAddressTypeCombo);
@@ -217,6 +229,7 @@ namespace racman
         private System.Windows.Forms.ColumnHeader ValueColumnHeader;
         private System.Windows.Forms.ColumnHeader nameColumnHeader;
         private System.Windows.Forms.Button saveWatchListButton;
+        private System.Windows.Forms.Button hexViewerButton;
         private System.Windows.Forms.Label addressLabel;
         private System.Windows.Forms.Label typeLabel;
         private System.Windows.Forms.ComboBox savedWatchlistsComboBox;
