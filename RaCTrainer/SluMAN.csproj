@@ -239,6 +239,7 @@
       <DependentUpon>SLY3GadgetsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
+    <Compile Include="PracticeTabs.cs" />
     <Compile Include="PositionEditor.cs">
       <SubType>Form</SubType>
     </Compile>
