@@ -138,6 +138,7 @@
       <DependentUpon>FlagViewer.cs</DependentUpon>
     </Compile>
     <Compile Include="GameReconnect.cs" />
+    <Compile Include="FirewallHelper.cs" />
     <Compile Include="IGame.cs" />
     <Compile Include="ObsPadServer.cs" />
     <Compile Include="StatusLine.cs" />
