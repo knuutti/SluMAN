@@ -126,6 +126,10 @@ namespace racman
             {
                 BeginInvoke(new Action(() =>
                 {
+                    // The load may have been another save, so an open tool such as the gadgets
+                    // reads it again. Save data doesn't wait for the player like the toggles do.
+                    practiceTabs.RefreshShownTool();
+
                     reapplyAttempts = 0;
                     reapplyTimer.Stop();
                     reapplyTimer.Start();
@@ -156,15 +160,12 @@ namespace racman
                 {
                     reapplyAttempts = 0;
                     Console.WriteLine("Load finished, but the player didn't appear; toggles not re-applied.");
-                    practiceTabs.RefreshShownTool();
                 }
                 return;
             }
 
             reapplyAttempts = 0;
             ReapplyToggles();
-            // The load may have been another save, so an open tool such as the gadgets reads it again.
-            practiceTabs.RefreshShownTool();
         }
 
         /// <summary>

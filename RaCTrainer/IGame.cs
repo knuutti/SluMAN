@@ -370,6 +370,10 @@ namespace racman
             loadWatcherSubID = api.SubMemory(pid, loadingStateAddress, 4, (value) =>
             {
                 int state = value[0];
+                if (state != lastLoadingState)
+                {
+                    Console.WriteLine($"Loading state {lastLoadingState} -> {state}");
+                }
                 bool finished = state == 3 && lastLoadingState != -1 && lastLoadingState != 3;
                 bool started = state != 3 && lastLoadingState == 3;
                 lastLoadingState = state;
