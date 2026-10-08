@@ -337,7 +337,6 @@ namespace racman
             this.alwaysOnTopCheckBox.TabIndex = 5;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
-            this.alwaysOnTopCheckBox.CheckedChanged += new System.EventHandler(this.alwaysOnTopCheckBox_CheckedChanged);
             // 
             // jobComboBox
             // 
@@ -824,7 +823,6 @@ namespace racman
             this.Name = "SLY3Form";
             this.Text = "SluMAN :: Sly 3: Honor Among Thieves (Practice Mode)";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SLY3Form_FormClosing);
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.SLY3Form_FormClosed);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.toggleGroupBox.ResumeLayout(false);

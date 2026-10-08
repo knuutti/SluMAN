@@ -126,6 +126,7 @@
       <DependentUpon>DiagnosticsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="GameReconnect.cs" />
+    <Compile Include="GameSession.cs" />
     <Compile Include="FirewallHelper.cs" />
     <Compile Include="IGame.cs" />
     <Compile Include="ObsPadServer.cs" />

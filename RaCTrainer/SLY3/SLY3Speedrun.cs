@@ -13,16 +13,12 @@ namespace racman
 {
     public partial class SLY3Speedrun : Form
     {
-        private const string PrefersAutosplitterKey = "prefersAutosplitter";
-        private const string PrefersAlwaysOnTopKey = "prefersAlwaysOnTop";
-
-        public Form InputDisplay;
         public Form GadgetsWindow;
         public sly3 game;
         public string gameNameId;
-        public AutosplitterHelper autosplitter;
 
         private StatusLine statusLine;
+        private GameSession session;
 
         public SLY3Speedrun(sly3 game, string gameNameId = "NPEA00343")
         {
@@ -30,62 +26,20 @@ namespace racman
             InitializeComponent();
             statusLine = new StatusLine(this, true);
 
-            ApplySavedPreferences();
+            this.gameNameId = gameNameId;
 
             game.SetupInputDisplayMemorySubs();
 
             game.CheckRunFileConfig();
 
-            GameReconnect.WatchRpcs3(this, game.api, gameNameId, true);
-
-            if (func.api is Ratchetron r)
-            {
-                r.setDisconnectCallback(() => { DisconnectGame(false); });
-
-                r.setReconnectCallback(() => { ReconnectGame(); });
-            }
-
-            this.gameNameId = gameNameId;
-        }
-
-        private void ApplySavedPreferences()
-        {
-            var prefersAutosplitter = bool.TryParse(func.GetConfigData("config.txt", PrefersAutosplitterKey), out bool autosplitterEnabled) && autosplitterEnabled;
-            var prefersAlwaysOnTop = bool.TryParse(func.GetConfigData("config.txt", PrefersAlwaysOnTopKey), out bool alwaysOnTopEnabled) && alwaysOnTopEnabled;
-
-            autosplitterCheckbox.Checked = prefersAutosplitter;
-            alwaysTopButton.Checked = prefersAlwaysOnTop;
+            session = new GameSession(this, game, gameNameId, "Sly 3", true);
+            session.BindAlwaysOnTop(alwaysTopButton);
+            session.BindAutosplitter(autosplitterCheckbox);
         }
 
         private void inputDisplayButton_Click(object sender, EventArgs e)
         {
-            if (InputDisplay == null || InputDisplay.IsDisposed)
-            {
-                InputDisplay = new InputDisplay();
-                InputDisplay.Show();
-                game.InputsTimer.Start();
-            }
-            else
-            {
-                InputDisplay.Focus();
-            }
-        }
-
-        private void AutosplitterCheckbox_CheckedChanged(object sender, EventArgs e)
-        {
-            func.ChangeFileLines("config.txt", autosplitterCheckbox.Checked ? "true" : "false", PrefersAutosplitterKey);
-
-            if (!autosplitterCheckbox.Checked)
-            {
-                autosplitter?.Stop();
-                autosplitter = null;
-            }
-            else
-            {
-                autosplitter?.Stop();
-                autosplitter = new AutosplitterHelper();
-                autosplitter.StartAutosplitterForGame(this.game);
-            }
+            session.ShowInputDisplay();
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
@@ -99,6 +53,7 @@ namespace racman
             {
                 GadgetsWindow = new SLY3GadgetsForm(game);
                 GadgetsWindow.FormClosed += GadgetsWindow_FormClosed;
+                session.AddGameWindow(GadgetsWindow);
                 GadgetsWindow.Show();
             }
             else
@@ -110,21 +65,6 @@ namespace racman
         private void GadgetsWindow_FormClosed(object sender, FormClosedEventArgs e)
         {
             GadgetsWindow = null;
-        }
-
-        private void alwaysTopButton_CheckedChanged(object sender, EventArgs e)
-        {
-            func.ChangeFileLines("config.txt", alwaysTopButton.Checked ? "true" : "false", PrefersAlwaysOnTopKey);
-
-            if (!alwaysTopButton.Checked)
-            {
-                this.TopMost = false;
-
-            }
-            else
-            {
-                this.TopMost = true;
-            }
         }
 
         private void loadRunFileButton_Click(object sender, EventArgs e)
@@ -329,128 +269,17 @@ namespace racman
 
         private void switchGameModeToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
-            DisconnectGame();
-            this.Close();
-            Program.AttachPS3Form.Show();
+            session.SwitchGameOrMode();
         }
 
         private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (game.api is Ratchetron r)
-            {
-                var dialogResult = MessageBox.Show("Do you want to turn off your PS3?", "Power Off PS3", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.Yes)
-                {
-                    DisconnectGame();
-                    WebMAN.TurnOffPS3(func.api.GetIP());
-                    this.Close();
-                    Program.AttachPS3Form.Show();
-                }
-               
-            }
+            session.PowerOffPS3();
         }
 
         private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (game.api is Ratchetron r)
-            {
-                var dialogResult = MessageBox.Show("Do you want to reboot your PS3?", "Reboot PS3", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.Yes)
-                {
-                    DisconnectGame();
-                    WebMAN.RebootPS3(func.api.GetIP());
-                    this.Close();
-                    Program.AttachPS3Form.Show();
-                }
-            }
-        }
-
-        private void SLY3Speedrun_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            if (Program.AttachPS3Form.Visible == false && !AttachPS3Form.switchPending)
-            {
-                Program.AttachPS3Form.Close();
-                Environment.Exit(0);
-            }
-        }
-
-        private void DisconnectGame(bool closeInputDisplay = true)
-        {
-            if (game.api is Ratchetron ratchetron)
-            {
-                if (autosplitter != null)
-                {
-                    autosplitter.Stop();
-                    autosplitter = null;
-                }
-                ratchetron.ReleaseAllSubs();
-            }
-            if (closeInputDisplay)
-            {
-                try { game.api.Disconnect(); } catch { }
-            }
-            CloseAdditionalWindows(closeInputDisplay);
-        }
-
-        private void CloseAdditionalWindows(bool closeInputDisplay = true)
-        {
-            if (InvokeRequired)
-            {
-                // The game-closed callback runs on the live data thread; windows close on the UI thread.
-                try { BeginInvoke(new Action(() => CloseAdditionalWindows(closeInputDisplay))); } catch { }
-                return;
-            }
-            if (closeInputDisplay && InputDisplay != null && !InputDisplay.IsDisposed)
-            {
-                InputDisplay.Close();
-            }
-            if (GadgetsWindow != null && !GadgetsWindow.IsDisposed)
-            {
-                GadgetsWindow.Close();
-            }
-        }
-
-        private void ReconnectGame()
-        {
-            GameReconnect.Result result = GameReconnect.WaitForGame(game.api, gameNameId, "Sly 3", out int pid, out string runningTitleId);
-            if (GameReconnect.HandleOtherResult(result, this, "Sly 3", runningTitleId, true))
-            {
-                return;
-            }
-
-            // Update PID for new game session
-            AttachPS3Form.pid = pid;
-            game.pid = pid;
-
-            // Give game extra time to fully initialize
-            Thread.Sleep(2000);
-
-            // Re-establish memory subscriptions
-            game.SetupInputDisplayMemorySubs();
-
-            // Restart input timer if needed
-            if (InputDisplay != null && !InputDisplay.IsDisposed)
-            {
-                game.InputsTimer.Start();
-            }
-
-            // Restart autosplitter if it was running
-            if (autosplitterCheckbox.Checked)
-            {
-                Console.WriteLine("Sly 3: Restarting autosplitter...");
-                autosplitter = new AutosplitterHelper();
-                autosplitter.StartAutosplitterForGame(this.game);
-            }
-
-            game.api.Notify($"SluMAN {func.VersionText} (Speedrun Mode)");
-            Console.WriteLine("Sly 3: Reconnection complete");
-            func.Status("Reconnected to Sly 3.");
-        }
-
-        private void refreshMemorySubsPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            DisconnectGame();
-            ReconnectGame();
+            session.RebootPS3();
         }
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)

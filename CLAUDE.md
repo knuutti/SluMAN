@@ -45,6 +45,8 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 - `CheckInputs` — runs on a 60 Hz timer, reads controller state
 - `SavePosition` / `LoadPosition` — game-specific coordinate save/restore
 
+Each game form creates a `GameSession` (`GameSession.cs`), which owns the connection lifecycle: reconnecting after a game reset (off the UDP thread, finishing on the UI thread), disconnecting when the form closes, the always-on-top and autosplitter settings, the input display, Switch Game/Mode, and power off/reboot. Put shared form behaviour there, not in each form; forms add their own subscriptions in the `Reconnected` event.
+
 Game addresses live in `offsets/<GAME>/` as standalone classes (e.g. `sly2.cs` contains `Sly2Addresses` with separate `AddressValues` instances for each supported region/build).
 
 ### Supported games and their folders

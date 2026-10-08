@@ -32,6 +32,8 @@ namespace racman
             DifferentGame,
             /// <summary>A game SluMAN doesn't support is running.</summary>
             UnsupportedGame,
+            /// <summary>The caller stopped waiting.</summary>
+            Cancelled,
         }
 
         /// <summary>
@@ -42,7 +44,9 @@ namespace racman
         /// <param name="pid">The new process ID when the result is Reconnected.</param>
         /// <param name="runningTitleId">The title that's running instead, for DifferentGame and
         /// UnsupportedGame.</param>
-        public static Result WaitForGame(IPS3API api, string titleId, string gameName, out int pid, out string runningTitleId)
+        /// <param name="isCancelled">Checked before each poll; returning true ends the wait with
+        /// Cancelled.</param>
+        public static Result WaitForGame(IPS3API api, string titleId, string gameName, out int pid, out string runningTitleId, Func<bool> isCancelled = null)
         {
             pid = 0;
             runningTitleId = "";
@@ -50,6 +54,11 @@ namespace racman
             for (int waited = 0; waited < MaxWaitMs; waited += PollIntervalMs)
             {
                 Thread.Sleep(PollIntervalMs);
+
+                if (isCancelled != null && isCancelled())
+                {
+                    return Result.Cancelled;
+                }
 
                 try
                 {
@@ -103,6 +112,8 @@ namespace racman
                     return true;
                 case Result.DifferentGame:
                     SwitchTo(form, runningTitleId, speedrunMode);
+                    return true;
+                case Result.Cancelled:
                     return true;
                 default:
                     return false;

@@ -145,7 +145,6 @@
             this.autosplitterCheckbox.TabIndex = 2;
             this.autosplitterCheckbox.Text = "Autosplitter";
             this.autosplitterCheckbox.UseVisualStyleBackColor = true;
-            this.autosplitterCheckbox.CheckedChanged += new System.EventHandler(this.autosplitterCheckbox_CheckedChanged);
             // 
             // groupBox1
             // 
@@ -196,7 +195,6 @@
             this.alwaysOnTopCheckBox.TabIndex = 4;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
-            this.alwaysOnTopCheckBox.CheckedChanged += new System.EventHandler(this.alwaysOnTopCheckBox_CheckedChanged);
             // 
             // gadgetsButton
             // 
@@ -226,7 +224,6 @@
             this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.Name = "SLY2Speedrun";
             this.Text = "SluMAN :: Sly 2: Band of Thieves (Speedrun Mode)";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.SLY2Speedrun_FormClosed);
             this.Load += new System.EventHandler(this.SLY2Speedrun_Load);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();

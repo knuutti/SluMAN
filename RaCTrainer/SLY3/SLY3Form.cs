@@ -12,9 +12,6 @@ namespace racman
 {
     public partial class SLY3Form : Form, IPositionEditorHost
     {
-        private const string PrefersAlwaysOnTopKey = "prefersAlwaysOnTop";
-
-        public Form InputDisplay;
         public Form GadgetsWindow;
         private PositionEditor positionEditorWindow;
 
@@ -40,6 +37,7 @@ namespace racman
         private const float FlyBoostMultiplier = 8.0f;
 
         private StatusLine statusLine;
+        private GameSession session;
 
         public SLY3Form(sly3 game, string gameNameId = "NPEA00343")
         {
@@ -51,26 +49,20 @@ namespace racman
             mapComboBox.Items.AddRange(game.GetMapNames());
             mapComboBox.SelectedIndex = 0;
 
-            ApplySavedPreferences();
+            this.gameNameId = gameNameId;
 
             game.SetupInputDisplayMemorySubs();
             game.SetupWebManPopUp();
 
             game.CheckRunFileConfig();
 
-            GameReconnect.WatchRpcs3(this, game.api, gameNameId, false);
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
             game.combosActive = true;
             game.InputsTimer.Start();
 
-            if (func.api is Ratchetron r)
-            {
-                r.setDisconnectCallback(() => { DisconnectGame(false); });
-
-                r.setReconnectCallback(() => { ReconnectGame(); });
-            }
-
-            this.gameNameId = gameNameId;
+            session = new GameSession(this, game, gameNameId, "Sly 3", false);
+            session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.Reconnected += session_Reconnected;
 
             freezeTimer = new System.Windows.Forms.Timer();
             freezeTimer.Interval = 16;
@@ -314,24 +306,9 @@ namespace racman
             game.api.WriteMemory(game.pid, address, b);
         }
 
-        private void ApplySavedPreferences()
-        {
-            var prefersAlwaysOnTop = bool.TryParse(func.GetConfigData("config.txt", PrefersAlwaysOnTopKey), out bool alwaysOnTopEnabled) && alwaysOnTopEnabled;
-            alwaysOnTopCheckBox.Checked = prefersAlwaysOnTop;
-        }
-
         private void inputDisplayButton_Click(object sender, EventArgs e)
         {
-            if (InputDisplay == null || InputDisplay.IsDisposed)
-            {
-                InputDisplay = new InputDisplay();
-                InputDisplay.Show();
-                game.InputsTimer.Start();
-            }
-            else
-            {
-                InputDisplay.Focus();
-            }
+            session.ShowInputDisplay();
         }
 
         private void loadPosButton_Click(object sender, EventArgs e)
@@ -363,49 +340,8 @@ namespace racman
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();
-
-            // Make sure all child forms are closed
-            if (InputDisplay != null && !InputDisplay.IsDisposed)
-            {
-                InputDisplay.Close();
-            }
-            if (GadgetsWindow != null && !GadgetsWindow.IsDisposed)
-            {
-                GadgetsWindow.Close();
-            }
-
-            // Stop timers
-            if (freezeTimer != null)
-            {
-                freezeTimer.Stop();
-            }
-            if (game.InputsTimer != null)
-            {
-                game.InputsTimer.Stop();
-            }
-
-            try
-            {
-                if (game.api is Ratchetron r)
-                {
-                    r.ReleaseAllSubs();
-                }
-                game.api.Disconnect();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during disconnect: {ex.Message}");
-            }
-        }
-
-        private void HandleDisconnect()
-        {
-            if (game.api is Ratchetron r)
-            {
-                r.ReleaseAllSubs();
-            }
-            game.api.Disconnect();
-            Console.WriteLine("Sly 3: Full cleanup on form close");
+            freezeTimer.Stop();
+            // The session closes the other windows and disconnects after this.
         }
 
         private void toolsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -415,20 +351,13 @@ namespace racman
 
         private void switchGameToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            DisconnectGame();
-            Program.AttachPS3Form.Show();
-            this.Close();
+            session.SwitchGameOrMode();
         }
 
         private void configureButtonCombosToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ConfigureCombos configureCombos = new ConfigureCombos();
             configureCombos.ShowDialog(this);
-        }
-
-        private void inputDisplayToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
         }
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
@@ -441,10 +370,12 @@ namespace racman
             if (title == GadgetsTab)
             {
                 GadgetsWindow = form;
+                session.AddGameWindow(form);
             }
             else if (title == PositionTab)
             {
                 positionEditorWindow = (PositionEditor)form;
+                session.AddGameWindow(form);
             }
         }
 
@@ -558,20 +489,6 @@ namespace racman
             game.SkipCinematic();
         }
 
-        private void alwaysOnTopCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            func.ChangeFileLines("config.txt", alwaysOnTopCheckBox.Checked ? "true" : "false", PrefersAlwaysOnTopKey);
-            if (!alwaysOnTopCheckBox.Checked)
-            {
-                this.TopMost = false;
-
-            }
-            else
-            {
-                this.TopMost = true;
-            }
-        }
-
         private void loadJobButton_Click(object sender, EventArgs e)
         {
             game.LoadJob(jobComboBox.Text);
@@ -594,69 +511,10 @@ namespace racman
 
         }
 
-        private void DisconnectGame(bool closeInputDisplay = true)
+        private void session_Reconnected()
         {
-            if (game.api is Ratchetron ratchetron)
-            {
-                ratchetron.ReleaseAllSubs();
-            }
-            if (closeInputDisplay)
-            {
-                try { game.api.Disconnect(); } catch { }
-            }
-            CloseAdditionalWindows(closeInputDisplay);
-        }
-
-        private void CloseAdditionalWindows(bool closeInputDisplay = true)
-        {
-            if (InvokeRequired)
-            {
-                // The game-closed callback runs on the live data thread; windows close on the UI thread.
-                try { BeginInvoke(new Action(() => CloseAdditionalWindows(closeInputDisplay))); } catch { }
-                return;
-            }
-            if (closeInputDisplay && InputDisplay != null && !InputDisplay.IsDisposed)
-            {
-                InputDisplay.Close();
-            }
-            if (GadgetsWindow != null && !GadgetsWindow.IsDisposed)
-            {
-                GadgetsWindow.Close();
-            }
-            if (positionEditorWindow != null && !positionEditorWindow.IsDisposed)
-            {
-                positionEditorWindow.Close();
-            }
-        }
-
-        private void ReconnectGame()
-        {
-            GameReconnect.Result result = GameReconnect.WaitForGame(game.api, gameNameId, "Sly 3", out int pid, out string runningTitleId);
-            if (GameReconnect.HandleOtherResult(result, this, "Sly 3", runningTitleId, false))
-            {
-                return;
-            }
-
-            // Update PID for new game session
-            AttachPS3Form.pid = pid;
-            game.pid = pid;
-
-            // Give game extra time to fully initialize
-            Thread.Sleep(2000);
-
-            // Re-establish memory subscriptions
-            game.SetupInputDisplayMemorySubs();
+            game.SetupWebManPopUp();
             game.SetupLoadWatcher();
-
-            // Restart input timer if needed
-            if (InputDisplay != null && !InputDisplay.IsDisposed)
-            {
-                game.InputsTimer.Start();
-            }
-
-            game.api.Notify($"SluMAN {func.VersionText} (Practice Mode)");
-            Console.WriteLine("Sly 3: Reconnection complete");
-            func.Status("Reconnected to Sly 3.");
         }
 
         private void SetCoinsFromTextBox()
@@ -699,44 +557,14 @@ namespace racman
 
 
 
-        private void SLY3Form_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            if (Program.AttachPS3Form.Visible == false && !AttachPS3Form.switchPending)
-            {
-                Program.AttachPS3Form.Close();
-                Environment.Exit(0);
-            }
-        }
-
         private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (game.api is Ratchetron r)
-            {
-                var dialogResult = MessageBox.Show("Do you want to turn off your PS3?", "Power Off PS3", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.Yes)
-                {
-                    DisconnectGame();
-                    WebMAN.TurnOffPS3(func.api.GetIP());
-                    this.Close();
-                    Program.AttachPS3Form.Show();
-                }
-
-            }
+            session.PowerOffPS3();
         }
 
         private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (game.api is Ratchetron r)
-            {
-                var dialogResult = MessageBox.Show("Do you want to reboot your PS3?", "Reboot PS3", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.Yes)
-                {
-                    DisconnectGame();
-                    WebMAN.RebootPS3(func.api.GetIP());
-                    this.Close();
-                    Program.AttachPS3Form.Show();
-                }
-            }
+            session.RebootPS3();
         }
 
         private void invulnerabilityCheckBox_CheckedChanged(object sender, EventArgs e)
