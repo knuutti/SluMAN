@@ -567,6 +567,39 @@ namespace SluMAN
             }
         }
 
+        private AutoSkipper autoSkipper;
+
+        /// <summary>
+        /// Skips every FMV and dialogue line by itself while on. It works in the background and
+        /// never blocks the caller.
+        /// </summary>
+        public void SetAutoSkip(bool enabled)
+        {
+            StartAutoSkip(enabled, true);
+        }
+
+        /// <summary>
+        /// Starts the auto-skipper again after a game reset, which dropped its subscriptions.
+        /// </summary>
+        public void RestartAutoSkip()
+        {
+            StartAutoSkip(true, false);
+        }
+
+        private void StartAutoSkip(bool enabled, bool releaseOld)
+        {
+            if (autoSkipper != null)
+            {
+                autoSkipper.Stop(releaseOld);
+                autoSkipper = null;
+            }
+            if (enabled)
+            {
+                autoSkipper = new AutoSkipper(api, pid, sly2.addr.fmvState, sly2.addr.dialogueState, sly2.addr.dialogueFrameCounter);
+                autoSkipper.Start();
+            }
+        }
+
         public void LoadJob(string jobName)
         {
             switch (jobName)

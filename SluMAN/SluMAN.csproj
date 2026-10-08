@@ -110,6 +110,7 @@
     <Compile Include="AutosplitterConfigForm.Designer.cs">
       <DependentUpon>AutosplitterConfigForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="AutoSkipper.cs" />
     <Compile Include="AutosplitterHelper.cs" />
     <Compile Include="ConfirmButton.cs" />
     <Compile Include="ControllerSkin.cs" />

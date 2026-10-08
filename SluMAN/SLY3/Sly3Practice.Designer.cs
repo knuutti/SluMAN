@@ -54,6 +54,7 @@ namespace SluMAN
             this.infiniteGadgetPowerCheckBox = new System.Windows.Forms.CheckBox();
             this.flyModeCheckBox = new System.Windows.Forms.CheckBox();
             this.infiniteJumpCheckBox = new System.Windows.Forms.CheckBox();
+            this.autoSkipCheckBox = new System.Windows.Forms.CheckBox();
             this.alwaysOnTopCheckBox = new System.Windows.Forms.CheckBox();
             this.jobComboBox = new System.Windows.Forms.ComboBox();
             this.loadJobButton = new System.Windows.Forms.Button();
@@ -229,12 +230,13 @@ namespace SluMAN
             this.toggleGroupBox.Controls.Add(this.infiniteGadgetPowerCheckBox);
             this.toggleGroupBox.Controls.Add(this.flyModeCheckBox);
             this.toggleGroupBox.Controls.Add(this.infiniteJumpCheckBox);
+            this.toggleGroupBox.Controls.Add(this.autoSkipCheckBox);
             this.toggleGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
             this.toggleGroupBox.Location = new System.Drawing.Point(228, 204);
             this.toggleGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.toggleGroupBox.Name = "toggleGroupBox";
             this.toggleGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.toggleGroupBox.Size = new System.Drawing.Size(234, 210);
+            this.toggleGroupBox.Size = new System.Drawing.Size(234, 230);
             this.toggleGroupBox.TabIndex = 15;
             this.toggleGroupBox.TabStop = false;
             this.toggleGroupBox.Text = "Toggles";
@@ -326,6 +328,18 @@ namespace SluMAN
             this.infiniteJumpCheckBox.TabIndex = 15;
             this.infiniteJumpCheckBox.Text = "Infinite Jump";
             this.infiniteJumpCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // autoSkipCheckBox
+            // 
+            this.autoSkipCheckBox.AutoSize = true;
+            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 202);
+            this.autoSkipCheckBox.Margin = new System.Windows.Forms.Padding(2);
+            this.autoSkipCheckBox.Name = "autoSkipCheckBox";
+            this.autoSkipCheckBox.Size = new System.Drawing.Size(132, 17);
+            this.autoSkipCheckBox.TabIndex = 16;
+            this.autoSkipCheckBox.Text = "Auto-skip Cinematics";
+            this.autoSkipCheckBox.UseVisualStyleBackColor = true;
+            this.autoSkipCheckBox.CheckedChanged += new System.EventHandler(this.autoSkipCheckBox_CheckedChanged);
             // 
             // alwaysOnTopCheckBox
             // 
@@ -809,7 +823,7 @@ namespace SluMAN
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(473, 422);
+            this.ClientSize = new System.Drawing.Size(473, 442);
             this.Controls.Add(this.jobGroupBox);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
@@ -882,5 +896,6 @@ namespace SluMAN
         private System.Windows.Forms.CheckBox gameClockCheckBox;
         internal System.Windows.Forms.CheckBox flyModeCheckBox;
         internal System.Windows.Forms.CheckBox infiniteJumpCheckBox;
+        private System.Windows.Forms.CheckBox autoSkipCheckBox;
     }
 }
