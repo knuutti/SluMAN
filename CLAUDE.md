@@ -22,7 +22,8 @@ There are no automated tests.
 The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0.0.0.0` in the repo, which makes local builds show as "dev build" and skip the update check (`func.IsDevBuild` / `func.VersionText`). Don't bump it by hand.
 
 - `.github/workflows/build.yml` builds every PR and uploads the output as the `SluMAN` artifact. Builds from a `release/vX.Y.Z` branch get `X.Y.Z` stamped in.
-- `.github/workflows/release.yml` runs when a `release/vX.Y.Z` PR is merged into master. It builds, creates tag + GitHub release `vX.Y.Z` with `SluMAN.zip`, commits the new version to `update.xml` on master (which installed copies poll), and calls `discord-release.yml`.
+- `.github/workflows/release.yml` runs when a `release/vX.Y.Z` PR is merged into master. It builds and creates a **draft** GitHub release `vX.Y.Z` with `SluMAN.zip` and generated notes. Nothing is announced until someone reviews the notes and publishes the draft.
+- Publishing the release creates the tag and fires `release: published`: `publish-release.yml` commits the new version to `update.xml` on master (which installed copies poll), and `discord-release.yml` posts to Discord. Pre-releases skip the `update.xml` bump.
 - Everything that ships must end up in `bin\x64\Release\` via the build (project Content items or the post-build XCOPYs), because the zip is that folder as-is.
 
 ## Architecture
