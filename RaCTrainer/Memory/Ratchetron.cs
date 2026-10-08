@@ -25,6 +25,19 @@ namespace racman
 
         private const int ConnectTimeoutMs = 5000;
 
+        // How long a request waits for its reply. The server sometimes never answers, e.g. a
+        // memory read just as the game closes; without a limit the caller and every request
+        // queued behind it wait forever, the UI thread included.
+        private const int RequestTimeoutMs = 5000;
+
+        private const int ReconnectIntervalMs = 2000;
+
+        // Set by Disconnect, so a lost connection isn't reopened after the user closed it.
+        private volatile bool disconnectRequested = false;
+
+        // Whether the data channel was opened, so a reconnect opens it again.
+        private bool dataChannelWanted = false;
+
         private TcpClient client;
         private UdpClient udpClient;
         private NetworkStream stream;
@@ -66,10 +79,9 @@ namespace racman
 
                 this.stream = client.GetStream();
 
-                // Only the handshake has a timeout; later replies can take as long as they take.
                 this.stream.ReadTimeout = ConnectTimeoutMs;
                 byte[] connMsg = ReadExactly(6);
-                this.stream.ReadTimeout = Timeout.Infinite;
+                this.stream.ReadTimeout = RequestTimeoutMs;
 
                 uint apiRev = ReadUInt32BE(connMsg, 2);
 
@@ -105,6 +117,7 @@ namespace racman
 
         public override bool Disconnect()
         {
+            this.disconnectRequested = true;
             this.ReleaseAllSubs();
             this.connected = false;
             if (this.udpClient != null)
@@ -189,7 +202,15 @@ namespace racman
             {
                 if (this.stream.CanWrite)
                 {
-                    this.stream.Write(array, offset, count);
+                    try
+                    {
+                        this.stream.Write(array, offset, count);
+                    }
+                    catch (IOException)
+                    {
+                        ConnectionLost();
+                        throw;
+                    }
                 }
             }
         }
@@ -204,14 +225,129 @@ namespace racman
             int read = 0;
             while (read < count)
             {
-                int n = stream.Read(buffer, read, count - read);
+                int n;
+                try
+                {
+                    n = stream.Read(buffer, read, count - read);
+                }
+                catch (IOException)
+                {
+                    // Also a reply that didn't arrive within RequestTimeoutMs.
+                    ConnectionLost();
+                    throw;
+                }
                 if (n <= 0)
                 {
+                    ConnectionLost();
                     throw new IOException("The connection to the PS3 was closed.");
                 }
                 read += n;
             }
             return buffer;
+        }
+
+        /// <summary>
+        /// Called when a request fails on a live connection. The connection can't be used again:
+        /// a reply that turns up late would be read as the answer to the next request. Closes it
+        /// and reconnects in the background, then runs the same callbacks as a game restart, since
+        /// the server dropped this connection's subscriptions with it.
+        /// </summary>
+        private void ConnectionLost()
+        {
+            if (!this.connected || this.disconnectRequested)
+            {
+                return;
+            }
+            this.connected = false;
+
+            Console.WriteLine("The PS3 stopped answering; reconnecting.");
+            func.Status("The PS3 stopped answering. Reconnecting...", true);
+
+            try { this.client.Close(); } catch { }
+            if (this.udpClient != null)
+            {
+                try { this.udpClient.Close(); } catch { }
+            }
+            lock (subsLock)
+            {
+                this.memorySubs.Clear();
+                this.memSubCallbacks.Clear();
+                this.memSubTickUpdates.Clear();
+                this.frozenAddresses.Clear();
+            }
+
+            Thread reconnectThread = new Thread(ReconnectAfterLoss);
+            reconnectThread.IsBackground = true;
+            reconnectThread.Name = "Ratchetron reconnect";
+            reconnectThread.Start();
+        }
+
+        private void ReconnectAfterLoss()
+        {
+            while (!this.disconnectRequested)
+            {
+                Thread.Sleep(ReconnectIntervalMs);
+
+                bool reconnected;
+                // Held so no request uses the connection before the data channel is back.
+                lock (requestLock)
+                {
+                    if (this.disconnectRequested)
+                    {
+                        return;
+                    }
+                    reconnected = Connect();
+                    if (reconnected && this.dataChannelWanted)
+                    {
+                        try
+                        {
+                            OpenDataChannel();
+                        }
+                        catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
+                        {
+                            // Lost again; ConnectionLost started a new reconnect.
+                            return;
+                        }
+                    }
+                }
+
+                if (reconnected)
+                {
+                    Console.WriteLine("Reconnected to the PS3.");
+                    func.Status("Reconnected to the PS3.");
+
+                    // The game may have closed or changed while nothing was listening, so check
+                    // it the same way as after a restart. This also subscribes again.
+                    Action disconnected = onDisconnectCallback;
+                    if (disconnected != null)
+                    {
+                        disconnected();
+                    }
+                    RunReconnectCallback();
+                    return;
+                }
+            }
+        }
+
+        // 1 while a reconnect callback runs. A reconnect after a lost connection and the game
+        // starting can both trigger one; the second would subscribe everything twice.
+        private int reconnectCallbackRunning = 0;
+
+        private void RunReconnectCallback()
+        {
+            Action reconnect = onReconnectCallback;
+            if (reconnect == null || Interlocked.CompareExchange(ref reconnectCallbackRunning, 1, 0) != 0)
+            {
+                return;
+            }
+            try
+            {
+                reconnect();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref reconnectCallbackRunning, 0);
+            }
         }
 
         private static uint ReadUInt32BE(byte[] buffer, int offset)
@@ -320,12 +456,14 @@ namespace racman
         private void DataChannelReceive()
         {
             IPEndPoint end = new IPEndPoint(IPAddress.Any, 0);
+            // A reconnect opens a new socket with its own thread; this one stops with its socket.
+            UdpClient udp = this.udpClient;
 
-            while (this.connected)
+            while (this.connected && udp == this.udpClient)
             {
                 try
                 {
-                    byte[] cmdBuf = this.udpClient.Receive(ref end);
+                    byte[] cmdBuf = udp.Receive(ref end);
                     Interlocked.Increment(ref receivedDataPackets);
                     byte command = cmdBuf[0];
 
@@ -368,9 +506,9 @@ namespace racman
                                 {
                                     onDisconnectCallback();
                                 } 
-                                else if (enteringOrLeaving == 1 && onReconnectCallback != null)
+                                else if (enteringOrLeaving == 1)
                                 {
-                                    onReconnectCallback(); 
+                                    RunReconnectCallback();
                                 }
 
                                 break;
@@ -390,6 +528,7 @@ namespace racman
 
         public void OpenDataChannel()
         {
+            this.dataChannelWanted = true;
             byte[] data = new byte[1024];
             int port = 4000;
             bool udpStarted = false;

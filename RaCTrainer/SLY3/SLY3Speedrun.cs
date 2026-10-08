@@ -394,6 +394,12 @@ namespace racman
 
         private void CloseAdditionalWindows(bool closeInputDisplay = true)
         {
+            if (InvokeRequired)
+            {
+                // The game-closed callback runs on the live data thread; windows close on the UI thread.
+                try { BeginInvoke(new Action(() => CloseAdditionalWindows(closeInputDisplay))); } catch { }
+                return;
+            }
             if (closeInputDisplay && InputDisplay != null && !InputDisplay.IsDisposed)
             {
                 InputDisplay.Close();

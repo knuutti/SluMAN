@@ -247,6 +247,7 @@ After `OpenDataChannel()` returns, subscriptions are fully functional.
 | Protocol byte order | All multi-byte values big-endian on the wire |
 | `AllocatePage` (0x0E) | Server command never worked; the C# client no longer has a method for it |
 | Thread safety | Each request and its reply run under one lock in `Ratchetron`, so the UI, Lua mods and subscription callbacks can share the connection |
+| Request timeout | A reply has 5 s to arrive. The server sometimes never answers (e.g. a read as the game closes), so on a timeout the client closes the connection, reconnects in the background and then runs the disconnect and reconnect callbacks, as if the game had restarted |
 | Subscriptions on disconnect | Destroyed server-side; must re-subscribe after reconnect |
 | `SubMemory` callback bytes | Already reversed by client — pass directly to `BitConverter` |
 | `ReadMemory` return bytes | Raw big-endian — must `.Reverse()` before `BitConverter` |
