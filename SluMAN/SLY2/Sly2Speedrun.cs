@@ -7,12 +7,12 @@ using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using static SluMAN.SLY3Speedrun;
+using static SluMAN.Sly3Speedrun;
 using Timer = System.Windows.Forms.Timer;
 
 namespace SluMAN
 {
-    public partial class SLY2Speedrun : Form
+    public partial class Sly2Speedrun : Form
     {
         public Form GadgetsWindow;
         public sly2 game;
@@ -21,7 +21,7 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY2Speedrun(sly2 game)
+        public Sly2Speedrun(sly2 game)
         {
             this.game = game;
             gameNameId = sly2.addr.GameId;
@@ -36,7 +36,7 @@ namespace SluMAN
             session.BindAutosplitter(autosplitterCheckbox);
         }
 
-        private void SLY2Speedrun_Load(object sender, EventArgs e)
+        private void Sly2Speedrun_Load(object sender, EventArgs e)
         {
 
         }

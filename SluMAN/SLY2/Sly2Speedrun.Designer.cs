@@ -1,6 +1,6 @@
 ﻿namespace SluMAN
 {
-    partial class SLY2Speedrun
+    partial class Sly2Speedrun
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SLY2Speedrun));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly2Speedrun));
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.switchGameModeItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -208,7 +208,7 @@
             this.gadgetsButton.UseVisualStyleBackColor = false;
             this.gadgetsButton.Click += new System.EventHandler(this.gadgetsButton_Click);
             // 
-            // SLY2Speedrun
+            // Sly2Speedrun
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -222,9 +222,9 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
             this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.Name = "SLY2Speedrun";
+            this.Name = "Sly2Speedrun";
             this.Text = "SluMAN :: Sly 2: Band of Thieves (Speedrun Mode)";
-            this.Load += new System.EventHandler(this.SLY2Speedrun_Load);
+            this.Load += new System.EventHandler(this.Sly2Speedrun_Load);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.groupBox1.ResumeLayout(false);

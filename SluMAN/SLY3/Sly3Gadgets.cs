@@ -11,7 +11,7 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class SLY3GadgetsForm : Form, IRefreshOnShow
+    public partial class Sly3Gadgets : Form, IRefreshOnShow
     {
         private sly3 game;
         private ItemCheckEventHandler slyItemCheckHandler;
@@ -20,7 +20,7 @@ namespace SluMAN
 
         private StatusLine statusLine;
 
-        public SLY3GadgetsForm(sly3 game)
+        public Sly3Gadgets(sly3 game)
         {
             this.game = game;
             InitializeComponent();

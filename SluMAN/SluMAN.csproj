@@ -217,23 +217,23 @@
     <Compile Include="SLY2\Sly2Practice.Designer.cs">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY2\SLY2Speedrun.cs">
+    <Compile Include="SLY2\Sly2Speedrun.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\SLY2Speedrun.Designer.cs">
-      <DependentUpon>SLY2Speedrun.cs</DependentUpon>
+    <Compile Include="SLY2\Sly2Speedrun.Designer.cs">
+      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\SLY3Form.cs">
+    <Compile Include="SLY3\Sly3Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\SLY3Form.Designer.cs">
-      <DependentUpon>SLY3Form.cs</DependentUpon>
+    <Compile Include="SLY3\Sly3Practice.Designer.cs">
+      <DependentUpon>Sly3Practice.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\SLY3GadgetsForm.cs">
+    <Compile Include="SLY3\Sly3Gadgets.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\SLY3GadgetsForm.Designer.cs">
-      <DependentUpon>SLY3GadgetsForm.cs</DependentUpon>
+    <Compile Include="SLY3\Sly3Gadgets.Designer.cs">
+      <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
     <Compile Include="PracticeTabs.cs" />
@@ -244,11 +244,11 @@
     <Compile Include="PositionEditor.Designer.cs">
       <DependentUpon>PositionEditor.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\SLY3Speedrun.cs">
+    <Compile Include="SLY3\Sly3Speedrun.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\SLY3Speedrun.Designer.cs">
-      <DependentUpon>SLY3Speedrun.cs</DependentUpon>
+    <Compile Include="SLY3\Sly3Speedrun.Designer.cs">
+      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
     </Compile>
     <Compile Include="func.cs" />
   </ItemGroup>
@@ -301,20 +301,20 @@
     <EmbeddedResource Include="SLY2\Sly2Practice.resx">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY2\SLY2Speedrun.resx">
-      <DependentUpon>SLY2Speedrun.cs</DependentUpon>
+    <EmbeddedResource Include="SLY2\Sly2Speedrun.resx">
+      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\SLY3Form.resx">
-      <DependentUpon>SLY3Form.cs</DependentUpon>
+    <EmbeddedResource Include="SLY3\Sly3Practice.resx">
+      <DependentUpon>Sly3Practice.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\SLY3GadgetsForm.resx">
-      <DependentUpon>SLY3GadgetsForm.cs</DependentUpon>
+    <EmbeddedResource Include="SLY3\Sly3Gadgets.resx">
+      <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PositionEditor.resx">
       <DependentUpon>PositionEditor.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\SLY3Speedrun.resx">
-      <DependentUpon>SLY3Speedrun.cs</DependentUpon>
+    <EmbeddedResource Include="SLY3\Sly3Speedrun.resx">
+      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

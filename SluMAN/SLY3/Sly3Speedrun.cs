@@ -11,7 +11,7 @@ using Timer = System.Windows.Forms.Timer;
 
 namespace SluMAN
 {
-    public partial class SLY3Speedrun : Form
+    public partial class Sly3Speedrun : Form
     {
         public Form GadgetsWindow;
         public sly3 game;
@@ -20,7 +20,7 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY3Speedrun(sly3 game)
+        public Sly3Speedrun(sly3 game)
         {
             this.game = game;
             InitializeComponent();
@@ -51,7 +51,7 @@ namespace SluMAN
         {
             if (GadgetsWindow == null || GadgetsWindow.IsDisposed)
             {
-                GadgetsWindow = new SLY3GadgetsForm(game);
+                GadgetsWindow = new Sly3Gadgets(game);
                 GadgetsWindow.FormClosed += GadgetsWindow_FormClosed;
                 session.AddGameWindow(GadgetsWindow);
                 GadgetsWindow.Show();

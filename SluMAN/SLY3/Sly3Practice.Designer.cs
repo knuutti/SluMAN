@@ -1,6 +1,6 @@
 namespace SluMAN
 {
-    partial class SLY3Form
+    partial class Sly3Practice
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@ namespace SluMAN
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SLY3Form));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly3Practice));
             this.coinsTextBox = new System.Windows.Forms.TextBox();
             this.inputDisplayButton = new System.Windows.Forms.Button();
             this.positionEditorButton = new System.Windows.Forms.Button();
@@ -805,7 +805,7 @@ namespace SluMAN
             this.jobGroupBox.TabStop = false;
             this.jobGroupBox.Text = "Jobs";
             // 
-            // SLY3Form
+            // Sly3Practice
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -820,9 +820,9 @@ namespace SluMAN
             this.Controls.Add(this.menuStrip1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
-            this.Name = "SLY3Form";
+            this.Name = "Sly3Practice";
             this.Text = "SluMAN :: Sly 3: Honor Among Thieves (Practice Mode)";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SLY3Form_FormClosing);
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Sly3Practice_FormClosing);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.toggleGroupBox.ResumeLayout(false);

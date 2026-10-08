@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace SluMAN
 {
-    public partial class SLY3Form : Form, IPositionEditorHost
+    public partial class Sly3Practice : Form, IPositionEditorHost
     {
         public Form GadgetsWindow;
         private PositionEditor positionEditorWindow;
@@ -39,7 +39,7 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY3Form(sly3 game)
+        public Sly3Practice(sly3 game)
         {
             this.game = game;
             InitializeComponent();
@@ -76,7 +76,7 @@ namespace SluMAN
             game.SetupLoadWatcher();
 
             practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(GadgetsTab, () => new SLY3GadgetsForm(game));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
@@ -337,7 +337,7 @@ namespace SluMAN
 
         }
 
-        private void SLY3Form_FormClosing(object sender, FormClosingEventArgs e)
+        private void Sly3Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
             // The tools' own cleanup (subscriptions, timers) runs when they close.
             practiceTabs.CloseAll();

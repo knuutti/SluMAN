@@ -1,6 +1,6 @@
 ﻿namespace SluMAN
 {
-    partial class SLY3Speedrun
+    partial class Sly3Speedrun
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SLY3Speedrun));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly3Speedrun));
             this.inputDisplayButton = new System.Windows.Forms.Button();
             this.autosplitterCheckbox = new System.Windows.Forms.CheckBox();
             this.gadgetsButton = new System.Windows.Forms.Button();
@@ -211,7 +211,7 @@
             this.rebootPS3ToolStripMenuItem.Text = "Reboot (PS3)";
             this.rebootPS3ToolStripMenuItem.Click += new System.EventHandler(this.rebootPS3ToolStripMenuItem_Click);
             // 
-            // SLY3Speedrun
+            // Sly3Speedrun
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -225,7 +225,7 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
             this.Margin = new System.Windows.Forms.Padding(2);
-            this.Name = "SLY3Speedrun";
+            this.Name = "Sly3Speedrun";
             this.Text = "SluMAN :: Sly 3: Honor Among Thieves (Speedrun Mode)";
             this.groupBox1.ResumeLayout(false);
             this.menuStrip1.ResumeLayout(false);

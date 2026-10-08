@@ -1,6 +1,6 @@
 ﻿namespace SluMAN
 {
-    partial class SLY3GadgetsForm
+    partial class Sly3Gadgets
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SLY3GadgetsForm));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly3Gadgets));
             this.slyGadgetsCheckedList = new System.Windows.Forms.CheckedListBox();
             this.murrayGadgetsCheckedList = new System.Windows.Forms.CheckedListBox();
             this.bentleyGadgetsCheckedList = new System.Windows.Forms.CheckedListBox();
@@ -513,7 +513,7 @@
             this.runFileComboBox.TabIndex = 0;
             this.runFileComboBox.Text = "Select run file...";
             // 
-            // SLY3GadgetsForm
+            // Sly3Gadgets
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -556,7 +556,7 @@
             this.Controls.Add(this.murrayGadgetsCheckedList);
             this.Controls.Add(this.slyGadgetsCheckedList);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Name = "SLY3GadgetsForm";
+            this.Name = "Sly3Gadgets";
             this.Text = "SluMAN :: Gadget Editor (Sly 3)";
             ((System.ComponentModel.ISupportInitialize)(this.spinAttackLevelSelector)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pushAttackLevelSelector)).EndInit();

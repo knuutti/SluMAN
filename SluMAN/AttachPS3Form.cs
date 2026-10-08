@@ -471,7 +471,7 @@ namespace SluMAN
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                    SLY3Speedrun sly3Speedrun = new SLY3Speedrun(new sly3(func.api, game));
+                    Sly3Speedrun sly3Speedrun = new Sly3Speedrun(new sly3(func.api, game));
                     gameName = sly3.addr.DisplayName;
                     sly3Speedrun.ShowDialog();
                 }
@@ -479,9 +479,9 @@ namespace SluMAN
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
-                    SLY3Form sly3Form = new SLY3Form(new sly3(func.api, game));
+                    Sly3Practice sly3Practice = new Sly3Practice(new sly3(func.api, game));
                     gameName = sly3.addr.DisplayName;
-                    sly3Form.ShowDialog();
+                    sly3Practice.ShowDialog();
                 }
             }
             else if (Sly1Addresses.IsSupportedGameId(game))
@@ -498,7 +498,7 @@ namespace SluMAN
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                    SLY2Speedrun sly2Speedrun = new SLY2Speedrun(new sly2(func.api, game));
+                    Sly2Speedrun sly2Speedrun = new Sly2Speedrun(new sly2(func.api, game));
                     gameName = sly2.addr.DisplayName;
                     sly2Speedrun.ShowDialog();
                 }
