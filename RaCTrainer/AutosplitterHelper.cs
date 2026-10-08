@@ -12,11 +12,6 @@ namespace racman
         IEnumerable<(uint addr, uint size)> AutosplitterAddresses { get; }
     }
 
-    public interface IAutosplitterWVariables
-    {
-        IEnumerable<(uint addr, uint size)> GetAutosplitterVariables();
-    } 
-
     public class AutosplitterHelper
     {
         public static int mmfAddressBytes = 128;
@@ -26,8 +21,6 @@ namespace racman
         MemoryMappedFile mmfFile;
         MemoryMappedViewStream mmfStream;
         BinaryWriter writer;
-
-        private Timer UpdatingTimer = null;
 
         List<int> subscriptionIDs = new List<int>();
 
@@ -53,22 +46,6 @@ namespace racman
             }
         }
 
-        public void Reconnect()
-        {
-            // All subscriptions get dropped, remove
-            subscriptionIDs.Clear();
-
-            mmfStream.Close();
-            writer?.Close();
-            writer = null;
-
-            mmfFile = MemoryMappedFile.CreateOrOpen("racman-autosplitter-lc", mmfSize);
-            mmfStream = mmfFile.CreateViewStream();
-            writer = new BinaryWriter(mmfStream);
-
-            StartAutosplitterForGame(currentGame);
-        }
-
         public void Stop()
         {
             if (!IsRunning)
@@ -77,9 +54,13 @@ namespace racman
             }
 
             IsRunning = false;
-            mmfStream.Close();
-            writer?.Close();
-            writer = null;
+            // Under the lock, so a subscription callback can't write to the closed view.
+            lock (writeLock)
+            {
+                mmfStream.Close();
+                writer?.Close();
+                writer = null;
+            }
 
             if (currentGame == null) return;
 
@@ -87,89 +68,46 @@ namespace racman
             {
                 this.currentGame.api.ReleaseSubID(subID);
             }
-
-            // stop the update timer
-            if (UpdatingTimer != null)
-            {
-                UpdatingTimer.Dispose();
-                UpdatingTimer = null;
-            }
         }
 
-        private static Mutex writeLock = new Mutex();
+        private readonly object writeLock = new object();
         private void WriteToMemory(int offset, byte[] value)
         {
-            writeLock.WaitOne();
-
-            if (writer != null)
+            lock (writeLock)
             {
-                writer.Seek(offset, SeekOrigin.Begin);
-                writer.Write(value, 0, value.Length);
+                if (writer != null)
+                {
+                    writer.Seek(offset, SeekOrigin.Begin);
+                    writer.Write(value, 0, value.Length);
+                }
             }
-
-            writeLock.ReleaseMutex();
-        }
-
-        // Probably will only be used for UYA
-        public void WriteConfig(byte[] value)
-        {
-            writeLock.WaitOne();
-
-            if (writer != null)
-            {
-                writer.Seek(mmfAddressBytes, SeekOrigin.Begin);
-                writer.Write(value, 0, value.Length);
-                writer.Write(Enumerable.Repeat((byte)0, mmfConfigBytes - value.Length).ToArray());
-            }
-
-            writeLock.ReleaseMutex();
         }
 
         public void StartAutosplitterForGame(IGame game)
         {
-            if (!(game is IAutosplitterAvailable) && !(game is IAutosplitterWVariables)) throw new NotSupportedException("This game doesn't support an autosplitter yet.");
+            IAutosplitterAvailable autosplitter = game as IAutosplitterAvailable;
+            if (autosplitter == null) throw new NotSupportedException("This game doesn't support an autosplitter yet.");
             currentGame = game;
 
+            // The game form keeps game.pid current across reconnects; asking the API would cost a
+            // round trip to the PS3 for every address.
+            int pid = game.pid;
             int pos = 0;
 
-            // if the game has addresses that need to be written to memory
-            if (game is IAutosplitterAvailable autosplitter)
+            foreach (var (addr, size) in autosplitter.AutosplitterAddresses)
             {
-                foreach (var (addr, size) in autosplitter.AutosplitterAddresses)
-                {
-                    var _pos = pos; // If you can think of a better way to do this please tell me
+                int offset = pos;
 
-                    // Write the initial value to the memory. This is necessary because the autosplitter will only
-                    // trigger when the value changes. So at the start of the game all values will be 0;
-                    var initialValue = game.api.ReadMemory(game.api.getCurrentPID(), addr, size).Reverse().ToArray();
-                    WriteToMemory(_pos, initialValue);
+                // Write the initial value to the memory. This is necessary because the autosplitter will only
+                // trigger when the value changes. So at the start of the game all values will be 0;
+                var initialValue = game.api.ReadMemory(pid, addr, size).Reverse().ToArray();
+                WriteToMemory(offset, initialValue);
 
-                    subscriptionIDs.Add(game.api.SubMemory(game.api.getCurrentPID(), addr, size, (value) =>
-                    {
-                        WriteToMemory(_pos, value);
-                    }));
-                    pos += (int)size;
-                }
-            }
-            
-            // if the game has variables that need to be written to memory
-            if (game is IAutosplitterWVariables)
-            {
-                var autosplitterWVariables = game as IAutosplitterWVariables;
-                if (UpdatingTimer == null)
+                subscriptionIDs.Add(game.api.SubMemory(pid, addr, size, (value) =>
                 {
-                    UpdatingTimer = new Timer((state) =>
-                    {
-                        int _pos = pos;
-                        foreach (var (value, size) in autosplitterWVariables.GetAutosplitterVariables())
-                        {
-                            byte[] bytes = BitConverter.GetBytes(value);
-                            //Console.WriteLine($"Writing {value} to memory at {_pos}");
-                            WriteToMemory(pos, bytes);
-                            _pos += (int)size;
-                        }
-                    }, null, 0, 1000 / 120);
-                }
+                    WriteToMemory(offset, value);
+                }));
+                pos += (int)size;
             }
 
             IsRunning = true;

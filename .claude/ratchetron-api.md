@@ -245,7 +245,8 @@ After `OpenDataChannel()` returns, subscriptions are fully functional.
 | PID list size | 16 entries; game is always at index 2 |
 | Notify max length | 2048 bytes including null terminator |
 | Protocol byte order | All multi-byte values big-endian on the wire |
-| `AllocatePage()` | Present in C# client but marked "Doesn't work, sorry." — do not use |
+| `AllocatePage` (0x0E) | Server command never worked; the C# client no longer has a method for it |
+| Thread safety | Each request and its reply run under one lock in `Ratchetron`, so the UI, Lua mods and subscription callbacks can share the connection |
 | Subscriptions on disconnect | Destroyed server-side; must re-subscribe after reconnect |
 | `SubMemory` callback bytes | Already reversed by client — pass directly to `BitConverter` |
 | `ReadMemory` return bytes | Raw big-endian — must `.Reverse()` before `BitConverter` |

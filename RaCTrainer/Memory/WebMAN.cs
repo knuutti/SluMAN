@@ -84,14 +84,8 @@ namespace racman
 
         public override byte[] ReadMemory(int pid, uint address, uint size)
         {
-            string addr = Convert.ToString(address, 16);
-            string Output = get_data($"http://{ip}/getmem.ps3mapi?proc={pid}$addr={addr}&len={size}");
-            int resPos = Output.IndexOf("</textarea>");
-
-            return Enumerable.Range(0, Output.Length)
-                     .Where(x => x % 2 == 0)
-                     .Select(x => Convert.ToByte(Output.Substring(x, 2), 16))
-                     .ToArray();
+            // The page is HTML; only the hex in front of </textarea> is the memory.
+            return IPS3API.HexToBytes(ReadMemoryStr(pid, address, size));
         }
 
         public override string ReadMemoryStr(int pid, uint address, uint size)

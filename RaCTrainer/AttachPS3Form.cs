@@ -276,8 +276,8 @@ namespace racman
 
             try
             {
-                game = func.current_game(ip);
-                pid = func.current_pid(ip);
+                game = api.getGameTitleID();
+                pid = api.getCurrentPID();
             }
             catch (Exception ex)
             {

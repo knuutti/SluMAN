@@ -23,20 +23,20 @@ namespace racman
 
         private class InputsClass
         {
-            public bool CrossPressed() => Inputs.Mask.Contains(Inputs.Buttons.cross);
-            public bool TrianglePressed() => Inputs.Mask.Contains(Inputs.Buttons.triangle);
-            public bool SquarePressed() => Inputs.Mask.Contains(Inputs.Buttons.square);
-            public bool CirclePressed() => Inputs.Mask.Contains(Inputs.Buttons.circle);
+            public bool CrossPressed() => Inputs.IsPressed(Inputs.Buttons.cross);
+            public bool TrianglePressed() => Inputs.IsPressed(Inputs.Buttons.triangle);
+            public bool SquarePressed() => Inputs.IsPressed(Inputs.Buttons.square);
+            public bool CirclePressed() => Inputs.IsPressed(Inputs.Buttons.circle);
 
-            public bool R1Pressed() => Inputs.Mask.Contains(Inputs.Buttons.r1);
-            public bool R2Pressed() => Inputs.Mask.Contains(Inputs.Buttons.r2);
-            public bool R3Pressed() => Inputs.Mask.Contains(Inputs.Buttons.r3);
-            public bool L1Pressed() => Inputs.Mask.Contains(Inputs.Buttons.l1);
-            public bool L2Pressed() => Inputs.Mask.Contains(Inputs.Buttons.l2);
-            public bool L3Pressed() => Inputs.Mask.Contains(Inputs.Buttons.l3);
+            public bool R1Pressed() => Inputs.IsPressed(Inputs.Buttons.r1);
+            public bool R2Pressed() => Inputs.IsPressed(Inputs.Buttons.r2);
+            public bool R3Pressed() => Inputs.IsPressed(Inputs.Buttons.r3);
+            public bool L1Pressed() => Inputs.IsPressed(Inputs.Buttons.l1);
+            public bool L2Pressed() => Inputs.IsPressed(Inputs.Buttons.l2);
+            public bool L3Pressed() => Inputs.IsPressed(Inputs.Buttons.l3);
 
-            public bool StartPressed() => Inputs.Mask.Contains(Inputs.Buttons.start);
-            public bool SelectPressed() => Inputs.Mask.Contains(Inputs.Buttons.select);
+            public bool StartPressed() => Inputs.IsPressed(Inputs.Buttons.start);
+            public bool SelectPressed() => Inputs.IsPressed(Inputs.Buttons.select);
         }
 
         public LuaAutomation(string filename, string gameID, Mod mod)
@@ -368,7 +368,7 @@ namespace racman
             int pid = AttachPS3Form.pid;
             IPS3API api = func.api;
 
-            for (uint i = 0; i <= size; i+=0x8000)
+            for (uint i = 0; i < size; i += 0x8000)
             {
                 buffer.AddRange(api.ReadMemory(pid, address + i, 0x8000));
             }
