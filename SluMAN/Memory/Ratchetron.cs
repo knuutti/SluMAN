@@ -376,12 +376,6 @@ namespace SluMAN
             cmdBuf.AddRange(BitConverter.GetBytes((UInt32)address).Reverse());
             cmdBuf.AddRange(BitConverter.GetBytes((UInt32)size).Reverse());
 
-#if DEBUG
-            var watch = new System.Diagnostics.Stopwatch();
-
-            watch.Start();
-#endif
-
             byte[] memory;
             lock (requestLock)
             {
@@ -389,11 +383,6 @@ namespace SluMAN
                 memory = ReadExactly((int)size);
             }
 
-#if DEBUG
-            watch.Stop();
-
-            //Console.WriteLine($"Request for {size} bytes memory at {address.ToString("X")} took: {watch.ElapsedMilliseconds} ms");
-#endif 
             return memory;
         }
 
@@ -501,7 +490,6 @@ namespace SluMAN
                         case 0x08:
                             {
                                 byte enteringOrLeaving = cmdBuf[1];
-                                Console.WriteLine($"Got new IS_INGAME: {enteringOrLeaving}");
                                 if (enteringOrLeaving == 0 && onDisconnectCallback != null) // out of game
                                 {
                                     onDisconnectCallback();
@@ -611,8 +599,6 @@ namespace SluMAN
                 this.memSubTickUpdates[memSubID] = 0;
             }
 
-            Console.WriteLine($"Subscribed to address {address.ToString("X")} with subscription ID {memSubID}");
-
             return memSubID;
         }
 
@@ -632,8 +618,6 @@ namespace SluMAN
                 this.WriteStream(cmdBuf.ToArray(), 0, cmdBuf.Count);
                 memSubID = (int)ReadUInt32BE(ReadExactly(4), 0);
             }
-
-            Console.WriteLine($"Froze address {address.ToString("X")} with subscription ID {memSubID}");
 
             lock (subsLock)
             {
@@ -684,9 +668,6 @@ namespace SluMAN
                 this.WriteStream(cmdBuf.ToArray(), 0, cmdBuf.Count);
                 ReadExactly(1);
             }
-
-            Console.WriteLine($"Released memory subscription ID {memSubID}");
-
 
             // we're ignoring the results because yolo
         }

@@ -1080,7 +1080,7 @@ namespace SluMAN
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.StackTrace);
+                Console.WriteLine(ex);
                 statusLine.Error("Couldn't save the watchlist. Check that the name has no \\ / : * ? \" < > | characters.");
                 return false;
             }
