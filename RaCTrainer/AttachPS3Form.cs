@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Drawing;
 using System.IO;
+using System.Net;
 using System.Windows.Forms;
 using System.Reflection;
 using System.Threading;
@@ -182,8 +184,29 @@ namespace racman
 
         }
 
-        private void AttachGameEvent(bool speedrunMode)
+        // Bumped for every attach and on cancel. The background connect checks it, so the result of
+        // a cancelled attempt is thrown away when it finally arrives.
+        private int attachAttempt = 0;
+        private bool attaching = false;
+        private Button cancelButton = null;
+        private string cancelButtonText;
+
+        /// <summary>What the background connect found, or why it failed.</summary>
+        private class AttachResult
         {
+            public string error;
+            public string errorTitle = "Couldn't connect";
+            public string game;
+            public int pid;
+        }
+
+        private void AttachGameEvent(bool speedrunMode, Button clickedButton)
+        {
+            if (attaching)
+            {
+                return;
+            }
+
             // Close the previous connection first. The server only tells one client when the game
             // closes or starts, so a leftover connection steals reconnects from the new game form.
             if (func.api != null)
@@ -191,39 +214,208 @@ namespace racman
                 try { func.api.Disconnect(); } catch { }
             }
 
+            IPS3API api;
             if (rpcs3CheckBox.Checked)
             {
-                func.api = new RPCS3("FUCK");
-                Attach(func.api, speedrunMode);
-                return;
+                api = new RPCS3("FUCK");
             }
-
-            ip = IPTextBox.Text;
-            func.ChangeFileLines("config.txt", Convert.ToString(ip), "ip");
-
-            func.api = this.useOldAPI ? (IPS3API)new WebMAN(ip) : (IPS3API)new Ratchetron(ip);
-
-            Ratchetron ratchetron = func.api as Ratchetron;
-            if (ratchetron != null)
+            else
             {
-                // Offers a firewall rule when live data from the PS3 never arrives.
-                ratchetron.DataChannelSilent += () => FirewallHelper.OnDataChannelSilent(ratchetron);
-            }
-
-            if (!this.useOldAPI)
-            {
-                if (!func.PrepareRatchetron(ip))
+                ip = IPTextBox.Text.Trim();
+                IPAddress parsedIp;
+                if (!IPAddress.TryParse(ip, out parsedIp))
                 {
+                    MessageBox.Show(this, $"\"{ip}\" isn't an IP address. Enter the PS3's IP address, for example 192.168.1.10. webMAN MOD shows it on the PS3's home screen.", "Check the IP address");
+                    IPTextBox.Focus();
                     return;
+                }
+                IPTextBox.Text = ip;
+                func.ChangeFileLines("config.txt", Convert.ToString(ip), "ip");
+
+                api = this.useOldAPI ? (IPS3API)new WebMAN(ip) : (IPS3API)new Ratchetron(ip);
+
+                Ratchetron ratchetron = api as Ratchetron;
+                if (ratchetron != null)
+                {
+                    // Offers a firewall rule when live data from the PS3 never arrives.
+                    ratchetron.DataChannelSilent += () => FirewallHelper.OnDataChannelSilent(ratchetron);
                 }
             }
 
-            Attach(func.api, speedrunMode);
+            // Connecting can take several seconds when the PS3 doesn't answer, so it runs in the
+            // background and the form shows how far it got.
+            int attempt = ++attachAttempt;
+            SetAttaching(true, clickedButton);
+            Thread worker = new Thread(() =>
+            {
+                AttachResult result = ConnectToGame(api, attempt);
+                RunOnForm(() => FinishAttach(api, attempt, speedrunMode, result));
+            });
+            worker.IsBackground = true;
+            worker.Name = "Attach";
+            worker.Start();
+        }
+
+        /// <summary>
+        /// Connects and reads the running game. Runs on a background thread.
+        /// </summary>
+        private AttachResult ConnectToGame(IPS3API api, int attempt)
+        {
+            AttachResult result = new AttachResult();
+            bool isRpcs3 = api is RPCS3;
+
+            try
+            {
+                if (api is Ratchetron)
+                {
+                    ShowAttachProgress(attempt, "Reaching webMAN MOD...");
+                    result.error = func.PrepareRatchetron(ip);
+                    if (result.error != null)
+                    {
+                        return result;
+                    }
+                }
+
+                ShowAttachProgress(attempt, isRpcs3 ? "Connecting to RPCS3..." : "Connecting to the PS3...");
+                if (!api.Connect())
+                {
+                    if (isRpcs3)
+                    {
+                        result.error = "Couldn't connect to RPCS3. Start the game in RPCS3, then try again.";
+                    }
+                    else
+                    {
+                        result.error = $"Couldn't connect to the PS3 at {ip}.\n\nCheck that the IP address is right, the PS3 is connected to the same network and webMAN MOD is running.";
+                    }
+                    return result;
+                }
+
+                ShowAttachProgress(attempt, "Reading the running game...");
+                result.game = api.getGameTitleID();
+                result.pid = api.getCurrentPID();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                string source = isRpcs3 ? "RPCS3" : $"the PS3 at {ip}. Check that webMAN MOD is running";
+                result.error = $"Couldn't read the running game from {source}.";
+                return result;
+            }
+
+            if (result.pid == 0)
+            {
+                result.error = "Start the game before attaching SluMAN.";
+                result.errorTitle = "Game is not running";
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Back on the UI thread once the background connect is done.
+        /// </summary>
+        private void FinishAttach(IPS3API api, int attempt, bool speedrunMode, AttachResult result)
+        {
+            if (attempt != attachAttempt)
+            {
+                // Cancelled, or the form closed. Don't leave the connection open.
+                try { api.Disconnect(); } catch { }
+                return;
+            }
+
+            SetAttaching(false, null);
+
+            if (result.error != null)
+            {
+                try { api.Disconnect(); } catch { }
+                SetStatus(result.errorTitle, true);
+                MessageBox.Show(this, result.error, result.errorTitle);
+                return;
+            }
+
+            SetStatus("", false);
+            func.api = api;
+            game = result.game;
+            pid = result.pid;
+            Attach(speedrunMode);
+        }
+
+        private void CancelAttach()
+        {
+            attachAttempt++;
+            SetAttaching(false, null);
+            SetStatus("Cancelled", false);
+        }
+
+        private void SetAttaching(bool value, Button clickedButton)
+        {
+            attaching = value;
+            IPTextBox.Enabled = !value;
+            rpcs3CheckBox.Enabled = !value;
+
+            if (value)
+            {
+                // The clicked button becomes the cancel button; the other one is off meanwhile.
+                cancelButton = clickedButton;
+                cancelButtonText = clickedButton.Text;
+                clickedButton.Text = "Cancel";
+                attachButton.Enabled = clickedButton == attachButton;
+                attachRestrictedButton.Enabled = clickedButton == attachRestrictedButton;
+                clickedButton.Focus();
+            }
+            else
+            {
+                if (cancelButton != null)
+                {
+                    cancelButton.Text = cancelButtonText;
+                    cancelButton = null;
+                }
+                attachButton.Enabled = true;
+                attachRestrictedButton.Enabled = true;
+            }
+        }
+
+        private void SetStatus(string text, bool isError)
+        {
+            statusLabel.Text = text;
+            statusLabel.ForeColor = isError ? Color.Firebrick : SystemColors.ControlText;
+        }
+
+        /// <summary>Shows a connect step on the status line, unless the attempt was cancelled.</summary>
+        private void ShowAttachProgress(int attempt, string text)
+        {
+            RunOnForm(() =>
+            {
+                if (attempt == attachAttempt)
+                {
+                    SetStatus(text, false);
+                }
+            });
+        }
+
+        /// <summary>Runs the action on the UI thread. Does nothing once the form is gone.</summary>
+        private void RunOnForm(Action action)
+        {
+            try
+            {
+                if (!IsDisposed && IsHandleCreated)
+                {
+                    BeginInvoke(action);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The form closed while connecting.
+            }
         }
 
         private void attachButton_Click(object sender, EventArgs e)
         {
-            AttachGameEvent(false);
+            if (attaching)
+            {
+                CancelAttach();
+                return;
+            }
+            AttachGameEvent(false, attachButton);
         }
 
         /// <summary>
@@ -248,12 +440,12 @@ namespace racman
             pendingSpeedrunMode = speedrunMode;
         }
 
-        private void Attach(IPS3API api, Boolean speedrunMode = false)
+        private void Attach(Boolean speedrunMode)
         {
-            AttachAndShowGame(api, speedrunMode);
+            ShowGame(speedrunMode);
 
             // The game form's dialog has returned. If it closed to switch games, attach to the new
-            // one. Show this form first so a failed attach leaves something on screen.
+            // one. Show this form first so the progress and a failed attach are on screen.
             if (switchPending)
             {
                 switchPending = false;
@@ -261,45 +453,16 @@ namespace racman
                 BeginInvoke(new Action(() =>
                 {
                     Show();
-                    AttachGameEvent(mode);
+                    AttachGameEvent(mode, mode ? attachRestrictedButton : attachButton);
                 }));
             }
         }
 
-        private void AttachAndShowGame(IPS3API api, Boolean speedrunMode)
+        /// <summary>
+        /// Opens the form for the attached game. Blocks until it closes.
+        /// </summary>
+        private void ShowGame(Boolean speedrunMode)
         {
-            if (!api.Connect())
-            {
-                if (api is RPCS3)
-                {
-                    MessageBox.Show("Couldn't connect to RPCS3. Start the game in RPCS3, then try again.", "Couldn't connect");
-                }
-                else
-                {
-                    MessageBox.Show($"Couldn't connect to the PS3 at {ip}. Check the IP address and that webMAN MOD is running.", "Couldn't connect");
-                }
-                return;
-            }
-
-            try
-            {
-                game = api.getGameTitleID();
-                pid = api.getCurrentPID();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                string source = api is RPCS3 ? "RPCS3" : $"the PS3 at {ip}. Check that webMAN MOD is running";
-                MessageBox.Show($"Couldn't read the running game from {source}.", "Couldn't connect");
-                return;
-            }
-
-            if (pid == 0)
-            {
-                MessageBox.Show("Start the game before attaching SluMAN.", "Game is not running");
-                return;
-            }
-
             if (game == "NPEA00343") // Sly 3 (PAL, Digital)
             {
                 if (speedrunMode)
@@ -387,18 +550,30 @@ namespace racman
         {
             if (e.KeyCode == Keys.Enter)
             {
-                attachButton_Click(IPTextBox, e);
+                // Swallowed so Windows doesn't beep.
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                if (!attaching)
+                {
+                    AttachGameEvent(false, attachButton);
+                }
             }
         }
 
         private void attachPS3SpeedrunModeButton_Click(object sender, EventArgs e)
         {
-
-            AttachGameEvent(true);
+            if (attaching)
+            {
+                CancelAttach();
+                return;
+            }
+            AttachGameEvent(true, attachRestrictedButton);
         }
 
         private void AttachPS3Form_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // A connect still running in the background is dropped when it finishes.
+            attachAttempt++;
             if (func.api != null)
             {
                 func.api.Disconnect();

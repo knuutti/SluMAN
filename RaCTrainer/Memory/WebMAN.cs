@@ -100,7 +100,19 @@ namespace racman
 
         public override bool Connect()
         {
-            return true;  // fuck you I won't do what you tell me
+            // There's no connection to open; just check that webMAN answers before relying on it.
+            using (func.TimeoutWebClient probe = new func.TimeoutWebClient())
+            {
+                try
+                {
+                    probe.DownloadString($"http://{ip}/home.ps3mapi");
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
         }
 
         public override void Notify(string message)

@@ -23,6 +23,8 @@ namespace racman
 
         private int port = 9671;
 
+        private const int ConnectTimeoutMs = 5000;
+
         private TcpClient client;
         private UdpClient udpClient;
         private NetworkStream stream;
@@ -51,12 +53,23 @@ namespace racman
         {
             try
             {
-                this.client = new TcpClient(this.ip, this.port);
+                // Windows waits about 20 seconds before giving up on a host that doesn't answer.
+                this.client = new TcpClient();
+                IAsyncResult connecting = this.client.BeginConnect(this.ip, this.port, null, null);
+                if (!connecting.AsyncWaitHandle.WaitOne(ConnectTimeoutMs))
+                {
+                    this.client.Close();
+                    return false;
+                }
+                this.client.EndConnect(connecting);
                 this.client.NoDelay = true;
 
                 this.stream = client.GetStream();
 
+                // Only the handshake has a timeout; later replies can take as long as they take.
+                this.stream.ReadTimeout = ConnectTimeoutMs;
                 byte[] connMsg = ReadExactly(6);
+                this.stream.ReadTimeout = Timeout.Infinite;
 
                 uint apiRev = ReadUInt32BE(connMsg, 2);
 
@@ -80,13 +93,13 @@ namespace racman
                 }
             } catch (SocketException)
             {
-                return false;
             } catch (Exception)
             {
                 // who cares about error handling anyway?
-                return false;
             }
 
+            // Also stops a half-done handshake from leaving the socket open.
+            this.client.Close();
             return false;
         }
 

@@ -107,30 +107,69 @@ namespace racman
             return x;
         }
 
-        public static bool PrepareSPRX(string ip, string sprx, int slot)
+        /// <summary>
+        /// A WebClient that gives up after <see cref="Timeout"/> milliseconds. The default is 100
+        /// seconds, far too long to wait on a PS3 that isn't there.
+        /// </summary>
+        public class TimeoutWebClient : WebClient
         {
-            // Check if Ratchetron is already loaded
-            string slot6sprx = get_data($"http://{ip}/home.ps3mapi");
-            if (slot6sprx == null)
+            public int Timeout = 5000;
+
+            protected override WebRequest GetWebRequest(Uri address)
             {
-                MessageBox.Show($"Couldn't reach webMAN MOD on the PS3 at {ip}. Check the IP address and that webMAN MOD is running.", "Couldn't connect");
-                return false;
+                WebRequest request = base.GetWebRequest(address);
+                if (request != null)
+                {
+                    request.Timeout = Timeout;
+                }
+                return request;
             }
-
-            bool sprxLoaded = slot6sprx.Contains(sprx);
-
-            if (sprxLoaded)
-            {
-                return true;
-            }
-
-            client.UploadFile($"ftp://{ip}:21/dev_hdd0/tmp/{sprx}", $@"{sprxPath}\{sprx}");
-            get_data($"http://{ip}/vshplugin.ps3mapi?prx=%2Fdev_hdd0%2Ftmp%2F{sprx}&load_slot={slot}");
-
-            return true;
         }
 
-        public static bool PrepareRatchetron(string ip)
+        /// <summary>
+        /// Loads the SPRX on the PS3 through webMAN MOD unless it's loaded already. Returns null on
+        /// success, or a message for the user. Blocks for a few seconds at most when the PS3 doesn't
+        /// answer, so call it off the UI thread.
+        /// </summary>
+        public static string PrepareSPRX(string ip, string sprx, int slot)
+        {
+            using (TimeoutWebClient webClient = new TimeoutWebClient())
+            {
+                // Check if Ratchetron is already loaded
+                string loadedPlugins;
+                try
+                {
+                    loadedPlugins = webClient.DownloadString($"http://{ip}/home.ps3mapi");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"webMAN check failed: {ex.Message}");
+                    return $"Couldn't reach webMAN MOD on the PS3 at {ip}.\n\nCheck that the IP address is right, the PS3 is connected to the same network and webMAN MOD is running.";
+                }
+
+                if (loadedPlugins.Contains(sprx))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    webClient.Timeout = 15000;
+                    webClient.UploadFile($"ftp://{ip}:21/dev_hdd0/tmp/{sprx}", $@"{sprxPath}\{sprx}");
+                    webClient.Timeout = 5000;
+                    webClient.DownloadString($"http://{ip}/vshplugin.ps3mapi?prx=%2Fdev_hdd0%2Ftmp%2F{sprx}&load_slot={slot}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Loading {sprx} failed: {ex.Message}");
+                    return $"Couldn't load {sprx} on the PS3 at {ip}.\n\nCheck that webMAN MOD's FTP server is enabled.";
+                }
+            }
+
+            return null;
+        }
+
+        public static string PrepareRatchetron(string ip)
         {
             return PrepareSPRX(ip, "ratchetron_server.sprx", 6);
         }
