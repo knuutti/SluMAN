@@ -341,3 +341,6 @@ ASALocalRun/
 healthchecksdb
 /SluMAN/autosplitters/989u89u.lsl
 /SluMAN/autosplitters/rac1-ilsplitter.asl
+
+# Claude Code personal settings
+/.claude/settings.local.json
