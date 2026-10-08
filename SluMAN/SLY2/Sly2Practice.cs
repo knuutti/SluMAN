@@ -52,13 +52,6 @@ namespace SluMAN
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
 
-            if (!sly2.addr.HasCharacterStats)
-            {
-                // Health and gadget power addresses aren't known for this version yet.
-                infiniteHealthCheckBox.Enabled = false;
-                infiniteGadgetPowerCheckBox.Enabled = false;
-            }
-
             reapplyTimer.Interval = ReapplyDelayMs;
             reapplyTimer.Tick += reapplyTimer_Tick;
             game.LoadFinished += game_LoadFinished;

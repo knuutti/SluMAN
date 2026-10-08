@@ -61,22 +61,17 @@ namespace SluMAN
             public uint parisCinemaState;
             public uint rajanHealth;
 
-            // Per-character health and gadget power (juice). 0 means not known for this version.
+            // Per-character health and gadget power (juice).
             public uint healthSly;
             public uint healthBentley;
             public uint healthMurray;
             public uint juiceSly;
             public uint juiceBentley;
             public uint juiceMurray;
-
-            public AddressValues Clone()
-            {
-                return (AddressValues)MemberwiseClone();
-            }
         }
 
         public const string GameIdKOR = "NPHA80175";
-        public const string GameIdPAL = "NPEA00342";
+        public const string GameIdUS = "NPUA80664";
         public const string DefaultGameId = GameIdKOR;
 
         private static readonly Dictionary<string, AddressValues> gameVersions = CreateGameVersions();
@@ -110,8 +105,8 @@ namespace SluMAN
             {
                 case GameIdKOR:
                     return "SLY 2 (KOR, PSN)";
-                case GameIdPAL:
-                    return "SLY 2 (EU, PSN)";
+                case GameIdUS:
+                    return "SLY 2 (NTSC, PSN)";
                 default:
                     return "SLY 2";
             }
@@ -186,24 +181,9 @@ namespace SluMAN
 
             versions[GameIdKOR] = kor;
 
-            // PAL addresses
-            var pal = kor.Clone();
-            pal.coinCount = 0x7A8330;
-            pal.loadTrigger = 0x7B4BD0;
-            pal.mapAOB = 0x7B4BD8;
-            pal.spawnLocation = 0x7B4C68;
-            pal.inputOffset = 0x500EF6;
-            pal.analogOffsetLeft = 0x500E7C;
-            pal.analogOffsetRight = 0x500EB0;
-            // Not found for PAL yet.
-            pal.healthSly = 0;
-            pal.healthBentley = 0;
-            pal.healthMurray = 0;
-            pal.juiceSly = 0;
-            pal.juiceBentley = 0;
-            pal.juiceMurray = 0;
-
-            versions[GameIdPAL] = pal;
+            // The NTSC-U PSN release matches the Korean addresses wherever the community address
+            // sheet lists both, so it's assumed to be the same build. Not tested on NTSC-U yet.
+            versions[GameIdUS] = kor;
 
             return versions;
         }
@@ -268,11 +248,6 @@ namespace SluMAN
         public uint juiceSly => values.juiceSly;
         public uint juiceBentley => values.juiceBentley;
         public uint juiceMurray => values.juiceMurray;
-
-        /// <summary>
-        /// True when this version's per-character health and gadget power addresses are known.
-        /// </summary>
-        public bool HasCharacterStats => values.healthSly != 0 && values.juiceSly != 0;
 
         public enum LoadTypes : uint
         {
@@ -549,15 +524,14 @@ namespace SluMAN
         public void SetHealth(int health)
         {
             var currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
-            // The hard-coded fallbacks keep the old behaviour on versions without known addresses.
-            uint currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthSly : 0x7A8360;
+            uint currentCharacterHealth = sly2.addr.healthSly;
             if (currentCharacterId[3] == 8)
             {
-                currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthBentley : 0x7A8378;
+                currentCharacterHealth = sly2.addr.healthBentley;
             }
             else if (currentCharacterId[3] == 9)
             {
-                currentCharacterHealth = sly2.addr.HasCharacterStats ? sly2.addr.healthMurray : 0x7A8390;
+                currentCharacterHealth = sly2.addr.healthMurray;
             }
             byte[] healthBytes = ConvertIntToBytes(health);
             api.WriteMemory(pid, currentCharacterHealth, 4, healthBytes);
@@ -643,7 +617,7 @@ namespace SluMAN
         public void SetInfiniteHealth(bool enabled)
         {
             ReleaseFreezes(infiniteHealthSubIDs);
-            if (!enabled || !sly2.addr.HasCharacterStats)
+            if (!enabled)
             {
                 return;
             }
@@ -658,7 +632,7 @@ namespace SluMAN
         public void SetInfiniteGadgetPower(bool enabled)
         {
             ReleaseFreezes(infiniteGadgetPowerSubIDs);
-            if (!enabled || !sly2.addr.HasCharacterStats)
+            if (!enabled)
             {
                 return;
             }
@@ -694,8 +668,8 @@ namespace SluMAN
         private int infiniteJumpFreezeSubID = -1;
 
         /// <summary>
-        /// Holds the active character's jump counter at 0. It's on the character entity, so it
-        /// has to be applied again after a load.
+        /// Holds the active character's one-byte infinite jumps flag at 1. It's on the character
+        /// entity, so it has to be applied again after a load.
         /// </summary>
         public void SetInfiniteJump(bool enabled)
         {
@@ -710,7 +684,7 @@ namespace SluMAN
             {
                 return;
             }
-            infiniteJumpFreezeSubID = api.FreezeMemory(pid, entity + 0x2C8, 0u);
+            infiniteJumpFreezeSubID = api.FreezeMemory(pid, entity + 0x2C8, 1, IPS3API.MemoryCondition.Any, new byte[] { 1 });
         }
 
         public PositionEditorLayout GetPositionEditorLayout()
