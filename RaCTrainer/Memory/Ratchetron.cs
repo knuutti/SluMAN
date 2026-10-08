@@ -324,6 +324,10 @@ namespace racman
                 } catch (SocketException)
                 {
                     // Who gives a shit
+                } catch (ObjectDisposedException)
+                {
+                    // Disconnect() closed the socket between the loop check and Receive.
+                    break;
                 }
             }
         }

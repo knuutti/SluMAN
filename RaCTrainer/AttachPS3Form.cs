@@ -184,6 +184,13 @@ namespace racman
 
         private void AttachGameEvent(bool speedrunMode)
         {
+            // Close the previous connection first. The server only tells one client when the game
+            // closes or starts, so a leftover connection steals reconnects from the new game form.
+            if (func.api != null)
+            {
+                try { func.api.Disconnect(); } catch { }
+            }
+
             if (rpcs3CheckBox.Checked)
             {
                 func.api = new RPCS3("FUCK");
