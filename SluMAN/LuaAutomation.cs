@@ -153,7 +153,7 @@ namespace SluMAN
             state["GAME_PID"] = func.api.getCurrentPID();
             state["Inputs"] = new InputsClass();
 
-            // Load racman standard library
+            // Load the SluMAN standard library
             string standardLibsFolder = $"{Directory.GetCurrentDirectory()}\\mods\\libs\\standard\\";
 
             if (Directory.Exists(standardLibsFolder))

@@ -1,6 +1,6 @@
 ﻿namespace SluMAN
 {
-    partial class RacmanScripting
+    partial class ScriptingForm
     {
         /// <summary>
         /// Required designer variable.
@@ -62,7 +62,7 @@
             this.buttonLoad.UseVisualStyleBackColor = true;
             this.buttonLoad.Click += new System.EventHandler(this.buttonLoad_Click);
             // 
-            // RacmanScripting
+            // ScriptingForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -70,7 +70,7 @@
             this.Controls.Add(this.buttonLoad);
             this.Controls.Add(this.buttonRun);
             this.Controls.Add(this.codeBox);
-            this.Name = "RacmanScripting";
+            this.Name = "ScriptingForm";
             this.Text = "Interactive Scripting";
             this.ResumeLayout(false);
 

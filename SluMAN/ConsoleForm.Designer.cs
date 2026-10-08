@@ -1,7 +1,7 @@
 ﻿
 namespace SluMAN
 {
-    partial class RacManConsole
+    partial class ConsoleForm
     {
         /// <summary>
         /// Required designer variable.
@@ -97,7 +97,7 @@ namespace SluMAN
             this.autoscrollCheckbox.Text = "Auto-scroll";
             this.autoscrollCheckbox.UseVisualStyleBackColor = true;
             // 
-            // RacManConsole
+            // ConsoleForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -107,11 +107,11 @@ namespace SluMAN
             this.Controls.Add(this.label1);
             this.Controls.Add(this.filterComboBox);
             this.Controls.Add(this.consoleTextBox);
-            this.Name = "RacManConsole";
+            this.Name = "ConsoleForm";
             this.Text = "Console";
-            this.Activated += new System.EventHandler(this.RacManConsole_Activated);
-            this.Load += new System.EventHandler(this.RacManConsole_Load);
-            this.Shown += new System.EventHandler(this.RacManConsole_Shown);
+            this.Activated += new System.EventHandler(this.ConsoleForm_Activated);
+            this.Load += new System.EventHandler(this.ConsoleForm_Load);
+            this.Shown += new System.EventHandler(this.ConsoleForm_Shown);
             this.ResumeLayout(false);
             this.PerformLayout();
 

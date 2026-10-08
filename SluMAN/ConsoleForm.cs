@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class RacManConsole : Form
+    public partial class ConsoleForm : Form
     {
         static TextWriter stdout;
         static TextWriter stderr;
@@ -27,7 +27,7 @@ namespace SluMAN
 
         static List<Dictionary<string, string>> consoleOutput = new List<Dictionary<string, string>>();
 
-        public RacManConsole()
+        public ConsoleForm()
         {
             InitializeComponent();
         }
@@ -165,7 +165,7 @@ namespace SluMAN
             }
         }
 
-        private void RacManConsole_Shown(object sender, EventArgs e)
+        private void ConsoleForm_Shown(object sender, EventArgs e)
         {
             foreach (var item in consoleOutput)
             {
@@ -210,12 +210,12 @@ namespace SluMAN
             consoleTextBox.ResumeLayout();
         }
 
-        private void RacManConsole_Load(object sender, EventArgs e)
+        private void ConsoleForm_Load(object sender, EventArgs e)
         {
  
         }
 
-        private void RacManConsole_Activated(object sender, EventArgs e)
+        private void ConsoleForm_Activated(object sender, EventArgs e)
         {
 
         }

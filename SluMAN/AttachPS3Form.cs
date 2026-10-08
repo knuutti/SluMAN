@@ -15,9 +15,9 @@ namespace SluMAN
     {
         bool useOldAPI = false;
 
-        public static RacManConsole console;
+        public static ConsoleForm console;
 
-        public static RacmanScripting scripting;
+        public static ScriptingForm scripting;
 
         static ModLoaderForm modLoaderForm;
         static MemoryForm memoryForm;
@@ -27,10 +27,10 @@ namespace SluMAN
         {
             InitializeComponent();
 
-            RacManConsole.RedirectOutput();
+            ConsoleForm.RedirectOutput();
 
-            console = new RacManConsole();
-            scripting = new RacmanScripting();
+            console = new ConsoleForm();
+            scripting = new ScriptingForm();
 
             currentVerLabel.Text = "SluMAN " + func.VersionText;
 

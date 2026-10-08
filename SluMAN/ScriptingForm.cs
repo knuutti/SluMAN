@@ -11,9 +11,9 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class RacmanScripting : Form
+    public partial class ScriptingForm : Form
     {
-        public RacmanScripting()
+        public ScriptingForm()
         {
             InitializeComponent();
         }

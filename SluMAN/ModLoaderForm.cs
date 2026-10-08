@@ -253,8 +253,8 @@ namespace SluMAN
                 {
                     try
                     {
-                        ZipFile.ExtractToDirectory(openFileDialog.FileName, $"{Path.GetTempPath()}\\racman\\{AttachPS3Form.game}\\");
-                        var directories = Directory.GetDirectories($"{Path.GetTempPath()}\\racman\\{AttachPS3Form.game}\\");
+                        ZipFile.ExtractToDirectory(openFileDialog.FileName, $"{Path.GetTempPath()}\\SluMAN\\{AttachPS3Form.game}\\");
+                        var directories = Directory.GetDirectories($"{Path.GetTempPath()}\\SluMAN\\{AttachPS3Form.game}\\");
 
                         // Find first directory with a path.txt file
                         string directoryName = "";
@@ -311,7 +311,7 @@ namespace SluMAN
                         }
 
                         // Merge folders
-                        DirectoryInfo source = new DirectoryInfo($"{Path.GetTempPath()}\\racman\\{AttachPS3Form.game}\\{directoryName}");
+                        DirectoryInfo source = new DirectoryInfo($"{Path.GetTempPath()}\\SluMAN\\{AttachPS3Form.game}\\{directoryName}");
                         DirectoryInfo target = new DirectoryInfo($"{Directory.GetCurrentDirectory()}\\mods\\{AttachPS3Form.game}\\{directoryName}");
 
                         CopyAll(source, target);
@@ -333,7 +333,7 @@ namespace SluMAN
                         Console.WriteLine(ex);
                     } finally
                     {
-                        Directory.Delete($"{System.IO.Path.GetTempPath()}\\racman\\", true);
+                        Directory.Delete($"{System.IO.Path.GetTempPath()}\\SluMAN\\", true);
                     }
 
                     this.ReloadMods();
@@ -383,7 +383,7 @@ namespace SluMAN
                 AttachPS3Form.console.Show();
             } else
             {
-                RacManConsole console = new RacManConsole();
+                ConsoleForm console = new ConsoleForm();
                 console.Show();
             }
         }
@@ -396,7 +396,7 @@ namespace SluMAN
             }
             else
             {
-                RacmanScripting scripting = new RacmanScripting();
+                ScriptingForm scripting = new ScriptingForm();
                 scripting.Show();
             }
         }
