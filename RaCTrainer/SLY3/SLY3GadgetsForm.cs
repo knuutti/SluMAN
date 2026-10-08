@@ -11,7 +11,7 @@ using System.Windows.Forms;
 
 namespace racman
 {
-    public partial class SLY3GadgetsForm : Form
+    public partial class SLY3GadgetsForm : Form, IRefreshOnShow
     {
         private sly3 game;
         private ItemCheckEventHandler slyItemCheckHandler;
@@ -182,6 +182,29 @@ namespace racman
         }
 
         // Load current gadget unlock states from memory
+        /// <summary>
+        /// Reads the unlocks and bindings again, since the tab keeps this form while saves are
+        /// loaded. Unsaved changes are dropped, as closing the old gadget window did.
+        /// </summary>
+        public void RefreshFromGame()
+        {
+            SuspendComboBoxUpdates();
+            try
+            {
+                LoadGadgets();
+                PopulateBindingComboBoxes();
+                LoadGadgetBindings();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the gadgets: {ex.Message}");
+            }
+            finally
+            {
+                ResumeComboBoxUpdates();
+            }
+        }
+
         public void LoadGadgets()
         {
             byte[] gadgetBytes = game.GetGadgetUnlocks();

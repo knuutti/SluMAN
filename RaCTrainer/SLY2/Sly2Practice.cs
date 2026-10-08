@@ -186,12 +186,15 @@ namespace racman
                 {
                     reapplyAttempts = 0;
                     Console.WriteLine("Load finished, but the player didn't appear; toggles not re-applied.");
+                    practiceTabs.RefreshShownTool();
                 }
                 return;
             }
 
             reapplyAttempts = 0;
             ReapplyToggles();
+            // The load may have been another save, so an open tool such as the gadgets reads it again.
+            practiceTabs.RefreshShownTool();
         }
 
         /// <summary>

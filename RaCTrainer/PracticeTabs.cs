@@ -7,6 +7,16 @@ using System.Windows.Forms;
 namespace racman
 {
     /// <summary>
+    /// A tool that shows the game's current state. Tabs keep a tool's form once it's created, so
+    /// it reads the game again each time its tab is selected; a save loaded meanwhile would
+    /// otherwise show the old values.
+    /// </summary>
+    public interface IRefreshOnShow
+    {
+        void RefreshFromGame();
+    }
+
+    /// <summary>
     /// Turns a Practice window into one window with tabs: the window's own controls on the first
     /// tab, and tool windows (gadgets, position editor, memory) embedded on the others. A tool is
     /// created the first time its tab is opened, and the window resizes to fit the selected tab.
@@ -114,6 +124,24 @@ namespace racman
             return tool != null && tool.form != null && !tool.form.IsDisposed ? tool.form : null;
         }
 
+        /// <summary>
+        /// Has the tool on the selected tab read the game again, e.g. after a load. Tools on other
+        /// tabs read it when their tab is selected.
+        /// </summary>
+        public void RefreshShownTool()
+        {
+            Tool tool = tools.FirstOrDefault(t => t.page == tabs.SelectedTab);
+            if (tool == null || tool.form == null || tool.form.IsDisposed)
+            {
+                return;
+            }
+            IRefreshOnShow refreshable = tool.form as IRefreshOnShow;
+            if (refreshable != null)
+            {
+                refreshable.RefreshFromGame();
+            }
+        }
+
         /// <summary>Closes every tool, so their own cleanup runs. Call when the host closes.</summary>
         public void CloseAll()
         {
@@ -183,7 +211,14 @@ namespace racman
             Tool tool = tools.FirstOrDefault(t => t.page == tabs.SelectedTab);
             if (tool != null)
             {
+                // A new form has just read the game in its constructor.
+                bool existed = tool.form != null && !tool.form.IsDisposed;
                 Form form = EnsureCreated(tool);
+                IRefreshOnShow refreshable = form as IRefreshOnShow;
+                if (existed && refreshable != null)
+                {
+                    refreshable.RefreshFromGame();
+                }
                 FitTo(form.ClientSize);
             }
         }
