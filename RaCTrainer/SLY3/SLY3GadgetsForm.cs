@@ -486,8 +486,11 @@ namespace racman
         // Load a single binding from memory and select it in the combobox
         private void LoadBindingToComboBox(ComboBox comboBox, uint baseAddress, int buttonOffset)
         {
-            int buttonBindingIndex = game.GetGadgetBinding(baseAddress, buttonOffset);
+            SelectBinding(comboBox, game.GetGadgetBinding(baseAddress, buttonOffset));
+        }
 
+        private void SelectBinding(ComboBox comboBox, int buttonBindingIndex)
+        {
             // Find gadget with this binding index
             string gadgetName = FindGadgetByBindingIndex(buttonBindingIndex);
 
@@ -518,6 +521,68 @@ namespace racman
             }
 
             return null; // Not found
+        }
+
+        private void loadRunFileGadgetsButton_Click(object sender, EventArgs e)
+        {
+            if (runFileComboBox.SelectedItem == null)
+            {
+                statusLine.Error("Select a run file to load from first.");
+                return;
+            }
+
+            string runFile = runFileComboBox.SelectedItem.ToString();
+            string episodeKey = GetEpisodeKey(runFile);
+            string gadgetHex = func.GetConfigData("config.txt", episodeKey + "_GadgetUnlocks");
+            string bindingHex = func.GetConfigData("config.txt", episodeKey + "_GadgetBindings");
+
+            byte[] gadgetBytes;
+            byte[] bindingBytes;
+            try
+            {
+                gadgetBytes = IPS3API.HexToBytes(gadgetHex);
+                bindingBytes = IPS3API.HexToBytes(bindingHex);
+            }
+            catch (FormatException)
+            {
+                statusLine.Error($"The {runFile} run file in config.txt isn't valid hex.");
+                return;
+            }
+            if (gadgetBytes.Length < 8 || bindingBytes.Length < 36)
+            {
+                statusLine.Error($"No gadgets are saved for the {runFile} run file.");
+                return;
+            }
+
+            // Fills in the form only. Save or Save and Reload writes it to the game.
+            SuspendComboBoxUpdates();
+            try
+            {
+                LoadGadgetsToList(slyGadgetsCheckedList, gadgetBytes);
+                LoadGadgetsToList(bentleyGadgetsCheckedList, gadgetBytes);
+                LoadGadgetsToList(murrayGadgetsCheckedList, gadgetBytes);
+                LoadSpecialMoveLevels(spinAttackLevelSelector, pushAttackLevelSelector, jumpAttackLevelSelector, gadgetBytes);
+                PopulateBindingComboBoxes();
+
+                ComboBox[] bindingCombos =
+                {
+                    slyGadgetsL1ComboBox, slyGadgetsL2ComboBox, slyGadgetsR2ComboBox,
+                    bentleyGadgetsL1ComboBox, bentleyGadgetsL2ComboBox, bentleyGadgetsR2ComboBox,
+                    murrayGadgetsL1ComboBox, murrayGadgetsL2ComboBox, murrayGadgetsR2ComboBox
+                };
+                for (int i = 0; i < bindingCombos.Length; i++)
+                {
+                    // Each binding is a big-endian 4-byte integer, as GetCurrentBindingBytes writes it.
+                    int buttonBindingIndex = BitConverter.ToInt32(bindingBytes.Skip(i * 4).Take(4).Reverse().ToArray(), 0);
+                    SelectBinding(bindingCombos[i], buttonBindingIndex);
+                }
+            }
+            finally
+            {
+                ResumeComboBoxUpdates();
+            }
+
+            statusLine.Info($"Loaded the {runFile} run file. Save to apply it in game.");
         }
 
         private void saveRunFileGadgetsButton_Click(object sender, EventArgs e)

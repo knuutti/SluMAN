@@ -66,6 +66,7 @@
             this.saveAndReloadButton = new System.Windows.Forms.Button();
             this.discardChangesButton = new System.Windows.Forms.Button();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.loadRunFileGadgetsButton = new System.Windows.Forms.Button();
             this.saveRunFileGadgetsButton = new System.Windows.Forms.Button();
             this.runFileComboBox = new System.Windows.Forms.ComboBox();
             ((System.ComponentModel.ISupportInitialize)(this.spinAttackLevelSelector)).BeginInit();
@@ -460,24 +461,36 @@
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.loadRunFileGadgetsButton);
             this.groupBox1.Controls.Add(this.saveRunFileGadgetsButton);
             this.groupBox1.Controls.Add(this.runFileComboBox);
-            this.groupBox1.Location = new System.Drawing.Point(201, 387);
+            this.groupBox1.Location = new System.Drawing.Point(201, 371);
             this.groupBox1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.groupBox1.Size = new System.Drawing.Size(146, 78);
+            this.groupBox1.Size = new System.Drawing.Size(146, 94);
             this.groupBox1.TabIndex = 36;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Save gadgets to run file";
+            this.groupBox1.Text = "Run file gadgets";
+            // 
+            // loadRunFileGadgetsButton
+            // 
+            this.loadRunFileGadgetsButton.Location = new System.Drawing.Point(6, 43);
+            this.loadRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.loadRunFileGadgetsButton.Name = "loadRunFileGadgetsButton";
+            this.loadRunFileGadgetsButton.Size = new System.Drawing.Size(134, 21);
+            this.loadRunFileGadgetsButton.TabIndex = 1;
+            this.loadRunFileGadgetsButton.Text = "Load";
+            this.loadRunFileGadgetsButton.UseVisualStyleBackColor = true;
+            this.loadRunFileGadgetsButton.Click += new System.EventHandler(this.loadRunFileGadgetsButton_Click);
             // 
             // saveRunFileGadgetsButton
             // 
-            this.saveRunFileGadgetsButton.Location = new System.Drawing.Point(4, 47);
+            this.saveRunFileGadgetsButton.Location = new System.Drawing.Point(6, 67);
             this.saveRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.saveRunFileGadgetsButton.Name = "saveRunFileGadgetsButton";
-            this.saveRunFileGadgetsButton.Size = new System.Drawing.Size(130, 19);
-            this.saveRunFileGadgetsButton.TabIndex = 1;
+            this.saveRunFileGadgetsButton.Size = new System.Drawing.Size(134, 21);
+            this.saveRunFileGadgetsButton.TabIndex = 2;
             this.saveRunFileGadgetsButton.Text = "Save";
             this.saveRunFileGadgetsButton.UseVisualStyleBackColor = true;
             this.saveRunFileGadgetsButton.Click += new System.EventHandler(this.saveRunFileGadgetsButton_Click);
@@ -493,7 +506,7 @@
             "Episode 5",
             "Episode 6 (No CE)",
             "Episode 6 (CE)"});
-            this.runFileComboBox.Location = new System.Drawing.Point(4, 23);
+            this.runFileComboBox.Location = new System.Drawing.Point(6, 19);
             this.runFileComboBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.runFileComboBox.Name = "runFileComboBox";
             this.runFileComboBox.Size = new System.Drawing.Size(131, 21);
@@ -593,6 +606,7 @@
         private System.Windows.Forms.Button saveAndReloadButton;
         private System.Windows.Forms.Button discardChangesButton;
         private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.Button loadRunFileGadgetsButton;
         private System.Windows.Forms.Button saveRunFileGadgetsButton;
         private System.Windows.Forms.ComboBox runFileComboBox;
     }

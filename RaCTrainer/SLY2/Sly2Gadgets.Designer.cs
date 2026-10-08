@@ -58,6 +58,7 @@
             this.bentleyGadgetsLabel = new System.Windows.Forms.Label();
             this.slyGadgetsLabel = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.loadRunFileGadgetsButton = new System.Windows.Forms.Button();
             this.saveRunFileGadgetsButton = new System.Windows.Forms.Button();
             this.runFileComboBox = new System.Windows.Forms.ComboBox();
             this.saveAndReloadButton = new System.Windows.Forms.Button();
@@ -356,24 +357,36 @@
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.loadRunFileGadgetsButton);
             this.groupBox1.Controls.Add(this.saveRunFileGadgetsButton);
             this.groupBox1.Controls.Add(this.runFileComboBox);
-            this.groupBox1.Location = new System.Drawing.Point(198, 384);
+            this.groupBox1.Location = new System.Drawing.Point(198, 380);
             this.groupBox1.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox1.Size = new System.Drawing.Size(279, 69);
+            this.groupBox1.Size = new System.Drawing.Size(279, 86);
             this.groupBox1.TabIndex = 60;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Save gadgets to run file";
+            this.groupBox1.Text = "Run file gadgets";
+            // 
+            // loadRunFileGadgetsButton
+            // 
+            this.loadRunFileGadgetsButton.Location = new System.Drawing.Point(183, 20);
+            this.loadRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2);
+            this.loadRunFileGadgetsButton.Name = "loadRunFileGadgetsButton";
+            this.loadRunFileGadgetsButton.Size = new System.Drawing.Size(83, 26);
+            this.loadRunFileGadgetsButton.TabIndex = 1;
+            this.loadRunFileGadgetsButton.Text = "Load";
+            this.loadRunFileGadgetsButton.UseVisualStyleBackColor = true;
+            this.loadRunFileGadgetsButton.Click += new System.EventHandler(this.loadRunFileGadgetsButton_Click);
             // 
             // saveRunFileGadgetsButton
             // 
-            this.saveRunFileGadgetsButton.Location = new System.Drawing.Point(183, 25);
+            this.saveRunFileGadgetsButton.Location = new System.Drawing.Point(183, 51);
             this.saveRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2);
             this.saveRunFileGadgetsButton.Name = "saveRunFileGadgetsButton";
-            this.saveRunFileGadgetsButton.Size = new System.Drawing.Size(83, 30);
-            this.saveRunFileGadgetsButton.TabIndex = 1;
+            this.saveRunFileGadgetsButton.Size = new System.Drawing.Size(83, 26);
+            this.saveRunFileGadgetsButton.TabIndex = 2;
             this.saveRunFileGadgetsButton.Text = "Save";
             this.saveRunFileGadgetsButton.UseVisualStyleBackColor = true;
             this.saveRunFileGadgetsButton.Click += new System.EventHandler(this.saveRunFileGadgetsButton_Click);
@@ -390,7 +403,7 @@
             "Episode 6",
             "Episode 7",
             "Episode 8"});
-            this.runFileComboBox.Location = new System.Drawing.Point(14, 31);
+            this.runFileComboBox.Location = new System.Drawing.Point(14, 39);
             this.runFileComboBox.Margin = new System.Windows.Forms.Padding(2);
             this.runFileComboBox.Name = "runFileComboBox";
             this.runFileComboBox.Size = new System.Drawing.Size(155, 21);
@@ -536,6 +549,7 @@
         private System.Windows.Forms.Label bentleyGadgetsLabel;
         private System.Windows.Forms.Label slyGadgetsLabel;
         private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.Button loadRunFileGadgetsButton;
         private System.Windows.Forms.Button saveRunFileGadgetsButton;
         private System.Windows.Forms.ComboBox runFileComboBox;
         private System.Windows.Forms.Button saveAndReloadButton;
