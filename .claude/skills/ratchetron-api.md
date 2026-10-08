@@ -53,7 +53,6 @@ int subID = api.SubMemory(pid, addr.inputOffset, 4, (value) =>
     // value bytes are already little-endian — pass directly to BitConverter
     int mask = BitConverter.ToInt32(value, 0);
     Inputs.RawInputs = ConvertButtonsToStandardFormat(mask);
-    Inputs.Mask = Inputs.DecodeMask(Inputs.RawInputs);
 });
 
 // In FormClosed / disconnect:

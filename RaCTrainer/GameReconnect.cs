@@ -68,6 +68,8 @@ namespace racman
                     if (title == titleId && currentPid != 0)
                     {
                         pid = currentPid;
+                        // Before GameReconnected, so windows that subscribe again use the new PID.
+                        AttachPS3Form.pid = currentPid;
                         Console.WriteLine($"{gameName}: game detected after {(waited + PollIntervalMs) / 1000} s (PID: {pid})");
                         Action handler = GameReconnected;
                         if (handler != null)

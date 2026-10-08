@@ -56,64 +56,80 @@ namespace racman
             timer.Start();
         }
 
+        // What was last drawn, so the window only repaints when the pad changes.
+        private int drawnInputs = -1;
+        private float drawnLx, drawnLy, drawnRx, drawnRy;
+
         public void timer_Tick(object sender, EventArgs e)
         {
-            this.Refresh();
+            int inputs = Inputs.RawInputs;
+            if (inputs == drawnInputs && Inputs.lx == drawnLx && Inputs.ly == drawnLy && Inputs.rx == drawnRx && Inputs.ry == drawnRy)
+            {
+                return;
+            }
+            // Invalidate instead of Refresh: Windows paints when it's ready instead of right away.
+            this.Invalidate();
         }
 
-        private GraphicsUnit units = GraphicsUnit.Pixel;
+        // Skin parts drawn while their button is held. The sticks are drawn separately.
+        private static readonly KeyValuePair<Inputs.Buttons, string>[] buttonParts =
+        {
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.left, "dpadLeft"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.right, "dpadRight"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.down, "dpadDown"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.up, "dpadUp"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.cross, "cross"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.circle, "circle"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.triangle, "triangle"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.square, "square"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.select, "select"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.start, "start"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r1, "r1"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l1, "l1"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l2, "l2"),
+            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r2, "r2"),
+        };
+
+        private const GraphicsUnit units = GraphicsUnit.Pixel;
+
+        private void DrawPart(Graphics graphics, Image sprite, string part, float offsetX = 0, float offsetY = 0)
+        {
+            InputPlot plot = controllerSkin.buttons[part];
+            graphics.DrawImage(sprite, plot.drawX + offsetX, plot.drawY + offsetY, new Rectangle(plot.spriteX, plot.spriteY, plot.spriteWidth, plot.spriteHeight), units);
+        }
+
         private void InputDisplay_Paint(object sender, PaintEventArgs e)
         {
+            int inputs = Inputs.RawInputs;
+            float lx = Inputs.lx, ly = Inputs.ly, rx = Inputs.rx, ry = Inputs.ry;
+            drawnInputs = inputs;
+            drawnLx = lx;
+            drawnLy = ly;
+            drawnRx = rx;
+            drawnRy = ry;
+
             Image sprite = controllerSkin.image;
+            Graphics graphics = e.Graphics;
+            float pitch = controllerSkin.analogPitch;
 
-            InputPlot basePlot = controllerSkin.buttons["base"];
-            InputPlot r3 = controllerSkin.buttons["r3"];
-            InputPlot r3Press = controllerSkin.buttons["r3Press"];
-            InputPlot l3 = controllerSkin.buttons["l3"];
-            InputPlot l3Press = controllerSkin.buttons["l3Press"];
+            DrawPart(graphics, sprite, "base");
 
-            InputPlot dpadLeft = controllerSkin.buttons["dpadLeft"];
-            InputPlot dpadRight = controllerSkin.buttons["dpadRight"];
-            InputPlot dpadDown = controllerSkin.buttons["dpadDown"];
-            InputPlot dpadUp = controllerSkin.buttons["dpadUp"];
+            // The skins name the sticks the other way round: "r3" is drawn while R3 is held.
+            DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.r3) ? "r3" : "r3Press", rx * pitch, ry * pitch);
+            DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.l3) ? "l3" : "l3Press", lx * pitch, ly * pitch);
 
-            InputPlot cross = controllerSkin.buttons["cross"];
-            InputPlot circle = controllerSkin.buttons["circle"];
-            InputPlot triangle = controllerSkin.buttons["triangle"];
-            InputPlot square = controllerSkin.buttons["square"];
+            foreach (KeyValuePair<Inputs.Buttons, string> part in buttonParts)
+            {
+                if (IsHeld(inputs, part.Key))
+                {
+                    DrawPart(graphics, sprite, part.Value);
+                }
+            }
+        }
 
-            InputPlot select = controllerSkin.buttons["select"];
-            InputPlot start = controllerSkin.buttons["start"];
-
-            InputPlot r1 = controllerSkin.buttons["r1"];
-            InputPlot l1 = controllerSkin.buttons["l1"];
-            InputPlot l2 = controllerSkin.buttons["l2"];
-            InputPlot r2 = controllerSkin.buttons["r2"];
-
-            e.Graphics.DrawImage(sprite, basePlot.drawX, basePlot.drawY, new Rectangle(basePlot.spriteX, basePlot.spriteY, basePlot.spriteWidth, basePlot.spriteHeight), units);
-
-            if (Inputs.Mask.Contains(Inputs.Buttons.r3)) e.Graphics.DrawImage(sprite, r3.drawX + (Inputs.rx * controllerSkin.analogPitch), r3.drawY + (Inputs.ry * controllerSkin.analogPitch), new Rectangle(r3.spriteX, r3.spriteY, r3.spriteWidth, r3.spriteHeight), units); 
-            else e.Graphics.DrawImage(sprite, r3Press.drawX + (Inputs.rx * controllerSkin.analogPitch), r3Press.drawY + (Inputs.ry * controllerSkin.analogPitch), new Rectangle(r3Press.spriteX, r3Press.spriteY, r3Press.spriteWidth, r3Press.spriteHeight), units); 
-            if (Inputs.Mask.Contains(Inputs.Buttons.l3)) e.Graphics.DrawImage(sprite, l3.drawX + (Inputs.lx * controllerSkin.analogPitch), l3.drawY + (Inputs.ly * controllerSkin.analogPitch), new Rectangle(l3.spriteX, l3.spriteY, l3.spriteWidth, l3.spriteHeight), units); 
-            else e.Graphics.DrawImage(sprite, l3Press.drawX + (Inputs.lx * controllerSkin.analogPitch), l3Press.drawY + (Inputs.ly * controllerSkin.analogPitch), new Rectangle(l3Press.spriteX, l3Press.spriteY, l3Press.spriteWidth, l3Press.spriteHeight), units); 
-
-            if (Inputs.Mask.Contains(Inputs.Buttons.left)) e.Graphics.DrawImage(sprite, dpadLeft.drawX, dpadLeft.drawY, new Rectangle(dpadLeft.spriteX, dpadLeft.spriteY, dpadLeft.spriteWidth, dpadLeft.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.right)) e.Graphics.DrawImage(sprite, dpadRight.drawX, dpadRight.drawY, new Rectangle(dpadRight.spriteX, dpadRight.spriteY, dpadRight.spriteWidth, dpadRight.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.down)) e.Graphics.DrawImage(sprite, dpadDown.drawX, dpadDown.drawY, new Rectangle(dpadDown.spriteX, dpadDown.spriteY, dpadDown.spriteWidth, dpadDown.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.up)) e.Graphics.DrawImage(sprite, dpadUp.drawX, dpadUp.drawY, new Rectangle(dpadUp.spriteX, dpadUp.spriteY, dpadUp.spriteWidth, dpadUp.spriteHeight), units);
-
-            if (Inputs.Mask.Contains(Inputs.Buttons.cross)) e.Graphics.DrawImage(sprite, cross.drawX, cross.drawY, new Rectangle(cross.spriteX, cross.spriteY, cross.spriteWidth, cross.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.circle)) e.Graphics.DrawImage(sprite, circle.drawX, circle.drawY, new Rectangle(circle.spriteX, circle.spriteY, circle.spriteWidth, circle.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.triangle)) e.Graphics.DrawImage(sprite, triangle.drawX, triangle.drawY, new Rectangle(triangle.spriteX, triangle.spriteY, triangle.spriteWidth, triangle.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.square)) e.Graphics.DrawImage(sprite, square.drawX, square.drawY, new Rectangle(square.spriteX, square.spriteY, triangle.spriteWidth, triangle.spriteHeight), units);
-
-            if (Inputs.Mask.Contains(Inputs.Buttons.select)) e.Graphics.DrawImage(sprite, select.drawX, select.drawY, new Rectangle(select.spriteX, select.spriteY, select.spriteWidth, select.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.start)) e.Graphics.DrawImage(sprite, start.drawX, start.drawY, new Rectangle(start.spriteX, start.spriteY, start.spriteWidth, start.spriteHeight), units);
-
-            if (Inputs.Mask.Contains(Inputs.Buttons.r1)) e.Graphics.DrawImage(sprite, r1.drawX, r1.drawY, new Rectangle(r1.spriteX, r1.spriteY, r1.spriteWidth, r1.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.l1)) e.Graphics.DrawImage(sprite, l1.drawX, l1.drawY, new Rectangle(l1.spriteX, l1.spriteY, l1.spriteWidth, l1.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.l2)) e.Graphics.DrawImage(sprite, l2.drawX, l2.drawY, new Rectangle(l2.spriteX, l2.spriteY, l2.spriteWidth, l2.spriteHeight), units);
-            if (Inputs.Mask.Contains(Inputs.Buttons.r2)) e.Graphics.DrawImage(sprite, r2.drawX, r2.drawY, new Rectangle(r2.spriteX, r2.spriteY, r2.spriteWidth, r2.spriteHeight), units);
+        private static bool IsHeld(int inputs, Inputs.Buttons button)
+        {
+            return (inputs & (1 << (int)button)) != 0;
         }
 
         private void skinComboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -155,8 +171,15 @@ namespace racman
 
             var skinName = skinComboBox.Items[skinIndex].ToString();
 
+            ControllerSkin previous = controllerSkin;
             controllerSkin = ControllerSkin.Load(skinName);
             ObsPadServer.SelectedSkin = skinName;
+            if (previous != null && previous.image != null)
+            {
+                previous.image.Dispose();
+            }
+            drawnInputs = -1;
+            Invalidate();
 
             func.ChangeFileLines("config.txt", skinIndex.ToString(), "InputDisplaySkin");
 

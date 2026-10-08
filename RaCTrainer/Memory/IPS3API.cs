@@ -31,12 +31,18 @@ namespace racman
         }
         public virtual void WriteMemory(int pid, uint address, uint size, string memory)
         {
-            byte[] mem = Enumerable.Range(0, memory.Length)
-                     .Where(x => x % 2 == 0)
-                     .Select(x => Convert.ToByte(memory.Substring(x, 2), 16))
-                     .ToArray();
+            WriteMemory(pid, address, size, HexToBytes(memory));
+        }
 
-            WriteMemory(pid, address, size, mem);
+        /// <summary>Converts a hex string such as "3f800000" to bytes.</summary>
+        public static byte[] HexToBytes(string hex)
+        {
+            byte[] bytes = new byte[hex.Length / 2];
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            }
+            return bytes;
         }
 
         public void WriteMemory(int pid, uint address, byte[] memory)
@@ -48,12 +54,8 @@ namespace racman
         public virtual string ReadMemoryStr(int pid, uint address, uint size)
         {
             byte[] memory = ReadMemory(pid, address, size);
-            
-            StringBuilder hex = new StringBuilder(memory.Length * 2);
-            foreach (byte b in memory)
-                hex.AppendFormat("{0:x2}", b);
 
-            return hex.ToString();
+            return BitConverter.ToString(memory).Replace("-", string.Empty).ToLowerInvariant();
         }
 
         public abstract void Notify(string message);
