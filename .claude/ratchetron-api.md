@@ -1,6 +1,6 @@
 # Ratchetron API Reference
 
-Ratchetron is a PS3 memory-access server loaded as a `.sprx` (PRX module) on jailbroken PS3 consoles via webMAN. SluMAN connects to it over TCP and communicates using a custom binary protocol. The C# client is `RaCTrainer/Memory/Ratchetron.cs`; the abstract interface it implements is `RaCTrainer/Memory/IPS3API.cs`.
+Ratchetron is a PS3 memory-access server loaded as a `.sprx` (PRX module) on jailbroken PS3 consoles via webMAN. SluMAN connects to it over TCP and communicates using a custom binary protocol. The C# client is `SluMAN/Memory/Ratchetron.cs`; the abstract interface it implements is `SluMAN/Memory/IPS3API.cs`.
 
 ---
 

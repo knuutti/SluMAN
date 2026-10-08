@@ -8,11 +8,11 @@ SluMAN (formerly racman) is a Windows speedrun/practice tool for Sly Cooper game
 
 ## Build
 
-This is a .NET Framework 4.7.2 WinForms project (x64 only). Open `SluMAN.sln` in Visual Studio and build with **Release|x64** configuration. Output lands in `RaCTrainer\bin\x64\Release\`.
+This is a .NET Framework 4.7.2 WinForms project (x64 only). Open `SluMAN.sln` in Visual Studio and build with **Release|x64** configuration. Output lands in `SluMAN\bin\x64\Release\`.
 
 To build from command line:
 ```
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" "RaCTrainer\SluMAN.csproj" /p:Configuration=Release /p:Platform=x64
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" "SluMAN\SluMAN.csproj" /p:Configuration=Release /p:Platform=x64
 ```
 
 There are no automated tests.
@@ -28,7 +28,7 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 
 ## Architecture
 
-### Connection layer (`RaCTrainer/Memory/`)
+### Connection layer (`SluMAN/Memory/`)
 
 `IPS3API` is the abstract base for all PS3/emulator connections. Three implementations:
 - **`Ratchetron`** — TCP connection to `ratchetron_server.sprx` loaded on the PS3 via webMAN; the primary/modern API (port 9671). The class name refers to the external SPRX project and should not be renamed.
