@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Two-click confirmation in place of a Yes/No dialog. The first click turns the button red

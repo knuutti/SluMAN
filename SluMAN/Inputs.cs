@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace racman
+namespace SluMAN
 {
     public static class Inputs
     {

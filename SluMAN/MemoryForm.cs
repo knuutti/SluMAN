@@ -12,7 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Watches, edits and freezes values at memory addresses, with named watchlists per game.

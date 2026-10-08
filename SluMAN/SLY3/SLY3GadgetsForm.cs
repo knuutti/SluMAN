@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     public partial class SLY3GadgetsForm : Form, IRefreshOnShow
     {

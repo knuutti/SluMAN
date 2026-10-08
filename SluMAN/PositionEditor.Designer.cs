@@ -1,4 +1,4 @@
-namespace racman
+namespace SluMAN
 {
     partial class PositionEditor
     {

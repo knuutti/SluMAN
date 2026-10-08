@@ -7,10 +7,10 @@ using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using static racman.SLY3Speedrun;
+using static SluMAN.SLY3Speedrun;
 using Timer = System.Windows.Forms.Timer;
 
-namespace racman
+namespace SluMAN
 {
     public partial class SLY2Speedrun : Form
     {

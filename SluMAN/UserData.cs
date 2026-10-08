@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Where SluMAN keeps the user's own files: settings (config.txt), watchlists, split routes and

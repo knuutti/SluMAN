@@ -4,7 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Where one part of a skin is drawn, and which part of the sprite sheet it comes from.

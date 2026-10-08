@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// The connection to the game for one game form: what happens when the game closes and starts

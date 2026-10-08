@@ -3,7 +3,7 @@ using System.IO;
 using System.Windows.Forms;
 using System.Reflection;
 
-namespace racman
+namespace SluMAN
 {
     static class Program
     {

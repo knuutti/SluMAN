@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// A tool that shows the game's current state. Tabs keep a tool's form once it's created, so

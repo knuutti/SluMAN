@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// A status bar along the bottom of a form, for feedback that shouldn't interrupt with a

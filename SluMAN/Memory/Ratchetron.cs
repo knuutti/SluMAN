@@ -11,7 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Linq.Expressions;
 
-namespace racman
+namespace SluMAN
 {
     public class Ratchetron : IPS3API
     {

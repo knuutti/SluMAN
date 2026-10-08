@@ -9,7 +9,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
-namespace racman
+namespace SluMAN
 {
     public partial class SLY3Speedrun : Form
     {

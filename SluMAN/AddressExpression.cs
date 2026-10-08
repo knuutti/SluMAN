@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// A memory address, or a pointer chain to one, as typed in the memory window:

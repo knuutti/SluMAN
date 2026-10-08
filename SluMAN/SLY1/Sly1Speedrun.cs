@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     public partial class Sly1Speedrun : Form
     {

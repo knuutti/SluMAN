@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// A calculation shown as a row in the memory window, such as a speedometer:

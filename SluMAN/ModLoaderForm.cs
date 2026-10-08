@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using NLua;
 
-namespace racman
+namespace SluMAN
 {
     public partial class ModLoaderForm : Form
     {

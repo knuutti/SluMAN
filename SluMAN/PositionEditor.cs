@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Live position, character info, per-axis freezes and warp locations for any game that

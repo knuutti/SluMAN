@@ -8,7 +8,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Reflection;
 
-namespace racman
+namespace SluMAN
 {
     public partial class Sly2Practice : Form
     {

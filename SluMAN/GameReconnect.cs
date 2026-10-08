@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Threading;
 using System.Windows.Forms;
-using racman.Memory;
+using SluMAN.Memory;
 using Timer = System.Windows.Forms.Timer;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// What the game forms share when the game reboots or another game starts: waiting for the

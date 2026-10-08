@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 
-namespace racman
+namespace SluMAN
 {
     public partial class AutosplitterConfigForm : Form
     {

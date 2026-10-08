@@ -5,11 +5,11 @@ using System.Net;
 using System.Windows.Forms;
 using System.Reflection;
 using System.Threading;
-using racman.Memory;
+using SluMAN.Memory;
 using System.Diagnostics;
 using AutoUpdaterDotNET;
 
-namespace racman
+namespace SluMAN
 {
     public partial class AttachPS3Form : Form
     {

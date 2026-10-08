@@ -1,4 +1,4 @@
-﻿using racman;
+﻿using SluMAN;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 
-namespace racman.Memory
+namespace SluMAN.Memory
 {
     internal class RPCS3 : IPS3API
     {

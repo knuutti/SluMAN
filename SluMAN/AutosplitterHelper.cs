@@ -5,7 +5,7 @@ using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Threading;
 
-namespace racman
+namespace SluMAN
 {
     public interface IAutosplitterAvailable
     {

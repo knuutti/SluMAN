@@ -1,4 +1,4 @@
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Where a game keeps what the Position Editor reads and writes. Offsets are relative to the

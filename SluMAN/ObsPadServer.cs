@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// Serves the input display as a web page for an OBS Browser Source, on 127.0.0.1 only, so it

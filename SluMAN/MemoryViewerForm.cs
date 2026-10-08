@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace racman
+namespace SluMAN
 {
     /// <summary>
     /// A live hex view of game memory: 32 rows of 16 bytes and their ASCII, refreshed a few times a
