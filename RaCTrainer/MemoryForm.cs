@@ -39,6 +39,12 @@ namespace racman
             public string name;
             // The last value shown, without the frozen marker.
             public string lastValue = "";
+            // The last value as a number for functions to use; NaN while there's none.
+            public double number = double.NaN;
+            // Set for a function row, which shows a calculation instead of an address.
+            public WatchFormula formula;
+
+            public bool IsFunction => formula != null;
         }
 
         private const string FrozenMarker = "❄ ";
@@ -49,6 +55,13 @@ namespace racman
         // followed on this timer instead.
         private readonly Timer pointerTimer = new Timer();
         private const int PointerPollIntervalMs = 100;
+
+        // Functions only use values already read, so they're cheap to recalculate often.
+        private readonly Timer functionTimer = new Timer();
+        private const int FunctionUpdateIntervalMs = 50;
+
+        // The address field of a function's line in a watchlist file.
+        private const string FunctionMarker = "Function";
 
         private readonly ToolTip addressToolTip = new ToolTip();
 
@@ -93,6 +106,7 @@ namespace racman
             watchedMemoryAddressesListView.DoubleBuffering(true);
             watchedMemoryAddressesListView.AfterLabelEdit += watchedMemoryAddressesListView_AfterLabelEdit;
             watchedMemoryAddressesListView.ShowItemToolTips = true;
+            watchedMemoryAddressesListView.MouseDoubleClick += watchedMemoryAddressesListView_MouseDoubleClick;
             GameReconnect.GameReconnected += GameReconnect_GameReconnected;
 
             addressToolTip.SetToolTip(registerAddressTextBox,
@@ -103,6 +117,10 @@ namespace racman
             pointerTimer.Interval = PointerPollIntervalMs;
             pointerTimer.Tick += pointerTimer_Tick;
             pointerTimer.Start();
+
+            functionTimer.Interval = FunctionUpdateIntervalMs;
+            functionTimer.Tick += functionTimer_Tick;
+            functionTimer.Start();
         }
 
         /// <summary>Reads a 4-byte big-endian pointer.</summary>
@@ -161,7 +179,7 @@ namespace racman
             foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
             {
                 WatchedAddress watched = Watched(item);
-                if (watched == null || watched.expression.IsStatic)
+                if (watched == null || watched.IsFunction || watched.expression.IsStatic)
                 {
                     continue;
                 }
@@ -209,6 +227,7 @@ namespace racman
                     return;
                 }
                 watched.lastValue = value;
+                watched.number = ParseNumber(watched, value);
                 item.SubItems[2].Text = (watched.isFrozen ? FrozenMarker : "") + value;
             };
 
@@ -266,6 +285,18 @@ namespace racman
             return ((ulong)value & mask).ToString("X");
         }
 
+        /// <summary>A shown value as a number, or NaN for "N/A" and the like.</summary>
+        private static double ParseNumber(WatchedAddress watched, string value)
+        {
+            if (watched.hexRepresented)
+            {
+                ulong hex;
+                return ulong.TryParse(value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out hex) ? hex : double.NaN;
+            }
+            double number;
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) ? number : double.NaN;
+        }
+
         private static void SetSizeForType(WatchedAddress watched)
         {
             switch (watched.type)
@@ -319,6 +350,168 @@ namespace racman
                 Subscribe(item);
             }
             // Pointer chains are followed by pointerTimer.
+        }
+
+        // --- Functions ---
+        // A function row calculates its value from other watches, such as a speedometer from the
+        // speed values. It reads no memory itself: functionTimer recalculates it from the values
+        // the other rows last showed.
+
+        private void AddFunctionWatch(string name, WatchFormula formula)
+        {
+            ListViewItem item = new ListViewItem(name);
+            item.SubItems.Add("");
+            item.SubItems.Add("");
+            item.Tag = new WatchedAddress { name = name, formula = formula, type = "Function" };
+            ShowFormula(item);
+            watchedMemoryAddressesListView.Items.Add(item);
+            UpdateFunction(item, LookupWatchValue);
+        }
+
+        private static void ShowFormula(ListViewItem item)
+        {
+            WatchedAddress watched = Watched(item);
+            item.SubItems[1].Text = "= " + watched.formula.Text;
+            item.ToolTipText = watched.formula.Text;
+        }
+
+        /// <summary>The current value of the row named <paramref name="name"/>, for formulas.</summary>
+        private double? LookupWatchValue(string name)
+        {
+            foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
+            {
+                WatchedAddress watched = Watched(item);
+                if (watched != null && string.Equals(watched.name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return watched.number;
+                }
+            }
+            return null;
+        }
+
+        private bool IsNameTaken(string name, ListViewItem except)
+        {
+            foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
+            {
+                if (item != except && string.Equals(item.Text, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void UpdateFunction(ListViewItem item, WatchFormula.VariableLookup lookup)
+        {
+            WatchedAddress watched = Watched(item);
+            string text;
+            try
+            {
+                watched.number = watched.formula.Evaluate(lookup);
+                text = WatchFormula.Format(watched.number);
+                item.ToolTipText = watched.formula.Text;
+            }
+            catch (FormatException ex)
+            {
+                // A watch it uses was deleted or renamed outside SluMAN.
+                watched.number = double.NaN;
+                text = "N/A";
+                item.ToolTipText = ex.Message;
+            }
+
+            watched.lastValue = text;
+            // Setting the same text still repaints the row, which flickers at this rate.
+            if (item.SubItems[2].Text != text)
+            {
+                item.SubItems[2].Text = text;
+            }
+        }
+
+        private void functionTimer_Tick(object sender, EventArgs e)
+        {
+            foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
+            {
+                WatchedAddress watched = Watched(item);
+                if (watched != null && watched.IsFunction)
+                {
+                    UpdateFunction(item, LookupWatchValue);
+                }
+            }
+        }
+
+        /// <summary>The names of the rows a function on <paramref name="except"/> can use.</summary>
+        private List<string> WatchNamesExcept(ListViewItem except)
+        {
+            return watchedMemoryAddressesListView.Items.Cast<ListViewItem>()
+                .Where(item => item != except)
+                .Select(item => item.Text)
+                .ToList();
+        }
+
+        private void addFunctionButton_Click(object sender, EventArgs e)
+        {
+            using (FunctionEditorForm editor = new FunctionEditorForm("Add function", "New function", "",
+                WatchNamesExcept(null), LookupWatchValue, name => IsNameTaken(name, null)))
+            {
+                if (editor.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                AddFunctionWatch(editor.FunctionName, editor.Formula);
+            }
+            SaveCurrentWatchlist();
+
+            ListViewItem added = watchedMemoryAddressesListView.Items[watchedMemoryAddressesListView.Items.Count - 1];
+            added.EnsureVisible();
+            added.Selected = true;
+        }
+
+        private void EditFunction(ListViewItem item)
+        {
+            WatchedAddress watched = Watched(item);
+            using (FunctionEditorForm editor = new FunctionEditorForm("Edit function", watched.name, watched.formula.Text,
+                WatchNamesExcept(item), LookupWatchValue, name => IsNameTaken(name, item)))
+            {
+                if (editor.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                string oldName = watched.name;
+                watched.formula = editor.Formula;
+                watched.name = editor.FunctionName;
+                item.Text = editor.FunctionName;
+                ShowFormula(item);
+                RenameInFunctions(oldName, editor.FunctionName);
+                UpdateFunction(item, LookupWatchValue);
+            }
+            SaveCurrentWatchlist();
+        }
+
+        /// <summary>Rewrites the functions that use <paramref name="oldName"/>, so they follow a rename.</summary>
+        private void RenameInFunctions(string oldName, string newName)
+        {
+            if (string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
+            {
+                WatchedAddress watched = Watched(item);
+                if (watched == null || !watched.IsFunction || !watched.formula.Uses(oldName))
+                {
+                    continue;
+                }
+
+                WatchFormula renamed;
+                string error;
+                if (WatchFormula.TryParse(watched.formula.RenameVariable(oldName, newName), out renamed, out error))
+                {
+                    watched.formula = renamed;
+                    ShowFormula(item);
+                }
+            }
         }
 
         /// <summary>
@@ -392,7 +585,7 @@ namespace racman
                     foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
                     {
                         WatchedAddress watched = Watched(item);
-                        if (watched == null)
+                        if (watched == null || watched.IsFunction)
                         {
                             continue;
                         }
@@ -506,16 +699,27 @@ namespace racman
                 return;
             }
 
+            ListViewItem item = watchedMemoryAddressesListView.Items[e.Item];
+            if (IsNameTaken(name, item))
+            {
+                // Functions find watches by name.
+                e.CancelEdit = true;
+                statusLine.Error($"Another watch is already called \"{name}\".");
+                return;
+            }
+
             if (name != e.Label)
             {
                 e.CancelEdit = true;
-                watchedMemoryAddressesListView.Items[e.Item].Text = name;
+                item.Text = name;
             }
 
-            WatchedAddress watched = Watched(watchedMemoryAddressesListView.Items[e.Item]);
+            WatchedAddress watched = Watched(item);
             if (watched != null)
             {
+                string oldName = watched.name;
                 watched.name = name;
+                RenameInFunctions(oldName, name);
             }
 
             // The new text is applied after this event returns, so save once it has been.
@@ -526,6 +730,8 @@ namespace racman
         {
             pointerTimer.Stop();
             pointerTimer.Dispose();
+            functionTimer.Stop();
+            functionTimer.Dispose();
             addressToolTip.Dispose();
             GameReconnect.GameReconnected -= GameReconnect_GameReconnected;
             ReleaseAll();
@@ -533,6 +739,16 @@ namespace racman
             if (AttachPS3Form.notSupported)
             {
                 Application.Exit();
+            }
+        }
+
+        private void watchedMemoryAddressesListView_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            ListViewItem item = watchedMemoryAddressesListView.GetItemAt(e.X, e.Y);
+            WatchedAddress watched = Watched(item);
+            if (e.Button == MouseButtons.Left && watched != null && watched.IsFunction)
+            {
+                EditFunction(item);
             }
         }
 
@@ -551,6 +767,16 @@ namespace racman
 
             WatchedAddress watched = Watched(focusedItem);
             ContextMenuStrip menuStrip = new ContextMenuStrip();
+            if (watched != null && watched.IsFunction)
+            {
+                // A function has no memory of its own to edit, freeze or view.
+                menuStrip.Items.Add("Edit function...", null, (s, args) => EditFunction(focusedItem));
+                menuStrip.Items.Add("Rename", null, (s, args) => focusedItem.BeginEdit());
+                menuStrip.Items.Add(new ToolStripSeparator());
+                menuStrip.Items.Add("Delete", null, MenuStripDelete_Click);
+                menuStrip.Show(Cursor.Position);
+                return;
+            }
             menuStrip.Items.Add("Edit value...", null, MenuStripEditValue_Click);
             menuStrip.Items.Add(watched != null && watched.isFrozen ? "Unfreeze" : "Freeze", null, MenuStripEditValue_Freeze);
             menuStrip.Items.Add("Rename", null, (s, args) => focusedItem.BeginEdit());
@@ -830,12 +1056,17 @@ namespace racman
 
         private bool SaveWatchListToFile(string filename)
         {
-            // One "name,0xADDRESS,type" line per watch.
+            // One "name,0xADDRESS,type" line per watch, and "name,Function,formula" per function.
+            // A formula can contain commas, so it's last and the rest of the line.
             var watchedAddressesData = watchedMemoryAddressesListView.Items
                 .Cast<ListViewItem>()
                 .Select(item =>
                 {
                     var watched = (WatchedAddress)item.Tag;
+                    if (watched.IsFunction)
+                    {
+                        return $"{item.Text},{FunctionMarker},{watched.formula.Text}";
+                    }
                     // A plain address keeps the old "0x7B4CE0" form; a chain is saved as typed.
                     string address = watched.expression.IsStatic ? $"0x{watched.address:X}" : watched.expression.ToString();
                     return $"{item.Text},{address},{watched.type}";
@@ -863,9 +1094,20 @@ namespace racman
 
                 foreach (var line in lines)
                 {
-                    var parts = line.Split(',');
+                    var parts = line.Split(new[] { ',' }, 3);
 
-                    if (parts.Length == 3)
+                    if (parts.Length == 3 && parts[1] == FunctionMarker)
+                    {
+                        WatchFormula formula;
+                        string error;
+                        if (!WatchFormula.TryParse(parts[2], out formula, out error))
+                        {
+                            statusLine.Error($"Skipped the function \"{parts[0]}\" in the watchlist. {error}");
+                            continue;
+                        }
+                        AddFunctionWatch(parts[0], formula);
+                    }
+                    else if (parts.Length == 3)
                     {
                         AddressExpression expression;
                         string error;

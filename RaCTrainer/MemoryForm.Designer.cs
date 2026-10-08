@@ -32,6 +32,7 @@ namespace racman
             this.registerAddressTextBox = new System.Windows.Forms.TextBox();
             this.registerAddressTypeCombo = new System.Windows.Forms.ComboBox();
             this.addMemoryWatchButton = new System.Windows.Forms.Button();
+            this.addFunctionButton = new System.Windows.Forms.Button();
             this.watchedMemoryAddressesListView = new System.Windows.Forms.ListView();
             this.nameColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.AddressColumnHeader = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -85,6 +86,16 @@ namespace racman
             this.addMemoryWatchButton.Text = "Add";
             this.addMemoryWatchButton.UseVisualStyleBackColor = true;
             this.addMemoryWatchButton.Click += new System.EventHandler(this.addMemoryWatchButton_Click);
+            //
+            // addFunctionButton
+            //
+            this.addFunctionButton.Location = new System.Drawing.Point(326, 495);
+            this.addFunctionButton.Name = "addFunctionButton";
+            this.addFunctionButton.Size = new System.Drawing.Size(90, 23);
+            this.addFunctionButton.TabIndex = 14;
+            this.addFunctionButton.Text = "Add function...";
+            this.addFunctionButton.UseVisualStyleBackColor = true;
+            this.addFunctionButton.Click += new System.EventHandler(this.addFunctionButton_Click);
             //
             // watchedMemoryAddressesListView
             //
@@ -203,6 +214,7 @@ namespace racman
             this.Controls.Add(this.hexViewerButton);
             this.Controls.Add(this.watchedMemoryAddressesListView);
             this.Controls.Add(this.addMemoryWatchButton);
+            this.Controls.Add(this.addFunctionButton);
             this.Controls.Add(this.registerAddressTypeCombo);
             this.Controls.Add(this.registerAddressTextBox);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -224,6 +236,7 @@ namespace racman
         private System.Windows.Forms.TextBox registerAddressTextBox;
         private System.Windows.Forms.ComboBox registerAddressTypeCombo;
         private System.Windows.Forms.Button addMemoryWatchButton;
+        private System.Windows.Forms.Button addFunctionButton;
         private System.Windows.Forms.ListView watchedMemoryAddressesListView;
         private System.Windows.Forms.ColumnHeader AddressColumnHeader;
         private System.Windows.Forms.ColumnHeader ValueColumnHeader;
