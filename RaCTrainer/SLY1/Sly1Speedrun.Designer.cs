@@ -54,7 +54,6 @@
             this.alwaysOnTopCheckBox.TabIndex = 11;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
-            this.alwaysOnTopCheckBox.CheckedChanged += new System.EventHandler(this.alwaysOnTopCheckBox_CheckedChanged);
             // 
             // autosplitterCheckbox
             // 
@@ -66,7 +65,6 @@
             this.autosplitterCheckbox.TabIndex = 10;
             this.autosplitterCheckbox.Text = "Autosplitter";
             this.autosplitterCheckbox.UseVisualStyleBackColor = true;
-            this.autosplitterCheckbox.CheckedChanged += new System.EventHandler(this.autosplitterCheckbox_CheckedChanged);
             // 
             // inputDisplayButton
             // 
@@ -165,7 +163,6 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Sly1Speedrun";
             this.Text = "SluMAN :: Sly Cooper and the Thievius Raccoonus (Speedrun Mode)";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Sly1Speedrun_FormClosed);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.ResumeLayout(false);

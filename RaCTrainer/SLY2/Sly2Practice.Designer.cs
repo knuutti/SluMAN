@@ -625,7 +625,6 @@
             this.alwaysOnTopCheckBox.TabIndex = 5;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
-            this.alwaysOnTopCheckBox.CheckedChanged += new System.EventHandler(this.alwaysOnTopCheckBox_CheckedChanged);
             // 
             // inputDisplayButton
             // 
@@ -769,7 +768,6 @@
             this.Name = "Sly2Practice";
             this.Text = "SluMAN :: Sly 2: Band of Thieves (Practice Mode)";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Sly2Practice_FormClosing);
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Sly2Practice_FormClosed);
             this.jobGroupBox.ResumeLayout(false);
             this.groupBox2.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);

@@ -70,7 +70,6 @@
             this.autosplitterCheckbox.TabIndex = 1;
             this.autosplitterCheckbox.Text = "Autosplitter";
             this.autosplitterCheckbox.UseVisualStyleBackColor = true;
-            this.autosplitterCheckbox.CheckedChanged += new System.EventHandler(this.AutosplitterCheckbox_CheckedChanged);
             // 
             // gadgetsButton
             // 
@@ -94,7 +93,6 @@
             this.alwaysTopButton.TabIndex = 4;
             this.alwaysTopButton.Text = "Always On Top";
             this.alwaysTopButton.UseVisualStyleBackColor = true;
-            this.alwaysTopButton.CheckedChanged += new System.EventHandler(this.alwaysTopButton_CheckedChanged);
             // 
             // runFileComboBox
             // 
@@ -229,7 +227,6 @@
             this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "SLY3Speedrun";
             this.Text = "SluMAN :: Sly 3: Honor Among Thieves (Speedrun Mode)";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.SLY3Speedrun_FormClosed);
             this.groupBox1.ResumeLayout(false);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
