@@ -1,0 +1,42 @@
+name: Publish release
+
+# Publishing a release (the draft release.yml made) points update.xml at it, which installed copies
+# poll for updates. discord-release.yml posts the announcement on the same event.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-xml:
+    # Pre-releases don't go out as updates.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+
+      - name: Point update.xml at the release
+        run: |
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Tag '$TAG' isn't named vX.Y.Z"
+            exit 1
+          fi
+          VERSION="${BASH_REMATCH[1]}"
+          sed -i -E \
+            -e "s#<version>[^<]*</version>#<version>$VERSION.0</version>#" \
+            -e "s#/releases/download/v[^/]+/#/releases/download/v$VERSION/#" \
+            update.xml
+          if git diff --quiet; then
+            echo "update.xml already points at v$VERSION."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release v$VERSION"
+          git push origin master

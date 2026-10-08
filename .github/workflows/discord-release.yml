@@ -3,7 +3,7 @@ name: Discord release notification
 on:
   release:
     types: [published]
-  # release.yml calls this with the tag it just released
+  # For posting from another workflow, which passes the tag
   workflow_call:
     inputs:
       tag:
