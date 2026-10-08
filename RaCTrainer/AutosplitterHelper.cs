@@ -35,17 +35,6 @@ namespace racman
             writer = new BinaryWriter(mmfStream);
         }
 
-        /// <summary>
-        ///  Destructor/finalizer, called when the object is destroyed, on application close, garbage collection, etc.
-        /// </summary>
-        ~AutosplitterHelper()
-        {
-            if (writer != null && IsRunning)
-            {
-                this.Stop();
-            }
-        }
-
         public void Stop()
         {
             if (!IsRunning)

@@ -404,12 +404,7 @@ namespace racman
         // Run file loading helper methods
         public void SetSuckValue(float value)
         {
-            byte[] suckBytes = BitConverter.GetBytes(value);
-            if (!BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(suckBytes);
-            }
-            api.WriteMemory(pid, sly3.addr.suckValue, suckBytes);
+            api.WriteMemory(pid, sly3.addr.suckValue, ConvertFloatToBytes(value));
         }
 
         public void SetMapName(string mapName)

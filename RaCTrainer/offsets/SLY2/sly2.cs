@@ -822,24 +822,18 @@ namespace racman
 
         public (uint startAddress, uint size) GetMemoryRegionForEpisode(string episode)
         {
+            // Same addresses as the *_MemoryAddress keys in data/s2_run_file_config.txt
             switch (episode)
             {
-                case "Episode1":
-                    return (0x6CD764, 4096); // Reasonable size for memory region
-                case "Episode2":
-                    return (0x6CE314, 4096);
-                case "Episode3":
-                    return (0x6CED80, 4096);
-                case "Episode4":
-                    return (0x6CF688, 4096);
-                case "Episode5":
-                    return (0x6D0680, 4096);
-                case "Episode6_NoCE":
-                    return (0x6D1258, 4096);
-                case "Episode6_CE":
-                    return (0x6D1258, 4096);
-                default:
-                    return (0x6CD764, 4096); // Default to Episode 1
+                case "Episode1": return (0x7A96D8, 4096);
+                case "Episode2": return (0x7A9E8C, 4096);
+                case "Episode3": return (0x7AA5CC, 4096);
+                case "Episode4": return (0x7AAC34, 4096);
+                case "Episode5": return (0x7AB4CC, 4096);
+                case "Episode6": return (0x7ABCC4, 4096);
+                case "Episode7": return (0x7AC264, 4096);
+                case "Episode8": return (0x7ACBEC, 4096);
+                default: return (0x7A96D8, 4096); // Default to Episode 1
             }
         }
 
