@@ -225,7 +225,7 @@ namespace SluMAN
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.StackTrace);
+                Console.WriteLine(ex);
                 statusLine.Error("Couldn't save the route file. Check that the name has no \\ / : * ? \" < > | characters. Your changes are kept until SluMAN closes.");
             }
         }
