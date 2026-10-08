@@ -339,5 +339,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-/RaCTrainer/autosplitters/989u89u.lsl
-/RaCTrainer/autosplitters/rac1-ilsplitter.asl
+/SluMAN/autosplitters/989u89u.lsl
+/SluMAN/autosplitters/rac1-ilsplitter.asl

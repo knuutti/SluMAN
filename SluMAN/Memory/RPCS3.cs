@@ -1,0 +1,339 @@
+﻿using SluMAN;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows.Forms;
+
+
+namespace SluMAN.Memory
+{
+    internal class RPCS3 : IPS3API
+    {
+        const int PROCESS_ALL_ACCESS = 0x1F0FFF;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool ReadProcessMemory(
+            IntPtr hProcess,
+            Int64 lpBaseAddress,
+            [Out] byte[] lpBuffer,
+            int dwSize,
+            out IntPtr lpNumberOfBytesRead
+        );
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool WriteProcessMemory(
+            IntPtr hProcess,
+            Int64 lpBaseAddress,
+            byte[] lpBuffer,
+            int nSize,
+            out IntPtr lpNumberOfBytesWritten
+        );
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool CloseHandle(IntPtr hObject);
+
+
+        public IntPtr ProcessHandle { get; set; }
+
+        private List<MemorySubItem> SubItems = new List<MemorySubItem>();
+
+        private readonly object subLock = new object();
+
+        private volatile bool MemoryWorkerStarted = false;
+
+        private static readonly Regex TitleIdRegex = new Regex(@"(?<=\[).*(?=\])", RegexOptions.Compiled);
+
+        private string _rpcs3Root;
+
+        public RPCS3(string ip) : base(ip)
+        {
+        }
+
+        public override bool Connect()
+        {
+            Process[] processes = Process.GetProcessesByName("rpcs3");
+            if (processes.Length <= 0)
+            {
+                return false;
+            }
+
+            ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, processes[0].Id);
+
+            if (ProcessHandle == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public override bool Disconnect()
+        {
+            MemoryWorkerStarted = false;
+
+            try
+            {
+                return CloseHandle(ProcessHandle);
+            } catch (Exception)
+            {
+                return true;
+            }
+        }
+
+        public override int getCurrentPID()
+        {
+            return getGameTitleID() == "NOGAME" ? 0 : 1;
+        }
+
+        public override string getGameTitleID()
+        {
+            List<string> titles = func.GetWindowTitles("rpcs3");
+
+            foreach(string title in titles)
+            {
+                if (title.Contains("[")) {
+                    Match match = TitleIdRegex.Match(title);
+
+                    if (match.Success)
+                    {
+                        return match.Value;
+                    }
+                }
+            }
+
+            return "NOGAME";
+        }
+
+        public override int MemSubIDForAddress(uint address)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// RPCS3 has no on-screen notifications, so these go to the status line.
+        /// </summary>
+        public override void Notify(string message)
+        {
+            func.Status(message);
+        }
+
+
+
+        public override byte[] ReadMemory(int pid, uint address, uint size)
+        {
+            byte[] buffer = new byte[size];
+            IntPtr bytesRead;
+            ReadProcessMemory(ProcessHandle, (Int64)(address + 0x300000000), buffer, (int)size, out bytesRead);    
+            
+            return buffer;
+        }
+
+        public override void WriteMemory(int pid, uint address, uint size, byte[] memory)
+        {
+            WriteProcessMemory(ProcessHandle, (Int64)(address + 0x300000000), memory, memory.Length, out _);
+        }
+
+        private void MemorySubWorker()
+        {
+            while (MemoryWorkerStarted)
+            {
+                List<Action> callbacks = new List<Action>();
+
+                lock (subLock)
+                {
+                    for (int i = 0; i < SubItems.Count; i++)
+                    {
+                        MemorySubItem item = SubItems[i];
+
+                        if (item.Released) continue;
+                    
+
+                        bool hitConditional = false;
+
+                        byte[] currentValue = ReadMemory(0, item.Address, item.Size);
+
+                        if (item.Condition == MemoryCondition.Any)
+                        {
+                            hitConditional = true;
+                        }
+                        else if (item.Condition == MemoryCondition.Changed)
+                        {
+                            if (item.LastValue != null && !currentValue.SequenceEqual(item.LastValue))
+                            {
+                                hitConditional = true;
+                            }
+                        }
+
+                        if (hitConditional)
+                        {
+                            if (item.Freeze) {
+                                WriteMemory(0, item.Address, item.SetValue);
+                            }
+
+                            if (item.Callback != null)
+                            {
+                                Action<byte[]> callback = item.Callback;
+                                byte[] value = currentValue.Reverse().ToArray();
+                                callbacks.Add(() => callback(value));
+                            }
+                        }
+
+                        item.LastValue = currentValue;
+                        SubItems[i] = item;
+                    }
+                }
+
+                // Run outside the lock, so a callback can subscribe or release without waiting.
+                foreach (Action callback in callbacks)
+                {
+                    callback();
+                }
+
+                // Sleep without holding the lock, so subscribing never waits on it.
+                Thread.Sleep(1000 / 120);
+            }
+        }
+
+        private void StartMemorySubWorker()
+        {
+            if (MemoryWorkerStarted)
+            {
+                return;
+            }
+            MemoryWorkerStarted = true;
+
+            Thread thread = new Thread(MemorySubWorker);
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void StopMemorySubWorker()
+        {
+            MemoryWorkerStarted = false;
+        }
+
+        public override void ReleaseSubID(int memSubID)
+        {
+            lock (subLock)
+            {
+                var subItem = SubItems[memSubID];
+                subItem.Released = true;
+                SubItems[memSubID] = subItem;
+            }
+        }
+
+        public override int SubMemory(int pid, uint address, uint size, MemoryCondition condition, byte[] memory, Action<byte[]> callback)
+        {
+            MemorySubItem item = new MemorySubItem();
+            item.Address = address;
+            item.Size = size;
+            item.Condition = condition;
+            item.Callback = callback;
+            item.SetValue = memory;
+            item.Freeze = false;
+
+            return AddSubItem(item);
+        }
+
+        public override int FreezeMemory(int pid, uint address, uint size, MemoryCondition condition, byte[] memory)
+        {
+            MemorySubItem item = new MemorySubItem();
+            item.Address = address;
+            item.Size = size;
+            item.Condition = condition;
+            item.SetValue = memory;
+            item.Freeze = true;
+
+            // A freeze added before any subscription used to never start the worker.
+            return AddSubItem(item);
+        }
+
+        private int AddSubItem(MemorySubItem item)
+        {
+            int id;
+            lock (subLock)
+            {
+                SubItems.Add(item);
+                id = SubItems.Count - 1;
+            }
+            StartMemorySubWorker();
+            return id;
+        }
+
+
+        public override void WriteFile(string remotePath, byte[] buffer)
+        {
+            if (string.IsNullOrEmpty(_rpcs3Root))
+                PromptSetRpcs3Root();
+
+            // Convert remotePath (like "/dev_hdd0/game/…") to full local path
+            string fullPath = Path.Combine(_rpcs3Root, remotePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+            string dir = Path.GetDirectoryName(fullPath);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            File.WriteAllBytes(fullPath, buffer);
+        }
+
+        public override void WriteFile(string remotePath, string filePath)
+        {
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("Local file not found", filePath);
+
+            if (string.IsNullOrEmpty(_rpcs3Root))
+                PromptSetRpcs3Root();
+
+            string fullPath = Path.Combine(_rpcs3Root, remotePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+            string dir = Path.GetDirectoryName(fullPath);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            File.Copy(filePath, fullPath, overwrite: true);
+        }
+
+        private void PromptSetRpcs3Root()
+        {
+            using (var folderBrowserDialog = new FolderBrowserDialog())
+            {
+                folderBrowserDialog.Description = "Select the RPCS3 root folder";
+
+                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+                {
+                    _rpcs3Root = folderBrowserDialog.SelectedPath;
+                }
+                else
+                {
+                    throw new InvalidOperationException("RPCS3 root folder not selected.");
+                }
+            }
+        }
+
+
+    }
+}
+
+internal struct MemorySubItem
+{
+    public uint Address;
+    public uint Size;
+    public IPS3API.MemoryCondition Condition;
+    public bool Freeze;
+    public bool Released;
+
+    public byte[] LastValue;
+    public byte[] SetValue;
+
+    public Action<byte[]> Callback;
+}

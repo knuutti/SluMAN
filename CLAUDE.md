@@ -8,11 +8,11 @@ SluMAN (formerly racman) is a Windows speedrun/practice tool for Sly Cooper game
 
 ## Build
 
-This is a .NET Framework 4.7.2 WinForms project (x64 only). Open `SluMAN.sln` in Visual Studio and build with **Release|x64** configuration. Output lands in `RaCTrainer\bin\x64\Release\`.
+This is a .NET Framework 4.7.2 WinForms project (x64 only). Open `SluMAN.sln` in Visual Studio and build with **Release|x64** configuration. Output lands in `SluMAN\bin\x64\Release\`.
 
 To build from command line:
 ```
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" "RaCTrainer\SluMAN.csproj" /p:Configuration=Release /p:Platform=x64
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" "SluMAN\SluMAN.csproj" /p:Configuration=Release /p:Platform=x64
 ```
 
 There are no automated tests.
@@ -28,7 +28,7 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 
 ## Architecture
 
-### Connection layer (`RaCTrainer/Memory/`)
+### Connection layer (`SluMAN/Memory/`)
 
 `IPS3API` is the abstract base for all PS3/emulator connections. Three implementations:
 - **`Ratchetron`** — TCP connection to `ratchetron_server.sprx` loaded on the PS3 via webMAN; the primary/modern API (port 9671). The class name refers to the external SPRX project and should not be renamed.
@@ -47,14 +47,14 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 
 Each game form creates a `GameSession` (`GameSession.cs`), which owns the connection lifecycle: reconnecting after a game reset (off the UDP thread, finishing on the UI thread), disconnecting when the form closes, the always-on-top and autosplitter settings, the input display, Switch Game/Mode, and power off/reboot. Put shared form behaviour there, not in each form; forms add their own subscriptions in the `Reconnected` event.
 
-Game addresses live in `offsets/<GAME>/` as standalone classes (e.g. `sly2.cs` contains `Sly2Addresses` with separate `AddressValues` instances for each supported region/build).
+Game addresses live in `offsets/<GAME>/<Game>Addresses.cs` (e.g. `Sly2Addresses.cs`), separate from the game class. Each instance of the address class is one supported game version (title ID, display name and every address), built in its `CreateVersions()`. `AttachPS3Form` asks each address class `IsSupportedGameId(titleId)` to pick the game, and the game class gets its addresses with `ForGame(titleId)`.
 
 ### Supported games and their folders
 
 | Folder | Game |
 |--------|------|
 | `SLY1/` | Sly Cooper (NPUA80663) |
-| `SLY2/` | Sly 2: Band of Thieves (multiple regions) |
+| `SLY2/` | Sly 2: Band of Thieves (NPHA80175; NPUA80664 untested) |
 | `SLY3/` | Sly 3: Honor Among Thieves (NPEA00343) |
 | `offsets/BH/` | Bentley's Hackpack (stub, Sly franchise spinoff) |
 
@@ -62,7 +62,7 @@ Each supported game has two UI modes: **Practice Mode** (full trainer features) 
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 
-Writes game state into a named memory-mapped file `"racman-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
+Writes game state into a named memory-mapped file `"SluMAN-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
 
 ### Lua mod scripting (`LuaAutomation.cs`)
 
@@ -93,7 +93,11 @@ Follow the conventions in [`.claude/coding-style.md`](.claude/coding-style.md). 
 
 ## Adding a new game
 
-1. Add offset addresses in `offsets/<GAME>/` as a standalone class (no `IAddresses` interface needed)
-2. Create a game class inheriting `IGame` in `offsets/<GAME>/` — implement `CheckInputs`, `SavePosition`, `LoadPosition`
+1. Add `offsets/<GAME>/<Game>Addresses.cs`, shaped like `Sly2Addresses.cs` (no `IAddresses` interface needed)
+2. Create a game class inheriting `IGame` in `offsets/<GAME>/` — implement `CheckInputs`, `SavePosition`, `LoadPosition`, and set `addr` from `ForGame(gameNameId)` in the constructor
 3. Add Practice/Speedrun `Form` classes in a new `<GAME>/` folder
-4. Add game title ID detection in `AttachPS3Form.Attach()`
+4. Route the game in `AttachPS3Form.IsSupportedTitle()` and `ShowGame()` with `<Game>Addresses.IsSupportedGameId()`
+
+## Adding a version of a supported game
+
+Only the game's `<Game>Addresses.cs` changes: add a `GameId…` constant, then in `CreateVersions()` copy the closest version with `CopyAs(titleId, displayName)`, set the addresses that differ, and add it to the dictionary. Attaching, reconnecting and Switch Game pick it up from there.

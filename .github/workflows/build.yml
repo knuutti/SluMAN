@@ -25,7 +25,7 @@ jobs:
         run: |
           if ($env:HEAD_REF -match '^release/v(\d+\.\d+\.\d+)$') {
             $version = $Matches[1]
-            $file = 'RaCTrainer/Properties/AssemblyInfo.cs'
+            $file = 'SluMAN/Properties/AssemblyInfo.cs'
             (Get-Content $file) -replace 'Version\("[^"]*"\)', "Version(""$version.0"")" | Set-Content $file
             Write-Host "Stamped version $version"
           } else {
@@ -36,10 +36,10 @@ jobs:
         run: msbuild SluMAN.sln /t:Restore /p:RestorePackagesConfig=true /v:m
 
       - name: Build
-        run: msbuild RaCTrainer/SluMAN.csproj /p:Configuration=Release /p:Platform=x64 /v:m
+        run: msbuild SluMAN/SluMAN.csproj /p:Configuration=Release /p:Platform=x64 /v:m
 
       - uses: actions/upload-artifact@v7
         with:
           name: SluMAN
-          path: RaCTrainer/bin/x64/Release/
+          path: SluMAN/bin/x64/Release/
           if-no-files-found: error
