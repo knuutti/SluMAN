@@ -84,14 +84,8 @@ namespace racman
 
         public override byte[] ReadMemory(int pid, uint address, uint size)
         {
-            string addr = Convert.ToString(address, 16);
-            string Output = get_data($"http://{ip}/getmem.ps3mapi?proc={pid}$addr={addr}&len={size}");
-            int resPos = Output.IndexOf("</textarea>");
-
-            return Enumerable.Range(0, Output.Length)
-                     .Where(x => x % 2 == 0)
-                     .Select(x => Convert.ToByte(Output.Substring(x, 2), 16))
-                     .ToArray();
+            // The page is HTML; only the hex in front of </textarea> is the memory.
+            return IPS3API.HexToBytes(ReadMemoryStr(pid, address, size));
         }
 
         public override string ReadMemoryStr(int pid, uint address, uint size)
@@ -106,7 +100,19 @@ namespace racman
 
         public override bool Connect()
         {
-            return true;  // fuck you I won't do what you tell me
+            // There's no connection to open; just check that webMAN answers before relying on it.
+            using (func.TimeoutWebClient probe = new func.TimeoutWebClient())
+            {
+                try
+                {
+                    probe.DownloadString($"http://{ip}/home.ps3mapi");
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
         }
 
         public override void Notify(string message)

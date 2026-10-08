@@ -220,7 +220,7 @@ namespace racman
             {
                 try
                 {
-                    runFileData.MemoryData = ConvertMemoryDataString(memoryDataHex);
+                    runFileData.MemoryData = IGame.ConvertMemoryDataString(memoryDataHex);
                 }
                 catch
                 {
@@ -258,7 +258,7 @@ namespace racman
             {
                 try
                 {
-                    byte[] memoryData = ConvertMemoryDataString(memoryDataHex);
+                    byte[] memoryData = IGame.ConvertMemoryDataString(memoryDataHex);
                     uint memoryAddress = Convert.ToUInt32(memoryAddressStr, 16);
                     game.WriteMemoryRegion(memoryAddress, memoryData);
                 }
@@ -281,8 +281,8 @@ namespace racman
             {
                 try
                 {
-                    byte[] gadgetBytes = StringToByteArray(gadgetHex);
-                    byte[] bindingBytes = StringToByteArray(bindingHex);
+                    byte[] gadgetBytes = IPS3API.HexToBytes(gadgetHex);
+                    byte[] bindingBytes = IPS3API.HexToBytes(bindingHex);
                     
                     game.SetGadgetUnlocks(gadgetBytes);
                     
@@ -325,31 +325,6 @@ namespace racman
                 case "Episode 6 (CE)": return "Episode6_CE";
                 default: return "Episode1";
             }
-        }
-
-        // Helper function for converting strings like "FFFF" to [0xFF, 0xFF] byte array
-        private static byte[] StringToByteArray(string hex)
-        {
-            int NumberChars = hex.Length;
-            byte[] bytes = new byte[NumberChars / 2];
-            for (int i = 0; i < NumberChars; i += 2)
-            {
-                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
-            }
-            return bytes;
-        }
-
-        // Helper function for converting (comma-separated) memory data to byte array
-        private static byte[] ConvertMemoryDataString(string data)
-        {
-            var parts = data.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-    
-            byte[] bytes = new byte[parts.Length];
-            for (int i = 0; i < parts.Length; i++)
-            {
-                bytes[i] = (byte)int.Parse(parts[i].ToString());
-            }
-            return bytes;
         }
 
         private void switchGameModeToolStripMenuItem_Click_1(object sender, EventArgs e)
@@ -419,6 +394,12 @@ namespace racman
 
         private void CloseAdditionalWindows(bool closeInputDisplay = true)
         {
+            if (InvokeRequired)
+            {
+                // The game-closed callback runs on the live data thread; windows close on the UI thread.
+                try { BeginInvoke(new Action(() => CloseAdditionalWindows(closeInputDisplay))); } catch { }
+                return;
+            }
             if (closeInputDisplay && InputDisplay != null && !InputDisplay.IsDisposed)
             {
                 InputDisplay.Close();

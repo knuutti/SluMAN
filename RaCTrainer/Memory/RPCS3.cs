@@ -8,16 +8,13 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows;
 using System.Windows.Forms;
-using System.Windows.Markup;
 
 
 namespace racman.Memory
 {
     internal class RPCS3 : IPS3API
     {
-        const int PROCESS_WM_READ = 0x0010;
         const int PROCESS_ALL_ACCESS = 0x1F0FFF;
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -50,9 +47,11 @@ namespace racman.Memory
 
         private List<MemorySubItem> SubItems = new List<MemorySubItem>();
 
-        Mutex SubMutex = new Mutex(false);
+        private readonly object subLock = new object();
 
-        bool MemoryWorkerStarted = false;
+        private volatile bool MemoryWorkerStarted = false;
+
+        private static readonly Regex TitleIdRegex = new Regex(@"(?<=\[).*(?=\])", RegexOptions.Compiled);
 
         private string _rpcs3Root;
 
@@ -62,13 +61,13 @@ namespace racman.Memory
 
         public override bool Connect()
         {
-            if (Process.GetProcessesByName("rpcs3").Length <= 0)
+            Process[] processes = Process.GetProcessesByName("rpcs3");
+            if (processes.Length <= 0)
             {
                 return false;
             }
 
-            Process process = Process.GetProcessesByName("rpcs3")[0];
-            ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, process.Id);
+            ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, false, processes[0].Id);
 
             if (ProcessHandle == IntPtr.Zero)
             {
@@ -103,8 +102,7 @@ namespace racman.Memory
             foreach(string title in titles)
             {
                 if (title.Contains("[")) {
-                    Regex regex = new Regex(@"(?<=\[).*(?=\])");
-                    Match match = regex.Match(title);
+                    Match match = TitleIdRegex.Match(title);
 
                     if (match.Success)
                     {
@@ -149,58 +147,73 @@ namespace racman.Memory
         {
             while (MemoryWorkerStarted)
             {
-                SubMutex.WaitOne(10000000);
+                List<Action> callbacks = new List<Action>();
 
-                for (int i = 0; i < SubItems.Count; i++)
+                lock (subLock)
                 {
-                    MemorySubItem item = SubItems[i];
+                    for (int i = 0; i < SubItems.Count; i++)
+                    {
+                        MemorySubItem item = SubItems[i];
 
-                    if (item.Released) continue;
+                        if (item.Released) continue;
                     
 
-                    bool hitConditional = false;
+                        bool hitConditional = false;
 
-                    byte[] currentValue = ReadMemory(0, item.Address, item.Size);
+                        byte[] currentValue = ReadMemory(0, item.Address, item.Size);
 
-                    if (item.Condition == MemoryCondition.Any)
-                    {
-                        hitConditional = true;
-                    }
-                    else if (item.Condition == MemoryCondition.Changed)
-                    {
-                        if (item.LastValue != null && !currentValue.SequenceEqual(item.LastValue))
+                        if (item.Condition == MemoryCondition.Any)
                         {
                             hitConditional = true;
                         }
-                    }
-
-                    if (hitConditional)
-                    {
-                        if (item.Freeze) {
-                            WriteMemory(0, item.Address, item.SetValue);
-                        }
-
-                        if (item.Callback != null)
+                        else if (item.Condition == MemoryCondition.Changed)
                         {
-                            item.Callback(currentValue.Reverse().ToArray());
+                            if (item.LastValue != null && !currentValue.SequenceEqual(item.LastValue))
+                            {
+                                hitConditional = true;
+                            }
                         }
-                    }
 
-                    item.LastValue = currentValue;
-                    SubItems[i] = item;
+                        if (hitConditional)
+                        {
+                            if (item.Freeze) {
+                                WriteMemory(0, item.Address, item.SetValue);
+                            }
+
+                            if (item.Callback != null)
+                            {
+                                Action<byte[]> callback = item.Callback;
+                                byte[] value = currentValue.Reverse().ToArray();
+                                callbacks.Add(() => callback(value));
+                            }
+                        }
+
+                        item.LastValue = currentValue;
+                        SubItems[i] = item;
+                    }
                 }
 
-                Thread.Sleep(1000 / 120);
+                // Run outside the lock, so a callback can subscribe or release without waiting.
+                foreach (Action callback in callbacks)
+                {
+                    callback();
+                }
 
-                SubMutex.ReleaseMutex();
+                // Sleep without holding the lock, so subscribing never waits on it.
+                Thread.Sleep(1000 / 120);
             }
         }
 
         private void StartMemorySubWorker()
         {
+            if (MemoryWorkerStarted)
+            {
+                return;
+            }
             MemoryWorkerStarted = true;
 
             Thread thread = new Thread(MemorySubWorker);
+            thread.IsBackground = true;
             thread.Start();
         }
 
@@ -211,12 +224,12 @@ namespace racman.Memory
 
         public override void ReleaseSubID(int memSubID)
         {
-            var subItem = SubItems[memSubID];
-            subItem.Released = true;
-
-            SubMutex.WaitOne(10000);
-            SubItems[memSubID] = subItem;
-            SubMutex.ReleaseMutex();
+            lock (subLock)
+            {
+                var subItem = SubItems[memSubID];
+                subItem.Released = true;
+                SubItems[memSubID] = subItem;
+            }
         }
 
         public override int SubMemory(int pid, uint address, uint size, MemoryCondition condition, byte[] memory, Action<byte[]> callback)
@@ -229,16 +242,7 @@ namespace racman.Memory
             item.SetValue = memory;
             item.Freeze = false;
 
-            SubMutex.WaitOne(10000);
-            SubItems.Add(item);
-            SubMutex.ReleaseMutex();
-
-            if (SubItems.Count == 1)
-            {
-                StartMemorySubWorker();
-            }
-
-            return SubItems.Count-1;
+            return AddSubItem(item);
         }
 
         public override int FreezeMemory(int pid, uint address, uint size, MemoryCondition condition, byte[] memory)
@@ -250,16 +254,20 @@ namespace racman.Memory
             item.SetValue = memory;
             item.Freeze = true;
 
-            SubMutex.WaitOne(10000);
-            SubItems.Add(item);
-            SubMutex.ReleaseMutex();
+            // A freeze added before any subscription used to never start the worker.
+            return AddSubItem(item);
+        }
 
-            if (SubItems.Count == 1)
+        private int AddSubItem(MemorySubItem item)
+        {
+            int id;
+            lock (subLock)
             {
-
+                SubItems.Add(item);
+                id = SubItems.Count - 1;
             }
-
-            return SubItems.Count - 1;
+            StartMemorySubWorker();
+            return id;
         }
 
 

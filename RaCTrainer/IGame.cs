@@ -14,7 +14,6 @@ namespace racman
 
         public bool inputCheck = true;
 
-        public float[] coords = new float[3];
         public int pid;
 
         public Timer InputsTimer = new Timer();
@@ -223,6 +222,96 @@ namespace racman
             }
         }
 
+        /// <summary>
+        /// Subscribes to a Sly game's pad and keeps <see cref="Inputs.RawInputs"/> in the standard
+        /// layout. Sly 1, 2 and 3 store their buttons the same way.
+        /// </summary>
+        protected void SubscribeSlyButtons(uint inputAddress)
+        {
+            api.SubMemory(pid, inputAddress, 4, (value) =>
+            {
+                int slyButtonMask = BitConverter.ToInt32(value.Reverse().ToArray(), 0);
+                Inputs.RawInputs = ConvertSlyButtonsToStandardFormat(slyButtonMask);
+            });
+        }
+
+        private static int ConvertSlyButtonsToStandardFormat(int slyMask)
+        {
+            int standardMask = 0;
+
+            if ((slyMask & 0x0001) != 0) standardMask |= 0x100;   // Select
+            if ((slyMask & 0x0008) != 0) standardMask |= 0x800;   // Start
+            if ((slyMask & 0x0010) != 0) standardMask |= 0x1000;  // Up
+            if ((slyMask & 0x0020) != 0) standardMask |= 0x2000;  // Right
+            if ((slyMask & 0x0040) != 0) standardMask |= 0x4000;  // Down
+            if ((slyMask & 0x0080) != 0) standardMask |= 0x8000;  // Left
+            if ((slyMask & 0x0400) != 0) standardMask |= 0x4;     // L1
+            if ((slyMask & 0x0100) != 0) standardMask |= 0x1;     // L2
+            if ((slyMask & 0x0800) != 0) standardMask |= 0x8;     // R1
+            if ((slyMask & 0x0200) != 0) standardMask |= 0x2;     // R2
+            if ((slyMask & 0x1000) != 0) standardMask |= 0x10;    // Triangle
+            if ((slyMask & 0x2000) != 0) standardMask |= 0x20;    // Circle
+            if ((slyMask & 0x4000) != 0) standardMask |= 0x40;    // Cross
+            if ((slyMask & 0x8000) != 0) standardMask |= 0x80;    // Square
+            if ((slyMask & 0x0002) != 0) standardMask |= 0x200;   // L3
+            if ((slyMask & 0x0004) != 0) standardMask |= 0x400;   // R3
+
+            return standardMask;
+        }
+
+        /// <summary>An int as the big-endian bytes the game stores.</summary>
+        protected static byte[] ConvertIntToBytes(int value)
+        {
+            byte[] bytes = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(bytes);
+            }
+            return bytes;
+        }
+
+        /// <summary>A float as the big-endian bytes the game stores.</summary>
+        protected static byte[] ConvertFloatToBytes(float value)
+        {
+            byte[] bytes = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(bytes);
+            }
+            return bytes;
+        }
+
+        /// <summary>
+        /// Writes a large block in 256-byte chunks, so a single write doesn't overwhelm the API.
+        /// </summary>
+        public void WriteMemoryRegion(uint startAddress, byte[] data)
+        {
+            const int chunkSize = 256;
+            for (int i = 0; i < data.Length; i += chunkSize)
+            {
+                int size = Math.Min(chunkSize, data.Length - i);
+                byte[] chunk = new byte[size];
+                Array.Copy(data, i, chunk, 0, size);
+                api.WriteMemory(pid, startAddress + (uint)i, chunk);
+            }
+        }
+
+        /// <summary>
+        /// Converts the comma-separated decimal bytes in run file and job configs, such as
+        /// "0,1,255", to bytes.
+        /// </summary>
+        public static byte[] ConvertMemoryDataString(string data)
+        {
+            string[] parts = data.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+            byte[] bytes = new byte[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                bytes[i] = (byte)int.Parse(parts[i]);
+            }
+            return bytes;
+        }
+
         public virtual void SetupInputDisplayMemorySubs()
         {
             SetupInputDisplayMemorySubsButtons();
@@ -232,8 +321,6 @@ namespace racman
         protected virtual void SetupInputDisplayMemorySubsButtons() { }
 
         protected virtual void SetupInputDisplayMemorySubsAnalogs() { }
-
-        public virtual void GetPlayerCoordinates() { }
 
         public abstract void CheckInputs(object sender, EventArgs e);
 

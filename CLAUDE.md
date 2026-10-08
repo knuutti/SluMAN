@@ -60,7 +60,7 @@ Each supported game has two UI modes: **Practice Mode** (full trainer features) 
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 
-Writes game state into a named memory-mapped file `"racman-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` or `IAutosplitterWVariables` to declare which addresses to expose.
+Writes game state into a named memory-mapped file `"racman-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
 
 ### Lua mod scripting (`LuaAutomation.cs`)
 
@@ -68,7 +68,7 @@ Mods are loaded from `mods/<gameID>/` directories. Each mod can include a Lua au
 
 ### Input decoding (`Inputs.cs`)
 
-`Inputs.DecodeMask(int)` converts a raw PS3 button bitmask into a `List<Inputs.Buttons>`. All Sly games normalize their raw input to the standard PS3 layout before storing in `Inputs.RawInputs`.
+All Sly games normalize their raw input to the standard PS3 layout before storing in `Inputs.RawInputs` (`IGame.SubscribeSlyButtons` does this). Each `Inputs.Buttons` value is its bit in that mask: check a button with `Inputs.IsPressed(button)`, and use `Inputs.DecodeMask(int)` to get a `List<Inputs.Buttons>`.
 
 ### Config
 

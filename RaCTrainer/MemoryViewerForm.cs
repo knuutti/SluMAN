@@ -45,6 +45,10 @@ namespace racman
 
         private static IPS3API api => func.api;
 
+        // Kept current by the game forms and GameReconnect. Asking the API instead costs a round
+        // trip to the PS3 on every read.
+        private static int Pid => AttachPS3Form.pid;
+
         /// <summary>
         /// Opens the viewer as its own window, or brings it forward. Used where there are no tabs.
         /// </summary>
@@ -270,7 +274,7 @@ namespace racman
 
         private static uint ReadPointer(uint address)
         {
-            byte[] bytes = api.ReadMemory(api.getCurrentPID(), address, 4);
+            byte[] bytes = api.ReadMemory(Pid, address, 4);
             return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
         }
 
@@ -304,7 +308,7 @@ namespace racman
             try
             {
                 // 512 bytes: one request, well under Ratchetron's ~2048-byte read limit.
-                bytes = api.ReadMemory(api.getCurrentPID(), start, ViewSize);
+                bytes = api.ReadMemory(Pid, start, ViewSize);
             }
             catch (Exception ex)
             {
@@ -435,7 +439,7 @@ namespace racman
             uint address = unchecked(viewStart + (uint)index);
             try
             {
-                api.WriteMemory(api.getCurrentPID(), address, 1, new byte[] { value });
+                api.WriteMemory(Pid, address, 1, new byte[] { value });
                 shown[index] = value;
                 grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = value.ToString("X2");
                 statusLine.Info($"Wrote {value:X2} to {address:X8}.");

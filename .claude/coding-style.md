@@ -127,7 +127,6 @@ int subID = api.SubMemory(pid, addr.inputOffset, 4, (value) =>
 {
     int mask = BitConverter.ToInt32(value.Reverse().ToArray(), 0);
     Inputs.RawInputs = ConvertSlyButtonsToStandardFormat(mask);
-    Inputs.Mask = Inputs.DecodeMask(Inputs.RawInputs);
 });
 ```
 

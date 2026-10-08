@@ -92,34 +92,8 @@ namespace racman
         }
 
         public static WebClient client = new WebClient();
-        public static int pid = AttachPS3Form.pid;
         public static IPS3API api;
         public static string sprxPath = Environment.CurrentDirectory + @"\";
-        public static byte[] StringToByteArray(string hex)
-        {
-            return Enumerable.Range(0, hex.Length)
-                             .Where(x => x % 2 == 0)
-                             .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
-                             .ToArray();
-        }
-        public static byte[] FromHex(string hex)
-        {
-            byte[] raw = new byte[hex.Length / 2];
-            for (int i = 0; i < raw.Length; i++)
-            {
-                raw[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
-            }
-            return raw;
-        }
-        public static string ByteArrayToString(byte[] array)
-        {
-            return BitConverter.ToString(array).Replace("-", string.Empty);
-        }
-        public static float HexToFloat(string s)
-        {
-            uint x = Convert.ToUInt32(s, 16);
-            return BitConverter.ToSingle(BitConverter.GetBytes(x), 0);
-        }
         public static string get_data(string url)
         {
             string x = null;
@@ -132,116 +106,180 @@ namespace racman
             }
             return x;
         }
-        public static int current_pid(string ip)
-        {
-            return api.getCurrentPID();
-        }
-        public static string current_game(string ip)
-        {
-            return api.getGameTitleID();
-        }
-        public static void WriteMemory(string ip, int pid, uint offset, string val/*byte[] memory*/)
-        {
-            api.WriteMemory(pid, offset, (uint)val.Length / 2, val);
-        }
-        public static string ReadMemory(string ip, int pid, uint offset, uint length)
-        {
-            return api.ReadMemoryStr(pid, offset, length);
-        }
 
-        public static bool PrepareSPRX(string ip, string sprx, int slot)
+        /// <summary>
+        /// A WebClient that gives up after <see cref="Timeout"/> milliseconds. The default is 100
+        /// seconds, far too long to wait on a PS3 that isn't there.
+        /// </summary>
+        public class TimeoutWebClient : WebClient
         {
-            // Check if Ratchetron is already loaded
-            string slot6sprx = get_data($"http://{ip}/home.ps3mapi");
+            public int Timeout = 5000;
 
-            bool sprxLoaded = slot6sprx.Contains(sprx);
-
-            if (sprxLoaded)
+            protected override WebRequest GetWebRequest(Uri address)
             {
-                return true;
+                WebRequest request = base.GetWebRequest(address);
+                if (request != null)
+                {
+                    request.Timeout = Timeout;
+                }
+                return request;
+            }
+        }
+
+        /// <summary>
+        /// Loads the SPRX on the PS3 through webMAN MOD unless it's loaded already. Returns null on
+        /// success, or a message for the user. Blocks for a few seconds at most when the PS3 doesn't
+        /// answer, so call it off the UI thread.
+        /// </summary>
+        public static string PrepareSPRX(string ip, string sprx, int slot)
+        {
+            using (TimeoutWebClient webClient = new TimeoutWebClient())
+            {
+                // Check if Ratchetron is already loaded
+                string loadedPlugins;
+                try
+                {
+                    loadedPlugins = webClient.DownloadString($"http://{ip}/home.ps3mapi");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"webMAN check failed: {ex.Message}");
+                    return $"Couldn't reach webMAN MOD on the PS3 at {ip}.\n\nCheck that the IP address is right, the PS3 is connected to the same network and webMAN MOD is running.";
+                }
+
+                if (loadedPlugins.Contains(sprx))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    webClient.Timeout = 15000;
+                    webClient.UploadFile($"ftp://{ip}:21/dev_hdd0/tmp/{sprx}", $@"{sprxPath}\{sprx}");
+                    webClient.Timeout = 5000;
+                    webClient.DownloadString($"http://{ip}/vshplugin.ps3mapi?prx=%2Fdev_hdd0%2Ftmp%2F{sprx}&load_slot={slot}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Loading {sprx} failed: {ex.Message}");
+                    return $"Couldn't load {sprx} on the PS3 at {ip}.\n\nCheck that webMAN MOD's FTP server is enabled.";
+                }
             }
 
-            client.UploadFile($"ftp://{ip}:21/dev_hdd0/tmp/{sprx}", $@"{sprxPath}\{sprx}");
-            get_data($"http://{ip}/vshplugin.ps3mapi?prx=%2Fdev_hdd0%2Ftmp%2F{sprx}&load_slot={slot}");
-
-            return true;
+            return null;
         }
 
-        public static bool PrepareRatchetron(string ip)
+        public static string PrepareRatchetron(string ip)
         {
             return PrepareSPRX(ip, "ratchetron_server.sprx", 6);
         }
 
-        public static void WriteMemory_SingleByte(string ip, int pid, uint offset, string val/*byte[] memory*/)
+        private static readonly Regex ConfigKeyRegex = new Regex(@"^([\w\-]+)", RegexOptions.Compiled);
+        private static readonly object configLock = new object();
+
+        private class ConfigFile
         {
-            api.WriteMemory(pid, offset, 1, val);
+            public DateTime lastWriteUtc;
+            public string[] lines;
+            // The first line of each key, as GetConfigData has always read it.
+            public Dictionary<string, int> firstLineOfKey;
+        }
+
+        // Config files read so far. Re-read when the file changes on disk, so editing
+        // config.txt by hand while SluMAN runs still works.
+        private static readonly Dictionary<string, ConfigFile> configCache = new Dictionary<string, ConfigFile>(StringComparer.OrdinalIgnoreCase);
+
+        private static string ConfigKeyOf(string line)
+        {
+            return ConfigKeyRegex.Match(line).Value;
+        }
+
+        private static ConfigFile CacheConfigLines(string path, string[] lines)
+        {
+            ConfigFile file = new ConfigFile();
+            file.lines = lines;
+            file.lastWriteUtc = File.GetLastWriteTimeUtc(path);
+            file.firstLineOfKey = new Dictionary<string, int>(lines.Length);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string key = ConfigKeyOf(lines[i]);
+                if (!file.firstLineOfKey.ContainsKey(key))
+                {
+                    file.firstLineOfKey[key] = i;
+                }
+            }
+            configCache[path] = file;
+            return file;
+        }
+
+        /// <summary>
+        /// The file's lines, from the cache unless the file changed. Throws like File.ReadAllLines
+        /// when the file is missing. Call with configLock held.
+        /// </summary>
+        private static ConfigFile ReadConfigFile(string path)
+        {
+            ConfigFile cached;
+            if (configCache.TryGetValue(path, out cached) && File.GetLastWriteTimeUtc(path) == cached.lastWriteUtc)
+            {
+                return cached;
+            }
+            return CacheConfigLines(path, File.ReadAllLines(path));
         }
 
         public static void ChangeFileLines(string filename, string contents, string keyword)
         {
             // Only config.txt is ever written; it lives in the user data folder.
             string configPath = UserData.ConfigPath;
-            string[] data = File.ReadAllLines(configPath);
-            bool found = false;
+            string newLine = keyword + " = " + contents;
 
-            for (int i = 0; i < data.Length; i++)
+            lock (configLock)
             {
-                if (Regex.Match(data[i], @"^([\w\-]+)").Value == keyword)
+                string[] data = ReadConfigFile(configPath).lines;
+                List<string> newData = new List<string>(data.Length + 1);
+                bool found = false;
+
+                foreach (string line in data)
                 {
-                    data[i] = keyword + " = " + contents;
-                    found = true;
+                    if (ConfigKeyOf(line) == keyword)
+                    {
+                        newData.Add(newLine);
+                        found = true;
+                    }
+                    else
+                    {
+                        newData.Add(line);
+                    }
                 }
-            }
 
-
-            if (!found)
-            {
-                string[] new_data;
-                new_data = new string[data.Length + 1];
-
-
-                for (int i = 0; i < data.Length; i++)
+                if (!found)
                 {
-                    new_data[i] = data[i];
+                    newData.Add(newLine);
                 }
-                new_data[data.Length] = keyword + " = " + contents;
-                File.WriteAllLines(configPath, new_data);
-            }
-            else
-            {
-                File.WriteAllLines(configPath, data);
-            }
 
-
+                string[] lines = newData.ToArray();
+                File.WriteAllLines(configPath, lines);
+                CacheConfigLines(configPath, lines);
+            }
         }
 
         public static string GetConfigData(string filename, string keyword)
         {
             // config.txt is the user's; other files (data/*.txt) ship next to SluMAN.exe.
-            string[] data = File.ReadAllLines(filename == "config.txt" ? UserData.ConfigPath : filename);
+            string path = filename == "config.txt" ? UserData.ConfigPath : filename;
 
-            for (int i = 0; i < data.Length; i++)
+            lock (configLock)
             {
-                if (Regex.Match(data[i], @"^([\w\-]+)").Value == keyword)
+                ConfigFile file = ReadConfigFile(path);
+                int index;
+                if (!file.firstLineOfKey.TryGetValue(keyword, out index))
                 {
-                    int startPos = data[i].IndexOf("=") + 2;
-                    return data[i].Substring(startPos, data[i].Length - startPos);
+                    return "";
                 }
-            }
 
-            return "";
-        }
-        public static IEnumerable<string> SplitByN(string str, int n)
-        {
-            while (str.Length > 0)
-            {
-                yield return new string(str.Take(n).ToArray());
-                str = new string(str.Skip(n).ToArray());
+                string line = file.lines[index];
+                int startPos = line.IndexOf("=") + 2;
+                return line.Substring(startPos, line.Length - startPos);
             }
-        }
-        public static string repeatstringidfkfuckthisshit(string swag, int length) // i dont know what to name it
-        {
-            return string.Concat(Enumerable.Repeat(swag, length));
         }
 
         public static List<string> GetWindowTitles(string processName)
@@ -266,28 +304,6 @@ namespace racman
             }, IntPtr.Zero);
 
             return titles;
-        }
-    }
-
-    class ListViewNF : System.Windows.Forms.ListView
-    {
-        public ListViewNF()
-        {
-            //Activate double buffering
-            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
-
-            //Enable the OnNotifyMessage event so we get a chance to filter out 
-            // Windows messages before they get to the form's WndProc
-            this.SetStyle(ControlStyles.EnableNotifyMessage, true);
-        }
-
-        protected override void OnNotifyMessage(Message m)
-        {
-            //Filter out the WM_ERASEBKGND message
-            if (m.Msg != 0x14)
-            {
-                base.OnNotifyMessage(m);
-            }
         }
     }
 

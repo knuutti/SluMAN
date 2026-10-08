@@ -55,6 +55,10 @@ namespace racman
         // Always the current connection, which changes when SluMAN attaches again.
         private static IPS3API api => func.api;
 
+        // Kept current by the game forms and GameReconnect. Asking the API instead costs a round
+        // trip to the PS3 on every read.
+        private static int Pid => AttachPS3Form.pid;
+
         /// <summary>
         /// Opens the memory window, or brings it forward when it's already open. It's owned by
         /// <paramref name="owner"/>, so it closes with that game window.
@@ -104,7 +108,7 @@ namespace racman
         /// <summary>Reads a 4-byte big-endian pointer.</summary>
         private static uint ReadPointer(uint address)
         {
-            byte[] bytes = api.ReadMemory(api.getCurrentPID(), address, 4);
+            byte[] bytes = api.ReadMemory(Pid, address, 4);
             return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
         }
 
@@ -170,7 +174,7 @@ namespace racman
 
                 try
                 {
-                    byte[] current = api.ReadMemory(api.getCurrentPID(), watched.address, watched.size);
+                    byte[] current = api.ReadMemory(Pid, watched.address, watched.size);
                     SetItemValueText(item, FormatValue(watched, current.Reverse().ToArray()));
                 }
                 catch
@@ -325,13 +329,13 @@ namespace racman
             WatchedAddress watched = Watched(item);
             try
             {
-                watched.subID = api.SubMemory(api.getCurrentPID(), watched.address, watched.size, (byte[] bytes) =>
+                watched.subID = api.SubMemory(Pid, watched.address, watched.size, (byte[] bytes) =>
                 {
                     SetItemValueText(item, FormatValue(watched, bytes));
                 });
 
                 // Subscriptions only report changes, so read once to show the current value.
-                byte[] current = api.ReadMemory(api.getCurrentPID(), watched.address, watched.size);
+                byte[] current = api.ReadMemory(Pid, watched.address, watched.size);
                 SetItemValueText(item, FormatValue(watched, current.Reverse().ToArray()));
             }
             catch (Exception ex)
@@ -566,7 +570,7 @@ namespace racman
             {
                 try { api.ReleaseSubID(watched.freezeSub); } catch { }
             }
-            watched.freezeSub = api.FreezeMemory(api.getCurrentPID(), watched.address, watched.size, IPS3API.MemoryCondition.Any, bigEndianBytes);
+            watched.freezeSub = api.FreezeMemory(Pid, watched.address, watched.size, IPS3API.MemoryCondition.Any, bigEndianBytes);
             watched.freezeBytes = bigEndianBytes;
             watched.isFrozen = true;
         }
@@ -600,7 +604,7 @@ namespace racman
                         return;
                     }
                     // Hold the value it has right now.
-                    byte[] current = api.ReadMemory(api.getCurrentPID(), watched.address, watched.size);
+                    byte[] current = api.ReadMemory(Pid, watched.address, watched.size);
                     Freeze(watched, current);
                 }
                 SetItemValueText(focusedItem, watched.lastValue);
@@ -653,7 +657,7 @@ namespace racman
                 }
 
                 byte[] bigEndian = littleEndian.Take((int)watched.size).Reverse().ToArray();
-                api.WriteMemory(api.getCurrentPID(), watched.address, watched.size, bigEndian);
+                api.WriteMemory(Pid, watched.address, watched.size, bigEndian);
 
                 // A freeze would put the old value straight back, so hold the new one instead.
                 if (watched.isFrozen)

@@ -39,6 +39,7 @@ namespace racman
             this.rpcs3CheckBox = new System.Windows.Forms.CheckBox();
             this.updateLinkLabel = new System.Windows.Forms.LinkLabel();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.statusLabel = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // IPTextBox
@@ -71,7 +72,7 @@ namespace racman
             // currentVerLabel
             // 
             this.currentVerLabel.AutoSize = true;
-            this.currentVerLabel.Location = new System.Drawing.Point(16, 187);
+            this.currentVerLabel.Location = new System.Drawing.Point(16, 199);
             this.currentVerLabel.Name = "currentVerLabel";
             this.currentVerLabel.Size = new System.Drawing.Size(79, 13);
             this.currentVerLabel.TabIndex = 3;
@@ -83,7 +84,7 @@ namespace racman
             // updateLinkLabel
             // 
             this.updateLinkLabel.AutoSize = true;
-            this.updateLinkLabel.Location = new System.Drawing.Point(98, 187);
+            this.updateLinkLabel.Location = new System.Drawing.Point(98, 199);
             this.updateLinkLabel.Name = "updateLinkLabel";
             this.updateLinkLabel.Size = new System.Drawing.Size(88, 13);
             this.updateLinkLabel.TabIndex = 6;
@@ -113,11 +114,20 @@ namespace racman
             this.rpcs3CheckBox.Text = "RPCS3";
             this.rpcs3CheckBox.UseVisualStyleBackColor = true;
             // 
+            // statusLabel
+            // 
+            this.statusLabel.AutoEllipsis = true;
+            this.statusLabel.Location = new System.Drawing.Point(16, 176);
+            this.statusLabel.Name = "statusLabel";
+            this.statusLabel.Size = new System.Drawing.Size(162, 13);
+            this.statusLabel.TabIndex = 7;
+            // 
             // AttachPS3Form
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(194, 218);
+            this.ClientSize = new System.Drawing.Size(194, 230);
+            this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.updateLinkLabel);
             this.Controls.Add(this.rpcs3CheckBox);
             this.Controls.Add(this.attachRestrictedButton);
@@ -149,5 +159,6 @@ namespace racman
         private System.Windows.Forms.ToolTip toolTip;
         private System.Windows.Forms.Button attachRestrictedButton;
         private System.Windows.Forms.CheckBox rpcs3CheckBox;
+        private System.Windows.Forms.Label statusLabel;
     }
 }
