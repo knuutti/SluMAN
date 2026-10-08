@@ -62,7 +62,7 @@ Each supported game has two UI modes: **Practice Mode** (full trainer features) 
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 
-Writes game state into a named memory-mapped file `"racman-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
+Writes game state into a named memory-mapped file `"SluMAN-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
 
 ### Lua mod scripting (`LuaAutomation.cs`)
 

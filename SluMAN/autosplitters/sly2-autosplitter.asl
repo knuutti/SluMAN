@@ -15,7 +15,7 @@ startup
 
 init
 {
-    System.IO.MemoryMappedFiles.MemoryMappedFile mmf = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting("racman-autosplitter");
+    System.IO.MemoryMappedFiles.MemoryMappedFile mmf = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting("SluMAN-autosplitter");
     System.IO.MemoryMappedFiles.MemoryMappedViewStream stream = mmf.CreateViewStream();
     vars.reader = new System.IO.BinaryReader(stream);
     

@@ -30,7 +30,7 @@ namespace SluMAN
 
         public AutosplitterHelper()
         {
-            mmfFile = MemoryMappedFile.CreateOrOpen("racman-autosplitter", mmfSize);
+            mmfFile = MemoryMappedFile.CreateOrOpen("SluMAN-autosplitter", mmfSize);
             mmfStream = mmfFile.CreateViewStream();
             writer = new BinaryWriter(mmfStream);
         }
