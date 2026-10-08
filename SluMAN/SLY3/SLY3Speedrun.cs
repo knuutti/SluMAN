@@ -20,13 +20,13 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY3Speedrun(sly3 game, string gameNameId = "NPEA00343")
+        public SLY3Speedrun(sly3 game)
         {
             this.game = game;
             InitializeComponent();
             statusLine = new StatusLine(this, true);
 
-            this.gameNameId = gameNameId;
+            gameNameId = sly3.addr.GameId;
 
             game.SetupInputDisplayMemorySubs();
 

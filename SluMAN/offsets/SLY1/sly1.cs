@@ -9,28 +9,13 @@ using Timer = System.Windows.Forms.Timer;
 
 namespace SluMAN
 {
-    public class Sly1Addresses
-    {
-        public uint inputOffset => 0x428BFC;
-        public uint analogOffsetLeft => 0x428B94;
-        public uint analogOffsetRight => 0x428BC8;
-        public uint coinCount => 0x3E7FF4;
-        public uint levelId => 0x3E7FE8;
-        public uint worldId => 0x3E7FE4;
-        public uint loadingState => 0xE5E940;
-        public uint w3Keys => 0x3E7738;
-        public uint transitionState => 0xE62AD0;
-        public uint charmsCount => 0x3E7FF0;
-        public uint livesCount => 0x3E7FEC;
-        public uint clockwerkHealth => 0x3630941C;
-    }
-
     public class sly1 : IGame, IAutosplitterAvailable
     {
-        public static Sly1Addresses addr = new Sly1Addresses();
+        public static Sly1Addresses addr = Sly1Addresses.ForGame(Sly1Addresses.DefaultGameId);
 
-        public sly1(IPS3API api) : base(api)
+        public sly1(IPS3API api, string gameNameId) : base(api)
         {
+            addr = Sly1Addresses.ForGame(gameNameId);
         }
 
         public IEnumerable<(uint addr, uint size)> AutosplitterAddresses => new (uint, uint)[]

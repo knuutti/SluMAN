@@ -164,8 +164,11 @@
     </Compile>
     <Compile Include="offsets\BH\hackpack.cs" />
     <Compile Include="offsets\SLY1\sly1.cs" />
+    <Compile Include="offsets\SLY1\Sly1Addresses.cs" />
     <Compile Include="offsets\SLY2\sly2.cs" />
+    <Compile Include="offsets\SLY2\Sly2Addresses.cs" />
     <Compile Include="offsets\SLY3\sly3.cs" />
+    <Compile Include="offsets\SLY3\Sly3Addresses.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">

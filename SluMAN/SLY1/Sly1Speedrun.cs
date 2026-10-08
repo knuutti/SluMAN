@@ -15,7 +15,7 @@ namespace SluMAN
     public partial class Sly1Speedrun : Form
     {
         public sly1 game;
-        public string gameNameId = "NPUA80663";
+        public string gameNameId = sly1.addr.GameId;
 
         private StatusLine statusLine;
         private GameSession session;

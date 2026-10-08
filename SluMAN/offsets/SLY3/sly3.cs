@@ -9,77 +9,9 @@ using Timer = System.Windows.Forms.Timer;
 
 namespace SluMAN
 {
-    public class Sly3Addresses
-    {
-        public uint inputOffset => 0x5EC5AA;
-        public uint analogOffsetLeft => 0x5EC5F0;
-        public uint analogOffsetRight => 0x5EC61C;
-        public uint coinCount => 0x6CC808;
-        public uint slyCharacterPtr => 0x5ED940;
-        public uint activeCharacterPtr => 0x5EC654;
-
-        public uint playerEntityPointer => 0x5EC654;
-        public uint transformOffset => 0x44;
-        public uint coordsOffsetX => 0x130;
-
-        // Entity struct offsets (from activeCharacterPtr dereference)
-        public uint healthEntityOffset => 0x168;
-        public uint gadgetPowerEntityOffset => 0x170;
-        public uint coordsOffsetY => 0x134; 
-        public uint coordsOffsetZ => 0x138;
-
-        // Cinematic skipping addresses
-        public uint dialogueState => 0x39B13F70;
-        public uint dialogueFrameCounter => 0x39B13F54;
-        public uint fmvState => 0x83C8BC;
-
-        public uint mapAOB => 0x78D2C8;
-        public uint spawnLocation => 0x78D308;
-
-        public uint loadType => 0x78D2C4;
-        public uint loadTrigger => 0x78D2C0; // Set to 1 to trigger load
-
-        public uint gadgetUnlocks => 0x6CC7F8;
-        public uint gadgetBindsSly => 0x6CC7B0;
-        public uint gadgetBindsBentley => 0x6CC7BC;
-        public uint gadgetBindsMurray => 0x6CC7C8;
-
-        // Run file specific addresses
-        public uint suckValue => 0x589A3C;
-        public uint currentCharacter => 0x5EA000;
-        public uint cameraFov => 0x7F8680;
-
-        // Autosplitter addresses
-        public uint loadingState => 0x6CB600;
-        public uint currentJob => 0x5EB488;
-        public uint currentCheckpoint => 0x5EB48C;
-        public uint currentMap => 0x78D398;
-        public uint gameSpeed => 0x5898B8;
-        public uint mtcTimerValue => 0x7DAB2C;
-        public uint pauseLock => 0x5EC6C4;
-        public uint guardAIAddress => 0x5EC6CC;
-        public uint deathBarriersPointer => 0x78C6E4;
-        public uint cameraPointer => 0x78CE2C;
-
-        // Episode 1 specific addresses
-        public uint veniceStarted => 0x6CE0B4;
-        public uint outbackStarted => 0x6CEA80;
-        public uint chinaStarted => 0x6D0288;
-        public uint pirateStarted => 0x6D1110;
-
-        public enum LoadTypes : uint
-        {
-            Fast = 0,
-            Normal = 6,
-            Reset = 15,
-            RunFile = 18,
-            Job = 134,
-        }
-    }
-
     public class sly3 : IGame, IAutosplitterAvailable
     {
-        public static Sly3Addresses addr = new Sly3Addresses();
+        public static Sly3Addresses addr = Sly3Addresses.ForGame(Sly3Addresses.DefaultGameId);
 
         public uint mapIndex;
         public bool speedrunMode;
@@ -102,8 +34,10 @@ namespace SluMAN
         private int infiniteJumpsFreezeSubID = -1;
         private int gameClockFreezeSubID = -1;
 
-        public sly3(IPS3API api) : base(api)
+        public sly3(IPS3API api, string gameNameId) : base(api)
         {
+            addr = Sly3Addresses.ForGame(gameNameId);
+
             this.maps = new MapData[]
             {
                 new MapData("Main Menu", "Y$KFdvd_menu", 0),

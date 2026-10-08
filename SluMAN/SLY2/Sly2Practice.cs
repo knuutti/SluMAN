@@ -27,7 +27,7 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public Sly2Practice(sly2 game, string gameNameId = "NPHA80175")
+        public Sly2Practice(sly2 game)
         {
             this.game = game;
             InitializeComponent();
@@ -37,7 +37,7 @@ namespace SluMAN
             mapComboBox.Items.AddRange(game.GetMapNames());
             mapComboBox.SelectedIndex = 0;
 
-            this.gameNameId = gameNameId;
+            gameNameId = sly2.addr.GameId;
 
             game.SetupInputDisplayMemorySubs();
             game.SetupWebManPopUp();

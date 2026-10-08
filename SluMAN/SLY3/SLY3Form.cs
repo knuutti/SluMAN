@@ -39,7 +39,7 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY3Form(sly3 game, string gameNameId = "NPEA00343")
+        public SLY3Form(sly3 game)
         {
             this.game = game;
             InitializeComponent();
@@ -49,7 +49,7 @@ namespace SluMAN
             mapComboBox.Items.AddRange(game.GetMapNames());
             mapComboBox.SelectedIndex = 0;
 
-            this.gameNameId = gameNameId;
+            gameNameId = sly3.addr.GameId;
 
             game.SetupInputDisplayMemorySubs();
             game.SetupWebManPopUp();

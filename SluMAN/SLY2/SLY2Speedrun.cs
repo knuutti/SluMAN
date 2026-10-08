@@ -21,10 +21,10 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
 
-        public SLY2Speedrun(sly2 game, string gameNameId = "NPHA80175")
+        public SLY2Speedrun(sly2 game)
         {
             this.game = game;
-            this.gameNameId = gameNameId;
+            gameNameId = sly2.addr.GameId;
             InitializeComponent();
             statusLine = new StatusLine(this, true);
 

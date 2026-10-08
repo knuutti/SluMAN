@@ -427,7 +427,9 @@ namespace SluMAN
 
         public static bool IsSupportedTitle(string titleId)
         {
-            return titleId == "NPEA00343" || titleId == "NPUA80663" || sly2.SupportsGameId(titleId);
+            return Sly1Addresses.IsSupportedGameId(titleId)
+                || Sly2Addresses.IsSupportedGameId(titleId)
+                || Sly3Addresses.IsSupportedGameId(titleId);
         }
 
         /// <summary>
@@ -463,49 +465,49 @@ namespace SluMAN
         /// </summary>
         private void ShowGame(Boolean speedrunMode)
         {
-            if (game == "NPEA00343") // Sly 3 (PAL, Digital)
+            if (Sly3Addresses.IsSupportedGameId(game))
             {
                 if (speedrunMode)
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                    SLY3Speedrun sly3 = new SLY3Speedrun(new sly3(func.api));
-                    gameName = "SLY 3 (PAL, PSN)";
-                    sly3.ShowDialog();
+                    SLY3Speedrun sly3Speedrun = new SLY3Speedrun(new sly3(func.api, game));
+                    gameName = sly3.addr.DisplayName;
+                    sly3Speedrun.ShowDialog();
                 }
                 else
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
-                    SLY3Form sly3 = new SLY3Form(new sly3(func.api));
-                    gameName = "SLY 3 (PAL, PSN)";
-                    sly3.ShowDialog();
+                    SLY3Form sly3Form = new SLY3Form(new sly3(func.api, game));
+                    gameName = sly3.addr.DisplayName;
+                    sly3Form.ShowDialog();
                 }
             }
-            else if (game == "NPUA80663")
+            else if (Sly1Addresses.IsSupportedGameId(game))
             {
                 Hide();
                 func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                Sly1Speedrun sly1 = new Sly1Speedrun(new sly1(func.api));
-                gameName = "SLY 1 (NTSC, PSN)";
-                sly1.ShowDialog();
+                Sly1Speedrun sly1Speedrun = new Sly1Speedrun(new sly1(func.api, game));
+                gameName = sly1.addr.DisplayName;
+                sly1Speedrun.ShowDialog();
             }
-            else if (sly2.SupportsGameId(game))
+            else if (Sly2Addresses.IsSupportedGameId(game))
             {
                 if (speedrunMode)
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                    SLY2Speedrun sly2Speedrun = new SLY2Speedrun(new sly2(func.api, game), game);
-                    gameName = sly2.GetDisplayName(game);
+                    SLY2Speedrun sly2Speedrun = new SLY2Speedrun(new sly2(func.api, game));
+                    gameName = sly2.addr.DisplayName;
                     sly2Speedrun.ShowDialog();
                 }
                 else
                 {
                     Hide();
                     func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
-                    Sly2Practice sly2Practice = new Sly2Practice(new sly2(func.api, game), game);
-                    gameName = sly2.GetDisplayName(game);
+                    Sly2Practice sly2Practice = new Sly2Practice(new sly2(func.api, game));
+                    gameName = sly2.addr.DisplayName;
                     sly2Practice.ShowDialog();
                 }
             }
