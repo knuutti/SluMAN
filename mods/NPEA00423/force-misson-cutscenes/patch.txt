@@ -1,4 +1,0 @@
-#- name: Force start cutscenes
-#- version: 1
-#- author: robo
-0x1d75d0: 0x38800003

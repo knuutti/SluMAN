@@ -1,6 +1,6 @@
 # Ratchetron API Reference
 
-Ratchetron is a PS3 memory-access server loaded as a `.sprx` (PRX module) on jailbroken PS3 consoles via webMAN. SluMAN connects to it over TCP and communicates using a custom binary protocol. The C# client is `RaCTrainer/Memory/Ratchetron.cs`; the abstract interface it implements is `RaCTrainer/Memory/IPS3API.cs`.
+Ratchetron is a PS3 memory-access server loaded as a `.sprx` (PRX module) on jailbroken PS3 consoles via webMAN. SluMAN connects to it over TCP and communicates using a custom binary protocol. The C# client is `SluMAN/Memory/Ratchetron.cs`; the abstract interface it implements is `SluMAN/Memory/IPS3API.cs`.
 
 ---
 
@@ -245,7 +245,9 @@ After `OpenDataChannel()` returns, subscriptions are fully functional.
 | PID list size | 16 entries; game is always at index 2 |
 | Notify max length | 2048 bytes including null terminator |
 | Protocol byte order | All multi-byte values big-endian on the wire |
-| `AllocatePage()` | Present in C# client but marked "Doesn't work, sorry." — do not use |
+| `AllocatePage` (0x0E) | Server command never worked; the C# client no longer has a method for it |
+| Thread safety | Each request and its reply run under one lock in `Ratchetron`, so the UI, Lua mods and subscription callbacks can share the connection |
+| Request timeout | A reply has 5 s to arrive. The server sometimes never answers (e.g. a read as the game closes), so on a timeout the client closes the connection, reconnects in the background and then runs the disconnect and reconnect callbacks, as if the game had restarted |
 | Subscriptions on disconnect | Destroyed server-side; must re-subscribe after reconnect |
 | `SubMemory` callback bytes | Already reversed by client — pass directly to `BitConverter` |
 | `ReadMemory` return bytes | Raw big-endian — must `.Reverse()` before `BitConverter` |

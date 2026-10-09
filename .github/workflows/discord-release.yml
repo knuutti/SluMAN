@@ -3,6 +3,12 @@ name: Discord release notification
 on:
   release:
     types: [published]
+  # For posting from another workflow, which passes the tag
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 jobs:
   notify:
@@ -15,7 +21,18 @@ jobs:
           URL: ${{ github.event.release.html_url }}
           BODY: ${{ github.event.release.body }}
           PRERELEASE: ${{ github.event.release.prerelease }}
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # When called from release.yml there's no release event, so look the release up
+          if [ -n "$TAG" ]; then
+            RELEASE=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json name,url,body,isPrerelease)
+            NAME=$(jq -r '.name' <<< "$RELEASE")
+            URL=$(jq -r '.url' <<< "$RELEASE")
+            BODY=$(jq -r '.body' <<< "$RELEASE")
+            PRERELEASE=$(jq -r '.isPrerelease' <<< "$RELEASE")
+          fi
+
           # Discord embed descriptions are capped at 4096 characters
           if [ ${#BODY} -gt 3900 ]; then
             BODY="${BODY:0:3900}…"$'\n\n'"[Read the full release notes]($URL)"

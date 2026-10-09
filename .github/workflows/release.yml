@@ -1,0 +1,53 @@
+name: Release
+
+# Merging a release/vX.Y.Z PR into master builds it and creates a draft GitHub release vX.Y.Z with
+# SluMAN.zip attached. Nothing is announced yet: review the notes, then publish the draft, which
+# creates the tag and runs publish-release.yml (update.xml) and discord-release.yml.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+jobs:
+  build:
+    if: github.event.pull_request.merged && startsWith(github.head_ref, 'release/v')
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_REF: ${{ github.head_ref }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Read version from branch name
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Branch '$HEAD_REF' isn't named release/vX.Y.Z"
+            exit 1
+          fi
+          echo "VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: SluMAN
+          path: SluMAN
+
+      - name: Zip
+        run: cd SluMAN && zip -qr ../SluMAN.zip .
+
+      # A draft has no tag yet and sends no notifications; publishing it creates the tag at
+      # --target. update.xml waits for publishing too, because a draft's zip can't be downloaded.
+      - name: Create draft release
+        run: |
+          gh release create "v$VERSION" SluMAN.zip \
+            -R "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$MERGE_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
+          echo "Draft created: review the notes and publish it from the Releases page." >> "$GITHUB_STEP_SUMMARY"
