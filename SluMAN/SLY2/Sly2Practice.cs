@@ -122,6 +122,11 @@ namespace SluMAN
             ApplyToggle(gameClockCheckBox, () => game.SetGameClockFrozen(gameClockCheckBox.Checked));
         }
 
+        private void autoSkipCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            ApplyToggle(autoSkipCheckBox, () => game.SetAutoSkip(autoSkipCheckBox.Checked));
+        }
+
         private void ApplyToggle(CheckBox toggle, Action apply)
         {
             try
@@ -274,6 +279,7 @@ namespace SluMAN
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();
+            game.SetAutoSkip(false);
             // The session closes the other windows and disconnects after this.
         }
 
@@ -330,6 +336,11 @@ namespace SluMAN
         {
             game.SetupWebManPopUp();
             game.SetupLoadWatcher();
+            // The game reset dropped the auto-skipper's subscriptions.
+            if (autoSkipCheckBox.Checked)
+            {
+                ApplyToggle(autoSkipCheckBox, () => game.RestartAutoSkip());
+            }
         }
 
         private void SetCoinsFromTextBox()

@@ -53,6 +53,7 @@
             this.infiniteGadgetPowerCheckBox = new System.Windows.Forms.CheckBox();
             this.gameClockCheckBox = new System.Windows.Forms.CheckBox();
             this.infiniteJumpCheckBox = new System.Windows.Forms.CheckBox();
+            this.autoSkipCheckBox = new System.Windows.Forms.CheckBox();
             this.positionEditorButton = new System.Windows.Forms.Button();
             this.alwaysOnTopCheckBox = new System.Windows.Forms.CheckBox();
             this.inputDisplayButton = new System.Windows.Forms.Button();
@@ -545,12 +546,13 @@
             this.toggleGroupBox.Controls.Add(this.infiniteGadgetPowerCheckBox);
             this.toggleGroupBox.Controls.Add(this.gameClockCheckBox);
             this.toggleGroupBox.Controls.Add(this.infiniteJumpCheckBox);
+            this.toggleGroupBox.Controls.Add(this.autoSkipCheckBox);
             this.toggleGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
             this.toggleGroupBox.Location = new System.Drawing.Point(227, 196);
             this.toggleGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.toggleGroupBox.Name = "toggleGroupBox";
             this.toggleGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.toggleGroupBox.Size = new System.Drawing.Size(234, 144);
+            this.toggleGroupBox.Size = new System.Drawing.Size(234, 164);
             this.toggleGroupBox.TabIndex = 29;
             this.toggleGroupBox.TabStop = false;
             this.toggleGroupBox.Text = "Toggles";
@@ -615,6 +617,18 @@
             this.infiniteJumpCheckBox.UseVisualStyleBackColor = true;
             this.infiniteJumpCheckBox.CheckedChanged += new System.EventHandler(this.infiniteJumpCheckBox_CheckedChanged);
             // 
+            // autoSkipCheckBox
+            // 
+            this.autoSkipCheckBox.AutoSize = true;
+            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 140);
+            this.autoSkipCheckBox.Margin = new System.Windows.Forms.Padding(2);
+            this.autoSkipCheckBox.Name = "autoSkipCheckBox";
+            this.autoSkipCheckBox.Size = new System.Drawing.Size(132, 17);
+            this.autoSkipCheckBox.TabIndex = 35;
+            this.autoSkipCheckBox.Text = "Auto-skip Cinematics";
+            this.autoSkipCheckBox.UseVisualStyleBackColor = true;
+            this.autoSkipCheckBox.CheckedChanged += new System.EventHandler(this.autoSkipCheckBox_CheckedChanged);
+            // 
             // alwaysOnTopCheckBox
             // 
             this.alwaysOnTopCheckBox.AutoSize = true;
@@ -628,7 +642,7 @@
             // 
             // inputDisplayButton
             // 
-            this.inputDisplayButton.Location = new System.Drawing.Point(227, 345);
+            this.inputDisplayButton.Location = new System.Drawing.Point(227, 365);
             this.inputDisplayButton.Name = "inputDisplayButton";
             this.inputDisplayButton.Size = new System.Drawing.Size(115, 30);
             this.inputDisplayButton.TabIndex = 27;
@@ -638,7 +652,7 @@
             // 
             // positionEditorButton
             // 
-            this.positionEditorButton.Location = new System.Drawing.Point(346, 345);
+            this.positionEditorButton.Location = new System.Drawing.Point(346, 365);
             this.positionEditorButton.Name = "positionEditorButton";
             this.positionEditorButton.Size = new System.Drawing.Size(115, 30);
             this.positionEditorButton.TabIndex = 35;
@@ -755,7 +769,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(479, 383);
+            this.ClientSize = new System.Drawing.Size(479, 403);
             this.Controls.Add(this.jobGroupBox);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
@@ -810,6 +824,7 @@
         private System.Windows.Forms.CheckBox infiniteGadgetPowerCheckBox;
         private System.Windows.Forms.CheckBox gameClockCheckBox;
         private System.Windows.Forms.CheckBox infiniteJumpCheckBox;
+        private System.Windows.Forms.CheckBox autoSkipCheckBox;
         private System.Windows.Forms.Button positionEditorButton;
         private System.Windows.Forms.Button inputDisplayButton;
         private System.Windows.Forms.MenuStrip menuStrip1;
