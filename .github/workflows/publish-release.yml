@@ -1,0 +1,43 @@
+name: Publish release
+
+# Publishing a release (the draft release.yml made) merges the update.xml PR release.yml opened, so
+# installed copies, which poll update.xml on master, see the update. discord-release.yml posts the
+# announcement on the same event.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-xml:
+    # Pre-releases don't go out as updates.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Merge the update.xml PR
+        run: |
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Tag '$TAG' isn't named vX.Y.Z"
+            exit 1
+          fi
+          VERSION="${BASH_REMATCH[1]}"
+          BRANCH="update-xml/v$VERSION"
+          PR=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BRANCH" --base master --state open --json number --jq '.[0].number')
+          if [ -z "$PR" ]; then
+            if gh api "repos/$GITHUB_REPOSITORY/contents/update.xml?ref=master" --jq '.content' \
+                | base64 -d | grep -q "<version>$VERSION.0</version>"; then
+              echo "update.xml already points at v$VERSION."
+              exit 0
+            fi
+            echo "::error::No open PR from $BRANCH, and update.xml on master isn't at v$VERSION. Point it there by hand."
+            exit 1
+          fi
+          gh pr ready "$PR" -R "$GITHUB_REPOSITORY"
+          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --merge --delete-branch
+          echo "Merged #$PR: installed copies now see v$VERSION." >> "$GITHUB_STEP_SUMMARY"

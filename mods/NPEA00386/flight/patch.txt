@@ -1,4 +1,0 @@
-#- name: Flight
-#- version: 1
-#- author: king_dedede 
-automation: automation.lua

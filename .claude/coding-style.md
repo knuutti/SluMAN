@@ -32,7 +32,7 @@ Do **not** use `_` prefixes on private fields.
 - `protected virtual` for base-class hooks with empty default bodies; override in game classes
 - `public abstract` for methods every game class must implement (`CheckInputs`, `SavePosition`, `LoadPosition`)
 
-Address/offset values: wrap raw values in a private nested `AddressValues` class; expose them through expression-bodied public properties on the outer class.
+Address/offset values: `public uint` auto-properties with a `private set` on the game's address class, so only its own version table can set them (see [Address/offset class structure](#addressoffset-class-structure)).
 
 ---
 
@@ -48,11 +48,6 @@ byte[] bytes = ...;
 **String interpolation everywhere:**
 ```csharp
 $"SluMAN v{Assembly.GetExecutingAssembly().GetName().Version} connected"
-```
-
-**Expression-bodied properties for address forwarding:**
-```csharp
-public uint inputOffset => values.inputOffset;
 ```
 
 **LINQ method chaining (not query syntax):**
@@ -127,7 +122,6 @@ int subID = api.SubMemory(pid, addr.inputOffset, 4, (value) =>
 {
     int mask = BitConverter.ToInt32(value.Reverse().ToArray(), 0);
     Inputs.RawInputs = ConvertSlyButtonsToStandardFormat(mask);
-    Inputs.Mask = Inputs.DecodeMask(Inputs.RawInputs);
 });
 ```
 
@@ -169,10 +163,10 @@ Disconnect/reconnect pattern: `DisconnectGame()` stops timers and releases subs;
 ## Game class structure (IGame subclasses)
 
 File layout order:
-1. Static address reference (`public static GameAddresses addr`)
+1. Static address reference (`public static Sly2Addresses addr`)
 2. Instance fields (`mapIndex`, `speedrunMode`, data arrays)
 3. Nested struct/enum definitions
-4. Constructor (calls `base(api)`, initializes `addr` and data)
+4. Constructor (takes the running title ID, calls `base(api)`, sets `addr = Sly2Addresses.ForGame(gameNameId)` and initializes data)
 5. Autosplitter address enumeration (if `IAutosplitterAvailable`)
 6. `SavePosition` / `LoadPosition` overrides
 7. `CheckInputs` override
@@ -185,17 +179,31 @@ File layout order:
 ## Address/offset class structure
 
 ```
-offsets/<GAME>/<game>.cs
+offsets/<GAME>/<Game>Addresses.cs   addresses for every supported version
+offsets/<GAME>/<game>.cs            the game class (IGame); no addresses
 ```
 
-Each file contains:
-- A public address class (`Sly2Addresses`) with a private nested `AddressValues` struct
-- A static dictionary mapping game ID strings to `AddressValues` instances
-- Expression-bodied public properties forwarding to `values.*`
-- Any nested enums for game-specific types (e.g. `LoadTypes`)
-- The public game class inheriting `IGame` (if combined in one file)
+Each game's address class (`Sly2Addresses`) is the only place that knows its title IDs and addresses. One instance is one supported game version:
+- `const string` title IDs (`GameIdKOR`, `GameIdUS`) and a `DefaultGameId`
+- `GameId` and `DisplayName` for the version, then each address once as `public uint name { get; private set; }`, grouped with category comments
+- `ForGame(titleId)` returns that version's instance (falling back to the default), `IsSupportedGameId(titleId)` tells `AttachPS3Form` whether to open the game
+- Nested enums for game-specific values (e.g. `LoadTypes`)
+- `CreateVersions()` builds every version: the first one in full with an object initializer, the rest with `CopyAs(titleId, displayName)` plus only the addresses that differ:
 
-Version management: if two regions share most addresses, clone the `AddressValues` and override only the differing fields.
+```csharp
+Sly2Addresses kor = new Sly2Addresses
+{
+    GameId = GameIdKOR,
+    DisplayName = "SLY 2 (KOR, PSN)",
+    coinCount = 0x7A83B0,
+    // ...
+};
+
+Sly2Addresses pal = kor.CopyAs(GameIdPAL, "SLY 2 (PAL, PSN)");
+pal.coinCount = 0x7A8330;
+```
+
+The instances are shared and never change after `CreateVersions`, so keep the setters private. Forms read the running title ID from `addr.GameId` instead of hard-coding one.
 
 ---
 

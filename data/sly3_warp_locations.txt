@@ -1,0 +1,33 @@
+# Sly 3 built-in warp locations
+# Format: mapIndicator|displayName|X|Y|Z
+# Lines starting with # are ignored
+#
+# Map indicators (from sly3.cs):
+#   Y$KFv_ext       Venice Hub
+#   Y$KFv_gauntlet  Opera House
+#   Y$KFv_interpol  Police Station
+#   Y$KFv_apt       Coffee House
+#   Y$KFv_canal     Canal Chase
+#   Y$KFo_ext       Outback Hub
+#   Y$KFo_quarry    Ayer's Rock
+#   Y$KFo_arena     Oil Field
+#   Y$KFo_cave_a    Cave 1
+#   Y$KFo_cave_b    Cave 2
+#   Y$KFo_cave_murray Cave 3
+#   Y$KFo_bar       Lemonade Bar
+#   Y$KFh_ext       Holland Hub
+#   Y$KFh_hotel     Hotel
+#   Y$KFh_hangar_b  Black Baron's Hangar
+#   Y$KFh_hangar_c  Cooper Gang Hangar
+#   Y$KFh_hangar_a  Team Belgium's Hangar
+#   Y$KFh_sewer     Sewer
+#   Y$KFc_ext       China Hub
+#   Y$KFp_ext       Pirate Hub
+#   Y$KFm_ext       Kaine Island
+#   Y$KFm_vault     Cooper Vault
+#   Y$KFm_gauntlet  Gauntlet
+#   Y$KFm_boss      Inner Sanctum
+#   Y$KFi_trainer   Hazard Room
+#
+# Example entry (replace with real coordinates):
+# Y$KFv_ext|Van|0|0|0

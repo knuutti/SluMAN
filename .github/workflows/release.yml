@@ -1,0 +1,88 @@
+name: Release
+
+# Merging a release/vX.Y.Z PR into master builds it, creates a draft GitHub release vX.Y.Z with
+# SluMAN.zip attached, and opens a draft PR pointing update.xml at it. Nothing is announced yet:
+# review the notes, then publish the draft, which creates the tag and runs publish-release.yml
+# (merges the update.xml PR) and discord-release.yml.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+jobs:
+  build:
+    if: github.event.pull_request.merged && startsWith(github.head_ref, 'release/v')
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_REF: ${{ github.head_ref }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Read version from branch name
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Branch '$HEAD_REF' isn't named release/vX.Y.Z"
+            exit 1
+          fi
+          echo "VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: SluMAN
+          path: SluMAN
+
+      - name: Zip
+        run: cd SluMAN && zip -qr ../SluMAN.zip .
+
+      # A draft has no tag yet and sends no notifications; publishing it creates the tag at
+      # --target. update.xml waits for publishing too, because a draft's zip can't be downloaded.
+      - name: Create draft release
+        run: |
+          gh release create "v$VERSION" SluMAN.zip \
+            -R "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$MERGE_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
+          echo "Draft created: review the notes and publish it from the Releases page." >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+
+      # Installed copies poll update.xml on master. The PR stays a draft so it can't be merged
+      # before the zip is downloadable; publish-release.yml merges it when the release is published.
+      - name: Open the update.xml PR
+        run: |
+          sed -i -E \
+            -e "s#<version>[^<]*</version>#<version>$VERSION.0</version>#" \
+            -e "s#/releases/download/v[^/]+/#/releases/download/v$VERSION/#" \
+            update.xml
+          if git diff --quiet; then
+            echo "update.xml already points at v$VERSION."
+            exit 0
+          fi
+          BRANCH="update-xml/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -am "Point update.xml at v$VERSION"
+          git push --force origin "$BRANCH"
+          # Needs "Allow GitHub Actions to create and approve pull requests" in the repo's Actions
+          # settings. Without it the branch is still pushed and the summary links to open the PR.
+          if gh pr create -R "$GITHUB_REPOSITORY" --base master --head "$BRANCH" --draft \
+              --title "Point update.xml at v$VERSION" \
+              --body "Installed copies will offer v$VERSION once this is merged. It's merged automatically when the v$VERSION release is published."; then
+            echo "Opened a draft PR for update.xml: it's merged when the release is published." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Couldn't open the update.xml PR. Open it from $BRANCH by hand."
+            echo "Open the update.xml PR by hand: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/master...$BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          fi
