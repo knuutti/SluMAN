@@ -23,7 +23,7 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 
 - `.github/workflows/build.yml` builds every PR and uploads the output as the `SluMAN` artifact. Builds from a `release/vX.Y.Z` branch get `X.Y.Z` stamped in.
 - `.github/workflows/release.yml` runs when a `release/vX.Y.Z` PR is merged into master. It builds and creates a **draft** GitHub release `vX.Y.Z` with `SluMAN.zip` and generated notes, plus a draft `update-xml/vX.Y.Z` PR pointing `update.xml` at it. Nothing is announced until someone reviews the notes and publishes the draft.
-- Publishing the release creates the tag and fires `release: published`: `publish-release.yml` merges the `update-xml/vX.Y.Z` PR (installed copies poll `update.xml` on master), and `discord-release.yml` posts to Discord. Pre-releases skip the `update.xml` bump.
+- Publishing the release creates the tag and fires `release: published`: `publish-release.yml` adds the published notes to `CHANGELOG.html` (`.github/scripts/changelog.py`, the page the update dialog links to) on the `update-xml/vX.Y.Z` PR and merges it (installed copies poll `update.xml` on master), and `discord-release.yml` posts to Discord. Pre-releases skip the `update.xml` bump.
 - Everything that ships must end up in `bin\x64\Release\` via the build (project Content items or the post-build XCOPYs), because the zip is that folder as-is.
 
 ## Architecture

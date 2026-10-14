@@ -6,6 +6,40 @@
     <title>SluMAN Changelog</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <h2>SluMAN v1.0.10</h2>
+    <h3>New features</h3>
+    <ul>
+        <li>Practice Mode is now one window with tabs: gadgets, Position Editor, Memory Utilities and a new Memory Viewer (live hex view you can edit).</li>
+        <li>Controller combos in Practice Mode for Save/Load Position, Load Game and Run Script (Tools → Controller Combos).</li>
+        <li>Named position slots: 8 per map in the Position Editor.</li>
+        <li>Auto-skip Cinematics toggle for Sly 2 and Sly 3.</li>
+        <li>Sly 3: Freeze Game Clock, Disable Death Barriers, Disable Guard AI, Invulnerability, Infinite Jump and Fly Mode toggles, and warp locations per map, including your own.</li>
+        <li>Sly 2: Invulnerability, Infinite Health, Infinite Gadget Power, Infinite Jump and Freeze Game Clock toggles, and the Position Editor.</li>
+        <li>Gadgets tab can load gadgets from a run file.</li>
+        <li>Memory watches support pointer chains and calculated functions (e.g. a speedometer), and watchlists save automatically.</li>
+        <li>Input display can be added to OBS as a Browser Source: <code>http://127.0.0.1:9674/pad</code>.</li>
+        <li>Starting a different Sly game opens it in SluMAN without re-attaching.</li>
+        <li>Messages show in a status line instead of popups, and updates show as a link next to the version.</li>
+        <li>Sly 2 NTSC-U (NPUA80664) can be attached (untested).</li>
+    </ul>
+    <h3>Bugfixes</h3>
+    <ul>
+        <li>Saved positions load again, and are now kept per map.</li>
+        <li>Attaching no longer freezes the window on a wrong IP, and SluMAN recovers when the PS3 stops answering.</li>
+        <li>Input display and autosplitter keep working after game resets and game switches.</li>
+        <li>Sly 2 Infinite Jump works, and Set Health sets Bentley's health.</li>
+        <li>Toggles are applied again after every load.</li>
+        <li>Fixed high CPU use with light input display skins.</li>
+        <li>Detects when Windows Firewall blocks live data and offers to add a rule.</li>
+        <li>Closing the Sly 3 Practice window no longer closes the whole app.</li>
+    </ul>
+    <h3>Maintenance</h3>
+    <ul>
+        <li>Settings and saved data are now kept in <code>%APPDATA%\SluMAN</code> and copied there from the SluMAN folder on first start.</li>
+        <li>The autosplitter memory file is renamed, so the old .asl scripts no longer work. Point LiveSplit's Scriptable Auto Splitter at the .asl in this version's <code>autosplitters</code> folder, or copy it again if you keep a copy in the LiveSplit folder.</li>
+        <li>Removed Sly 2 PAL support (its addresses were wrong) and the leftover Ratchet &amp; Clank mods.</li>
+        <li>Releases are now built and published automatically.</li>
+    </ul>
     <h2>SluMAN v1.0.9</h2>
     <h3>New features</h3>
     <ul>
