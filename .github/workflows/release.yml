@@ -2,7 +2,7 @@ name: Release
 
 # Merging a release/vX.Y.Z PR into master builds it and creates a draft GitHub release vX.Y.Z with
 # SluMAN.zip attached. Nothing is announced yet: review the notes, then publish the draft, which
-# creates the tag and runs publish-release.yml (update.xml) and discord-release.yml.
+# creates the tag and runs publish-release.yml (opens the update.xml PR) and discord-release.yml.
 
 on:
   pull_request:
