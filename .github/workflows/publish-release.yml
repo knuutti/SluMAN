@@ -1,8 +1,8 @@
 name: Publish release
 
-# Publishing a release (the draft release.yml made) opens a PR that points update.xml at it.
-# Installed copies poll update.xml on master, so they see the update once that PR is merged.
-# discord-release.yml posts the announcement on the same event.
+# Publishing a release (the draft release.yml made) merges the update.xml PR release.yml opened, so
+# installed copies, which poll update.xml on master, see the update. discord-release.yml posts the
+# announcement on the same event.
 
 on:
   release:
@@ -19,40 +19,25 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
-      RELEASE_URL: ${{ github.event.release.html_url }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: master
-
-      - name: Open a PR pointing update.xml at the release
+      - name: Merge the update.xml PR
         run: |
           if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
             echo "::error::Tag '$TAG' isn't named vX.Y.Z"
             exit 1
           fi
           VERSION="${BASH_REMATCH[1]}"
-          sed -i -E \
-            -e "s#<version>[^<]*</version>#<version>$VERSION.0</version>#" \
-            -e "s#/releases/download/v[^/]+/#/releases/download/v$VERSION/#" \
-            update.xml
-          if git diff --quiet; then
-            echo "update.xml already points at v$VERSION."
-            exit 0
-          fi
           BRANCH="update-xml/v$VERSION"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git commit -am "Point update.xml at v$VERSION"
-          git push --force origin "$BRANCH"
-          # Needs "Allow GitHub Actions to create and approve pull requests" in the repo's Actions
-          # settings. Without it the branch is still pushed and the summary links to open the PR.
-          if gh pr create -R "$GITHUB_REPOSITORY" --base master --head "$BRANCH" \
-              --title "Point update.xml at v$VERSION" \
-              --body "Installed copies will offer v$VERSION once this is merged. Merge it after checking that the [release]($RELEASE_URL) and its SluMAN.zip look right."; then
-            echo "Opened a PR for update.xml: merge it to send v$VERSION to installed copies." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::Couldn't open the PR. Open it from $BRANCH by hand."
-            echo "Open the update.xml PR by hand: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/master...$BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          PR=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BRANCH" --base master --state open --json number --jq '.[0].number')
+          if [ -z "$PR" ]; then
+            if gh api "repos/$GITHUB_REPOSITORY/contents/update.xml?ref=master" --jq '.content' \
+                | base64 -d | grep -q "<version>$VERSION.0</version>"; then
+              echo "update.xml already points at v$VERSION."
+              exit 0
+            fi
+            echo "::error::No open PR from $BRANCH, and update.xml on master isn't at v$VERSION. Point it there by hand."
+            exit 1
           fi
+          gh pr ready "$PR" -R "$GITHUB_REPOSITORY"
+          gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --merge --delete-branch
+          echo "Merged #$PR: installed copies now see v$VERSION." >> "$GITHUB_STEP_SUMMARY"
