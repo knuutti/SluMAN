@@ -1,8 +1,9 @@
 name: Publish release
 
-# Publishing a release (the draft release.yml made) merges the update.xml PR release.yml opened, so
-# installed copies, which poll update.xml on master, see the update. discord-release.yml posts the
-# announcement on the same event.
+# Publishing a release (the draft release.yml made) adds its notes to CHANGELOG.html on the
+# update.xml PR release.yml opened, then merges that PR, so installed copies, which poll update.xml
+# on master, see the update and its changelog. discord-release.yml posts the announcement on the
+# same event.
 
 on:
   release:
@@ -20,7 +21,7 @@ jobs:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Merge the update.xml PR
+      - name: Find the update.xml PR
         run: |
           if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
             echo "::error::Tag '$TAG' isn't named vX.Y.Z"
@@ -38,6 +39,33 @@ jobs:
             echo "::error::No open PR from $BRANCH, and update.xml on master isn't at v$VERSION. Point it there by hand."
             exit 1
           fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "PR=$PR" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+        if: env.PR != ''
+        with:
+          ref: ${{ env.BRANCH }}
+
+      # The notes as published, after any edits made to the draft.
+      - name: Add the release notes to CHANGELOG.html
+        if: env.PR != ''
+        env:
+          NOTES: ${{ github.event.release.body }}
+        run: |
+          printf '%s\n' "$NOTES" | python3 .github/scripts/changelog.py "$VERSION"
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Add v$VERSION to CHANGELOG.html"
+          git push origin "$BRANCH"
+
+      - name: Merge the update.xml PR
+        if: env.PR != ''
+        run: |
           gh pr ready "$PR" -R "$GITHUB_REPOSITORY"
           gh pr merge "$PR" -R "$GITHUB_REPOSITORY" --merge --delete-branch
-          echo "Merged #$PR: installed copies now see v$VERSION." >> "$GITHUB_STEP_SUMMARY"
+          echo "Merged #$PR: installed copies now see v$VERSION and its changelog." >> "$GITHUB_STEP_SUMMARY"
