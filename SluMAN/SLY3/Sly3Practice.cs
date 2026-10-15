@@ -33,6 +33,7 @@ namespace SluMAN
         private float prevFlyPosX;
         private float prevFlyPosY;
         private bool prevFlyModeState;
+        private uint flyEntityPtr;
         private const float FlyHeightStep = 20.0f;
         private const float FlyBoostMultiplier = 8.0f;
 
@@ -232,6 +233,14 @@ namespace SluMAN
                 return;
             }
 
+            // During a load (the fade to black included) the player entity is being freed or set
+            // up, and writing to it crashes the game.
+            if (game.IsLoading)
+            {
+                prevFlyModeState = false;
+                return;
+            }
+
             if (infiniteJumpCheckBox.Checked)
             {
                 try
@@ -255,17 +264,32 @@ namespace SluMAN
             {
                 byte[] epBytes = game.api.ReadMemory(game.pid, sly3.addr.activeCharacterPtr, 4);
                 uint entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
-                if (entityPtr == 0) return;
+                uint transformPtr = 0;
+                if (entityPtr != 0)
+                {
+                    byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + sly3.addr.transformOffset, 4);
+                    transformPtr = BitConverter.ToUInt32(tpBytes.Reverse().ToArray(), 0);
+                }
+                // No player, e.g. in a hideout. Take the height again once there is one, rather
+                // than writing the old map's height into a new entity.
+                if (entityPtr == 0 || transformPtr == 0)
+                {
+                    prevFlyModeState = false;
+                    return;
+                }
 
-                byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + sly3.addr.transformOffset, 4);
-                uint transformPtr = BitConverter.ToUInt32(tpBytes.Reverse().ToArray(), 0);
-                if (transformPtr == 0) return;
-
-                if (!prevFlyModeState)
+                if (!prevFlyModeState || entityPtr != flyEntityPtr)
                 {
                     flyFrozenZ = ReadFloat(transformPtr + sly3.addr.coordsOffsetZ);
                     prevFlyPosX = ReadFloat(transformPtr + sly3.addr.coordsOffsetX);
                     prevFlyPosY = ReadFloat(transformPtr + sly3.addr.coordsOffsetY);
+                    flyEntityPtr = entityPtr;
+                    // Not a position yet: the entity is still being set up.
+                    if (!IsFinite(flyFrozenZ) || !IsFinite(prevFlyPosX) || !IsFinite(prevFlyPosY))
+                    {
+                        prevFlyModeState = false;
+                        return;
+                    }
                 }
                 prevFlyModeState = true;
 
@@ -295,6 +319,11 @@ namespace SluMAN
                 prevFlyPosY = curY;
             }
             catch { }
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         private float ReadFloat(uint address)

@@ -337,7 +337,21 @@ namespace SluMAN
         public event Action LoadStarted;
 
         private int loadWatcherSubID = -1;
-        private int lastLoadingState = -1;
+        private volatile int lastLoadingState = -1;
+
+        /// <summary>
+        /// True while the load watcher sees a load in progress. The player entity is being torn
+        /// down or set up then, so nothing should be written to it. False when the loading state
+        /// isn't known (no watcher, or the old API).
+        /// </summary>
+        public bool IsLoading
+        {
+            get
+            {
+                int state = lastLoadingState;
+                return state != -1 && state != 3;
+            }
+        }
 
         /// <summary>
         /// Starts watching for finished loads. Call again after a reconnect, since subscriptions
