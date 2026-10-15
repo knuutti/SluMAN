@@ -27,6 +27,7 @@ namespace SluMAN
         private float prevFlyPosX;
         private float prevFlyPosY;
         private bool prevFlyMode;
+        private uint flyEntityPtr;
 
         private const float FlyHeightStep = 20.0f;
         private const float FlyBoostMultiplier = 8.0f;
@@ -187,8 +188,12 @@ namespace SluMAN
                 RefreshSlots();
             }
 
-            if (!TryResolvePointers(out uint entityPtr, out uint transformPtr))
+            // During a load (the fade to black included) the player entity is being freed or set
+            // up, and writing to it crashes the game. With no player, e.g. in a hideout, fly mode
+            // takes the height again once there is one.
+            if (game.IsLoading || !TryResolvePointers(out uint entityPtr, out uint transformPtr))
             {
+                prevFlyMode = false;
                 SetLabelsUnavailable();
                 return;
             }
@@ -212,12 +217,21 @@ namespace SluMAN
                 }
 
                 // Fly mode: hold Z, adjust height with L2/R2, amplify horizontal movement with R1.
-                if (flyModeEnabled && !prevFlyMode)
+                if (flyModeEnabled && (!prevFlyMode || entityPtr != flyEntityPtr))
                 {
                     flyFrozenZ = ReadFloat(PositionAddress(transformPtr, 2));
                     prevFlyPosX = ReadFloat(PositionAddress(transformPtr, 0));
                     prevFlyPosY = ReadFloat(PositionAddress(transformPtr, 1));
-                    zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    flyEntityPtr = entityPtr;
+                    // Not a position yet: the entity is still being set up.
+                    if (!IsFinite(flyFrozenZ) || !IsFinite(prevFlyPosX) || !IsFinite(prevFlyPosY))
+                    {
+                        flyModeEnabled = false;
+                    }
+                    else
+                    {
+                        zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    }
                 }
                 prevFlyMode = flyModeEnabled;
 
@@ -288,6 +302,11 @@ namespace SluMAN
             {
                 SetLabelsUnavailable();
             }
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         private static string FormatFloat(float value)
