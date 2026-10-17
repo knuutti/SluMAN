@@ -8,9 +8,13 @@ namespace SluMAN
     /// </summary>
     public class Sly2Addresses
     {
-        public const string GameIdKOR = "NPHA80175";
-        public const string GameIdUS = "NPUA80664";
-        public const string DefaultGameId = GameIdKOR;
+        public const string GameIdKorDigital = "NPHA80175";
+        public const string GameIdNtscDigital = "NPUA80664";
+        public const string GameIdNtscDisc = "BCUS98246";
+        public const string GameIdPalDigital = "NPEA00342";
+        public const string GameIdPalDisc = "BCES00968";
+
+        public const string DefaultGameId = GameIdKorDigital;
 
         private static readonly Dictionary<string, Sly2Addresses> versions = CreateVersions();
 
@@ -34,6 +38,7 @@ namespace SluMAN
 
         // Utility
         public uint coinCount { get; private set; }
+        public uint language { get; private set; } = 0;
         public uint currentCharacter { get; private set; }
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
@@ -124,9 +129,9 @@ namespace SluMAN
 
         private static Dictionary<string, Sly2Addresses> CreateVersions()
         {
-            Sly2Addresses kor = new Sly2Addresses
+            Sly2Addresses korDigital = new Sly2Addresses
             {
-                GameId = GameIdKOR,
+                GameId = GameIdKorDigital,
                 DisplayName = "SLY 2 (KOR, PSN)",
 
                 inputOffset = 0x500F76,
@@ -185,14 +190,56 @@ namespace SluMAN
                 juiceMurray = 0x7A8394,
             };
 
-            // The NTSC-U PSN release matches the Korean addresses wherever the community address
-            // sheet lists both, so it's assumed to be the same build. Not tested on NTSC-U yet.
-            Sly2Addresses us = kor.CopyAs(GameIdUS, "SLY 2 (NTSC, PSN)");
+            Sly2Addresses ntscDigital = korDigital.CopyAs(GameIdNtscDigital, "SLY 2 (NTSC, PSN)");
+            Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
+            Sly2Addresses ntscDisc = korDigital.CopyAs(GameIdNtscDisc, "SLY 2 (NTSC, Disc)");
+            Sly2Addresses palDisc = korDigital.CopyAs(GameIdPalDisc, "SLY 2 (PAL, Disc)");
+
+            palDigital.coinCount = 0x7A8330;
+            palDigital.currentCharacter = 0x7A828C;
+            palDigital.healthSly = 0x7A82E0;
+            palDigital.healthBentley = 0x7A82F8;
+            palDigital.healthMurray = 0x7A8310;
+            palDigital.juiceSly = 0x7A82E4;
+            palDigital.juiceBentley = 0x7A82FC;
+            palDigital.juiceMurray = 0x7A8314;
+            palDigital.gadgetUnlocks = 0x7A8328;
+            palDigital.gadgetBindsSly = 0x7A82EC;
+            palDigital.gadgetBindsBentley = 0x7A8304;
+            palDigital.gadgetBindsMurray = 0x7A831C;
+            palDigital.language = 0x819E88;
+            palDigital.gameSpeed = 0x49DF14;
+            palDigital.loadTrigger = 0x7B4BD0;
+            palDigital.mapAOB = 0x7B4BD8;
+            palDigital.spawnLocation = 0x7B4C68;
+            palDigital.loadType = 0x7B4BD4;
+
+            // Unverified, estimated addresses. Test before release.
+            palDigital.loadingState = 0x7A7180;
+            palDigital.parisStarted = 0x7A9D04;
+            palDigital.templeStarted = 0x7AA970;
+            palDigital.prisonStarted = 0x7AB30C;
+            palDigital.castleStarted = 0x7ABB68;
+            palDigital.trainStarted = 0x7ABEA8;
+            palDigital.sawmillStarted = 0x7AC798;
+            palDigital.blimpStarted = 0x7AD0D0;
+            palDigital.parisCinemaState = 0x7A9A40;
+            palDigital.currentMapId = 0x7B4C60; // -0x80
+            // palDigital.currentMapId = 0x7B4CB0; // -0x30, like spawnLocation
+            palDigital.cameraFov = 0x49DFD4; // -0x80
+            // palDigital.cameraFov = 0x49DFE8; // -0x6C, like gameSpeed
+            palDigital.cameraParameter = 0x49DFFC; // -0x80
+            // palDigital.cameraParameter = 0x49E010; // -0x6C, like gameSpeed
+            palDigital.activeCharacterPtr = 0x49E210; // -0x80
+            // palDigital.activeCharacterPtr = 0x49E224; // -0x6C, like gameSpeed
 
             return new Dictionary<string, Sly2Addresses>(StringComparer.OrdinalIgnoreCase)
             {
-                { kor.GameId, kor },
-                { us.GameId, us },
+                { korDigital.GameId, korDigital },
+                { ntscDigital.GameId, ntscDigital },
+                { palDigital.GameId, palDigital },
+                { ntscDisc.GameId, ntscDisc },
+                { palDisc.GameId, palDisc },
             };
         }
     }
