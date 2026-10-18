@@ -77,6 +77,7 @@ namespace SluMAN
             this.slowMotionCheckBox = new System.Windows.Forms.CheckBox();
             this.invulnerableCheckBox = new System.Windows.Forms.CheckBox();
             this.undetectableCheckBox = new System.Windows.Forms.CheckBox();
+            this.skipCutscenesCheckBox = new System.Windows.Forms.CheckBox();
             this.alwaysOnTopCheckBox = new System.Windows.Forms.CheckBox();
             this.refreshTimer = new System.Windows.Forms.Timer(this.components);
             this.menuStrip1.SuspendLayout();
@@ -549,6 +550,17 @@ namespace SluMAN
             this.undetectableCheckBox.UseVisualStyleBackColor = true;
             this.undetectableCheckBox.CheckedChanged += new System.EventHandler(this.undetectableCheckBox_CheckedChanged);
             //
+            // skipCutscenesCheckBox
+            //
+            this.skipCutscenesCheckBox.AutoSize = true;
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 540);
+            this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
+            this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
+            this.skipCutscenesCheckBox.TabIndex = 7;
+            this.skipCutscenesCheckBox.Text = "Skip Cutscenes";
+            this.skipCutscenesCheckBox.UseVisualStyleBackColor = true;
+            this.skipCutscenesCheckBox.CheckedChanged += new System.EventHandler(this.skipCutscenesCheckBox_CheckedChanged);
+            //
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
@@ -568,7 +580,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 544);
+            this.ClientSize = new System.Drawing.Size(300, 567);
             this.Controls.Add(this.gameGroupBox);
             this.Controls.Add(this.playerGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
@@ -576,6 +588,7 @@ namespace SluMAN
             this.Controls.Add(this.slowMotionCheckBox);
             this.Controls.Add(this.invulnerableCheckBox);
             this.Controls.Add(this.undetectableCheckBox);
+            this.Controls.Add(this.skipCutscenesCheckBox);
             this.Controls.Add(this.alwaysOnTopCheckBox);
             this.Controls.Add(this.menuStrip1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -647,6 +660,7 @@ namespace SluMAN
         private System.Windows.Forms.CheckBox slowMotionCheckBox;
         private System.Windows.Forms.CheckBox invulnerableCheckBox;
         private System.Windows.Forms.CheckBox undetectableCheckBox;
+        private System.Windows.Forms.CheckBox skipCutscenesCheckBox;
         private System.Windows.Forms.CheckBox alwaysOnTopCheckBox;
         private System.Windows.Forms.Timer refreshTimer;
     }
