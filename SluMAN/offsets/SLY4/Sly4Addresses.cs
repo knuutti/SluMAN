@@ -74,6 +74,7 @@ namespace SluMAN
         public uint clockClampFreqMin { get; private set; }
         public uint cheatInvulnerable { get; private set; }
         public uint cheatUndetectable { get; private set; }
+        public uint cutSceneEnable { get; private set; }
 
         // Entry sizes in the episode and job arrays
         public const uint EpisodeStride = 0x35C;
@@ -164,10 +165,11 @@ namespace SluMAN
                 bodyPositionOffset = 0x120,
 
                 clockClampFreqMax = 0x10B7AA4,
-                // The tunable right before Debug.Clock.ClampFreqMax; its name isn't confirmed.
                 clockClampFreqMin = 0x10B7A58,
                 cheatInvulnerable = 0x10388F0,
                 cheatUndetectable = 0xF9BC28,
+                // Game.CutSceneEnable, 1 by default
+                cutSceneEnable = 0x10B8B48,
             };
 
             Sly4Addresses palDigital = palDisc.CopyAs(GameIdPALDigital, "SLY 4 (PAL, Digital)");

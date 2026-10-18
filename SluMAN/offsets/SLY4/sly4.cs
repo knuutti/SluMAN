@@ -202,6 +202,20 @@ namespace SluMAN
         }
 
         /// <summary>
+        /// Turns cutscenes and dialogue off by clearing Game.CutSceneEnable. A few spots softlock
+        /// without them (e.g. looting, some minigames and boss fights), so it's for practice only.
+        /// </summary>
+        public void SetSkipCutscenes(bool enabled)
+        {
+            api.WriteMemory(pid, addr.cutSceneEnable, new byte[] { (byte)(enabled ? 0 : 1) });
+        }
+
+        public bool IsSkippingCutscenes()
+        {
+            return ReadByte(addr.cutSceneEnable) == 0;
+        }
+
+        /// <summary>
         /// The game's name hash: each character uppercased, then h = h * 31 + c. Level, episode
         /// and job hashes are all this, e.g. "Paris Hideout" or "Japan_PhotoOp".
         /// </summary>

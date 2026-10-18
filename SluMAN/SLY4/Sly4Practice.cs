@@ -58,6 +58,7 @@ namespace SluMAN
             {
                 invulnerableCheckBox.Checked = game.IsInvulnerable();
                 undetectableCheckBox.Checked = game.IsUndetectable();
+                skipCutscenesCheckBox.Checked = game.IsSkippingCutscenes();
             }
             catch
             {
@@ -507,6 +508,18 @@ namespace SluMAN
             }
         }
 
+        private void skipCutscenesCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                game.SetSkipCutscenes(skipCutscenesCheckBox.Checked);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change cutscene skipping: {ex.Message}");
+            }
+        }
+
         private void session_Reconnected()
         {
             // A game reset puts the tunables back to their defaults.
@@ -523,6 +536,10 @@ namespace SluMAN
                 if (undetectableCheckBox.Checked)
                 {
                     game.SetUndetectable(true);
+                }
+                if (skipCutscenesCheckBox.Checked)
+                {
+                    game.SetSkipCutscenes(true);
                 }
             }
             catch (Exception ex)
@@ -547,6 +564,10 @@ namespace SluMAN
             if (undetectableCheckBox.Checked)
             {
                 try { game.SetUndetectable(false); } catch { }
+            }
+            if (skipCutscenesCheckBox.Checked)
+            {
+                try { game.SetSkipCutscenes(false); } catch { }
             }
 
             // Put the game's code back. Does nothing if no warp was used.
