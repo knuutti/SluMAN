@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SluMAN
 {
@@ -7,17 +9,39 @@ namespace SluMAN
     {
         public static Sly4Addresses addr = Sly4Addresses.ForGame(Sly4Addresses.DefaultGameId);
 
-        // Saved positions aren't per map yet: the level ID isn't confirmed.
-        private const string PositionMapKey = "sly4";
+        // Display names for level hashes (gm + currentLevelHashOffset). Hashes not listed show in hex.
+        private static readonly Dictionary<uint, string> levelNames = new Dictionary<uint, string>
+        {
+            { 0xE4927E12, "Main Menu" },
+            { 0x46C660F7, "Paris Hideout" },
+            { 0xA0355EFB, "Paris Streets" },
+            { 0x3B677F57, "Paris Sewers" },
+        };
 
         private const int NormalClampFreqMax = 60;
         private const int NormalClampFreqMin = 1;
         private const int SlowMotionClampFreqMax = 386;
         private const int SlowMotionClampFreqMin = 291;
 
+        private readonly Sly4CodeHook codeHook;
+
+        /// <summary>A job in the game's job array.</summary>
+        public class JobEntry
+        {
+            public int index;
+            public string name;
+            public string episode;
+
+            public override string ToString()
+            {
+                return $"{episode}: {name}";
+            }
+        }
+
         public sly4(IPS3API api, string gameNameId) : base(api)
         {
             addr = Sly4Addresses.ForGame(gameNameId);
+            codeHook = new Sly4CodeHook(this);
         }
 
         public override void SavePosition()
@@ -28,14 +52,15 @@ namespace SluMAN
                 throw new InvalidOperationException("The player isn't loaded.");
             }
 
+            string key = SavedPositionKey(CurrentPositionMap(), selectedPositionIndex);
             string position = api.ReadMemoryStr(pid, body + addr.bodyPositionOffset, 12);
-            func.ChangeFileLines("config.txt", position, SavedPositionKey(PositionMapKey, selectedPositionIndex));
+            func.ChangeFileLines("config.txt", position, key);
             OnPositionSaved();
         }
 
         public override void LoadPosition()
         {
-            string position = func.GetConfigData("config.txt", SavedPositionKey(PositionMapKey, selectedPositionIndex));
+            string position = func.GetConfigData("config.txt", SavedPositionKey(CurrentPositionMap(), selectedPositionIndex));
             if (position == "")
             {
                 throw new InvalidOperationException($"Slot {selectedPositionIndex + 1} has no saved position.");
@@ -156,6 +181,369 @@ namespace SluMAN
             return BitConverter.ToInt32(bytes.Reverse().ToArray(), 0) == SlowMotionClampFreqMax;
         }
 
+        public void SetInvulnerable(bool enabled)
+        {
+            api.WriteMemory(pid, addr.cheatInvulnerable, new byte[] { (byte)(enabled ? 1 : 0) });
+        }
+
+        public bool IsInvulnerable()
+        {
+            return ReadByte(addr.cheatInvulnerable) != 0;
+        }
+
+        public void SetUndetectable(bool enabled)
+        {
+            api.WriteMemory(pid, addr.cheatUndetectable, new byte[] { (byte)(enabled ? 1 : 0) });
+        }
+
+        public bool IsUndetectable()
+        {
+            return ReadByte(addr.cheatUndetectable) != 0;
+        }
+
+        /// <summary>
+        /// The game's name hash: each character uppercased, then h = h * 31 + c. Level, episode
+        /// and job hashes are all this, e.g. "Paris Hideout" or "Japan_PhotoOp".
+        /// </summary>
+        public static uint Hash(string name)
+        {
+            uint hash = 0;
+            foreach (char c in name)
+            {
+                hash = hash * 31 + char.ToUpperInvariant(c);
+            }
+            return hash;
+        }
+
+        /// <summary>The current level's hash, or 0 before a level has loaded.</summary>
+        public uint GetLevelHash()
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                return 0;
+            }
+            return ReadUInt(gameManager + addr.currentLevelHashOffset);
+        }
+
+        /// <summary>
+        /// Whether a level is loading. The loading level hash is set as soon as a load is asked
+        /// for, before the load phase changes, so both are checked.
+        /// </summary>
+        public bool IsLoading()
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                return false;
+            }
+            return ReadByte(gameManager + addr.loadPhaseOffset) != 0
+                || ReadUInt(gameManager + addr.loadingLevelHashOffset) != 0;
+        }
+
+        /// <summary>The level's name if it's known, otherwise its hash in hex.</summary>
+        public static string GetLevelName(uint levelHash)
+        {
+            string name;
+            if (levelNames.TryGetValue(levelHash, out name))
+            {
+                return name;
+            }
+            return levelHash.ToString("X8");
+        }
+
+        /// <summary>The current episode's name, or null when there is none.</summary>
+        public string GetEpisodeName()
+        {
+            return ReadEntryName(addr.currentEpisodeOffset);
+        }
+
+        /// <summary>The current job's name, or null outside jobs.</summary>
+        public string GetJobName()
+        {
+            return ReadEntryName(addr.currentJobOffset);
+        }
+
+        /// <summary>
+        /// The current checkpoint (1-based, the first goal not done yet), its name and the job's
+        /// goal count. The numbers are 0 and the name null outside jobs.
+        /// </summary>
+        public void GetCheckpoint(out int checkpoint, out int goalCount, out string goalName)
+        {
+            checkpoint = 0;
+            goalName = null;
+
+            List<uint> goals = GetGoals();
+            goalCount = goals.Count;
+            uint current = 0;
+            for (int i = 0; i < goals.Count; i++)
+            {
+                uint goal = goals[i];
+                if (goal == 0)
+                {
+                    continue;
+                }
+                checkpoint = i + 1;
+                current = goal;
+                if (ReadByte(goal + addr.goalStateOffset) != Sly4Addresses.GoalStateDone)
+                {
+                    break;
+                }
+            }
+
+            if (current != 0)
+            {
+                goalName = ReadString(current + addr.goalNameOffset);
+            }
+        }
+
+        /// <summary>Every job in the game, in the job array's order.</summary>
+        public List<JobEntry> GetJobs()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+
+            uint episodeArray = ReadUInt(episodeManager + addr.episodeArrayOffset);
+            int episodeCount = (int)ReadUInt(episodeManager + addr.episodeCountOffset);
+            List<string> episodes = new List<string>();
+            for (int i = 0; i < episodeCount && i < 32; i++)
+            {
+                episodes.Add(TrimKey(ReadString(episodeArray + (uint)i * Sly4Addresses.EpisodeStride)));
+            }
+
+            uint jobArray = ReadUInt(episodeManager + addr.jobArrayOffset);
+            int jobCount = (int)ReadUInt(episodeManager + addr.jobCountOffset);
+            List<JobEntry> jobs = new List<JobEntry>();
+            for (int i = 0; i < jobCount && i < 256; i++)
+            {
+                uint job = jobArray + (uint)i * Sly4Addresses.JobStride;
+                // Unused slots have no name.
+                string name = TrimKey(ReadString(job));
+                if (name == "")
+                {
+                    continue;
+                }
+
+                int episode = ReadByte(job + addr.jobEpisodeIndexOffset);
+                jobs.Add(new JobEntry
+                {
+                    index = i,
+                    name = name,
+                    episode = episode < episodes.Count ? episodes[episode] : $"Episode {episode}",
+                });
+            }
+            return jobs;
+        }
+
+        /// <summary>The names of the current job's goals, or an empty list outside jobs.</summary>
+        public List<string> GetGoalNames()
+        {
+            List<string> names = new List<string>();
+            foreach (uint goal in GetGoals())
+            {
+                names.Add(goal == 0 ? "-" : ReadString(goal + addr.goalNameOffset));
+            }
+            return names;
+        }
+
+        /// <summary>
+        /// The goal names of a job: read from the game while it runs, otherwise from the known
+        /// lists in Sly4Goals. Empty when they aren't known.
+        /// </summary>
+        public List<string> GetGoalNames(JobEntry job)
+        {
+            if (IsJobRunning(job.index))
+            {
+                return GetGoalNames();
+            }
+
+            string[] names = Sly4Goals.ForJob(job.name);
+            return names == null ? new List<string>() : new List<string>(names);
+        }
+
+        public bool IsJobRunning(int jobIndex)
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                return false;
+            }
+            uint job = ReadUInt(episodeManager + addr.jobArrayOffset) + (uint)jobIndex * Sly4Addresses.JobStride;
+            return ReadUInt(episodeManager + addr.currentJobOffset) == job;
+        }
+
+        /// <summary>
+        /// Starts a job at its first goal, or sends the player to its episode's hub or hideout,
+        /// like the debug menu's job list. The game ends a running job itself, so jobs can be
+        /// switched directly. The call runs on the game's next frame (see IsGameCallPending).
+        /// </summary>
+        /// <remarks>
+        /// StartJobByInst's third argument isn't a goal index: the game looks for the goal whose
+        /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
+        /// another level doesn't have yet. To start later, warp to the goal once the job runs.
+        /// </remarks>
+        public void StartJob(int jobIndex, bool toHub, bool toHideout)
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            ThrowIfLoading();
+
+            uint job = ReadUInt(episodeManager + addr.jobArrayOffset) + (uint)jobIndex * Sly4Addresses.JobStride;
+            uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
+            if (!toHub && !toHideout && currentJob == job)
+            {
+                throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
+            }
+
+            codeHook.Call(addr.startJobByInstFunction, episodeManager, job, 0,
+                toHub ? 1u : 0u, toHideout ? 1u : 0u, 0, 0, 0, 1);
+        }
+
+        /// <summary>The number of goals the running job has loaded, 0 outside jobs.</summary>
+        public int GetGoalCount()
+        {
+            return GetGoals().Count;
+        }
+
+        /// <summary>Moves the player to one of the current job's goals (0-based).</summary>
+        public void WarpToGoal(int goalIndex)
+        {
+            ThrowIfLoading();
+            List<uint> goals = GetGoals();
+            if (goalIndex < 0 || goalIndex >= goals.Count || goals[goalIndex] == 0)
+            {
+                throw new InvalidOperationException("That goal isn't in the current job.");
+            }
+
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            codeHook.Call(addr.teleportToGoalFunction, episodeManager, goals[goalIndex], 1, 0);
+        }
+
+        /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>
+        private void ThrowIfLoading()
+        {
+            if (IsLoading())
+            {
+                throw new InvalidOperationException("Wait for the level to finish loading.");
+            }
+        }
+
+        public bool IsGameCallPending()
+        {
+            return codeHook.IsCallPending();
+        }
+
+        public void CancelGameCall()
+        {
+            codeHook.CancelCall();
+        }
+
+        /// <summary>Puts the game's code back as it was. Call before disconnecting.</summary>
+        public void RemoveCodeHook()
+        {
+            codeHook.Uninstall();
+        }
+
+        public bool IsJobFailed()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                return false;
+            }
+            return ReadUInt(episodeManager + addr.failedGoalOffset) != 0;
+        }
+
+        /// <summary>
+        /// The config key part for saved positions, so each level keeps its own slots. Throws
+        /// while loading, since the level hash still names the previous level then.
+        /// </summary>
+        private string CurrentPositionMap()
+        {
+            uint levelHash = GetLevelHash();
+            if (levelHash == 0 || IsLoading())
+            {
+                throw new InvalidOperationException("Wait for the level to finish loading.");
+            }
+            return "sly4_" + levelHash.ToString("X8");
+        }
+
+        /// <summary>
+        /// The name of the episode or job entry the episode manager points to at the offset. The
+        /// entry starts with a localization key such as "$JapanTitleName", shown as "Japan".
+        /// </summary>
+        private string ReadEntryName(uint pointerOffset)
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                return null;
+            }
+
+            uint entry = ReadUInt(episodeManager + pointerOffset);
+            if (entry == 0)
+            {
+                return null;
+            }
+
+            return TrimKey(ReadString(entry));
+        }
+
+        /// <summary>The current job's goal pointers (0 for empty slots), or none outside jobs.</summary>
+        private List<uint> GetGoals()
+        {
+            List<uint> goals = new List<uint>();
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                return goals;
+            }
+
+            byte[] countBytes = api.ReadMemory(pid, gameManager + addr.goalCountOffset, 2);
+            int count = BitConverter.ToUInt16(countBytes.Reverse().ToArray(), 0);
+            uint goalArray = ReadUInt(gameManager + addr.goalArrayOffset);
+            // Jobs have a few dozen goals; anything far above is a read from a half-loaded job.
+            if (count == 0 || count > 256 || goalArray == 0)
+            {
+                return goals;
+            }
+
+            byte[] bytes = api.ReadMemory(pid, goalArray, (uint)(count * 4));
+            for (int i = 0; i < count; i++)
+            {
+                goals.Add(BitConverter.ToUInt32(bytes.Skip(i * 4).Take(4).Reverse().ToArray(), 0));
+            }
+            return goals;
+        }
+
+        /// <summary>A localization key such as "$JapanTitleName" as a name, "Japan".</summary>
+        private static string TrimKey(string key)
+        {
+            if (key.StartsWith("$"))
+            {
+                key = key.Substring(1);
+            }
+            if (key.EndsWith("TitleName"))
+            {
+                key = key.Substring(0, key.Length - "TitleName".Length);
+            }
+            return key;
+        }
+
+        /// <summary>A null-terminated ASCII string of up to 64 characters.</summary>
+        private string ReadString(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 64);
+            int length = Array.IndexOf(bytes, (byte)0);
+            return Encoding.ASCII.GetString(bytes, 0, length < 0 ? bytes.Length : length);
+        }
+
         /// <summary>The player ref, or 0 while the player doesn't exist.</summary>
         private uint GetPlayerRef()
         {
@@ -209,6 +597,11 @@ namespace SluMAN
         {
             byte[] bytes = api.ReadMemory(pid, address, 4);
             return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
+        private byte ReadByte(uint address)
+        {
+            return api.ReadMemory(pid, address, 1)[0];
         }
 
         private static float ToFloat(byte[] bytes, int offset)

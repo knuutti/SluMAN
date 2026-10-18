@@ -39,6 +39,17 @@ namespace SluMAN.Memory
         );
 
         [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool VirtualProtectEx(
+            IntPtr hProcess,
+            Int64 lpAddress,
+            UIntPtr dwSize,
+            uint flNewProtect,
+            out uint lpflOldProtect
+        );
+
+        const uint PAGE_READWRITE = 0x04;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr hObject);
 
@@ -140,7 +151,19 @@ namespace SluMAN.Memory
 
         public override void WriteMemory(int pid, uint address, uint size, byte[] memory)
         {
-            WriteProcessMemory(ProcessHandle, (Int64)(address + 0x300000000), memory, memory.Length, out _);
+            Int64 hostAddress = (Int64)(address + 0x300000000);
+            if (WriteProcessMemory(ProcessHandle, hostAddress, memory, memory.Length, out _))
+            {
+                return;
+            }
+
+            // RPCS3 maps the game's code read-only, so writing code (e.g. a code hook) needs the
+            // pages made writable for the write. Their protection is put back right after.
+            if (VirtualProtectEx(ProcessHandle, hostAddress, (UIntPtr)memory.Length, PAGE_READWRITE, out uint oldProtect))
+            {
+                WriteProcessMemory(ProcessHandle, hostAddress, memory, memory.Length, out _);
+                VirtualProtectEx(ProcessHandle, hostAddress, (UIntPtr)memory.Length, oldProtect, out _);
+            }
         }
 
         private void MemorySubWorker()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Forms;
 
@@ -9,8 +10,26 @@ namespace SluMAN
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
+        // The game state is refreshed every few ticks: it takes a dozen reads, which is slow on a PS3.
+        private const int GameStateRefreshTicks = 3;
+
+        // How long a queued warp may wait for the game's next frame before it's dropped.
+        private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
+
         private StatusLine statusLine;
         private GameSession session;
+        private int refreshTick = 0;
+        private bool gameCallPending = false;
+        private DateTime gameCallDeadline;
+        private string gameCallDoneMessage;
+
+        // A goal to warp to once the job started for it is running (see CheckQueuedGoalWarp).
+        private static readonly TimeSpan QueuedGoalWarpTimeout = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan QueuedGoalWarpSettleTime = TimeSpan.FromSeconds(1);
+        private sly4.JobEntry queuedGoalJob = null;
+        private int queuedGoal;
+        private DateTime queuedGoalDeadline;
+        private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
         public Sly4Practice(sly4 game)
         {
@@ -33,6 +52,16 @@ namespace SluMAN
             catch
             {
                 // Left unchecked; ticking it writes both values anyway.
+            }
+
+            try
+            {
+                invulnerableCheckBox.Checked = game.IsInvulnerable();
+                undetectableCheckBox.Checked = game.IsUndetectable();
+            }
+            catch
+            {
+                // Left unchecked; ticking them writes the values anyway.
             }
 
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
@@ -66,6 +95,272 @@ namespace SluMAN
             {
                 positionValueLabel.Text = "-";
                 velocityValueLabel.Text = "-";
+            }
+
+            if (refreshTick++ % GameStateRefreshTicks == 0)
+            {
+                RefreshGameState();
+            }
+
+            if (gameCallPending)
+            {
+                CheckGameCall();
+            }
+            else if (queuedGoalJob != null)
+            {
+                CheckQueuedGoalWarp();
+            }
+        }
+
+        /// <summary>
+        /// Warps to the queued goal once its job is running, done loading and has the goal loaded,
+        /// and has stayed that way for a moment, so the warp doesn't land in the job's setup.
+        /// </summary>
+        private void CheckQueuedGoalWarp()
+        {
+            if (DateTime.Now > queuedGoalDeadline)
+            {
+                statusLine.Error($"{queuedGoalJob.name} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
+                queuedGoalJob = null;
+                return;
+            }
+
+            try
+            {
+                bool ready = !game.IsLoading() && game.IsJobRunning(queuedGoalJob.index) && game.GetGoalCount() > queuedGoal;
+                if (!ready)
+                {
+                    queuedGoalReadySince = DateTime.MaxValue;
+                    return;
+                }
+                if (queuedGoalReadySince == DateTime.MaxValue)
+                {
+                    queuedGoalReadySince = DateTime.Now;
+                }
+                if (DateTime.Now - queuedGoalReadySince < QueuedGoalWarpSettleTime)
+                {
+                    return;
+                }
+
+                int goal = queuedGoal;
+                queuedGoalJob = null;
+                game.WarpToGoal(goal);
+                TrackGameCall($"Warping to goal {goal + 1}.");
+            }
+            catch (Exception ex)
+            {
+                queuedGoalJob = null;
+                statusLine.Error($"Couldn't warp to the goal: {ex.Message}");
+            }
+        }
+
+        private void CheckGameCall()
+        {
+            try
+            {
+                if (!game.IsGameCallPending())
+                {
+                    gameCallPending = false;
+                    statusLine.Info(gameCallDoneMessage);
+                }
+                else if (DateTime.Now > gameCallDeadline)
+                {
+                    gameCallPending = false;
+                    game.CancelGameCall();
+                    statusLine.Error("The game didn't run the warp. On RPCS3, set the PPU decoder to Interpreter (static).");
+                }
+            }
+            catch
+            {
+                // Checked again on the next tick.
+            }
+        }
+
+        /// <summary>Starts waiting for a queued game call, reporting the message once it has run.</summary>
+        private void TrackGameCall(string doneMessage)
+        {
+            gameCallPending = true;
+            gameCallDeadline = DateTime.Now + GameCallTimeout;
+            gameCallDoneMessage = doneMessage;
+        }
+
+        private void jobComboBox_DropDown(object sender, EventArgs e)
+        {
+            if (jobComboBox.Items.Count > 0)
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (sly4.JobEntry job in game.GetJobs())
+                {
+                    jobComboBox.Items.Add(job);
+                }
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the jobs: {ex.Message}");
+            }
+        }
+
+        private void jobComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            FillGoals(false);
+        }
+
+        private void goalComboBox_DropDown(object sender, EventArgs e)
+        {
+            // Read again every time: the running job, and so the goals read from the game, may
+            // have changed since.
+            FillGoals(true);
+        }
+
+        /// <summary>
+        /// Fills the goal list with the selected job's goals, or the running job's when no job is
+        /// selected. Keeps the selected goal when the list stays the same length.
+        /// </summary>
+        private void FillGoals(bool reportEmpty)
+        {
+            int selected = goalComboBox.SelectedIndex;
+            goalComboBox.Items.Clear();
+            try
+            {
+                sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+                List<string> goals = job == null ? game.GetGoalNames() : game.GetGoalNames(job);
+                for (int i = 0; i < goals.Count; i++)
+                {
+                    goalComboBox.Items.Add($"{i + 1}. {goals[i]}");
+                }
+
+                if (selected >= 0 && selected < goals.Count)
+                {
+                    goalComboBox.SelectedIndex = selected;
+                }
+                if (goals.Count == 0 && reportEmpty)
+                {
+                    statusLine.Error(job == null ? "Pick a job, or start one to list its goals." : $"{job.name}'s goals aren't known.");
+                }
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the goals: {ex.Message}");
+            }
+        }
+
+        private void startJobButton_Click(object sender, EventArgs e)
+        {
+            StartSelectedJob(false, false);
+        }
+
+        private void toHubButton_Click(object sender, EventArgs e)
+        {
+            StartSelectedJob(true, false);
+        }
+
+        private void toHideoutButton_Click(object sender, EventArgs e)
+        {
+            StartSelectedJob(false, true);
+        }
+
+        private void StartSelectedJob(bool toHub, bool toHideout)
+        {
+            sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+            if (job == null)
+            {
+                statusLine.Error("Pick a job first.");
+                return;
+            }
+
+            queuedGoalJob = null;
+            try
+            {
+                game.StartJob(job.index, toHub, toHideout);
+                string where = toHub ? $"{job.episode}'s hub" : (toHideout ? $"{job.episode}'s hideout" : job.name);
+                TrackGameCall($"Going to {where}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't start the job: {ex.Message}");
+            }
+        }
+
+        private void warpToGoalButton_Click(object sender, EventArgs e)
+        {
+            if (goalComboBox.SelectedIndex < 0)
+            {
+                statusLine.Error("Pick a goal first.");
+                return;
+            }
+
+            int goal = goalComboBox.SelectedIndex;
+            sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+            queuedGoalJob = null;
+            try
+            {
+                // A running job warps in place; any other job is started at the goal.
+                if (job == null || game.IsJobRunning(job.index))
+                {
+                    game.WarpToGoal(goal);
+                    TrackGameCall($"Warping to goal {goal + 1}.");
+                }
+                else
+                {
+                    // The game can't start a job at a later goal, so start it and warp once it runs.
+                    game.StartJob(job.index, false, false);
+                    if (goal > 0)
+                    {
+                        queuedGoalJob = job;
+                        queuedGoal = goal;
+                        queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+                        queuedGoalReadySince = DateTime.MaxValue;
+                    }
+                    TrackGameCall(goal > 0
+                        ? $"Starting {job.name}; it warps to goal {goal + 1} once loaded."
+                        : $"Starting {job.name}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't warp: {ex.Message}");
+            }
+        }
+
+        private void RefreshGameState()
+        {
+            try
+            {
+                uint levelHash = game.GetLevelHash();
+                string level = levelHash == 0 ? "-" : sly4.GetLevelName(levelHash);
+                if (game.IsLoading())
+                {
+                    level += " (loading)";
+                }
+                levelValueLabel.Text = level;
+                savedPositionsGroupBox.Text = levelHash == 0 ? "Saved Positions" : $"Saved Positions ({sly4.GetLevelName(levelHash)})";
+
+                string episode = game.GetEpisodeName();
+                episodeValueLabel.Text = episode == null ? "-" : episode;
+
+                string job = game.GetJobName();
+                jobValueLabel.Text = job == null ? "-" : job;
+
+                game.GetCheckpoint(out int checkpoint, out int goalCount, out string goalName);
+                string checkpointText = goalCount == 0 ? "-" : $"{checkpoint} / {goalCount}";
+                if (game.IsJobFailed())
+                {
+                    checkpointText += " (failed)";
+                }
+                checkpointValueLabel.Text = checkpointText;
+                goalValueLabel.Text = string.IsNullOrEmpty(goalName) ? "-" : goalName;
+            }
+            catch
+            {
+                levelValueLabel.Text = "-";
+                episodeValueLabel.Text = "-";
+                jobValueLabel.Text = "-";
+                checkpointValueLabel.Text = "-";
+                goalValueLabel.Text = "-";
             }
         }
 
@@ -188,19 +483,51 @@ namespace SluMAN
             }
         }
 
+        private void invulnerableCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                game.SetInvulnerable(invulnerableCheckBox.Checked);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change invulnerability: {ex.Message}");
+            }
+        }
+
+        private void undetectableCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                game.SetUndetectable(undetectableCheckBox.Checked);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change undetectability: {ex.Message}");
+            }
+        }
+
         private void session_Reconnected()
         {
-            // A game reset puts the tunables back to normal speed.
-            if (slowMotionCheckBox.Checked)
+            // A game reset puts the tunables back to their defaults.
+            try
             {
-                try
+                if (slowMotionCheckBox.Checked)
                 {
                     game.SetSlowMotion(true);
                 }
-                catch (Exception ex)
+                if (invulnerableCheckBox.Checked)
                 {
-                    statusLine.Error($"Couldn't turn slow motion back on: {ex.Message}");
+                    game.SetInvulnerable(true);
                 }
+                if (undetectableCheckBox.Checked)
+                {
+                    game.SetUndetectable(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't turn the cheats back on: {ex.Message}");
             }
         }
 
@@ -208,11 +535,22 @@ namespace SluMAN
         {
             refreshTimer.Stop();
 
-            // Leave the game at normal speed. This runs before the session disconnects.
+            // Leave the game unmodified. This runs before the session disconnects.
             if (slowMotionCheckBox.Checked)
             {
                 try { game.SetSlowMotion(false); } catch { }
             }
+            if (invulnerableCheckBox.Checked)
+            {
+                try { game.SetInvulnerable(false); } catch { }
+            }
+            if (undetectableCheckBox.Checked)
+            {
+                try { game.SetUndetectable(false); } catch { }
+            }
+
+            // Put the game's code back. Does nothing if no warp was used.
+            try { game.RemoveCodeHook(); } catch { }
         }
 
         private void switchGameModeToolStripMenuItem_Click(object sender, EventArgs e)

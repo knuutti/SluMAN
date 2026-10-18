@@ -171,6 +171,8 @@
     <Compile Include="offsets\SLY3\sly3.cs" />
     <Compile Include="offsets\SLY3\Sly3Addresses.cs" />
     <Compile Include="offsets\SLY4\sly4.cs" />
+    <Compile Include="offsets\SLY4\Sly4CodeHook.cs" />
+    <Compile Include="offsets\SLY4\Sly4Goals.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
