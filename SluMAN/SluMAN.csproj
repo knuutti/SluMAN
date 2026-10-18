@@ -170,6 +170,8 @@
     <Compile Include="offsets\SLY2\Sly2Addresses.cs" />
     <Compile Include="offsets\SLY3\sly3.cs" />
     <Compile Include="offsets\SLY3\Sly3Addresses.cs" />
+    <Compile Include="offsets\SLY4\sly4.cs" />
+    <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -251,6 +253,12 @@
     <Compile Include="SLY3\Sly3Speedrun.Designer.cs">
       <DependentUpon>Sly3Speedrun.cs</DependentUpon>
     </Compile>
+    <Compile Include="SLY4\Sly4Practice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SLY4\Sly4Practice.Designer.cs">
+      <DependentUpon>Sly4Practice.cs</DependentUpon>
+    </Compile>
     <Compile Include="func.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -316,6 +324,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="SLY3\Sly3Speedrun.resx">
       <DependentUpon>Sly3Speedrun.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SLY4\Sly4Practice.resx">
+      <DependentUpon>Sly4Practice.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

@@ -429,7 +429,8 @@ namespace SluMAN
         {
             return Sly1Addresses.IsSupportedGameId(titleId)
                 || Sly2Addresses.IsSupportedGameId(titleId)
-                || Sly3Addresses.IsSupportedGameId(titleId);
+                || Sly3Addresses.IsSupportedGameId(titleId)
+                || Sly4Addresses.IsSupportedGameId(titleId);
         }
 
         /// <summary>
@@ -510,6 +511,15 @@ namespace SluMAN
                     gameName = sly2.addr.DisplayName;
                     sly2Practice.ShowDialog();
                 }
+            }
+            else if (Sly4Addresses.IsSupportedGameId(game))
+            {
+                // Sly 4 has no Speedrun Mode yet, so both buttons open Practice Mode.
+                Hide();
+                func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
+                Sly4Practice sly4Practice = new Sly4Practice(new sly4(func.api, game));
+                gameName = sly4.addr.DisplayName;
+                sly4Practice.ShowDialog();
             }
             else
             {
