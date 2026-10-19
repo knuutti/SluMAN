@@ -181,6 +181,8 @@ namespace SluMAN
             grid.CurrentCellDirtyStateChanged += grid_CurrentCellDirtyStateChanged;
             grid.CellValueChanged += grid_CellValueChanged;
             grid.Scroll += grid_Scroll;
+            // A cell the grid can't draw shows blank instead of a dialog.
+            grid.DataError += (sender, e) => e.ThrowException = false;
             Controls.Add(grid);
         }
 
@@ -290,7 +292,11 @@ namespace SluMAN
                 row.Cells[TypeColumn].Value = Sly4Tunables.TypeName(tunable.type);
                 if (tunable.type == Sly4Tunables.TunableType.boolean)
                 {
-                    row.Cells[ValueColumn] = new DataGridViewCheckBoxCell();
+                    // The value column is a text column, whose empty value is "". A check box
+                    // can't show that, so until the value is read it shows unticked instead.
+                    DataGridViewCheckBoxCell checkBox = new DataGridViewCheckBoxCell();
+                    checkBox.Style.NullValue = false;
+                    row.Cells[ValueColumn] = checkBox;
                 }
                 else if (tunable.type == Sly4Tunables.TunableType.unknown)
                 {
