@@ -38,6 +38,9 @@ namespace SluMAN
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
+        private sly4.CharacterEntry queuedCharacter = null;
+
+        private const string LevelCharacter = "Level's own character";
 
         public Sly4Practice(sly4 game)
         {
@@ -56,6 +59,10 @@ namespace SluMAN
             {
                 levelComboBox.Items.Add(level);
             }
+            // The first entry loads as the level's own character.
+            characterComboBox.Items.Add(LevelCharacter);
+            characterComboBox.Items.AddRange(sly4.Characters);
+            characterComboBox.SelectedIndex = 0;
 
             // Before the toggles below read the game, so they show any kept cheat tunables.
             ApplyKeptTunables();
@@ -411,6 +418,7 @@ namespace SluMAN
                 return;
             }
 
+            sly4.CharacterEntry character = characterComboBox.SelectedItem as sly4.CharacterEntry;
             queuedGoalJob = null;
             queuedLevel = null;
             try
@@ -421,11 +429,12 @@ namespace SluMAN
                 {
                     game.AbandonJob();
                     queuedLevel = level;
+                    queuedCharacter = character;
                     TrackGameCall($"Left the job; loading {level.name}.");
                     return;
                 }
-                game.LoadLevel(level.hash);
-                TrackGameCall($"Loading {level.name}.");
+                game.LoadLevel(level.hash, character);
+                TrackGameCall(LoadingMessage(level, character));
             }
             catch (Exception ex)
             {
@@ -439,13 +448,18 @@ namespace SluMAN
             queuedLevel = null;
             try
             {
-                game.LoadLevel(level.hash);
-                TrackGameCall($"Loading {level.name}.");
+                game.LoadLevel(level.hash, queuedCharacter);
+                TrackGameCall(LoadingMessage(level, queuedCharacter));
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't load the level: {ex.Message}");
             }
+        }
+
+        private static string LoadingMessage(sly4.LevelEntry level, sly4.CharacterEntry character)
+        {
+            return character == null ? $"Loading {level.name}." : $"Loading {level.name} as {character.title}.";
         }
 
         private void RefreshGameState()

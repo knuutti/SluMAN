@@ -37,6 +37,9 @@ namespace SluMAN
         public uint goalCountOffset { get; private set; }
         public uint currentLevelHashOffset { get; private set; }
         public uint loadingLevelHashOffset { get; private set; }
+        // The character to spawn as on the next load (a name, up to 64 bytes); empty for the
+        // level's own. Door transitions fill it to keep the character, and the load clears it.
+        public uint spawnCharacterOffset { get; private set; }
 
         // Episode manager offsets
         public uint episodeArrayOffset { get; private set; }
@@ -163,6 +166,7 @@ namespace SluMAN
                 goalCountOffset = 0x10C8,
                 currentLevelHashOffset = 0x128114,
                 loadingLevelHashOffset = 0x128118,
+                spawnCharacterOffset = 0x12811C,
 
                 episodeArrayOffset = 0x14,
                 episodeCountOffset = 0x18,

@@ -231,6 +231,35 @@ namespace SluMAN
             }
         }
 
+        /// <summary>A playable character, by the name the game spawns it with.</summary>
+        public class CharacterEntry
+        {
+            public string name;
+            public string title;
+
+            public override string ToString()
+            {
+                return title;
+            }
+        }
+
+        // The characters a level can be loaded as. Each era's ancestor is only in their own
+        // era's levels.
+        public static readonly CharacterEntry[] Characters =
+        {
+            new CharacterEntry { name = "Sly", title = "Sly" },
+            new CharacterEntry { name = "Bentley", title = "Bentley" },
+            new CharacterEntry { name = "Murray", title = "Murray" },
+            new CharacterEntry { name = "CarmelitaFox", title = "Carmelita" },
+            new CharacterEntry { name = "Rioichi", title = "Rioichi" },
+            new CharacterEntry { name = "KidCooper", title = "Tennessee Kid" },
+            new CharacterEntry { name = "CavemanCooper", title = "Bob" },
+            new CharacterEntry { name = "SirGalleth", title = "Sir Galleth" },
+            new CharacterEntry { name = "Salim", title = "Salim al Kupar" },
+        };
+
+        private const int SpawnCharacterLength = 64;
+
         public sly4(IPS3API api, string gameNameId) : base(api)
         {
             addr = Sly4Addresses.ForGame(gameNameId);
@@ -847,7 +876,11 @@ namespace SluMAN
         /// the level to load and the load flags, and the game loads it on a later frame. A running
         /// job sends the load back to its own level, so end it first with AbandonJob.
         /// </summary>
-        public void LoadLevel(uint levelHash)
+        /// <param name="character">
+        /// The character to spawn as, or null for the level's own. Set the way door transitions
+        /// keep the current character; the load reads it once and clears it.
+        /// </param>
+        public void LoadLevel(uint levelHash, CharacterEntry character)
         {
             uint gameManager = ReadUInt(addr.gameManagerPtr);
             if (gameManager == 0)
@@ -855,6 +888,14 @@ namespace SluMAN
                 throw new InvalidOperationException("The game isn't loaded.");
             }
             ThrowIfLoading();
+
+            // Always written, so an earlier choice that never got loaded can't carry over.
+            byte[] name = new byte[SpawnCharacterLength];
+            if (character != null)
+            {
+                Encoding.ASCII.GetBytes(character.name, 0, character.name.Length, name, 0);
+            }
+            api.WriteMemory(pid, gameManager + addr.spawnCharacterOffset, name);
             codeHook.Call(addr.loadLevelFunction, gameManager, levelHash, 0);
         }
 
