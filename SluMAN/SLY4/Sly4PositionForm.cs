@@ -58,7 +58,7 @@ namespace SluMAN
             freeMove.Stopped += (message) =>
             {
                 ShowMode();
-                statusLine.Error($"Stopped: {message}");
+                statusLine.Error($"Fly / free camera stopped: {message}");
             };
             FormClosing += (sender, e) => freeMove.Stop();
 

@@ -73,10 +73,11 @@ namespace SluMAN
         public uint hookCodeCave { get; private set; }
         public uint hookMailbox { get; private set; }
 
-        // Free camera: SetCamera's first instruction branches to a stub (after the code hook's in
-        // the code cave), which swaps in the matrix kept in the data area when the call is for the
-        // main view
+        // Free camera: the gameplay camera's calls to SetCamera (one per camera mode) are pointed
+        // at a stub (after the code hook's in the code cave), which swaps in the matrix kept in
+        // the data area
         public uint setCameraFunction { get; private set; }
+        public uint[] gameplayCameraCalls { get; private set; }
         public uint freeCameraStub { get; private set; }
         public uint freeCameraData { get; private set; }
         // The main gameplay view (from the game manager); its camera matrix is at the view's
@@ -207,6 +208,7 @@ namespace SluMAN
                 hookMailbox = 0x11F8A00,
 
                 setCameraFunction = 0x5201B0,
+                gameplayCameraCalls = new uint[] { 0x2EECFC, 0x2EEFC0 },
                 freeCameraStub = 0xF05300,
                 freeCameraData = 0x11F8A40,
                 mainViewOffset = 0x128168,

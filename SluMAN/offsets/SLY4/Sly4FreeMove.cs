@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Windows.Forms;
+using System.Threading;
 using SluMAN.Memory;
 
 namespace SluMAN
@@ -16,13 +16,15 @@ namespace SluMAN
     /// left stick moves it, the right stick turns it, R1 and L1 move up and down. The player is
     /// held where they stood.</item>
     /// </list>
-    /// Runs on a UI timer, so it keeps going whichever tab shows.
+    /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
+    /// smoothly, and keeps going whichever tab shows. The free camera turns itself off when a load
+    /// starts; fly mode waits for the player to be back.
     /// </summary>
     public class Sly4FreeMove
     {
         public enum Mode { Off, Fly, FreeCamera }
 
-        private const int Rpcs3IntervalMs = 16;
+        private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 50;
         private const float DeadZone = 0.2f;
         // Radians per second at full stick.
@@ -32,10 +34,14 @@ namespace SluMAN
         private const float MaxStep = 0.1f;
 
         private readonly sly4 game;
-        private readonly Timer timer = new Timer();
+        private readonly int intervalMs;
+        private readonly SynchronizationContext uiContext;
         private readonly Stopwatch clock = new Stopwatch();
+        private readonly object stateLock = new object();
 
         private Mode mode = Mode.Off;
+        private Thread worker;
+        private volatile bool running;
 
         // Where the player is held (fly: where they've flown to), or null until it's read.
         private float[] playerPosition;
@@ -52,14 +58,18 @@ namespace SluMAN
         /// <summary>Units per second at full stick.</summary>
         public float Speed = 10f;
 
-        /// <summary>Raised when a mode stops because of an error, on the UI thread.</summary>
+        /// <summary>
+        /// Raised on the UI thread when a mode stops by itself: an error, or a load turning the
+        /// free camera off.
+        /// </summary>
         public event Action<string> Stopped;
 
+        /// <summary>Create on the UI thread, so Stopped is raised there.</summary>
         public Sly4FreeMove(sly4 game)
         {
             this.game = game;
-            timer.Interval = game.api is RPCS3 ? Rpcs3IntervalMs : PS3IntervalMs;
-            timer.Tick += (sender, e) => Tick();
+            intervalMs = game.api is RPCS3 ? Rpcs3IntervalMs : PS3IntervalMs;
+            uiContext = SynchronizationContext.Current ?? new SynchronizationContext();
         }
 
         public Mode Current => mode;
@@ -71,34 +81,101 @@ namespace SluMAN
             {
                 return;
             }
-
-            float[] position = game.GetPosition();
-            playerPosition = position;
-            if (newMode == Mode.FreeCamera)
+            if (game.IsLoading())
             {
-                StartCamera(position);
+                throw new InvalidOperationException("Wait for the level to finish loading.");
             }
-            mode = newMode;
+
+            lock (stateLock)
+            {
+                float[] position = game.GetPosition();
+                playerPosition = position;
+                if (newMode == Mode.FreeCamera)
+                {
+                    StartCamera(position);
+                }
+                mode = newMode;
+            }
+
             clock.Restart();
-            timer.Start();
+            running = true;
+            worker = new Thread(Run);
+            worker.IsBackground = true;
+            worker.Name = "Sly 4 fly / free camera";
+            worker.Start();
         }
 
         public void Stop()
         {
-            timer.Stop();
-            if (mode == Mode.FreeCamera)
+            running = false;
+            Thread thread = worker;
+            worker = null;
+            if (thread != null && thread != Thread.CurrentThread)
             {
-                try { game.cameraHook.Disable(); } catch { }
+                thread.Join(500);
             }
-            mode = Mode.Off;
+
+            lock (stateLock)
+            {
+                if (mode == Mode.FreeCamera)
+                {
+                    try { game.cameraHook.Disable(); } catch { }
+                }
+                mode = Mode.Off;
+            }
         }
 
-        private void Tick()
+        private void Run()
+        {
+            while (running)
+            {
+                string stopReason = null;
+                lock (stateLock)
+                {
+                    stopReason = Tick();
+                }
+                if (stopReason != null)
+                {
+                    running = false;
+                    lock (stateLock)
+                    {
+                        if (mode == Mode.FreeCamera)
+                        {
+                            try { game.cameraHook.Disable(); } catch { }
+                        }
+                        mode = Mode.Off;
+                    }
+                    uiContext.Post((state) =>
+                    {
+                        Action<string> handler = Stopped;
+                        if (handler != null)
+                        {
+                            handler(stopReason);
+                        }
+                    }, null);
+                    return;
+                }
+                Thread.Sleep(intervalMs);
+            }
+        }
+
+        /// <summary>One step; returns why the mode has to stop, or null to carry on.</summary>
+        private string Tick()
         {
             float step = Math.Min((float)clock.Elapsed.TotalSeconds, MaxStep);
             clock.Restart();
             try
             {
+                if (game.IsLoading())
+                {
+                    if (mode == Mode.FreeCamera)
+                    {
+                        return "the free camera turns off while a level loads.";
+                    }
+                    playerPosition = null;
+                    return null;
+                }
+
                 if (mode == Mode.Fly)
                 {
                     TickFly(step);
@@ -107,15 +184,11 @@ namespace SluMAN
                 {
                     TickCamera(step);
                 }
+                return null;
             }
             catch (Exception ex)
             {
-                Stop();
-                Action<string> handler = Stopped;
-                if (handler != null)
-                {
-                    handler(ex.Message);
-                }
+                return ex.Message;
             }
         }
 
@@ -181,7 +254,7 @@ namespace SluMAN
             rightSign = Dot(new float[] { m[0], m[1], m[2] }, right) < 0 ? -1 : 1;
             upSign = Dot(new float[] { m[4], m[5], m[6] }, up) < 0 ? -1 : 1;
 
-            game.cameraHook.Enable(view, MatrixBytes());
+            game.cameraHook.Enable(MatrixBytes());
         }
 
         private void TickCamera(float step)
