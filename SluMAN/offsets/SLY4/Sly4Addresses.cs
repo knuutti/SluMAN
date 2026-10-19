@@ -85,6 +85,7 @@ namespace SluMAN
         // The main gameplay view (from the game manager); its camera matrix is at the view's
         // +viewCameraMatrixOffset: the camera's X, Y and Z axes, then its position, as 4 floats
         // each (the view's own matrix, the inverse, is before it)
+        public uint mainViewOffset { get; private set; }
         public uint viewCameraMatrixOffset { get; private set; }
 
         // Player offsets (from the player ref)
