@@ -20,8 +20,13 @@ namespace SluMAN
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
 
-        // How long the camera log runs: a dozen frames or so.
-        private const int CameraLogCaptureMs = 400;
+        // Where the game's data can be: the EBOOT's data and the heap after it, the main memory
+        // above it, and the user memory where the views live.
+        private static readonly uint[][] CameraSearchRanges =
+        {
+            new uint[] { 0x00F10000, 0x10000000 },
+            new uint[] { 0x30000000, 0x40000000 },
+        };
 
         private readonly sly4 game;
 
@@ -209,13 +214,13 @@ namespace SluMAN
             help.Size = new Size(190, 40);
             group.Controls.Add(help);
 
-            Button logButton = new Button();
-            logButton.Text = "Camera log";
-            logButton.Location = new Point(200, 52);
-            logButton.Size = new Size(74, 23);
-            logButton.UseVisualStyleBackColor = true;
-            logButton.Click += (sender, e) => ShowCameraLog();
-            group.Controls.Add(logButton);
+            Button findButton = new Button();
+            findButton.Text = "Find camera";
+            findButton.Location = new Point(200, 52);
+            findButton.Size = new Size(74, 23);
+            findButton.UseVisualStyleBackColor = true;
+            findButton.Click += (sender, e) => FindCamera();
+            group.Controls.Add(findButton);
 
             return group;
         }
@@ -237,42 +242,50 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Logs the calls that set a view's camera for a moment and shows them, grouped, to find
-        /// the one that sets the gameplay camera (see Sly4CameraLog). Ctrl+C copies the message.
+        /// Looks through the game's memory for every other copy of the camera's position (the
+        /// main view's), to find where the game keeps the camera that it writes into the view each
+        /// frame. RPCS3 only, which reads memory directly. Ctrl+C copies the message.
         /// </summary>
-        private void ShowCameraLog()
+        private void FindCamera()
         {
+            if (!(game.api is RPCS3))
+            {
+                statusLine.Error("Finding the camera needs RPCS3: on a PS3 it would take thousands of reads.");
+                return;
+            }
             try
             {
-                List<string> order = new List<string>();
-                Dictionary<string, int> counts = new Dictionary<string, int>();
-                foreach (uint[] entry in new Sly4CameraLog(game).Capture(CameraLogCaptureMs))
+                uint view = game.GetMainView();
+                if (view == 0)
                 {
-                    string key = $"returns to {entry[0]:X8}, view {entry[1]:X8}";
-                    if (!counts.ContainsKey(key))
-                    {
-                        order.Add(key);
-                        counts[key] = 0;
-                    }
-                    counts[key]++;
+                    statusLine.Error("The game has no camera yet.");
+                    return;
                 }
+                Cursor = Cursors.WaitCursor;
+                byte[] position = game.api.ReadMemory(game.pid, view + game.CameraPositionOffset(), 12);
+                List<uint> found = game.FindMemory(position, CameraSearchRanges);
 
                 StringBuilder text = new StringBuilder();
-                text.AppendLine($"Main view (gm + 0x128168): {game.GetMainView():X8}");
+                text.AppendLine($"Main view: {view:X8}, camera position {BitConverter.ToString(position).Replace("-", " ")}");
+                text.AppendLine($"(at {view + game.CameraPositionOffset():X8})");
                 text.AppendLine();
-                if (order.Count == 0)
+                foreach (uint address in found)
                 {
-                    text.AppendLine("No camera calls ran.");
+                    text.AppendLine($"{address:X8}");
                 }
-                foreach (string key in order)
+                if (found.Count == 0)
                 {
-                    text.AppendLine($"{key}  x{counts[key]}");
+                    text.AppendLine("No copies found.");
                 }
-                MessageBox.Show(this, text.ToString(), "Camera calls");
+                MessageBox.Show(this, text.ToString(), $"Camera position found {found.Count} times");
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't log the camera calls: {ex.Message}");
+                statusLine.Error($"Couldn't search: {ex.Message}");
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
             }
         }
 

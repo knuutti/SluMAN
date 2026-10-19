@@ -588,6 +588,49 @@ namespace SluMAN
             api.WriteMemory(pid, view + addr.viewFlagsOffset, new byte[] { (byte)(flags | Sly4Addresses.ViewDirtyFlag) });
         }
 
+        /// <summary>Where a view keeps its camera's position: the camera matrix's last row.</summary>
+        public uint CameraPositionOffset()
+        {
+            return addr.viewCameraMatrixOffset + 0x30;
+        }
+
+        /// <summary>
+        /// Every 4-aligned address in the ranges ({start, end} each) holding the bytes. Reads 1 MB
+        /// at a time; meant for RPCS3, where a read is a copy rather than a round trip.
+        /// </summary>
+        public List<uint> FindMemory(byte[] pattern, uint[][] ranges)
+        {
+            const uint chunk = 0x100000;
+            List<uint> found = new List<uint>();
+            foreach (uint[] range in ranges)
+            {
+                for (uint start = range[0]; start < range[1]; start += chunk)
+                {
+                    // Overlap the next chunk by the pattern's length, so a match across the edge
+                    // is still found.
+                    uint size = Math.Min(chunk + (uint)pattern.Length, range[1] - start);
+                    byte[] data = api.ReadMemory(pid, start, size);
+                    for (int i = 0; i + pattern.Length <= data.Length && i < chunk; i += 4)
+                    {
+                        if (data[i] != pattern[0])
+                        {
+                            continue;
+                        }
+                        int j = 1;
+                        while (j < pattern.Length && data[i + j] == pattern[j])
+                        {
+                            j++;
+                        }
+                        if (j == pattern.Length)
+                        {
+                            found.Add(start + (uint)i);
+                        }
+                    }
+                }
+            }
+            return found;
+        }
+
         /// <summary>A camera matrix at an address, laid out as ReadCameraMatrix's.</summary>
         public float[] ReadMatrix(uint address)
         {

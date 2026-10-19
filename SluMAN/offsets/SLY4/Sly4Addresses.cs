@@ -83,14 +83,6 @@ namespace SluMAN
         public uint viewFlagsOffset { get; private set; }
         public uint viewCameraMatrixOffset { get; private set; }
 
-        // The functions that set a view's camera (SetCamera, and the main view's own version) and
-        // every call to them, for the camera log; its stubs go after the code hook's in the code
-        // cave and its log after the mailbox
-        public uint[] cameraFunctions { get; private set; }
-        public uint[] cameraFunctionCalls { get; private set; }
-        public uint cameraLogStubs { get; private set; }
-        public uint cameraLogData { get; private set; }
-
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
         public uint characterControllerOffset { get; private set; }
@@ -220,16 +212,6 @@ namespace SluMAN
                 viewCameraMatrixOffset = 0x330,
                 viewMatrixOffset = 0x2F0,
                 viewFlagsOffset = 0x34,
-
-                cameraFunctions = new uint[] { 0x5201B0, 0x522630 },
-                cameraFunctionCalls = new uint[]
-                {
-                    0x0FAF80, 0x2EECFC, 0x2EEFC0, 0x3DD4A0, 0x3DD568, 0x3DD694, 0x459A48, 0x459D24,
-                    0x459F94, 0x45A978, 0x45BFC8, 0x45D530, 0x45D5E0, 0x468894, 0x47CA64, 0x520514,
-                    0x5A5FD4, 0x5AB2FC, 0x056F8C,
-                },
-                cameraLogStubs = 0xF05300,
-                cameraLogData = 0x11F8A40,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,
