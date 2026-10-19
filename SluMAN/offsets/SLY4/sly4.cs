@@ -273,73 +273,6 @@ namespace SluMAN
 
         private const int SpawnCharacterLength = 64;
 
-        // The player spawn points in each level, by level hash, from the level files in
-        // Sly4.psarc (Levels/<World>/<Level>/All_Combined.san.cooked). Only the levels whose files
-        // could be read are here; a level not listed loads at its default start
-        // (Spawn_Player_Default).
-        private static readonly Dictionary<uint, string[]> levelSpawnPoints = new Dictionary<uint, string[]>
-        {
-            { 0x2E01E5EB, new[] { // Arabia Harem
-                "Spawn_Player_HaremCrawl",
-            } },
-            { 0x2986D493, new[] { // England Ward
-                "Spawn_Player_Arm_Left", "Spawn_Player_Arm_Right", "Spawn_Player_Bentley",
-                "Spawn_Player_Carmelita", "Spawn_Player_Galleth", "Spawn_Player_Murray",
-                "Spawn_Player_Penelope", "Spawn_Player_Shake_Center", "Spawn_Player_Shake_Left",
-                "Spawn_Player_Shake_Right", "Spawn_Player_Sly", "Spawn_Player_Sly2", "Spawn_Player_Sly3",
-                "Spawn_Player_Sly4",
-            } },
-            { 0xF285665B, new[] { // Ice Age Arena
-                "Spawn_Player_1ArenaEntrance", "Spawn_Player_2Bridge", "Spawn_Player_3Archway",
-                "Spawn_Player_4Costume", "Spawn_Player_5LairDoor", "Spawn_Player_5LairDoor1",
-                "Spawn_Player_6CostumeFront", "Spawn_Player_6CostumeGet", "Spawn_Player_7Fightroom",
-                "Spawn_Player_8PounceHall", "Spawn_Player_9ArenaMainFloor", "Spawn_Player_CaneSwipe",
-                "Spawn_Player_Crawl", "Spawn_Player_Playdead01", "Spawn_Player_Pounce",
-            } },
-            { 0xBC676503, new[] { // Japan Bridge
-                "Spawn_Player_AcrossBridge", "Spawn_Player_AfterGuardFight", "Spawn_Player_BridgeFallStart",
-                "Spawn_Player_RatFight_Bentley01", "Spawn_Player_RatFight_Murray01",
-                "Spawn_Player_RatFight_Sly01", "Spawn_Player_Statue", "Spawn_Player_Statue01",
-                "Spawn_Player_Statue02", "Spawn_Player_Statue03", "Spawn_Player_TigerBridgeBent02",
-                "Spawn_Player_TigerBridgeMur03", "Spawn_Player_TigerBridgeRio04",
-                "Spawn_Player_TigerBridgeSly01", "Spawn_Player_TigerBridgeTiger01",
-                "Spawn_Player_UnderBridge01", "Spawn_Player_UnderBridge02", "Spawn_Player_UnderBridge03",
-            } },
-            { 0x0C44F02D, new[] { // Paris Blimp
-                "Spawn_Player_BossDoor02", "Spawn_Player_Caveman01", "Spawn_Player_Caveman02",
-                "Spawn_Player_Galleth01", "Spawn_Player_Galleth02", "Spawn_Player_Galleth03",
-                "Spawn_Player_JobComplete01", "Spawn_Player_Kid01", "Spawn_Player_Kid02",
-                "Spawn_Player_Rio01", "Spawn_Player_Rio02", "Spawn_Player_Rio03", "Spawn_Player_Salim01",
-                "Spawn_Player_Salim02", "Spawn_Player_Sly01", "Spawn_Player_SlyRound1",
-                "Spawn_Player_SlyRound2", "Spawn_Player_SlyRound3",
-            } },
-            { 0x3FEEDCAF, new[] { // West Mines
-                "Spawn_Player_CampAExit", "Spawn_Player_CampAStart", "Spawn_Player_CampBEnd",
-                "Spawn_Player_CampBStart", "Spawn_Player_CrackShot", "Spawn_Player_GunFight",
-                "Spawn_Player_RailStart",
-            } },
-            { 0xC7B84D81, new[] { // West Saloon
-                "Spawn_Player_Bentley_1000", "Spawn_Player_Bentley_1001", "Spawn_Player_Bentley_1002",
-                "Spawn_Player_Bentley_1003", "Spawn_Player_Bentley_1004", "Spawn_Player_Bentley_1005",
-                "Spawn_Player_Bentley_1006", "Spawn_Player_DenEnd", "Spawn_Player_DenStart",
-                "Spawn_Player_Hooch", "Spawn_Player_RCCarEnd", "Spawn_Player_RCCarStart",
-            } },
-            { 0x1AD96E63, new[] { // West Town
-                "Spawn_Player_BentleyJHBStart", "Spawn_Player_DefaultCarmelita",
-                "Spawn_Player_DefaultKidCooper", "Spawn_Player_GKLBentley", "Spawn_Player_GKLCarmStart",
-                "Spawn_Player_GKLCarmelita", "Spawn_Player_GKLMurray", "Spawn_Player_GKLMurrayStart",
-                "Spawn_Player_GKLSlyStart", "Spawn_Player_MurrayCannon", "Spawn_Player_MurrayMineGate",
-                "Spawn_Player_OGDSlyStart", "Spawn_Player_RCStart", "Spawn_Player_SB_Binoc",
-                "Spawn_Player_SlyUAStart",
-            } },
-            { 0x40556837, new[] { // West Train
-                "Spawn_Player_Bentley", "Spawn_Player_Carmelita", "Spawn_Player_Carmelita2",
-                "Spawn_Player_KidCooperA1", "Spawn_Player_KidCooperA2", "Spawn_Player_KidCooperB1",
-                "Spawn_Player_KidCooperB2", "Spawn_Player_KidCooperGold1", "Spawn_Player_Murray",
-                "Spawn_Player_Sly", "Spawn_Player_SlyA",
-            } },
-        };
-
         private const string SpawnPointPrefix = "Spawn_Player_";
 
         public sly4(IPS3API api, string gameNameId) : base(api)
@@ -684,7 +617,7 @@ namespace SluMAN
         {
             List<SpawnPointEntry> spawnPoints = new List<SpawnPointEntry>();
             string[] names;
-            if (levelSpawnPoints.TryGetValue(levelHash, out names))
+            if (Sly4SpawnPoints.ByLevel.TryGetValue(levelHash, out names))
             {
                 foreach (string name in names)
                 {

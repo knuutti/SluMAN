@@ -175,6 +175,7 @@
     <Compile Include="offsets\SLY4\Sly4CodeHook.cs" />
     <Compile Include="offsets\SLY4\Sly4Goals.cs" />
     <Compile Include="offsets\SLY4\Sly4GoalWatcher.cs" />
+    <Compile Include="offsets\SLY4\Sly4SpawnPoints.cs" />
     <Compile Include="offsets\SLY4\Sly4AutosplitterValues.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
