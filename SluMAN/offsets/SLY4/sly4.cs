@@ -545,8 +545,8 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// A view's camera matrix as 16 floats: the X, Y and Z axes, then the position, each with
-        /// a W value.
+        /// A view's camera matrix as 16 floats in 4 rows: the camera's X, Y and Z axes go down the
+        /// first three columns, and the last row is its position.
         /// </summary>
         public float[] ReadCameraMatrix(uint view)
         {

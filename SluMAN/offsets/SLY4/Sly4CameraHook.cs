@@ -13,8 +13,8 @@ namespace SluMAN
     ///
     /// Data layout: +0x0 on (non-zero), +0x4 the main view's address, +0x8 the last caller for the
     /// main view (written by the stub), +0xC only replace calls from this caller (0 for any),
-    /// +0x10 the matrix (X, Y and Z axes, then the position, 4 big-endian floats each; 16-aligned
-    /// for the game's vector loads).
+    /// +0x10 the matrix (4 rows of 4 big-endian floats: the camera's axes down the first three
+    /// columns, its position in the last row; 16-aligned for the game's vector loads).
     ///
     /// Like the code hook, RPCS3 only runs the patched code with the Interpreter PPU decoder.
     /// </summary>

@@ -212,7 +212,7 @@ namespace SluMAN
             {
                 float[] m = game.ReadCameraMatrix(view);
                 float[] forward = Flatten(Facing(m, playerPosition));
-                float[] right = Flatten(new float[] { m[0], m[1], m[2] });
+                float[] right = Flatten(Axis(m, 0));
                 float move = -Stick(Inputs.ly);
                 float strafe = Stick(Inputs.lx);
                 float rise = Rise();
@@ -242,7 +242,7 @@ namespace SluMAN
             rowW = new float[] { m[3], m[7], m[11], m[15] };
 
             // The camera looks at the player, so the Z axis or its opposite points at them.
-            float[] z = Normalize(new float[] { m[8], m[9], m[10] });
+            float[] z = Normalize(Axis(m, 2));
             forwardSign = 1;
             if (player != null && Dot(z, Subtract(player, cameraPosition)) < 0)
             {
@@ -254,8 +254,8 @@ namespace SluMAN
 
             float[] right = RightOf(forward);
             float[] up = Cross(forward, right);
-            rightSign = Dot(new float[] { m[0], m[1], m[2] }, right) < 0 ? -1 : 1;
-            upSign = Dot(new float[] { m[4], m[5], m[6] }, up) < 0 ? -1 : 1;
+            rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
+            upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
 
             gameMatrix = MatrixBytes(m);
             game.cameraHook.Enable(view, MatrixBytes());
@@ -301,12 +301,12 @@ namespace SluMAN
             float[] forward = Forward();
             float[] right = RightOf(forward);
             float[] up = Cross(forward, right);
-            float[][] rows =
+            // The axes go down the columns (see Axis); the position is the last row.
+            float[][] axes =
             {
                 Scale(right, rightSign),
                 Scale(up, upSign),
                 Scale(forward, forwardSign),
-                cameraPosition,
             };
 
             byte[] bytes = new byte[Sly4CameraHook.MatrixSize];
@@ -314,7 +314,19 @@ namespace SluMAN
             {
                 for (int column = 0; column < 4; column++)
                 {
-                    float value = column < 3 ? rows[row][column] : rowW[row];
+                    float value;
+                    if (column == 3)
+                    {
+                        value = rowW[row];
+                    }
+                    else if (row == 3)
+                    {
+                        value = cameraPosition[column];
+                    }
+                    else
+                    {
+                        value = axes[column][row];
+                    }
                     byte[] word = BitConverter.GetBytes(value).Reverse().ToArray();
                     Array.Copy(word, 0, bytes, row * 16 + column * 4, 4);
                 }
@@ -332,10 +344,19 @@ namespace SluMAN
             return bytes;
         }
 
+        /// <summary>
+        /// One of the camera's axes (0 X, 1 Y, 2 Z) from the game's matrix. They go down its
+        /// columns: the rows are X, Y and Z components, and the last row is the position.
+        /// </summary>
+        private static float[] Axis(float[] m, int axis)
+        {
+            return new float[] { m[axis], m[4 + axis], m[8 + axis] };
+        }
+
         /// <summary>The game camera's facing: its Z axis, turned towards the player.</summary>
         private static float[] Facing(float[] m, float[] player)
         {
-            float[] z = new float[] { m[8], m[9], m[10] };
+            float[] z = Axis(m, 2);
             float[] toPlayer = new float[] { player[0] - m[12], player[1] - m[13], player[2] - m[14] };
             return Dot(z, toPlayer) < 0 ? Scale(z, -1) : z;
         }

@@ -81,7 +81,8 @@ namespace SluMAN
         public uint freeCameraStub { get; private set; }
         public uint freeCameraData { get; private set; }
         // The main gameplay view (from the game manager); its camera matrix is at the view's
-        // +viewCameraMatrixOffset: the X, Y and Z axes, then the position, as 4 floats each
+        // +viewCameraMatrixOffset: 4 rows of 4 floats, the camera's axes down the first three
+        // columns and its position in the last row
         public uint mainViewOffset { get; private set; }
         public uint viewCameraMatrixOffset { get; private set; }
 
