@@ -220,7 +220,9 @@ namespace SluMAN
                 viewUpdateCopyCall = 0x512078,
                 viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,
-                viewOverrideStub = 0xF05300,
+                // Not 0xF05300: earlier versions put other code there, which a game left running
+                // since then may still call.
+                viewOverrideStub = 0xF05400,
                 viewOverrideData = 0x11F8A40,
 
                 playerFlagsOffset = 0xC0,
