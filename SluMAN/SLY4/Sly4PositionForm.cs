@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Text;
 using System.Windows.Forms;
 using SluMAN.Memory;
 
@@ -198,17 +200,24 @@ namespace SluMAN
             group.Controls.Add(speedUpDown);
 
             Label help = new Label();
-            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
-                "turns with the right stick and holds the player in place.";
+            help.Text = "Left stick moves, R1 / L1 go up and down. The free\n" +
+                "camera turns with the right stick.";
             help.Location = new Point(8, 46);
-            help.Size = new Size(270, 40);
+            help.Size = new Size(190, 40);
             group.Controls.Add(help);
+
+            Button logButton = new Button();
+            logButton.Text = "Camera log";
+            logButton.Location = new Point(200, 52);
+            logButton.Size = new Size(74, 23);
+            logButton.UseVisualStyleBackColor = true;
+            logButton.Click += (sender, e) => ShowCameraLog();
+            group.Controls.Add(logButton);
             return group;
         }
 
         private void SetMode(Sly4FreeMove.Mode mode)
         {
-            bool wasFreeCamera = freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
             try
             {
                 freeMove.Speed = (float)speedUpDown.Value;
@@ -221,17 +230,42 @@ namespace SluMAN
             }
             ShowMode();
 
-            // Which code sets the gameplay camera, to tell it from the menus' (see Sly4CameraHook).
-            if (wasFreeCamera && freeMove.Current == Sly4FreeMove.Mode.Off)
+        }
+
+        /// <summary>
+        /// Shows the camera hook's log of SetCamera calls, grouped by caller and view, to find
+        /// which call sets the gameplay camera (see Sly4CameraHook). Ctrl+C copies the message.
+        /// </summary>
+        private void ShowCameraLog()
+        {
+            try
             {
-                try
+                Dictionary<string, int> counts = new Dictionary<string, int>();
+                foreach (uint[] entry in game.cameraHook.ReadLog())
                 {
-                    statusLine.Info($"Free camera off. The camera was last set from {game.cameraHook.GetLastCaller():X8}.");
+                    string key = $"caller {entry[0]:X8}  view {entry[1]:X8}";
+                    int count;
+                    counts.TryGetValue(key, out count);
+                    counts[key] = count + 1;
                 }
-                catch
+                if (counts.Count == 0)
                 {
-                    // Only a hint.
+                    statusLine.Error("Nothing logged yet. Turn the free camera on once to install the hook.");
+                    return;
                 }
+
+                StringBuilder text = new StringBuilder();
+                text.AppendLine($"Main view (gm + 0x128168): {game.GetMainView():X8}");
+                text.AppendLine();
+                foreach (KeyValuePair<string, int> pair in counts)
+                {
+                    text.AppendLine($"{pair.Key}  x{pair.Value}");
+                }
+                MessageBox.Show(this, text.ToString(), "SetCamera calls (last " + Sly4CameraHook.LogEntries + ")");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the camera log: {ex.Message}");
             }
         }
 

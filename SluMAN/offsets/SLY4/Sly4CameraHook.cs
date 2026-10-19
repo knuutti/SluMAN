@@ -6,15 +6,17 @@ namespace SluMAN
 {
     /// <summary>
     /// Lets SluMAN set the gameplay camera. SetCamera (view, matrix) copies a camera's matrix into
-    /// a view and builds the view from it; its first instruction is pointed at a stub that, for the
-    /// main view only, notes who called (to tell the gameplay camera from menus) and, while the
-    /// free camera is on, passes the matrix kept in the data area instead. Every other view (UI,
-    /// shadows) keeps the game's matrix.
+    /// a view and builds the view from it; its first instruction is pointed at a stub that logs
+    /// every call (who called, for which view) and, while the free camera is on, passes the matrix
+    /// kept in the data area instead for the main view, or for one caller when a filter is set.
+    /// The stub leaves every register SetCamera's callers can rely on as it was, the condition
+    /// register included.
     ///
-    /// Data layout: +0x0 on (non-zero), +0x4 the main view's address, +0x8 the last caller for the
-    /// main view (written by the stub), +0xC only replace calls from this caller (0 for any),
+    /// Data layout: +0x0 on (non-zero), +0x4 the main view's address, +0x8 the log's last entry
+    /// (a byte offset), +0xC only replace calls from this caller (0: calls for the main view),
     /// +0x10 the matrix (4 rows of 4 big-endian floats: the camera's axes down the first three
-    /// columns, its position in the last row; 16-aligned for the game's vector loads).
+    /// columns, its position in the last row; 16-aligned for the game's vector loads), +0x50 the
+    /// log: LogEntries entries of the caller's return address and the view.
     ///
     /// Like the code hook, RPCS3 only runs the patched code with the Interpreter PPU decoder.
     /// </summary>
@@ -23,9 +25,11 @@ namespace SluMAN
         public const int MatrixSize = 0x40;
 
         private const uint ViewOffset = 0x4;
-        private const uint LastCallerOffset = 0x8;
+        private const uint LogIndexOffset = 0x8;
         private const uint CallerFilterOffset = 0xC;
         private const uint MatrixOffset = 0x10;
+        private const uint LogOffset = 0x50;
+        public const int LogEntries = 32;
 
         // SetCamera's first instruction: lfs f1, 0(r4).
         private const uint OriginalInstruction = 0xC0240000;
@@ -68,10 +72,24 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, ToBytes(0));
         }
 
-        /// <summary>The address that last set the main view's camera, 0 if none yet.</summary>
-        public uint GetLastCaller()
+        /// <summary>
+        /// The log of the last SetCamera calls: each one's caller (the address after its call)
+        /// and the view it set. Empty entries are left out.
+        /// </summary>
+        public System.Collections.Generic.List<uint[]> ReadLog()
         {
-            return ReadUInt(sly4.addr.freeCameraData + LastCallerOffset);
+            byte[] bytes = game.api.ReadMemory(game.pid, sly4.addr.freeCameraData + LogOffset, LogEntries * 8);
+            System.Collections.Generic.List<uint[]> log = new System.Collections.Generic.List<uint[]>();
+            for (int i = 0; i < LogEntries; i++)
+            {
+                uint caller = BitConverter.ToUInt32(bytes.Skip(i * 8).Take(4).Reverse().ToArray(), 0);
+                uint view = BitConverter.ToUInt32(bytes.Skip(i * 8 + 4).Take(4).Reverse().ToArray(), 0);
+                if (caller != 0)
+                {
+                    log.Add(new uint[] { caller, view });
+                }
+            }
+            return log;
         }
 
         /// <summary>Puts SetCamera back as it was. Call before disconnecting.</summary>
@@ -109,7 +127,7 @@ namespace SluMAN
 
             // Unhook while the stub is (re)written, so the game never runs it half-written.
             Uninstall();
-            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, new byte[MatrixOffset]);
+            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, new byte[LogOffset + LogEntries * 8]);
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraData + ViewOffset, ToBytes(view));
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraStub, stub);
             if (!game.api.ReadMemory(game.pid, sly4.addr.freeCameraStub, (uint)stub.Length).SequenceEqual(stub))
@@ -127,8 +145,9 @@ namespace SluMAN
 
         /// <summary>
         /// The stub's PowerPC code: r3 is the view, r4 the matrix, and the link register the
-        /// caller. It only uses r5 to r7, which SetCamera sets before reading: SetCamera leaves
-        /// r0 and r9 to r12 alone, so its callers may keep values there across the call.
+        /// caller. It only uses r5 to r8, which SetCamera sets before reading (it leaves r0 and r9
+        /// to r12 alone, so its callers may keep values there across the call), and puts the
+        /// condition register back before going on, since SetCamera doesn't touch that either.
         /// </summary>
         private byte[] BuildStub()
         {
@@ -136,27 +155,36 @@ namespace SluMAN
             uint high = ((data + 0x8000) >> 16) & 0xFFFF;
             uint low = data & 0xFFFF;
             uint stub = sly4.addr.freeCameraStub;
+            uint logMask = (uint)(LogEntries - 1) * 8;
 
             uint[] words =
             {
-                0x3CA00000 | high,               //  0 lis r5, data@ha
-                0x38A50000 | low,                //  1 addi r5, r5, data@l
-                0x80C50000 | ViewOffset,         //  2 lwz r6, view(r5)
-                0x7C033000,                      //  3 cmpw r3, r6
-                0x40820030,                      //  4 bne +0x30 (to 16, the original instruction)
-                0x7CC802A6,                      //  5 mflr r6
-                0x90C50000 | LastCallerOffset,   //  6 stw r6, caller(r5)
-                0x80E50000,                      //  7 lwz r7, 0(r5)
-                0x2C070000,                      //  8 cmpwi r7, 0
-                0x4182001C,                      //  9 beq +0x1C (to 16)
-                0x80E50000 | CallerFilterOffset, // 10 lwz r7, filter(r5)
-                0x2C070000,                      // 11 cmpwi r7, 0
-                0x4182000C,                      // 12 beq +0xC (to 15: any caller)
-                0x7C063800,                      // 13 cmpw r6, r7
-                0x40820008,                      // 14 bne +8 (to 16)
-                0x38850000 | MatrixOffset,       // 15 addi r4, r5, matrix
-                OriginalInstruction,             // 16 lfs f1, 0(r4)
-                Branch(stub + 17 * 4, sly4.addr.setCameraFunction + 4, false),
+                0x7D000026,                      //  0 mfcr r8
+                0x3CA00000 | high,               //  1 lis r5, data@ha
+                0x38A50000 | low,                //  2 addi r5, r5, data@l
+                0x7CC802A6,                      //  3 mflr r6
+                0x80E50000 | LogIndexOffset,     //  4 lwz r7, index(r5)
+                0x38E70008,                      //  5 addi r7, r7, 8
+                0x70E70000 | logMask,            //  6 andi. r7, r7, mask
+                0x90E50000 | LogIndexOffset,     //  7 stw r7, index(r5)
+                0x7CE72A14,                      //  8 add r7, r7, r5
+                0x90C70000 | LogOffset,          //  9 stw r6, log(r7)
+                0x90670000 | (LogOffset + 4),    // 10 stw r3, log + 4(r7)
+                0x80E50000,                      // 11 lwz r7, 0(r5)
+                0x2C070000,                      // 12 cmpwi r7, 0
+                0x41820028,                      // 13 beq +0x28 (to 23: off)
+                0x80E50000 | CallerFilterOffset, // 14 lwz r7, filter(r5)
+                0x2C070000,                      // 15 cmpwi r7, 0
+                0x4182000C,                      // 16 beq +0xC (to 19: no filter)
+                0x7C063800,                      // 17 cmpw r6, r7
+                0x4800000C,                      // 18 b +0xC (to 21)
+                0x80E50000 | ViewOffset,         // 19 lwz r7, view(r5)
+                0x7C033800,                      // 20 cmpw r3, r7
+                0x40820008,                      // 21 bne +8 (to 23)
+                0x38850000 | MatrixOffset,       // 22 addi r4, r5, matrix
+                0x7D0FF120,                      // 23 mtcrf 0xFF, r8
+                OriginalInstruction,             // 24 lfs f1, 0(r4)
+                Branch(stub + 25 * 4, sly4.addr.setCameraFunction + 4, false),
             };
 
             byte[] bytes = new byte[words.Length * 4];
