@@ -172,6 +172,7 @@ namespace SluMAN
         private const int SlowMotionClampFreqMin = 291;
 
         private readonly Sly4CodeHook codeHook;
+        public readonly Sly4CameraHook cameraHook;
 
         // The debug menu's Tuning settings, read from the game when first needed.
         public readonly Sly4Tunables tunables;
@@ -280,6 +281,7 @@ namespace SluMAN
         {
             addr = Sly4Addresses.ForGame(gameNameId);
             codeHook = new Sly4CodeHook(this);
+            cameraHook = new Sly4CameraHook(this);
             tunables = new Sly4Tunables(this);
         }
 
@@ -498,6 +500,63 @@ namespace SluMAN
             }
 
             api.WriteMemory(pid, address, state);
+        }
+
+        /// <summary>
+        /// Puts the player at a position and stops them, for fly mode: the body is moved like
+        /// Teleport does and the controller's velocity is zeroed, so gravity hasn't built up by the
+        /// next frame. False when the player isn't loaded.
+        /// </summary>
+        public bool HoldPlayer(float x, float y, float z)
+        {
+            uint controller = GetCharacterController();
+            if (controller == 0)
+            {
+                return false;
+            }
+            uint characterBody = ReadUInt(controller + addr.characterBodyOffset);
+            uint body = characterBody == 0 ? 0 : ReadUInt(characterBody + addr.rigidBodyOffset);
+            if (body == 0)
+            {
+                return false;
+            }
+
+            uint address = body + addr.bodyPositionOffset;
+            byte[] state = api.ReadMemory(pid, address, 0x30);
+            float[] delta = new float[] { x - ToFloat(state, 0), y - ToFloat(state, 4), z - ToFloat(state, 8) };
+            for (int vector = 0; vector < 3; vector++)
+            {
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    int offset = vector * 16 + axis * 4;
+                    Array.Copy(ConvertFloatToBytes(ToFloat(state, offset) + delta[axis]), 0, state, offset, 4);
+                }
+            }
+            api.WriteMemory(pid, address, state);
+            api.WriteMemory(pid, controller + addr.controllerVelocityOffset, new byte[12]);
+            return true;
+        }
+
+        /// <summary>The main gameplay view, or 0 before the game has one.</summary>
+        public uint GetMainView()
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            return gameManager == 0 ? 0 : ReadUInt(gameManager + addr.mainViewOffset);
+        }
+
+        /// <summary>
+        /// A view's camera matrix as 16 floats: the X, Y and Z axes, then the position, each with
+        /// a W value.
+        /// </summary>
+        public float[] ReadCameraMatrix(uint view)
+        {
+            byte[] bytes = api.ReadMemory(pid, view + addr.viewCameraMatrixOffset, Sly4CameraHook.MatrixSize);
+            float[] matrix = new float[16];
+            for (int i = 0; i < 16; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
         }
 
         public void SetSlowMotion(bool enabled)
@@ -1005,6 +1064,7 @@ namespace SluMAN
         public void RemoveCodeHook()
         {
             codeHook.Uninstall();
+            cameraHook.Uninstall();
         }
 
         public bool IsJobFailed()

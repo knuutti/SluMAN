@@ -73,6 +73,17 @@ namespace SluMAN
         public uint hookCodeCave { get; private set; }
         public uint hookMailbox { get; private set; }
 
+        // Free camera: SetCamera's first instruction branches to a stub (after the code hook's in
+        // the code cave), which swaps in the matrix kept in the data area when the call is for the
+        // main view
+        public uint setCameraFunction { get; private set; }
+        public uint freeCameraStub { get; private set; }
+        public uint freeCameraData { get; private set; }
+        // The main gameplay view (from the game manager); its camera matrix is at the view's
+        // +viewCameraMatrixOffset: the X, Y and Z axes, then the position, as 4 floats each
+        public uint mainViewOffset { get; private set; }
+        public uint viewCameraMatrixOffset { get; private set; }
+
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
         public uint characterControllerOffset { get; private set; }
@@ -194,6 +205,12 @@ namespace SluMAN
                 hookCallTarget = 0x56AEFC,
                 hookCodeCave = 0xF05200,
                 hookMailbox = 0x11F8A00,
+
+                setCameraFunction = 0x5201B0,
+                freeCameraStub = 0xF05300,
+                freeCameraData = 0x11F8A40,
+                mainViewOffset = 0x128168,
+                viewCameraMatrixOffset = 0x2F0,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,

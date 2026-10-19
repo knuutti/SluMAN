@@ -30,7 +30,11 @@ namespace SluMAN
         private readonly TextBox zTextBox = new TextBox();
         private readonly Button currentPositionButton = new Button();
         private readonly Button teleportButton = new Button();
+        private readonly CheckBox flyCheckBox = new CheckBox();
+        private readonly CheckBox freeCameraCheckBox = new CheckBox();
+        private readonly NumericUpDown speedUpDown = new NumericUpDown();
         private readonly Timer refreshTimer = new Timer();
+        private readonly Sly4FreeMove freeMove;
         private StatusLine statusLine;
 
         private float topSpeed;
@@ -46,8 +50,17 @@ namespace SluMAN
 
             GroupBox liveGroupBox = BuildLiveGroup();
             GroupBox teleportGroupBox = BuildTeleportGroup(liveGroupBox.Bottom + 6);
-            ClientSize = new Size(liveGroupBox.Right + 8, teleportGroupBox.Bottom + 8);
+            GroupBox freeMoveGroupBox = BuildFreeMoveGroup(teleportGroupBox.Bottom + 6);
+            ClientSize = new Size(liveGroupBox.Right + 8, freeMoveGroupBox.Bottom + 8);
             statusLine = new StatusLine(this, false);
+
+            freeMove = new Sly4FreeMove(game);
+            freeMove.Stopped += (message) =>
+            {
+                ShowMode();
+                statusLine.Error($"Stopped: {message}");
+            };
+            FormClosing += (sender, e) => freeMove.Stop();
 
             refreshTimer.Interval = game.api is RPCS3 ? Rpcs3RefreshIntervalMs : PS3RefreshIntervalMs;
             refreshTimer.Tick += refreshTimer_Tick;
@@ -148,6 +161,70 @@ namespace SluMAN
 
             func.BindEnter(zTextBox, teleportButton);
             return group;
+        }
+
+        private GroupBox BuildFreeMoveGroup(int top)
+        {
+            GroupBox group = new GroupBox();
+            group.Text = "Fly / Free camera";
+            group.Location = new Point(8, top);
+            group.Size = new Size(284, 92);
+            Controls.Add(group);
+
+            flyCheckBox.Text = "Fly";
+            flyCheckBox.AutoSize = true;
+            flyCheckBox.Location = new Point(10, 20);
+            flyCheckBox.Click += (sender, e) => SetMode(flyCheckBox.Checked ? Sly4FreeMove.Mode.Fly : Sly4FreeMove.Mode.Off);
+            group.Controls.Add(flyCheckBox);
+
+            freeCameraCheckBox.Text = "Free camera";
+            freeCameraCheckBox.AutoSize = true;
+            freeCameraCheckBox.Location = new Point(70, 20);
+            freeCameraCheckBox.Click += (sender, e) => SetMode(freeCameraCheckBox.Checked ? Sly4FreeMove.Mode.FreeCamera : Sly4FreeMove.Mode.Off);
+            group.Controls.Add(freeCameraCheckBox);
+
+            Label speedLabel = new Label();
+            speedLabel.Text = "Speed:";
+            speedLabel.AutoSize = true;
+            speedLabel.Location = new Point(170, 21);
+            group.Controls.Add(speedLabel);
+
+            speedUpDown.Minimum = 1;
+            speedUpDown.Maximum = 200;
+            speedUpDown.Value = 10;
+            speedUpDown.Location = new Point(214, 18);
+            speedUpDown.Size = new Size(60, 20);
+            speedUpDown.ValueChanged += (sender, e) => freeMove.Speed = (float)speedUpDown.Value;
+            group.Controls.Add(speedUpDown);
+
+            Label help = new Label();
+            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
+                "turns with the right stick and holds the player in place.";
+            help.Location = new Point(8, 46);
+            help.Size = new Size(270, 40);
+            group.Controls.Add(help);
+            return group;
+        }
+
+        private void SetMode(Sly4FreeMove.Mode mode)
+        {
+            try
+            {
+                freeMove.Speed = (float)speedUpDown.Value;
+                freeMove.Start(mode);
+            }
+            catch (Exception ex)
+            {
+                freeMove.Stop();
+                statusLine.Error($"Couldn't start: {ex.Message}");
+            }
+            ShowMode();
+        }
+
+        private void ShowMode()
+        {
+            flyCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.Fly;
+            freeCameraCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
         }
 
         public void RefreshFromGame()
