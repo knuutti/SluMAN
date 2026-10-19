@@ -60,7 +60,9 @@ namespace SluMAN
 
         /// <summary>
         /// Gives the view back to the game's camera, first putting back its matrix from before the
-        /// free camera (pass null to skip). The hook stays in place.
+        /// free camera (pass null to skip), then removes the hook: with the hook left in place
+        /// (switched off) the game camera stayed broken until SluMAN closed, and closing removes
+        /// it. The log is kept until the next Enable.
         /// </summary>
         public void Disable(byte[] gameMatrix)
         {
@@ -69,7 +71,7 @@ namespace SluMAN
                 SetMatrix(gameMatrix);
                 Thread.Sleep(RestoreMs);
             }
-            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, ToBytes(0));
+            Uninstall();
         }
 
         /// <summary>

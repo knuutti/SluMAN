@@ -250,7 +250,7 @@ namespace SluMAN
                 }
                 if (counts.Count == 0)
                 {
-                    statusLine.Error("Nothing logged yet. Turn the free camera on once to install the hook.");
+                    statusLine.Error("Nothing logged yet. Turn the free camera on, then look at the log (it keeps the calls from before turning it off).");
                     return;
                 }
 
