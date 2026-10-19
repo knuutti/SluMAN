@@ -36,6 +36,9 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
+        // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
+        private sly4.LevelEntry queuedLevel = null;
+
         public Sly4Practice(sly4 game)
         {
             this.game = game;
@@ -158,6 +161,10 @@ namespace SluMAN
             {
                 CheckGameCall();
             }
+            else if (queuedLevel != null)
+            {
+                LoadQueuedLevel();
+            }
             else if (queuedGoalJob != null)
             {
                 CheckQueuedGoalWarp();
@@ -218,6 +225,7 @@ namespace SluMAN
                 else if (DateTime.Now > gameCallDeadline)
                 {
                     gameCallPending = false;
+                    queuedLevel = null;
                     game.CancelGameCall();
                     statusLine.Error("The game didn't run the warp. On RPCS3, set the PPU decoder to Interpreter (static).");
                 }
@@ -333,6 +341,7 @@ namespace SluMAN
         public void StartJob(sly4.JobEntry job, bool toHub, bool toHideout)
         {
             queuedGoalJob = null;
+            queuedLevel = null;
             try
             {
                 game.StartJob(job.index, toHub, toHideout);
@@ -362,6 +371,7 @@ namespace SluMAN
         public void WarpToGoal(sly4.JobEntry job, int goal)
         {
             queuedGoalJob = null;
+            queuedLevel = null;
             try
             {
                 // A running job warps in place; any other job is started at the goal.
@@ -402,6 +412,31 @@ namespace SluMAN
             }
 
             queuedGoalJob = null;
+            queuedLevel = null;
+            try
+            {
+                // A running job would load its own level instead, so end it first and load the
+                // level once the game has run that call.
+                if (game.IsInJob())
+                {
+                    game.AbandonJob();
+                    queuedLevel = level;
+                    TrackGameCall($"Left the job; loading {level.name}.");
+                    return;
+                }
+                game.LoadLevel(level.hash);
+                TrackGameCall($"Loading {level.name}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't load the level: {ex.Message}");
+            }
+        }
+
+        private void LoadQueuedLevel()
+        {
+            sly4.LevelEntry level = queuedLevel;
+            queuedLevel = null;
             try
             {
                 game.LoadLevel(level.hash);

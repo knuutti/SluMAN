@@ -844,8 +844,8 @@ namespace SluMAN
         /// <summary>
         /// Loads a level by its hash, outside any job flow: the player lands at the level's
         /// default start. The game's own calls pass (game manager, hash, 0); LoadLevel only sets
-        /// the level to load and the load flags, and the game loads it on a later frame. Any
-        /// running job is left as it is.
+        /// the level to load and the load flags, and the game loads it on a later frame. A running
+        /// job sends the load back to its own level, so end it first with AbandonJob.
         /// </summary>
         public void LoadLevel(uint levelHash)
         {
@@ -856,6 +856,28 @@ namespace SluMAN
             }
             ThrowIfLoading();
             codeHook.Call(addr.loadLevelFunction, gameManager, levelHash, 0);
+        }
+
+        /// <summary>True while a job runs (the episode manager's current job is set).</summary>
+        public bool IsInJob()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            return episodeManager != 0 && ReadUInt(episodeManager + addr.currentJobOffset) != 0;
+        }
+
+        /// <summary>
+        /// Ends the running job with the game's AbandonCurrentJob, which loads nothing: the game
+        /// clears the current job and resets its goals. Does nothing outside jobs.
+        /// </summary>
+        public void AbandonJob()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            ThrowIfLoading();
+            codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
         }
 
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>

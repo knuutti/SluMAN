@@ -58,6 +58,7 @@ namespace SluMAN
         public uint startJobByInstFunction { get; private set; }
         public uint teleportToGoalFunction { get; private set; }
         public uint loadLevelFunction { get; private set; }
+        public uint abandonCurrentJobFunction { get; private set; }
 
         // Code hook: a call made once per frame is pointed at a stub in the unused end of the code
         // segment, which runs the call queued in the mailbox (unused end of the data segment)
@@ -179,6 +180,7 @@ namespace SluMAN
                 startJobByInstFunction = 0x2E0930,
                 teleportToGoalFunction = 0x2E0498,
                 loadLevelFunction = 0x4674C4,
+                abandonCurrentJobFunction = 0x2E5060,
 
                 hookCallSite = 0x5221DC,
                 hookCallTarget = 0x56AEFC,
