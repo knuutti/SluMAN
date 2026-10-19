@@ -22,6 +22,11 @@ namespace SluMAN
 
         // Where the game's data can be: the EBOOT's data and the heap after it, the main memory
         // above it, and the user memory where the views live.
+        // How far, and for how long, Find camera raises each copy of the camera's position to see
+        // whether the view follows.
+        private const float CameraTestRaise = 3f;
+        private const int CameraTestMs = 250;
+
         private static readonly uint[][] CameraSearchRanges =
         {
             new uint[] { 0x00F10000, 0x10000000 },
@@ -282,7 +287,32 @@ namespace SluMAN
                 {
                     text.AppendLine("No copies found.");
                 }
+                // The copies found both times, except the main view's own.
+                List<uint> live = new List<uint>();
+                foreach (uint address in found)
+                {
+                    if (lastCameraFinds != null && lastCameraFinds.Contains(address) && address != view + game.CameraPositionOffset())
+                    {
+                        live.Add(address);
+                    }
+                }
                 lastCameraFinds = found;
+
+                if (live.Count > 0)
+                {
+                    text.AppendLine();
+                    text.AppendLine("Which copy moves the camera (raising each by 3 for a moment):");
+                    foreach (uint address in live)
+                    {
+                        float moved = game.TestCameraCopy(address, view, CameraTestRaise, CameraTestMs);
+                        text.AppendLine($"{address:X8}: the view rose by {moved.ToString("F2", CultureInfo.InvariantCulture)}");
+                    }
+                }
+                else
+                {
+                    text.AppendLine();
+                    text.AppendLine("Move the camera a little and search again to test which copy moves it.");
+                }
 
                 // Message boxes can't be selected from, so the result goes on the clipboard.
                 bool copied = true;

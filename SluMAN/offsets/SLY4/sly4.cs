@@ -631,6 +631,30 @@ namespace SluMAN
             return found;
         }
 
+        /// <summary>
+        /// Raises a copy of the camera's position (3 floats) for a moment, writing it over and
+        /// over, and returns the most the main view's camera rose meanwhile: about the raise for
+        /// a copy the view is made from, 0 for one that isn't. The copy is put back afterwards.
+        /// </summary>
+        public float TestCameraCopy(uint address, uint view, float raise, int milliseconds)
+        {
+            byte[] original = api.ReadMemory(pid, address, 12);
+            float viewY = ToFloat(api.ReadMemory(pid, view + CameraPositionOffset() + 4, 4), 0);
+            byte[] raised = (byte[])original.Clone();
+            Array.Copy(ConvertFloatToBytes(ToFloat(original, 4) + raise), 0, raised, 4, 4);
+
+            float most = 0;
+            System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < milliseconds)
+            {
+                api.WriteMemory(pid, address, raised);
+                float y = ToFloat(api.ReadMemory(pid, view + CameraPositionOffset() + 4, 4), 0);
+                most = Math.Max(most, y - viewY);
+            }
+            api.WriteMemory(pid, address, original);
+            return most;
+        }
+
         /// <summary>A camera matrix at an address, laid out as ReadCameraMatrix's.</summary>
         public float[] ReadMatrix(uint address)
         {
