@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
-using System.Text;
 using System.Windows.Forms;
 using SluMAN.Memory;
 
@@ -19,19 +17,6 @@ namespace SluMAN
         // read is a network round trip, and one refresh takes about eight.
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
-
-        // Where the game's data can be: the EBOOT's data and the heap after it, the main memory
-        // above it, and the user memory where the views live.
-        // How far, and for how long, Find camera raises each copy of the camera's position to see
-        // whether the view follows.
-        private const float CameraTestRaise = 3f;
-        private const int CameraTestMs = 250;
-
-        private static readonly uint[][] CameraSearchRanges =
-        {
-            new uint[] { 0x00F10000, 0x10000000 },
-            new uint[] { 0x30000000, 0x40000000 },
-        };
 
         private readonly sly4 game;
 
@@ -50,9 +35,6 @@ namespace SluMAN
         private readonly NumericUpDown speedUpDown = new NumericUpDown();
         private readonly Timer refreshTimer = new Timer();
         private readonly Sly4FreeMove freeMove;
-
-        // The last Find camera result, to point out the copies that are found again.
-        private List<uint> lastCameraFinds;
         private StatusLine statusLine;
 
         private float topSpeed;
@@ -216,19 +198,11 @@ namespace SluMAN
             group.Controls.Add(speedUpDown);
 
             Label help = new Label();
-            help.Text = "Left stick moves, R1 / L1 go up and down. The free\n" +
-                "camera turns with the right stick.";
+            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
+                "turns with the right stick and holds the player in place.";
             help.Location = new Point(8, 46);
-            help.Size = new Size(190, 40);
+            help.Size = new Size(270, 40);
             group.Controls.Add(help);
-
-            Button findButton = new Button();
-            findButton.Text = "Find camera";
-            findButton.Location = new Point(200, 52);
-            findButton.Size = new Size(74, 23);
-            findButton.UseVisualStyleBackColor = true;
-            findButton.Click += (sender, e) => FindCamera();
-            group.Controls.Add(findButton);
 
             return group;
         }
@@ -247,88 +221,6 @@ namespace SluMAN
             }
             ShowMode();
 
-        }
-
-        /// <summary>
-        /// Looks through the game's memory for every other copy of the camera's position (the
-        /// main view's), to find where the game keeps the camera that it writes into the view each
-        /// frame. RPCS3 only, which reads memory directly. Ctrl+C copies the message.
-        /// </summary>
-        private void FindCamera()
-        {
-            if (!(game.api is RPCS3))
-            {
-                statusLine.Error("Finding the camera needs RPCS3: on a PS3 it would take thousands of reads.");
-                return;
-            }
-            try
-            {
-                uint view = game.GetMainView();
-                if (view == 0)
-                {
-                    statusLine.Error("The game has no camera yet.");
-                    return;
-                }
-                Cursor = Cursors.WaitCursor;
-                byte[] position = game.api.ReadMemory(game.pid, view + game.CameraPositionOffset(), 12);
-                List<uint> found = game.FindMemory(position, CameraSearchRanges);
-
-                StringBuilder text = new StringBuilder();
-                text.AppendLine($"Main view: {view:X8}, camera position {BitConverter.ToString(position).Replace("-", " ")}");
-                text.AppendLine($"(at {view + game.CameraPositionOffset():X8})");
-                text.AppendLine();
-                foreach (uint address in found)
-                {
-                    // Found by the last search too: a copy the game keeps up to date.
-                    bool again = lastCameraFinds != null && lastCameraFinds.Contains(address);
-                    text.AppendLine($"{address:X8}{(again ? "  (also last time)" : "")}");
-                }
-                if (found.Count == 0)
-                {
-                    text.AppendLine("No copies found.");
-                }
-                // The copies found both times, except the main view's own.
-                List<uint> live = new List<uint>();
-                foreach (uint address in found)
-                {
-                    if (lastCameraFinds != null && lastCameraFinds.Contains(address) && address != view + game.CameraPositionOffset())
-                    {
-                        live.Add(address);
-                    }
-                }
-                lastCameraFinds = found;
-
-                if (live.Count > 0)
-                {
-                    text.AppendLine();
-                    text.AppendLine("Which copy moves the camera (raising each by 3 for a moment):");
-                    foreach (uint address in live)
-                    {
-                        float moved = game.TestCameraCopy(address, view, CameraTestRaise, CameraTestMs);
-                        text.AppendLine($"{address:X8}: the view rose by {moved.ToString("F2", CultureInfo.InvariantCulture)}");
-                    }
-                }
-                else
-                {
-                    text.AppendLine();
-                    text.AppendLine("Move the camera a little and search again to test which copy moves it.");
-                }
-
-                // Message boxes can't be selected from, so the result goes on the clipboard.
-                bool copied = true;
-                try { Clipboard.SetText(text.ToString()); } catch { copied = false; }
-                text.AppendLine();
-                text.AppendLine(copied ? "This text is on the clipboard: paste it anywhere." : "Couldn't copy this to the clipboard.");
-                MessageBox.Show(this, text.ToString(), $"Camera position found {found.Count} times");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't search: {ex.Message}");
-            }
-            finally
-            {
-                Cursor = Cursors.Default;
-            }
         }
 
         private void ShowMode()
