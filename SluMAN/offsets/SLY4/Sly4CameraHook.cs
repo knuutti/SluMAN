@@ -29,7 +29,7 @@ namespace SluMAN
         private const uint CallerFilterOffset = 0xC;
         private const uint MatrixOffset = 0x10;
         private const uint LogOffset = 0x50;
-        public const int LogEntries = 32;
+        public const int LogEntries = 64;
 
         // SetCamera's first instruction: lfs f1, 0(r4).
         private const uint OriginalInstruction = 0xC0240000;
@@ -72,6 +72,29 @@ namespace SluMAN
                 Thread.Sleep(RestoreMs);
             }
             Uninstall();
+        }
+
+        /// <summary>
+        /// Records SetCamera calls for a moment without changing the camera, then removes the hook
+        /// again (unless the free camera is using it) and returns the log, as ReadLog.
+        /// </summary>
+        public System.Collections.Generic.List<uint[]> Capture(uint view, int milliseconds)
+        {
+            bool inUse = ReadUInt(sly4.addr.setCameraFunction) == HookBranch()
+                && ReadUInt(sly4.addr.freeCameraData) != 0;
+            if (!inUse)
+            {
+                // Always a fresh install, so the log starts empty.
+                Uninstall();
+                Install(view);
+                Thread.Sleep(milliseconds);
+            }
+            System.Collections.Generic.List<uint[]> log = ReadLog();
+            if (!inUse)
+            {
+                Uninstall();
+            }
+            return log;
         }
 
         /// <summary>
