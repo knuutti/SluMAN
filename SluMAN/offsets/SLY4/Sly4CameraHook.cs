@@ -5,18 +5,15 @@ using System.Threading;
 namespace SluMAN
 {
     /// <summary>
-    /// Lets SluMAN set the gameplay camera. SetCamera (view, matrix) copies a camera's matrix into
-    /// a view and builds the view from it; its first instruction is pointed at a stub that logs
-    /// every call (who called, for which view) and, while the free camera is on, passes the matrix
-    /// kept in the data area instead for the main view, or for one caller when a filter is set.
-    /// The stub leaves every register SetCamera's callers can rely on as it was, the condition
-    /// register included.
+    /// Lets SluMAN set the gameplay camera. Each frame the main render hands the main view the game
+    /// camera's matrix with SetMainViewCamera (view, matrix), its only caller. That function's
+    /// first instruction is pointed at a stub that notes the view and the game camera's matrix and,
+    /// while the free camera is on, passes the matrix kept in the data area instead. The stub
+    /// leaves every register the caller can rely on as it was, the condition register included.
     ///
-    /// Data layout: +0x0 on (non-zero), +0x4 the main view's address, +0x8 the log's last entry
-    /// (a byte offset), +0xC only replace calls from this caller (0: calls for the main view),
-    /// +0x10 the matrix (4 rows of 4 big-endian floats: the camera's axes down the first three
-    /// columns, its position in the last row; 16-aligned for the game's vector loads), +0x50 the
-    /// log: LogEntries entries of the caller's return address and the view.
+    /// Data layout: +0x0 on (non-zero), +0x4 the view and +0x8 the game camera's matrix (both
+    /// written by the stub), +0x10 the matrix (the camera's X, Y and Z axes, then its position, as
+    /// 4 big-endian floats each; 16-aligned for the game's vector loads).
     ///
     /// Like the code hook, RPCS3 only runs the patched code with the Interpreter PPU decoder.
     /// </summary>
@@ -24,19 +21,14 @@ namespace SluMAN
     {
         public const int MatrixSize = 0x40;
 
-        private const uint ViewOffset = 0x4;
-        private const uint LogIndexOffset = 0x8;
-        private const uint CallerFilterOffset = 0xC;
+        private const uint GameMatrixOffset = 0x8;
         private const uint MatrixOffset = 0x10;
-        private const uint LogOffset = 0x50;
-        public const int LogEntries = 64;
 
-        // SetCamera's first instruction: lfs f1, 0(r4).
+        // The first instruction of both camera functions: lfs f1, 0(r4).
         private const uint OriginalInstruction = 0xC0240000;
 
-        // How long the game camera's own matrix is handed back before the switch turns off, so a
-        // camera that only sends its matrix when it moves still ends up where it was.
-        private const int RestoreMs = 100;
+        // How long to wait for the game to run the stub once, to learn the game camera's matrix.
+        private const int FirstFrameTimeoutMs = 1000;
 
         private readonly IGame game;
 
@@ -45,10 +37,30 @@ namespace SluMAN
             this.game = game;
         }
 
-        /// <summary>Uses the matrix for the view from now on (written before the switch).</summary>
-        public void Enable(uint view, byte[] matrix)
+        /// <summary>
+        /// Installs the hook (switched off) and waits for a frame, then returns the address of the
+        /// game camera's matrix, which the game keeps up to date.
+        /// </summary>
+        public uint Prepare()
         {
-            Install(view);
+            Install();
+            DateTime deadline = DateTime.Now.AddMilliseconds(FirstFrameTimeoutMs);
+            while (DateTime.Now < deadline)
+            {
+                uint matrix = ReadUInt(sly4.addr.freeCameraData + GameMatrixOffset);
+                if (matrix != 0)
+                {
+                    return matrix;
+                }
+                Thread.Sleep(20);
+            }
+            Uninstall();
+            throw new InvalidOperationException("The game didn't run the camera code. On RPCS3, set the PPU decoder to Interpreter (static).");
+        }
+
+        /// <summary>Uses the matrix from now on (written before the switch). Call Prepare first.</summary>
+        public void Enable(byte[] matrix)
+        {
             SetMatrix(matrix);
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, ToBytes(1));
         }
@@ -58,74 +70,27 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraData + MatrixOffset, matrix);
         }
 
-        /// <summary>
-        /// Gives the view back to the game's camera, first putting back its matrix from before the
-        /// free camera (pass null to skip), then removes the hook: with the hook left in place
-        /// (switched off) the game camera stayed broken until SluMAN closed, and closing removes
-        /// it. The log is kept until the next Enable.
-        /// </summary>
-        public void Disable(byte[] gameMatrix)
+        /// <summary>Gives the view back to the game's camera and removes the hook.</summary>
+        public void Disable()
         {
-            if (gameMatrix != null)
-            {
-                SetMatrix(gameMatrix);
-                Thread.Sleep(RestoreMs);
-            }
             Uninstall();
         }
 
-        /// <summary>
-        /// Records SetCamera calls for a moment without changing the camera, then removes the hook
-        /// again (unless the free camera is using it) and returns the log, as ReadLog.
-        /// </summary>
-        public System.Collections.Generic.List<uint[]> Capture(uint view, int milliseconds)
-        {
-            bool inUse = ReadUInt(sly4.addr.setCameraFunction) == HookBranch()
-                && ReadUInt(sly4.addr.freeCameraData) != 0;
-            if (!inUse)
-            {
-                // Always a fresh install, so the log starts empty.
-                Uninstall();
-                Install(view);
-                Thread.Sleep(milliseconds);
-            }
-            System.Collections.Generic.List<uint[]> log = ReadLog();
-            if (!inUse)
-            {
-                Uninstall();
-            }
-            return log;
-        }
-
-        /// <summary>
-        /// The log of the last SetCamera calls: each one's caller (the address after its call)
-        /// and the view it set. Empty entries are left out.
-        /// </summary>
-        public System.Collections.Generic.List<uint[]> ReadLog()
-        {
-            byte[] bytes = game.api.ReadMemory(game.pid, sly4.addr.freeCameraData + LogOffset, LogEntries * 8);
-            System.Collections.Generic.List<uint[]> log = new System.Collections.Generic.List<uint[]>();
-            for (int i = 0; i < LogEntries; i++)
-            {
-                uint caller = BitConverter.ToUInt32(bytes.Skip(i * 8).Take(4).Reverse().ToArray(), 0);
-                uint view = BitConverter.ToUInt32(bytes.Skip(i * 8 + 4).Take(4).Reverse().ToArray(), 0);
-                if (caller != 0)
-                {
-                    log.Add(new uint[] { caller, view });
-                }
-            }
-            return log;
-        }
-
-        /// <summary>Puts SetCamera back as it was. Call before disconnecting.</summary>
+        /// <summary>Puts the camera code back as it was. Call before disconnecting.</summary>
         public void Uninstall()
         {
-            if (ReadUInt(sly4.addr.setCameraFunction) == HookBranch())
+            uint hookBranch = Branch(sly4.addr.mainViewCameraFunction, sly4.addr.freeCameraStub, false);
+            if (ReadUInt(sly4.addr.mainViewCameraFunction) == hookBranch)
             {
-                game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, ToBytes(0));
+                game.api.WriteMemory(game.pid, sly4.addr.mainViewCameraFunction, ToBytes(OriginalInstruction));
+            }
+            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, ToBytes(0));
+
+            // Earlier versions hooked SetCamera, or the calls to it, instead.
+            if (ReadUInt(sly4.addr.setCameraFunction) == Branch(sly4.addr.setCameraFunction, sly4.addr.freeCameraStub, false))
+            {
                 game.api.WriteMemory(game.pid, sly4.addr.setCameraFunction, ToBytes(OriginalInstruction));
             }
-            // An earlier version hooked the gameplay camera's calls instead.
             foreach (uint call in sly4.addr.gameplayCameraCalls)
             {
                 if (ReadUInt(call) == Branch(call, sly4.addr.freeCameraStub, true))
@@ -135,81 +100,54 @@ namespace SluMAN
             }
         }
 
-        private void Install(uint view)
+        private void Install()
         {
-            byte[] stub = BuildStub();
-            uint first = ReadUInt(sly4.addr.setCameraFunction);
-            bool stubCurrent = game.api.ReadMemory(game.pid, sly4.addr.freeCameraStub, (uint)stub.Length).SequenceEqual(stub);
-            if (first == HookBranch() && stubCurrent)
-            {
-                game.api.WriteMemory(game.pid, sly4.addr.freeCameraData + ViewOffset, ToBytes(view));
-                return;
-            }
-            if (first != OriginalInstruction && first != HookBranch())
+            uint first = ReadUInt(sly4.addr.mainViewCameraFunction);
+            if (first != OriginalInstruction && first != Branch(sly4.addr.mainViewCameraFunction, sly4.addr.freeCameraStub, false))
             {
                 throw new InvalidOperationException("The game's camera code isn't what SluMAN expects, so the free camera isn't available on this version.");
             }
 
-            // Unhook while the stub is (re)written, so the game never runs it half-written.
+            // Always from scratch, so the noted matrix is from this install.
             Uninstall();
-            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, new byte[LogOffset + LogEntries * 8]);
-            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData + ViewOffset, ToBytes(view));
+            byte[] stub = BuildStub();
+            game.api.WriteMemory(game.pid, sly4.addr.freeCameraData, new byte[MatrixOffset]);
             game.api.WriteMemory(game.pid, sly4.addr.freeCameraStub, stub);
             if (!game.api.ReadMemory(game.pid, sly4.addr.freeCameraStub, (uint)stub.Length).SequenceEqual(stub))
             {
                 throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
             }
             // Last, so the game never jumps to a half-written stub.
-            game.api.WriteMemory(game.pid, sly4.addr.setCameraFunction, ToBytes(HookBranch()));
-        }
-
-        private uint HookBranch()
-        {
-            return Branch(sly4.addr.setCameraFunction, sly4.addr.freeCameraStub, false);
+            game.api.WriteMemory(game.pid, sly4.addr.mainViewCameraFunction, ToBytes(Branch(sly4.addr.mainViewCameraFunction, sly4.addr.freeCameraStub, false)));
         }
 
         /// <summary>
-        /// The stub's PowerPC code: r3 is the view, r4 the matrix, and the link register the
-        /// caller. It only uses r5 to r8, which SetCamera sets before reading (it leaves r0 and r9
-        /// to r12 alone, so its callers may keep values there across the call), and puts the
-        /// condition register back before going on, since SetCamera doesn't touch that either.
+        /// The stub's PowerPC code: r3 is the view and r4 the matrix. It only uses r5 to r8, which
+        /// the camera function sets before reading (it leaves r0 and r9 to r12 alone, so its caller
+        /// may keep values there), and puts the condition register back, which it doesn't touch
+        /// either.
         /// </summary>
-        private byte[] BuildStub()
+        private static byte[] BuildStub()
         {
             uint data = sly4.addr.freeCameraData;
             uint high = ((data + 0x8000) >> 16) & 0xFFFF;
             uint low = data & 0xFFFF;
             uint stub = sly4.addr.freeCameraStub;
-            uint logMask = (uint)(LogEntries - 1) * 8;
 
             uint[] words =
             {
                 0x7D000026,                      //  0 mfcr r8
                 0x3CA00000 | high,               //  1 lis r5, data@ha
                 0x38A50000 | low,                //  2 addi r5, r5, data@l
-                0x7CC802A6,                      //  3 mflr r6
-                0x80E50000 | LogIndexOffset,     //  4 lwz r7, index(r5)
-                0x38E70008,                      //  5 addi r7, r7, 8
-                0x70E70000 | logMask,            //  6 andi. r7, r7, mask
-                0x90E50000 | LogIndexOffset,     //  7 stw r7, index(r5)
-                0x7CE72A14,                      //  8 add r7, r7, r5
-                0x90C70000 | LogOffset,          //  9 stw r6, log(r7)
-                0x90670000 | (LogOffset + 4),    // 10 stw r3, log + 4(r7)
-                0x80E50000,                      // 11 lwz r7, 0(r5)
-                0x2C070000,                      // 12 cmpwi r7, 0
-                0x41820028,                      // 13 beq +0x28 (to 23: off)
-                0x80E50000 | CallerFilterOffset, // 14 lwz r7, filter(r5)
-                0x2C070000,                      // 15 cmpwi r7, 0
-                0x4182000C,                      // 16 beq +0xC (to 19: no filter)
-                0x7C063800,                      // 17 cmpw r6, r7
-                0x4800000C,                      // 18 b +0xC (to 21)
-                0x80E50000 | ViewOffset,         // 19 lwz r7, view(r5)
-                0x7C033800,                      // 20 cmpw r3, r7
-                0x40820008,                      // 21 bne +8 (to 23)
-                0x38850000 | MatrixOffset,       // 22 addi r4, r5, matrix
-                0x7D0FF120,                      // 23 mtcrf 0xFF, r8
-                OriginalInstruction,             // 24 lfs f1, 0(r4)
-                Branch(stub + 25 * 4, sly4.addr.setCameraFunction + 4, false),
+                0x90650004,                      //  3 stw r3, 4(r5)
+                0x90850000 | GameMatrixOffset,   //  4 stw r4, game matrix(r5)
+                0x80E50000,                      //  5 lwz r7, 0(r5)
+                0x2C070000,                      //  6 cmpwi r7, 0
+                0x41820008,                      //  7 beq +8 (to 9: off)
+                0x38850000 | MatrixOffset,       //  8 addi r4, r5, matrix
+                0x7D0FF120,                      //  9 mtcrf 0xFF, r8
+                OriginalInstruction,             // 10 lfs f1, 0(r4)
+                Branch(stub + 11 * 4, sly4.addr.mainViewCameraFunction + 4, false),
             };
 
             byte[] bytes = new byte[words.Length * 4];

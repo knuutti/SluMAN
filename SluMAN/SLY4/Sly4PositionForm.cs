@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
-using System.Text;
 using System.Windows.Forms;
 using SluMAN.Memory;
 
@@ -19,9 +17,6 @@ namespace SluMAN
         // read is a network round trip, and one refresh takes about eight.
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
-
-        // How long the camera log records SetCamera calls for: a few frames.
-        private const int CameraLogCaptureMs = 300;
 
         private readonly sly4 game;
 
@@ -203,19 +198,12 @@ namespace SluMAN
             group.Controls.Add(speedUpDown);
 
             Label help = new Label();
-            help.Text = "Left stick moves, R1 / L1 go up and down. The free\n" +
-                "camera turns with the right stick.";
+            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
+                "turns with the right stick and holds the player in place.";
             help.Location = new Point(8, 46);
-            help.Size = new Size(190, 40);
+            help.Size = new Size(270, 40);
             group.Controls.Add(help);
 
-            Button logButton = new Button();
-            logButton.Text = "Camera log";
-            logButton.Location = new Point(200, 52);
-            logButton.Size = new Size(74, 23);
-            logButton.UseVisualStyleBackColor = true;
-            logButton.Click += (sender, e) => ShowCameraLog();
-            group.Controls.Add(logButton);
             return group;
         }
 
@@ -233,50 +221,6 @@ namespace SluMAN
             }
             ShowMode();
 
-        }
-
-        /// <summary>
-        /// Records SetCamera calls for a moment and shows them, grouped by caller and view, to find
-        /// which call sets the gameplay camera (see Sly4CameraHook). The camera isn't changed, so
-        /// it's safe in menus. Ctrl+C copies the message.
-        /// </summary>
-        private void ShowCameraLog()
-        {
-            try
-            {
-                Dictionary<string, int> counts = new Dictionary<string, int>();
-                uint view = game.GetMainView();
-                if (view == 0)
-                {
-                    statusLine.Error("The game has no camera yet.");
-                    return;
-                }
-                foreach (uint[] entry in game.cameraHook.Capture(view, CameraLogCaptureMs))
-                {
-                    string key = $"caller {entry[0]:X8}  view {entry[1]:X8}";
-                    int count;
-                    counts.TryGetValue(key, out count);
-                    counts[key] = count + 1;
-                }
-                if (counts.Count == 0)
-                {
-                    statusLine.Error("No camera calls were logged. On RPCS3, the PPU decoder has to be Interpreter (static).");
-                    return;
-                }
-
-                StringBuilder text = new StringBuilder();
-                text.AppendLine($"Main view (gm + 0x128168): {view:X8}");
-                text.AppendLine();
-                foreach (KeyValuePair<string, int> pair in counts)
-                {
-                    text.AppendLine($"{pair.Key}  x{pair.Value}");
-                }
-                MessageBox.Show(this, text.ToString(), "SetCamera calls (last " + Sly4CameraHook.LogEntries + ")");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't read the camera log: {ex.Message}");
-            }
         }
 
         private void ShowMode()

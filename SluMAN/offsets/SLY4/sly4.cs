@@ -545,12 +545,18 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// A view's camera matrix as 16 floats in 4 rows: the camera's X, Y and Z axes go down the
-        /// first three columns, and the last row is its position.
+        /// A view's camera matrix as 16 floats: the camera's X, Y and Z axes, then its position,
+        /// each with a W value.
         /// </summary>
         public float[] ReadCameraMatrix(uint view)
         {
-            byte[] bytes = api.ReadMemory(pid, view + addr.viewCameraMatrixOffset, Sly4CameraHook.MatrixSize);
+            return ReadMatrix(view + addr.viewCameraMatrixOffset);
+        }
+
+        /// <summary>A camera matrix at an address, laid out as ReadCameraMatrix's.</summary>
+        public float[] ReadMatrix(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, Sly4CameraHook.MatrixSize);
             float[] matrix = new float[16];
             for (int i = 0; i < 16; i++)
             {

@@ -73,17 +73,18 @@ namespace SluMAN
         public uint hookCodeCave { get; private set; }
         public uint hookMailbox { get; private set; }
 
-        // Free camera: the gameplay camera's calls to SetCamera (one per camera mode) are pointed
-        // at a stub (after the code hook's in the code cave), which swaps in the matrix kept in
-        // the data area
+        // Free camera: the main render's call to the main view's camera function is pointed at a
+        // stub (after the code hook's in the code cave), which swaps in the matrix kept in the data
+        // area. SetCamera and its gameplay calls are what earlier versions hooked; they're only
+        // kept to undo that.
+        public uint mainViewCameraFunction { get; private set; }
         public uint setCameraFunction { get; private set; }
         public uint[] gameplayCameraCalls { get; private set; }
         public uint freeCameraStub { get; private set; }
         public uint freeCameraData { get; private set; }
         // The main gameplay view (from the game manager); its camera matrix is at the view's
-        // +viewCameraMatrixOffset: 4 rows of 4 floats, the camera's axes down the first three
-        // columns and its position in the last row
-        public uint mainViewOffset { get; private set; }
+        // +viewCameraMatrixOffset: the camera's X, Y and Z axes, then its position, as 4 floats
+        // each (the view's own matrix, the inverse, is before it)
         public uint viewCameraMatrixOffset { get; private set; }
 
         // Player offsets (from the player ref)
@@ -208,12 +209,13 @@ namespace SluMAN
                 hookCodeCave = 0xF05200,
                 hookMailbox = 0x11F8A00,
 
+                mainViewCameraFunction = 0x522630,
                 setCameraFunction = 0x5201B0,
                 gameplayCameraCalls = new uint[] { 0x2EECFC, 0x2EEFC0 },
                 freeCameraStub = 0xF05300,
                 freeCameraData = 0x11F8A40,
                 mainViewOffset = 0x128168,
-                viewCameraMatrixOffset = 0x2F0,
+                viewCameraMatrixOffset = 0x330,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,

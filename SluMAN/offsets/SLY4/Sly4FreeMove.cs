@@ -54,8 +54,6 @@ namespace SluMAN
         private float rightSign;
         private float upSign;
         private float[] rowW;
-        // The game camera's matrix when the free camera started, handed back when it stops.
-        private byte[] gameMatrix;
 
         /// <summary>Units per second at full stick.</summary>
         public float Speed = 10f;
@@ -121,7 +119,7 @@ namespace SluMAN
             {
                 if (mode == Mode.FreeCamera)
                 {
-                    try { game.cameraHook.Disable(gameMatrix); } catch { }
+                    try { game.cameraHook.Disable(); } catch { }
                 }
                 mode = Mode.Off;
             }
@@ -143,8 +141,7 @@ namespace SluMAN
                     {
                         if (mode == Mode.FreeCamera)
                         {
-                            // Not the old matrix: a load puts the camera somewhere else anyway.
-                            try { game.cameraHook.Disable(null); } catch { }
+                            try { game.cameraHook.Disable(); } catch { }
                         }
                         mode = Mode.Off;
                     }
@@ -231,13 +228,9 @@ namespace SluMAN
 
         private void StartCamera(float[] player)
         {
-            uint view = game.GetMainView();
-            if (view == 0)
-            {
-                throw new InvalidOperationException("The game has no camera yet.");
-            }
-
-            float[] m = game.ReadCameraMatrix(view);
+            // The hook notes where the game keeps its camera's matrix, which is where the free
+            // camera starts.
+            float[] m = game.ReadMatrix(game.cameraHook.Prepare());
             cameraPosition = new float[] { m[12], m[13], m[14] };
             rowW = new float[] { m[3], m[7], m[11], m[15] };
 
@@ -257,8 +250,7 @@ namespace SluMAN
             rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
 
-            gameMatrix = MatrixBytes(m);
-            game.cameraHook.Enable(view, MatrixBytes());
+            game.cameraHook.Enable(MatrixBytes());
         }
 
         private void TickCamera(float step)
@@ -301,12 +293,12 @@ namespace SluMAN
             float[] forward = Forward();
             float[] right = RightOf(forward);
             float[] up = Cross(forward, right);
-            // The axes go down the columns (see Axis); the position is the last row.
-            float[][] axes =
+            float[][] rows =
             {
                 Scale(right, rightSign),
                 Scale(up, upSign),
                 Scale(forward, forwardSign),
+                cameraPosition,
             };
 
             byte[] bytes = new byte[Sly4CameraHook.MatrixSize];
@@ -314,19 +306,7 @@ namespace SluMAN
             {
                 for (int column = 0; column < 4; column++)
                 {
-                    float value;
-                    if (column == 3)
-                    {
-                        value = rowW[row];
-                    }
-                    else if (row == 3)
-                    {
-                        value = cameraPosition[column];
-                    }
-                    else
-                    {
-                        value = axes[column][row];
-                    }
+                    float value = column < 3 ? rows[row][column] : rowW[row];
                     byte[] word = BitConverter.GetBytes(value).Reverse().ToArray();
                     Array.Copy(word, 0, bytes, row * 16 + column * 4, 4);
                 }
@@ -334,23 +314,10 @@ namespace SluMAN
             return bytes;
         }
 
-        private static byte[] MatrixBytes(float[] m)
-        {
-            byte[] bytes = new byte[Sly4CameraHook.MatrixSize];
-            for (int i = 0; i < 16; i++)
-            {
-                Array.Copy(BitConverter.GetBytes(m[i]).Reverse().ToArray(), 0, bytes, i * 4, 4);
-            }
-            return bytes;
-        }
-
-        /// <summary>
-        /// One of the camera's axes (0 X, 1 Y, 2 Z) from the game's matrix. They go down its
-        /// columns: the rows are X, Y and Z components, and the last row is the position.
-        /// </summary>
+        /// <summary>One of the camera's axes (0 X, 1 Y, 2 Z): a row of its matrix.</summary>
         private static float[] Axis(float[] m, int axis)
         {
-            return new float[] { m[axis], m[4 + axis], m[8 + axis] };
+            return new float[] { m[axis * 4], m[axis * 4 + 1], m[axis * 4 + 2] };
         }
 
         /// <summary>The game camera's facing: its Z axis, turned towards the player.</summary>
