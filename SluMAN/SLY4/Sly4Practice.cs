@@ -167,7 +167,7 @@ namespace SluMAN
         {
             if (DateTime.Now > queuedGoalDeadline)
             {
-                statusLine.Error($"{queuedGoalJob.name} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
+                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
                 queuedGoalJob = null;
                 return;
             }
@@ -286,7 +286,7 @@ namespace SluMAN
                 }
                 if (goals.Count == 0 && reportEmpty)
                 {
-                    statusLine.Error(job == null ? "Pick a job, or start one to list its goals." : $"{job.name}'s goals aren't known.");
+                    statusLine.Error(job == null ? "Pick a job, or start one to list its goals." : $"{job.Title}'s goals aren't known.");
                 }
             }
             catch (Exception ex)
@@ -331,7 +331,7 @@ namespace SluMAN
             try
             {
                 game.StartJob(job.index, toHub, toHideout);
-                string where = toHub ? $"{job.episode}'s hub" : (toHideout ? $"{job.episode}'s hideout" : job.name);
+                string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
                 TrackGameCall($"Going to {where}.");
             }
             catch (Exception ex)
@@ -377,8 +377,8 @@ namespace SluMAN
                         queuedGoalReadySince = DateTime.MaxValue;
                     }
                     TrackGameCall(goal > 0
-                        ? $"Starting {job.name}; it warps to goal {goal + 1} once loaded."
-                        : $"Starting {job.name}.");
+                        ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
+                        : $"Starting {job.Title}.");
                 }
             }
             catch (Exception ex)

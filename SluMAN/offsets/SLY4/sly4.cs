@@ -104,6 +104,65 @@ namespace SluMAN
             { 0x2AF1211A, "System Cracker 09 Multi" },
         };
 
+        // Episode and job titles by their name key without "$" and "TitleName", from the English
+        // text in GUI/Strings_English.str in Sly4.psarc. The minigames' keys (AlterEgo01 and so on)
+        // read fine as they are, so Title spaces them out instead.
+        private static readonly Dictionary<string, string> titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Episodes
+            { "ParisPrologue", "Paris Prologue" },
+            { "Japan", "Turning Japanese" },
+            { "West", "Go West Young Raccoon" },
+            { "IceAge", "Clan of the Cave Raccoon" },
+            { "England", "Of Mice and Mechs" },
+            { "Arabia", "Forty Thieves" },
+            { "ParisEpilogue", "Paris Epilogue" },
+            { "Minigame", "Minigames" },
+            // Jobs
+            { "Prologue", "I Smell A Rat" },
+            { "PhotoOp", "Photo Op" },
+            { "Breakout", "Breakout!" },
+            { "SushiStartup", "Sushi House Startup" },
+            { "Fishy", "Something's Fishy" },
+            { "PrettyPink", "Pretty in Pinker" },
+            { "MadameGeisha", "Tiger Tail" },
+            { "SpikedSushi", "Spiked Sushi" },
+            { "OpAltSick", "Altitude Sickness" },
+            { "UnderArrest", "Under Arrest" },
+            { "JailhouseBlues", "Jailhouse Blues" },
+            { "ToothpicksVault", "Cooper for Hire" },
+            { "SaloonBug", "Saloon Bug" },
+            { "BlindDate", "Blind Date" },
+            { "JailBreak", "Jail Break" },
+            { "GrandKeyLarceny", "Grand Key Larceny" },
+            { "OperationGoldDigger", "Operation: Gold Digger" },
+            { "StoneAgeReconnaissance", "Stone Age Reconnaissance" },
+            { "CavemanCoopersRescue", "Unexpected Ties" },
+            { "GettingStronger", "Getting Stronger" },
+            { "GoingUp", "Going Up" },
+            { "HungryHungryHippo", "Starving Starving Hippo" },
+            { "IceIceBentley", "Ice Ice Bentley" },
+            { "DutyCalls", "Duty Calls" },
+            { "OperationJurassicThievery", "Operation: Jurassic Thievery" },
+            { "ShoppingSpree", "Shopping Spree" },
+            { "JugglingAct", "Juggling Act" },
+            { "CaneSwipe", "Cane Swipe" },
+            { "RobbinHoods", "Eye in the Sky" },
+            { "MechanicalMenace", "Mechanical Menace" },
+            { "ShortSupply", "Short Supply" },
+            { "ShellShocked", "Shell Shocked Heart" },
+            { "HardTarget", "Hard Target" },
+            { "OperationMousetrap", "Operation: Mousetrap" },
+            { "LostAndFound", "Lost and Found" },
+            { "SpecialDelivery", "Open Sesame" },
+            { "CrazyClimber", "Rug Rats" },
+            { "TaxiDriver", "Copy Cats" },
+            { "UpInSmoke", "Up In Smoke" },
+            { "RockAndRoll", "Heavy Metal Meltdown" },
+            { "AllRolledUp", "All Rolled Up!" },
+            { "Epilogue", "Deja Vu All Over Again!" },
+        };
+
         private const int NormalClampFreqMax = 60;
         private const int NormalClampFreqMin = 1;
         private const int SlowMotionClampFreqMax = 386;
@@ -145,12 +204,16 @@ namespace SluMAN
         public class JobEntry
         {
             public int index;
+            // Name keys, e.g. "PhotoOp" and "Japan", as Sly4Goals knows them.
             public string name;
             public string episode;
 
+            public string Title => sly4.Title(name);
+            public string EpisodeTitle => sly4.Title(episode);
+
             public override string ToString()
             {
-                return $"{episode}: {name}";
+                return $"{EpisodeTitle}: {Title}";
             }
         }
 
@@ -475,16 +538,48 @@ namespace SluMAN
             return levelHash.ToString("X8");
         }
 
-        /// <summary>The current episode's name, or null when there is none.</summary>
+        /// <summary>The current episode's title, or null when there is none.</summary>
         public string GetEpisodeName()
         {
-            return ReadEntryName(addr.currentEpisodeOffset);
+            string key = ReadEntryName(addr.currentEpisodeOffset);
+            return key == null ? null : Title(key);
         }
 
-        /// <summary>The current job's name, or null outside jobs.</summary>
+        /// <summary>The current job's title, or null outside jobs.</summary>
         public string GetJobName()
         {
-            return ReadEntryName(addr.currentJobOffset);
+            string key = ReadEntryName(addr.currentJobOffset);
+            return key == null ? null : Title(key);
+        }
+
+        /// <summary>
+        /// The English title for an episode or job name key ("Japan" is "Turning Japanese"), or
+        /// the key with spaces ("AlterEgo01" as "Alter Ego 01") when there isn't one.
+        /// </summary>
+        public static string Title(string key)
+        {
+            string title;
+            if (titles.TryGetValue(key, out title))
+            {
+                return title;
+            }
+            StringBuilder spaced = new StringBuilder(key.Length + 8);
+            for (int i = 0; i < key.Length; i++)
+            {
+                char c = key[i];
+                if (i > 0)
+                {
+                    char previous = key[i - 1];
+                    bool wordStart = char.IsUpper(c) && (char.IsLower(previous) || char.IsDigit(previous));
+                    bool numberStart = char.IsDigit(c) && char.IsLetter(previous);
+                    if (wordStart || numberStart)
+                    {
+                        spaced.Append(' ');
+                    }
+                }
+                spaced.Append(c);
+            }
+            return spaced.ToString();
         }
 
         /// <summary>

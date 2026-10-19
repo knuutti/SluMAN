@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace SluMAN
@@ -142,13 +141,13 @@ namespace SluMAN
                 TreeNode episodeNode;
                 if (!episodeNodes.TryGetValue(job.episode, out episodeNode))
                 {
-                    episodeNode = new TreeNode(Spaced(job.episode));
+                    episodeNode = new TreeNode(job.EpisodeTitle);
                     episodeNode.Tag = job.episode;
                     tree.Nodes.Add(episodeNode);
                     episodeNodes[job.episode] = episodeNode;
                 }
 
-                TreeNode jobNode = new TreeNode(Spaced(job.name));
+                TreeNode jobNode = new TreeNode(job.Title);
                 jobNode.Tag = job;
                 jobNode.ToolTipText = $"Job {job.index}: {job.name}";
                 // Filled when first expanded; the placeholder gives it the expand button.
@@ -247,7 +246,7 @@ namespace SluMAN
                 return;
             }
 
-            string name = Spaced(((sly4.JobEntry)jobNode.Tag).name);
+            string name = ((sly4.JobEntry)jobNode.Tag).Title;
             jobNode.Text = running ? name + RunningSuffix : name;
             jobNode.ForeColor = running ? CurrentColor : SystemColors.WindowText;
             if (jobNode.Parent != null)
@@ -413,28 +412,6 @@ namespace SluMAN
             {
                 practice.WarpToGoal(goal.job, goal.index);
             }
-        }
-
-        /// <summary>"IceIceBentley" as "Ice Ice Bentley", "SystemCracker01" as "System Cracker 01".</summary>
-        private static string Spaced(string name)
-        {
-            StringBuilder spaced = new StringBuilder(name.Length + 8);
-            for (int i = 0; i < name.Length; i++)
-            {
-                char c = name[i];
-                if (i > 0)
-                {
-                    char previous = name[i - 1];
-                    bool wordStart = char.IsUpper(c) && (char.IsLower(previous) || char.IsDigit(previous));
-                    bool numberStart = char.IsDigit(c) && char.IsLetter(previous);
-                    if (wordStart || numberStart)
-                    {
-                        spaced.Append(' ');
-                    }
-                }
-                spaced.Append(c);
-            }
-            return spaced.ToString();
         }
     }
 }
