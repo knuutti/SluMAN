@@ -53,9 +53,9 @@ namespace SluMAN
         private float forwardSign;
         private float rightSign;
         private float upSign;
-        // The main view's render copy, and the 4th float of each row of its view and camera
-        // matrices, which hold something else and are written back as they were.
-        private uint renderView;
+        // The main view, and the 4th float of each row of its view and camera matrices, which
+        // hold something else and are written back as they were.
+        private uint view;
         private float[] viewW;
         private float[] cameraW;
 
@@ -232,18 +232,16 @@ namespace SluMAN
 
         private void StartCamera(float[] player)
         {
-            uint view = game.GetMainView();
-            renderView = game.GetMainRenderView();
-            if (view == 0 || renderView == 0)
+            view = game.GetMainView();
+            if (view == 0)
             {
                 throw new InvalidOperationException("The game has no camera yet.");
             }
             float[] m = game.ReadCameraMatrix(view);
             cameraPosition = new float[] { m[12], m[13], m[14] };
-            float[] renderViewMatrix = game.ReadMatrix(renderView + sly4.addr.viewMatrixOffset);
-            float[] renderCamera = game.ReadMatrix(renderView + sly4.addr.viewCameraMatrixOffset);
-            viewW = new float[] { renderViewMatrix[3], renderViewMatrix[7], renderViewMatrix[11], renderViewMatrix[15] };
-            cameraW = new float[] { renderCamera[3], renderCamera[7], renderCamera[11], renderCamera[15] };
+            float[] viewMatrix = game.ReadMatrix(view + sly4.addr.viewMatrixOffset);
+            viewW = new float[] { viewMatrix[3], viewMatrix[7], viewMatrix[11], viewMatrix[15] };
+            cameraW = new float[] { m[3], m[7], m[11], m[15] };
 
             // The camera looks at the player, so the Z axis or its opposite points at them.
             float[] z = Normalize(Axis(m, 2));
@@ -312,7 +310,7 @@ namespace SluMAN
             byte[] matrices = sly4.ViewMatrices(axes, cameraPosition, viewW, cameraW);
             if (start)
             {
-                game.StartViewOverride(renderView, matrices);
+                game.StartViewOverride(view, matrices);
             }
             else
             {

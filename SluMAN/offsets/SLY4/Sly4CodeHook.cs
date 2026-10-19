@@ -7,16 +7,10 @@ namespace SluMAN
     /// Lets SluMAN call Sly 4's own functions without an SPRX. A call the game makes once per
     /// frame is redirected to a small stub written into unused code memory. The stub runs the call
     /// queued in a mailbox in unused data memory, clears it, then continues into the original
-    /// function, so game functions run on the game's own thread like the debug menu's do. It
-    /// also runs a repeating call, if one is set, every time.
-    ///
-    /// The hooked call is made while a view is rendered, after its render copy has been made and
-    /// before it's drawn, so a repeating call can change what the frame shows (see sly4's view
-    /// override).
+    /// function, so game functions run on the game's own thread like the debug menu's do.
     ///
     /// Mailbox layout: +0x0 function address (0 = nothing queued), +0x4 return value,
-    /// +0x8..+0x24 arguments r3 to r10, +0x28 the 9th argument, which goes on the stack,
-    /// +0x2C the repeating call's function (0 = none), +0x30 and +0x34 its r3 and r4.
+    /// +0x8..+0x24 arguments r3 to r10, +0x28 the 9th argument, which goes on the stack.
     ///
     /// RPCS3 only runs the patched code with the Interpreter PPU decoder; the recompilers keep
     /// running the code as it was compiled, so queued calls never run there.
@@ -25,8 +19,7 @@ namespace SluMAN
     {
         public const int MaxArguments = 9;
 
-        private const uint MailboxSize = 0x38;
-        private const uint RepeatOffset = 0x2C;
+        private const uint MailboxSize = 0x2C;
 
         // The stub's first instructions (stack frame setup), to recognise an older version of it.
         private static readonly byte[] StubPrologue = { 0xF8, 0x21, 0xFF, 0x81, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0x90 };
@@ -66,26 +59,6 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, sly4.addr.hookMailbox, ToBytes(function));
         }
 
-        /// <summary>
-        /// Calls a function with two arguments every time the hooked call is made, until
-        /// ClearRepeatingCall. The arguments are written first, so it never runs with old ones.
-        /// </summary>
-        public void SetRepeatingCall(uint function, uint r3, uint r4)
-        {
-            Install();
-            game.api.WriteMemory(game.pid, sly4.addr.hookMailbox + RepeatOffset, ToBytes(0));
-            byte[] args = new byte[8];
-            Array.Copy(ToBytes(r3), 0, args, 0, 4);
-            Array.Copy(ToBytes(r4), 0, args, 4, 4);
-            game.api.WriteMemory(game.pid, sly4.addr.hookMailbox + RepeatOffset + 4, args);
-            game.api.WriteMemory(game.pid, sly4.addr.hookMailbox + RepeatOffset, ToBytes(function));
-        }
-
-        public void ClearRepeatingCall()
-        {
-            game.api.WriteMemory(game.pid, sly4.addr.hookMailbox + RepeatOffset, ToBytes(0));
-        }
-
         public bool IsCallPending()
         {
             return ReadUInt(sly4.addr.hookMailbox) != 0;
@@ -105,7 +78,6 @@ namespace SluMAN
                 game.api.WriteMemory(game.pid, sly4.addr.hookCallSite, ToBytes(OriginalCall()));
                 // A call queued now would otherwise run the next time the hook is installed.
                 CancelCall();
-                ClearRepeatingCall();
             }
         }
 
@@ -179,7 +151,7 @@ namespace SluMAN
             uint high = ((mailbox + 0x8000) >> 16) & 0xFFFF;
             uint low = mailbox & 0xFFFF;
 
-            uint[] words = new uint[39];
+            uint[] words = new uint[29];
             words[0] = 0xF821FF81;           // stdu r1, -0x80(r1)
             words[1] = 0x7C0802A6;           // mflr r0
             words[2] = 0xF8010090;           // std r0, 0x90(r1)
@@ -187,7 +159,7 @@ namespace SluMAN
             words[4] = 0x396B0000 | low;     // addi r11, r11, mailbox@l
             words[5] = 0x818B0000;           // lwz r12, 0(r11)
             words[6] = 0x2C0C0000;           // cmpwi r12, 0
-            words[7] = 0x41820048;           // beq +0x48 (to the repeating call)
+            words[7] = 0x41820048;           // beq +0x48 (to the epilogue)
             for (uint reg = 3; reg <= 10; reg++)
             {
                 // lwz rN, 8 + (N - 3) * 4(r11)
@@ -203,21 +175,10 @@ namespace SluMAN
             words[22] = 0x906B0004;          // stw r3, 4(r11)
             words[23] = 0x38000000;          // li r0, 0
             words[24] = 0x900B0000;          // stw r0, 0(r11)
-            // The repeating call, if one is set.
-            words[25] = 0x3D600000 | high;   // lis r11, mailbox@ha
-            words[26] = 0x396B0000 | low;    // addi r11, r11, mailbox@l
-            words[27] = 0x818B0000 | RepeatOffset;       // lwz r12, repeat(r11)
-            words[28] = 0x2C0C0000;          // cmpwi r12, 0
-            words[29] = 0x41820018;          // beq +0x18 (to the epilogue)
-            words[30] = 0x806B0000 | (RepeatOffset + 4); // lwz r3, repeat + 4(r11)
-            words[31] = 0x808B0000 | (RepeatOffset + 8); // lwz r4, repeat + 8(r11)
-            words[32] = 0x7D8903A6;          // mtctr r12
-            words[33] = 0x4E800421;          // bctrl
-            words[34] = 0x60000000;          // nop
-            words[35] = 0xE8010090;          // ld r0, 0x90(r1)
-            words[36] = 0x7C0803A6;          // mtlr r0
-            words[37] = 0x38210080;          // addi r1, r1, 0x80
-            words[38] = Branch(sly4.addr.hookCodeCave + 38 * 4, sly4.addr.hookCallTarget, false);
+            words[25] = 0xE8010090;          // ld r0, 0x90(r1)
+            words[26] = 0x7C0803A6;          // mtlr r0
+            words[27] = 0x38210080;          // addi r1, r1, 0x80
+            words[28] = Branch(sly4.addr.hookCodeCave + 28 * 4, sly4.addr.hookCallTarget, false);
 
             byte[] stub = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)

@@ -80,15 +80,16 @@ namespace SluMAN
         public uint mainViewOffset { get; private set; }
         public uint viewMatrixOffset { get; private set; }
         public uint viewCameraMatrixOffset { get; private set; }
-        // The view's render copy, made from it each frame for drawing
-        public uint viewRenderCopyOffset { get; private set; }
 
-        // View override (free camera): a routine in the code cave, run every frame by the code
-        // hook while the main view is drawn, copies the matrices kept in the data area (the view
-        // matrix, then the camera matrix) into the render copy and has CalcRenderMatrices rebuild
-        // the rest from them
+        // View override (free camera): each frame the game rebuilds each view's render matrices
+        // and then copies the view for drawing; that copy call is pointed at a stub (after the
+        // code hook's in the code cave) which, for the main view, first copies in the matrices
+        // kept in the data area (the view matrix, then the camera matrix) and rebuilds the render
+        // matrices from them
+        public uint viewUpdateCopyCall { get; private set; }
+        public uint viewCopyFunction { get; private set; }
         public uint calcRenderMatricesFunction { get; private set; }
-        public uint viewOverrideRoutine { get; private set; }
+        public uint viewOverrideStub { get; private set; }
         public uint viewOverrideData { get; private set; }
 
         // Player offsets (from the player ref)
@@ -216,9 +217,10 @@ namespace SluMAN
                 mainViewOffset = 0x128168,
                 viewCameraMatrixOffset = 0x330,
                 viewMatrixOffset = 0x2F0,
-                viewRenderCopyOffset = 0x2A0,
+                viewUpdateCopyCall = 0x512078,
+                viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,
-                viewOverrideRoutine = 0xF05300,
+                viewOverrideStub = 0xF05300,
                 viewOverrideData = 0x11F8A40,
 
                 playerFlagsOffset = 0xC0,

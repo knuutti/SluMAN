@@ -551,13 +551,6 @@ namespace SluMAN
             return ReadMatrix(view + addr.viewCameraMatrixOffset);
         }
 
-        /// <summary>The main view's render copy, or 0 before the game has one.</summary>
-        public uint GetMainRenderView()
-        {
-            uint view = GetMainView();
-            return view == 0 ? 0 : ReadUInt(view + addr.viewRenderCopyOffset);
-        }
-
         /// <summary>
         /// The view and camera matrices for a camera, as the view override takes them: the view
         /// matrix (the camera's inverse), then the camera matrix (its X, Y and Z axes, then its
@@ -596,51 +589,107 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Starts drawing the main view from the given matrices (see ViewMatrices) every frame:
-        /// the code hook runs a routine while the view is drawn, after the game has made its
-        /// render copy, that copies them in and rebuilds the render matrices. The game's camera
-        /// can't overwrite them in between, so nothing flickers.
+        /// Starts drawing the main view from the given matrices (see ViewMatrices) every frame.
+        /// The game rebuilds each view's render matrices and then copies the view for drawing;
+        /// that copy call is pointed at a stub which, for the main view, first copies the matrices
+        /// in and rebuilds the render matrices from them. That's after the game's camera has
+        /// written the view, so it can't overwrite them, and before anything is drawn.
         /// </summary>
-        public void StartViewOverride(uint renderView, byte[] matrices)
+        public void StartViewOverride(uint view, byte[] matrices)
         {
+            uint call = addr.viewUpdateCopyCall;
+            uint original = Branch(call, addr.viewCopyFunction, true);
+            uint hooked = Branch(call, addr.viewOverrideStub, true);
+            uint instruction = ReadUInt(call);
+            if (instruction != original && instruction != hooked)
+            {
+                throw new InvalidOperationException("The game's camera code isn't what SluMAN expects, so the free camera isn't available on this version.");
+            }
+
+            // Off while the stub is written, then on once the matrices are in.
+            byte[] header = new byte[0x10];
+            Array.Copy(BitConverter.GetBytes(view).Reverse().ToArray(), 0, header, 4, 4);
+            api.WriteMemory(pid, addr.viewOverrideData, header);
             SetViewOverride(matrices);
 
-            uint routine = addr.viewOverrideRoutine;
+            byte[] stub = ViewOverrideStub();
+            api.WriteMemory(pid, addr.viewOverrideStub, stub);
+            if (!api.ReadMemory(pid, addr.viewOverrideStub, (uint)stub.Length).SequenceEqual(stub))
+            {
+                throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
+            }
+            api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
+            api.WriteMemory(pid, addr.viewOverrideData, BitConverter.GetBytes(1u).Reverse().ToArray());
+        }
+
+        public void SetViewOverride(byte[] matrices)
+        {
+            api.WriteMemory(pid, addr.viewOverrideData + 0x10, matrices);
+        }
+
+        /// <summary>Lets the game draw its own camera again, from the next frame.</summary>
+        public void StopViewOverride()
+        {
+            api.WriteMemory(pid, addr.viewOverrideData, new byte[4]);
+            uint call = addr.viewUpdateCopyCall;
+            if (ReadUInt(call) == Branch(call, addr.viewOverrideStub, true))
+            {
+                api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
+            }
+        }
+
+        /// <summary>
+        /// The view override's stub, called instead of the view copy with the view in r3. Data:
+        /// +0x0 on, +0x4 the main view, +0x10 its view matrix then its camera matrix (0x80 bytes,
+        /// the view's +0x2F0 to +0x36F).
+        /// </summary>
+        private byte[] ViewOverrideStub()
+        {
+            uint stub = addr.viewOverrideStub;
+            uint data = addr.viewOverrideData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
             uint[] words =
             {
-                0x38C00020,             // li r6, 32 (words)
-                0x7CC903A6,             // mtctr r6
-                0x38A302EC,             // addi r5, r3, view matrix - 4
-                0x3884FFFC,             // addi r4, r4, -4
-                0x84E40004,             // lwzu r7, 4(r4)
-                0x94E50004,             // stwu r7, 4(r5)
-                0x4200FFF8,             // bdnz -8
-                0x38800001,             // li r4, 1 (rebuild even if not marked)
-                // b CalcRenderMatrices (r3 is still the view; it returns to the hook)
-                0x48000000 | ((addr.calcRenderMatricesFunction - (routine + 8 * 4)) & 0x3FFFFFC),
+                0xF821FF81,             //  0 stdu r1, -0x80(r1)
+                0x7C0802A6,             //  1 mflr r0
+                0xF8010090,             //  2 std r0, 0x90(r1)
+                0xF8610070,             //  3 std r3, 0x70(r1)
+                0x3D600000 | high,      //  4 lis r11, data@ha
+                0x396B0000 | low,       //  5 addi r11, r11, data@l
+                0x818B0000,             //  6 lwz r12, 0(r11)
+                0x2C0C0000,             //  7 cmpwi r12, 0
+                0x41820034,             //  8 beq +0x34 (to 21: off)
+                0x818B0004,             //  9 lwz r12, 4(r11)
+                0x7C036000,             // 10 cmpw r3, r12
+                0x40820028,             // 11 bne +0x28 (to 21: another view)
+                0x38C00020,             // 12 li r6, 32 (words)
+                0x7CC903A6,             // 13 mtctr r6
+                0x38A302EC,             // 14 addi r5, r3, view matrix - 4
+                0x388B000C,             // 15 addi r4, r11, matrices - 4
+                0x84E40004,             // 16 lwzu r7, 4(r4)
+                0x94E50004,             // 17 stwu r7, 4(r5)
+                0x4200FFF8,             // 18 bdnz -8
+                0x38800001,             // 19 li r4, 1 (rebuild even if not marked)
+                Branch(stub + 20 * 4, addr.calcRenderMatricesFunction, true),
+                0xE8610070,             // 21 ld r3, 0x70(r1)
+                0xE8010090,             // 22 ld r0, 0x90(r1)
+                0x7C0803A6,             // 23 mtlr r0
+                0x38210080,             // 24 addi r1, r1, 0x80
+                Branch(stub + 25 * 4, addr.viewCopyFunction, false),
             };
             byte[] code = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)
             {
                 Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
             }
-            api.WriteMemory(pid, routine, code);
-            if (!api.ReadMemory(pid, routine, (uint)code.Length).SequenceEqual(code))
-            {
-                throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
-            }
-            codeHook.SetRepeatingCall(routine, renderView, addr.viewOverrideData);
+            return code;
         }
 
-        public void SetViewOverride(byte[] matrices)
+        private static uint Branch(uint from, uint to, bool link)
         {
-            api.WriteMemory(pid, addr.viewOverrideData, matrices);
-        }
-
-        /// <summary>Lets the game draw its own camera again, from the next frame.</summary>
-        public void StopViewOverride()
-        {
-            codeHook.ClearRepeatingCall();
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
         }
 
         /// <summary>Where a view keeps its camera's position: the camera matrix's last row.</summary>
@@ -1227,6 +1276,7 @@ namespace SluMAN
         public void RemoveCodeHook()
         {
             codeHook.Uninstall();
+            StopViewOverride();
         }
 
         public bool IsJobFailed()
