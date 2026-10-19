@@ -128,6 +128,8 @@ namespace SluMAN
         {
             categoryTree.Location = new Point(8, 38);
             categoryTree.Size = new Size(210, 420);
+            // The tree and grid grow with the tab when the Practice window has a fixed size.
+            categoryTree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             categoryTree.HideSelection = false;
             categoryTree.AfterSelect += categoryTree_AfterSelect;
             Controls.Add(categoryTree);
@@ -137,6 +139,7 @@ namespace SluMAN
         {
             grid.Location = new Point(224, 38);
             grid.Size = new Size(500, 420);
+            grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grid.AllowUserToAddRows = false;
             grid.AllowUserToDeleteRows = false;
             grid.AllowUserToResizeRows = false;
@@ -153,6 +156,9 @@ namespace SluMAN
             nameColumn.HeaderText = "Name";
             nameColumn.ReadOnly = true;
             nameColumn.Width = 250;
+            // Takes whatever width the other columns leave.
+            nameColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            nameColumn.MinimumWidth = 120;
             nameColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
             grid.Columns.Add(nameColumn);
 

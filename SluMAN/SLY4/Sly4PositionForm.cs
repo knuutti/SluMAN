@@ -56,9 +56,10 @@ namespace SluMAN
 
             GroupBox liveGroupBox = BuildLiveGroup();
             GroupBox teleportGroupBox = BuildTeleportGroup(liveGroupBox.Bottom + 6);
-            GroupBox flyGroupBox = BuildFlyGroup(teleportGroupBox.Bottom + 6);
-            GroupBox coinsGroupBox = BuildCoinsGroup(flyGroupBox.Bottom + 6);
-            ClientSize = new Size(liveGroupBox.Right + 8, coinsGroupBox.Bottom + 8);
+            // Fly and coins in a second column.
+            GroupBox flyGroupBox = BuildFlyGroup(new Point(liveGroupBox.Right + 8, liveGroupBox.Top));
+            GroupBox coinsGroupBox = BuildCoinsGroup(new Point(flyGroupBox.Left, flyGroupBox.Bottom + 6));
+            ClientSize = new Size(flyGroupBox.Right + 8, teleportGroupBox.Bottom + 8);
             statusLine = new StatusLine(this, false);
 
             // Fly mode keeps running when this tab is left or closed; Sly4Practice stops it.
@@ -168,11 +169,11 @@ namespace SluMAN
             return group;
         }
 
-        private GroupBox BuildFlyGroup(int top)
+        private GroupBox BuildFlyGroup(Point location)
         {
             GroupBox group = new GroupBox();
             group.Text = "Fly";
-            group.Location = new Point(8, top);
+            group.Location = location;
             group.Size = new Size(284, 78);
             Controls.Add(group);
 
@@ -205,11 +206,11 @@ namespace SluMAN
             return group;
         }
 
-        private GroupBox BuildCoinsGroup(int top)
+        private GroupBox BuildCoinsGroup(Point location)
         {
             GroupBox group = new GroupBox();
             group.Text = "Coins";
-            group.Location = new Point(8, top);
+            group.Location = location;
             group.Size = new Size(284, 50);
             Controls.Add(group);
 

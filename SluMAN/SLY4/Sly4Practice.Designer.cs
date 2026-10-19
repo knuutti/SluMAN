@@ -90,7 +90,7 @@ namespace SluMAN
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Padding = new System.Windows.Forms.Padding(4, 2, 0, 2);
-            this.menuStrip1.Size = new System.Drawing.Size(300, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(660, 24);
             this.menuStrip1.TabIndex = 0;
             this.menuStrip1.Text = "menuStrip1";
             //
@@ -162,7 +162,7 @@ namespace SluMAN
             this.gameGroupBox.Controls.Add(this.retryCheckpointButton);
             this.gameGroupBox.Location = new System.Drawing.Point(12, 32);
             this.gameGroupBox.Name = "gameGroupBox";
-            this.gameGroupBox.Size = new System.Drawing.Size(276, 122);
+            this.gameGroupBox.Size = new System.Drawing.Size(312, 122);
             this.gameGroupBox.TabIndex = 0;
             this.gameGroupBox.TabStop = false;
             this.gameGroupBox.Text = "Game";
@@ -253,13 +253,13 @@ namespace SluMAN
             this.goalValueLabel.AutoEllipsis = true;
             this.goalValueLabel.Location = new System.Drawing.Point(74, 100);
             this.goalValueLabel.Name = "goalValueLabel";
-            this.goalValueLabel.Size = new System.Drawing.Size(196, 13);
+            this.goalValueLabel.Size = new System.Drawing.Size(232, 13);
             this.goalValueLabel.TabIndex = 9;
             this.goalValueLabel.Text = "-";
             //
             // retryCheckpointButton
             //
-            this.retryCheckpointButton.Location = new System.Drawing.Point(206, 75);
+            this.retryCheckpointButton.Location = new System.Drawing.Point(242, 75);
             this.retryCheckpointButton.Name = "retryCheckpointButton";
             this.retryCheckpointButton.Size = new System.Drawing.Size(60, 22);
             this.retryCheckpointButton.TabIndex = 10;
@@ -274,7 +274,7 @@ namespace SluMAN
             this.savedPositionsGroupBox.Controls.Add(this.loadPosButton);
             this.savedPositionsGroupBox.Location = new System.Drawing.Point(12, 160);
             this.savedPositionsGroupBox.Name = "savedPositionsGroupBox";
-            this.savedPositionsGroupBox.Size = new System.Drawing.Size(276, 54);
+            this.savedPositionsGroupBox.Size = new System.Drawing.Size(312, 54);
             this.savedPositionsGroupBox.TabIndex = 1;
             this.savedPositionsGroupBox.TabStop = false;
             this.savedPositionsGroupBox.Text = "Saved Positions";
@@ -285,15 +285,15 @@ namespace SluMAN
             this.slotComboBox.FormattingEnabled = true;
             this.slotComboBox.Location = new System.Drawing.Point(10, 20);
             this.slotComboBox.Name = "slotComboBox";
-            this.slotComboBox.Size = new System.Drawing.Size(80, 21);
+            this.slotComboBox.Size = new System.Drawing.Size(92, 21);
             this.slotComboBox.TabIndex = 0;
             this.slotComboBox.SelectedIndexChanged += new System.EventHandler(this.slotComboBox_SelectedIndexChanged);
             //
             // savePosButton
             //
-            this.savePosButton.Location = new System.Drawing.Point(96, 19);
+            this.savePosButton.Location = new System.Drawing.Point(108, 19);
             this.savePosButton.Name = "savePosButton";
-            this.savePosButton.Size = new System.Drawing.Size(82, 23);
+            this.savePosButton.Size = new System.Drawing.Size(94, 23);
             this.savePosButton.TabIndex = 1;
             this.savePosButton.Text = "Save";
             this.savePosButton.UseVisualStyleBackColor = true;
@@ -301,9 +301,9 @@ namespace SluMAN
             //
             // loadPosButton
             //
-            this.loadPosButton.Location = new System.Drawing.Point(184, 19);
+            this.loadPosButton.Location = new System.Drawing.Point(208, 19);
             this.loadPosButton.Name = "loadPosButton";
-            this.loadPosButton.Size = new System.Drawing.Size(82, 23);
+            this.loadPosButton.Size = new System.Drawing.Size(94, 23);
             this.loadPosButton.TabIndex = 2;
             this.loadPosButton.Text = "Load";
             this.loadPosButton.UseVisualStyleBackColor = true;
@@ -317,9 +317,9 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.toHideoutButton);
             this.warpGroupBox.Controls.Add(this.goalComboBox);
             this.warpGroupBox.Controls.Add(this.warpToGoalButton);
-            this.warpGroupBox.Location = new System.Drawing.Point(12, 220);
+            this.warpGroupBox.Location = new System.Drawing.Point(336, 32);
             this.warpGroupBox.Name = "warpGroupBox";
-            this.warpGroupBox.Size = new System.Drawing.Size(276, 106);
+            this.warpGroupBox.Size = new System.Drawing.Size(312, 106);
             this.warpGroupBox.TabIndex = 2;
             this.warpGroupBox.TabStop = false;
             this.warpGroupBox.Text = "Job";
@@ -331,7 +331,7 @@ namespace SluMAN
             this.jobComboBox.Location = new System.Drawing.Point(10, 20);
             this.jobComboBox.MaxDropDownItems = 20;
             this.jobComboBox.Name = "jobComboBox";
-            this.jobComboBox.Size = new System.Drawing.Size(256, 21);
+            this.jobComboBox.Size = new System.Drawing.Size(292, 21);
             this.jobComboBox.TabIndex = 0;
             this.jobComboBox.DropDown += new System.EventHandler(this.jobComboBox_DropDown);
             this.jobComboBox.SelectedIndexChanged += new System.EventHandler(this.jobComboBox_SelectedIndexChanged);
@@ -340,7 +340,7 @@ namespace SluMAN
             //
             this.startJobButton.Location = new System.Drawing.Point(10, 46);
             this.startJobButton.Name = "startJobButton";
-            this.startJobButton.Size = new System.Drawing.Size(82, 23);
+            this.startJobButton.Size = new System.Drawing.Size(94, 23);
             this.startJobButton.TabIndex = 1;
             this.startJobButton.Text = "Start Job";
             this.startJobButton.UseVisualStyleBackColor = true;
@@ -348,9 +348,9 @@ namespace SluMAN
             //
             // toHubButton
             //
-            this.toHubButton.Location = new System.Drawing.Point(97, 46);
+            this.toHubButton.Location = new System.Drawing.Point(109, 46);
             this.toHubButton.Name = "toHubButton";
-            this.toHubButton.Size = new System.Drawing.Size(82, 23);
+            this.toHubButton.Size = new System.Drawing.Size(94, 23);
             this.toHubButton.TabIndex = 2;
             this.toHubButton.Text = "To Hub";
             this.toHubButton.UseVisualStyleBackColor = true;
@@ -358,9 +358,9 @@ namespace SluMAN
             //
             // toHideoutButton
             //
-            this.toHideoutButton.Location = new System.Drawing.Point(184, 46);
+            this.toHideoutButton.Location = new System.Drawing.Point(208, 46);
             this.toHideoutButton.Name = "toHideoutButton";
-            this.toHideoutButton.Size = new System.Drawing.Size(82, 23);
+            this.toHideoutButton.Size = new System.Drawing.Size(94, 23);
             this.toHideoutButton.TabIndex = 3;
             this.toHideoutButton.Text = "To Hideout";
             this.toHideoutButton.UseVisualStyleBackColor = true;
@@ -374,15 +374,15 @@ namespace SluMAN
             this.goalComboBox.Location = new System.Drawing.Point(10, 76);
             this.goalComboBox.MaxDropDownItems = 20;
             this.goalComboBox.Name = "goalComboBox";
-            this.goalComboBox.Size = new System.Drawing.Size(169, 21);
+            this.goalComboBox.Size = new System.Drawing.Size(193, 21);
             this.goalComboBox.TabIndex = 4;
             this.goalComboBox.DropDown += new System.EventHandler(this.goalComboBox_DropDown);
             //
             // warpToGoalButton
             //
-            this.warpToGoalButton.Location = new System.Drawing.Point(184, 75);
+            this.warpToGoalButton.Location = new System.Drawing.Point(208, 75);
             this.warpToGoalButton.Name = "warpToGoalButton";
-            this.warpToGoalButton.Size = new System.Drawing.Size(82, 23);
+            this.warpToGoalButton.Size = new System.Drawing.Size(94, 23);
             this.warpToGoalButton.TabIndex = 5;
             this.warpToGoalButton.Text = "Warp to Goal";
             this.warpToGoalButton.UseVisualStyleBackColor = true;
@@ -394,9 +394,9 @@ namespace SluMAN
             this.levelGroupBox.Controls.Add(this.loadLevelButton);
             this.levelGroupBox.Controls.Add(this.characterComboBox);
             this.levelGroupBox.Controls.Add(this.spawnPointComboBox);
-            this.levelGroupBox.Location = new System.Drawing.Point(12, 332);
+            this.levelGroupBox.Location = new System.Drawing.Point(336, 144);
             this.levelGroupBox.Name = "levelGroupBox";
-            this.levelGroupBox.Size = new System.Drawing.Size(276, 107);
+            this.levelGroupBox.Size = new System.Drawing.Size(312, 107);
             this.levelGroupBox.TabIndex = 3;
             this.levelGroupBox.TabStop = false;
             this.levelGroupBox.Text = "Load Level";
@@ -408,14 +408,14 @@ namespace SluMAN
             this.levelComboBox.Location = new System.Drawing.Point(10, 20);
             this.levelComboBox.MaxDropDownItems = 20;
             this.levelComboBox.Name = "levelComboBox";
-            this.levelComboBox.Size = new System.Drawing.Size(169, 21);
+            this.levelComboBox.Size = new System.Drawing.Size(193, 21);
             this.levelComboBox.TabIndex = 0;
             //
             // loadLevelButton
             //
-            this.loadLevelButton.Location = new System.Drawing.Point(184, 19);
+            this.loadLevelButton.Location = new System.Drawing.Point(208, 19);
             this.loadLevelButton.Name = "loadLevelButton";
-            this.loadLevelButton.Size = new System.Drawing.Size(82, 23);
+            this.loadLevelButton.Size = new System.Drawing.Size(94, 23);
             this.loadLevelButton.TabIndex = 1;
             this.loadLevelButton.Text = "Load";
             this.loadLevelButton.UseVisualStyleBackColor = true;
@@ -428,7 +428,7 @@ namespace SluMAN
             this.characterComboBox.Location = new System.Drawing.Point(10, 49);
             this.characterComboBox.MaxDropDownItems = 20;
             this.characterComboBox.Name = "characterComboBox";
-            this.characterComboBox.Size = new System.Drawing.Size(256, 21);
+            this.characterComboBox.Size = new System.Drawing.Size(292, 21);
             this.characterComboBox.TabIndex = 2;
             //
             // spawnPointComboBox
@@ -438,7 +438,7 @@ namespace SluMAN
             this.spawnPointComboBox.Location = new System.Drawing.Point(10, 78);
             this.spawnPointComboBox.MaxDropDownItems = 20;
             this.spawnPointComboBox.Name = "spawnPointComboBox";
-            this.spawnPointComboBox.Size = new System.Drawing.Size(256, 21);
+            this.spawnPointComboBox.Size = new System.Drawing.Size(292, 21);
             this.spawnPointComboBox.TabIndex = 3;
             //
             // optionsGroupBox
@@ -448,9 +448,9 @@ namespace SluMAN
             this.optionsGroupBox.Controls.Add(this.invulnerableCheckBox);
             this.optionsGroupBox.Controls.Add(this.undetectableCheckBox);
             this.optionsGroupBox.Controls.Add(this.skipCutscenesCheckBox);
-            this.optionsGroupBox.Location = new System.Drawing.Point(12, 445);
+            this.optionsGroupBox.Location = new System.Drawing.Point(12, 220);
             this.optionsGroupBox.Name = "optionsGroupBox";
-            this.optionsGroupBox.Size = new System.Drawing.Size(276, 88);
+            this.optionsGroupBox.Size = new System.Drawing.Size(312, 88);
             this.optionsGroupBox.TabIndex = 4;
             this.optionsGroupBox.TabStop = false;
             this.optionsGroupBox.Text = "Options";
@@ -480,7 +480,7 @@ namespace SluMAN
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(142, 42);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(160, 42);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
             this.undetectableCheckBox.TabIndex = 3;
@@ -502,7 +502,7 @@ namespace SluMAN
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(142, 19);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(160, 19);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
             this.alwaysOnTopCheckBox.TabIndex = 1;
@@ -518,7 +518,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 541);
+            this.ClientSize = new System.Drawing.Size(660, 554);
             this.Controls.Add(this.gameGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
             this.Controls.Add(this.warpGroupBox);

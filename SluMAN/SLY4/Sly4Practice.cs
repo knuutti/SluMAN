@@ -126,7 +126,8 @@ namespace SluMAN
             inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
             toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
 
-            practiceTabs = new PracticeTabs(this, "Practice");
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(FreeMove));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));

@@ -50,6 +50,7 @@ namespace SluMAN
             // registerAddressTextBox
             //
             this.registerAddressTextBox.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.registerAddressTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.registerAddressTextBox.Location = new System.Drawing.Point(12, 496);
             this.registerAddressTextBox.MaximumSize = new System.Drawing.Size(150, 20);
             this.registerAddressTextBox.MinimumSize = new System.Drawing.Size(150, 20);
@@ -68,6 +69,7 @@ namespace SluMAN
             "Byte",
             "Float",
             "Pointer"});
+            this.registerAddressTypeCombo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.registerAddressTypeCombo.Location = new System.Drawing.Point(166, 496);
             this.registerAddressTypeCombo.MaximumSize = new System.Drawing.Size(77, 0);
             this.registerAddressTypeCombo.MinimumSize = new System.Drawing.Size(77, 0);
@@ -78,6 +80,7 @@ namespace SluMAN
             //
             // addMemoryWatchButton
             //
+            this.addMemoryWatchButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.addMemoryWatchButton.Location = new System.Drawing.Point(247, 495);
             this.addMemoryWatchButton.MaximumSize = new System.Drawing.Size(75, 23);
             this.addMemoryWatchButton.MinimumSize = new System.Drawing.Size(75, 23);
@@ -90,6 +93,7 @@ namespace SluMAN
             //
             // addFunctionButton
             //
+            this.addFunctionButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.addFunctionButton.Location = new System.Drawing.Point(326, 495);
             this.addFunctionButton.Name = "addFunctionButton";
             this.addFunctionButton.Size = new System.Drawing.Size(90, 23);
@@ -101,7 +105,8 @@ namespace SluMAN
             // watchedMemoryAddressesListView
             //
             this.watchedMemoryAddressesListView.AllowColumnReorder = true;
-            this.watchedMemoryAddressesListView.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            this.watchedMemoryAddressesListView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.watchedMemoryAddressesListView.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.nameColumnHeader,
@@ -115,8 +120,6 @@ namespace SluMAN
             this.watchedMemoryAddressesListView.HideSelection = false;
             this.watchedMemoryAddressesListView.LabelEdit = true;
             this.watchedMemoryAddressesListView.Location = new System.Drawing.Point(12, 26);
-            this.watchedMemoryAddressesListView.MaximumSize = new System.Drawing.Size(404, 448);
-            this.watchedMemoryAddressesListView.MinimumSize = new System.Drawing.Size(308, 448);
             this.watchedMemoryAddressesListView.Name = "watchedMemoryAddressesListView";
             this.watchedMemoryAddressesListView.Size = new System.Drawing.Size(404, 448);
             this.watchedMemoryAddressesListView.TabIndex = 3;
@@ -145,6 +148,7 @@ namespace SluMAN
             //
             // saveWatchListButton
             //
+            this.saveWatchListButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.saveWatchListButton.Location = new System.Drawing.Point(124, 535);
             this.saveWatchListButton.Name = "saveWatchListButton";
             this.saveWatchListButton.Size = new System.Drawing.Size(90, 21);
@@ -155,6 +159,7 @@ namespace SluMAN
             //
             // hexViewerButton
             //
+            this.hexViewerButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.hexViewerButton.Location = new System.Drawing.Point(326, 535);
             this.hexViewerButton.Name = "hexViewerButton";
             this.hexViewerButton.Size = new System.Drawing.Size(90, 21);
@@ -166,6 +171,7 @@ namespace SluMAN
             // addressLabel
             //
             this.addressLabel.AutoSize = true;
+            this.addressLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.addressLabel.Location = new System.Drawing.Point(9, 480);
             this.addressLabel.Name = "addressLabel";
             this.addressLabel.Size = new System.Drawing.Size(101, 13);
@@ -175,6 +181,7 @@ namespace SluMAN
             // typeLabel
             //
             this.typeLabel.AutoSize = true;
+            this.typeLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.typeLabel.Location = new System.Drawing.Point(163, 480);
             this.typeLabel.Name = "typeLabel";
             this.typeLabel.Size = new System.Drawing.Size(34, 13);
@@ -184,6 +191,7 @@ namespace SluMAN
             // savedWatchlistsComboBox
             //
             this.savedWatchlistsComboBox.FormattingEnabled = true;
+            this.savedWatchlistsComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.savedWatchlistsComboBox.Location = new System.Drawing.Point(12, 535);
             this.savedWatchlistsComboBox.Name = "savedWatchlistsComboBox";
             this.savedWatchlistsComboBox.Size = new System.Drawing.Size(106, 21);
@@ -193,6 +201,7 @@ namespace SluMAN
             // watchlistsLabel
             //
             this.watchlistsLabel.AutoSize = true;
+            this.watchlistsLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.watchlistsLabel.Location = new System.Drawing.Point(9, 519);
             this.watchlistsLabel.Name = "watchlistsLabel";
             this.watchlistsLabel.Size = new System.Drawing.Size(205, 13);

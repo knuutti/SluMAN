@@ -123,6 +123,8 @@ namespace SluMAN
             watchedMemoryAddressesListView.ItemCheck += watchedMemoryAddressesListView_ItemCheck;
             watchedMemoryAddressesListView.KeyDown += watchedMemoryAddressesListView_KeyDown;
             watchedMemoryAddressesListView.ContextMenuStrip = rowMenu;
+            // In a fixed-size Practice window the list grows with the tab; the name column takes the room.
+            watchedMemoryAddressesListView.Resize += (sender, e) => FitNameColumn();
             rowMenu.Opening += rowMenu_Opening;
             GameReconnect.GameReconnected += GameReconnect_GameReconnected;
 
@@ -138,6 +140,12 @@ namespace SluMAN
             functionTimer.Interval = FunctionUpdateIntervalMs;
             functionTimer.Tick += functionTimer_Tick;
             functionTimer.Start();
+        }
+
+        private void FitNameColumn()
+        {
+            int others = AddressColumnHeader.Width + typeColumnHeader.Width + ValueColumnHeader.Width;
+            nameColumnHeader.Width = Math.Max(150, watchedMemoryAddressesListView.ClientSize.Width - others);
         }
 
         /// <summary>Reads a 4-byte big-endian pointer.</summary>

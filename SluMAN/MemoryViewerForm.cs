@@ -16,7 +16,8 @@ namespace SluMAN
     public class MemoryViewerForm : Form
     {
         private const int Columns = 16;
-        private const int Rows = 32;
+        // 24 rows keep the viewer inside a fixed-size Practice window.
+        private const int Rows = 24;
         private const int ViewSize = Columns * Rows;
         private const int RefreshIntervalMs = 200;
         private const int ChangedHighlightMs = 1000;
