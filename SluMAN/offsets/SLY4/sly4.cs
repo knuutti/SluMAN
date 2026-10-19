@@ -15,6 +15,7 @@ namespace SluMAN
             // The names are from Scripts/Sly4Levels.xmb in Sly4.psarc; the hash is of the name as
             // written there (e.g. "IceAge HuntingGrounds").
             { 0xE4927E12, "Main Menu" },
+            // "System Cracker01" in the level list, but it's where the Paris Prologue's sewers play.
             { 0x3B677F57, "Paris Sewers" },
             { 0x46C660F7, "Paris Hideout" },
             { 0xA0355EFB, "Paris Streets" },
@@ -90,7 +91,6 @@ namespace SluMAN
             { 0x1EA08DDF, "Alter Ego 07d Multi" },
             { 0x40C17A4B, "Alter Ego 07x Multi" },
             { 0x264C560B, "Alter Ego 08" },
-            { 0x3B677F57, "System Cracker 01" },
             { 0x3B677F58, "System Cracker 02" },
             { 0x3B677F59, "System Cracker 03" },
             { 0x3B677F5A, "System Cracker 04" },
