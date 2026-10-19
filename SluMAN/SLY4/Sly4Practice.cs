@@ -16,6 +16,7 @@ namespace SluMAN
         // How long a queued warp may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
+        private const string JobsTab = "Jobs";
         private const string TunablesTab = "Tunables";
 
         private StatusLine statusLine;
@@ -82,6 +83,7 @@ namespace SluMAN
             refreshTimer.Start();
 
             practiceTabs = new PracticeTabs(this, "Practice");
+            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
         }
 
@@ -299,7 +301,15 @@ namespace SluMAN
                 statusLine.Error("Pick a job first.");
                 return;
             }
+            StartJob(job, toHub, toHideout);
+        }
 
+        /// <summary>
+        /// Starts a job, or goes to its episode's hub or hideout. Used by the Warp controls and
+        /// the Jobs tab; the result shows on the status bar.
+        /// </summary>
+        public void StartJob(sly4.JobEntry job, bool toHub, bool toHideout)
+        {
             queuedGoalJob = null;
             try
             {
@@ -320,9 +330,15 @@ namespace SluMAN
                 statusLine.Error("Pick a goal first.");
                 return;
             }
+            WarpToGoal(jobComboBox.SelectedItem as sly4.JobEntry, goalComboBox.SelectedIndex);
+        }
 
-            int goal = goalComboBox.SelectedIndex;
-            sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+        /// <summary>
+        /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
+        /// given), otherwise by starting the job and warping once it has loaded.
+        /// </summary>
+        public void WarpToGoal(sly4.JobEntry job, int goal)
+        {
             queuedGoalJob = null;
             try
             {

@@ -382,6 +382,37 @@ namespace SluMAN
             return names == null ? new List<string>() : new List<string>(names);
         }
 
+        /// <summary>The running job's index in the job array, or -1 outside jobs.</summary>
+        public int GetRunningJobIndex()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                return -1;
+            }
+            uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
+            uint jobArray = ReadUInt(episodeManager + addr.jobArrayOffset);
+            if (currentJob == 0 || currentJob < jobArray || (currentJob - jobArray) % Sly4Addresses.JobStride != 0)
+            {
+                return -1;
+            }
+            return (int)((currentJob - jobArray) / Sly4Addresses.JobStride);
+        }
+
+        /// <summary>
+        /// The state of each of the running job's goals (GoalStateDone once done), -1 for an empty
+        /// slot. Empty outside jobs.
+        /// </summary>
+        public List<int> GetGoalStates()
+        {
+            List<int> states = new List<int>();
+            foreach (uint goal in GetGoals())
+            {
+                states.Add(goal == 0 ? -1 : ReadByte(goal + addr.goalStateOffset));
+            }
+            return states;
+        }
+
         public bool IsJobRunning(int jobIndex)
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
