@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Text;
 using System.Windows.Forms;
 using SluMAN.Memory;
 
@@ -17,6 +19,9 @@ namespace SluMAN
         // read is a network round trip, and one refresh takes about eight.
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
+
+        // How long the camera log runs: a dozen frames or so.
+        private const int CameraLogCaptureMs = 400;
 
         private readonly sly4 game;
 
@@ -198,11 +203,19 @@ namespace SluMAN
             group.Controls.Add(speedUpDown);
 
             Label help = new Label();
-            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
-                "turns with the right stick and holds the player in place.";
+            help.Text = "Left stick moves, R1 / L1 go up and down. The free\n" +
+                "camera turns with the right stick.";
             help.Location = new Point(8, 46);
-            help.Size = new Size(270, 40);
+            help.Size = new Size(190, 40);
             group.Controls.Add(help);
+
+            Button logButton = new Button();
+            logButton.Text = "Camera log";
+            logButton.Location = new Point(200, 52);
+            logButton.Size = new Size(74, 23);
+            logButton.UseVisualStyleBackColor = true;
+            logButton.Click += (sender, e) => ShowCameraLog();
+            group.Controls.Add(logButton);
 
             return group;
         }
@@ -221,6 +234,46 @@ namespace SluMAN
             }
             ShowMode();
 
+        }
+
+        /// <summary>
+        /// Logs the calls that set a view's camera for a moment and shows them, grouped, to find
+        /// the one that sets the gameplay camera (see Sly4CameraLog). Ctrl+C copies the message.
+        /// </summary>
+        private void ShowCameraLog()
+        {
+            try
+            {
+                List<string> order = new List<string>();
+                Dictionary<string, int> counts = new Dictionary<string, int>();
+                foreach (uint[] entry in new Sly4CameraLog(game).Capture(CameraLogCaptureMs))
+                {
+                    string key = $"returns to {entry[0]:X8}, view {entry[1]:X8}";
+                    if (!counts.ContainsKey(key))
+                    {
+                        order.Add(key);
+                        counts[key] = 0;
+                    }
+                    counts[key]++;
+                }
+
+                StringBuilder text = new StringBuilder();
+                text.AppendLine($"Main view (gm + 0x128168): {game.GetMainView():X8}");
+                text.AppendLine();
+                if (order.Count == 0)
+                {
+                    text.AppendLine("No camera calls ran.");
+                }
+                foreach (string key in order)
+                {
+                    text.AppendLine($"{key}  x{counts[key]}");
+                }
+                MessageBox.Show(this, text.ToString(), "Camera calls");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't log the camera calls: {ex.Message}");
+            }
         }
 
         private void ShowMode()
