@@ -129,7 +129,7 @@ namespace SluMAN
             // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
-            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(FreeMove));
+            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             // The watch list and the hex viewer open each other's tabs.

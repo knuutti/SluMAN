@@ -13,8 +13,9 @@ namespace SluMAN
     /// <item>Fly: the left stick moves the player along the camera's facing, R1 and L1 move up and
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
     /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
-    /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down.
-    /// The player is held where they stood.</item>
+    /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down,
+    /// R3 asks for a keyframe (KeyframeRequested). The player is held where they stood. It can
+    /// also play a camera path instead of following the sticks.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
     /// smoothly, and keeps going whichever tab shows. Sly4Practice owns the one instance. The free camera turns itself off when a load
@@ -57,6 +58,12 @@ namespace SluMAN
         private float[] viewW;
         private float[] cameraW;
 
+        // The path being played (a copy, so editing the list doesn't touch it), or null.
+        private Sly4CameraPath playingPath;
+        private bool loopPlayback;
+        private float playTime;
+        private bool r3WasPressed;
+
         /// <summary>How fast fly mode moves the player: units per second at full stick.</summary>
         public float FlySpeed = 10f;
 
@@ -77,6 +84,112 @@ namespace SluMAN
         /// tabs can show which one is on.
         /// </summary>
         public event Action ModeChanged;
+
+        /// <summary>Raised on the UI thread when R3 is pressed with the free camera on.</summary>
+        public event Action KeyframeRequested;
+
+        /// <summary>Raised on the UI thread when a path finishes playing (not when stopped).</summary>
+        public event Action PlaybackFinished;
+
+        public bool IsPlaying
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return playingPath != null;
+                }
+            }
+        }
+
+        /// <summary>Seconds into the path being played.</summary>
+        public float PlaybackTime
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return playTime;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Plays a camera path, turning the free camera on first if needed. Needs a keyframe.
+        /// </summary>
+        public void Play(Sly4CameraPath path, bool loop)
+        {
+            if (path.Keyframes.Count == 0)
+            {
+                throw new InvalidOperationException("Add a keyframe first.");
+            }
+            if (mode != Mode.FreeCamera)
+            {
+                Start(Mode.FreeCamera);
+            }
+
+            Sly4CameraPath copy = new Sly4CameraPath();
+            foreach (Sly4CameraPath.Keyframe key in path.Keyframes)
+            {
+                copy.Keyframes.Add(new Sly4CameraPath.Keyframe
+                {
+                    x = key.x, y = key.y, z = key.z, yaw = key.yaw, pitch = key.pitch,
+                    duration = key.duration, easing = key.easing
+                });
+            }
+            lock (stateLock)
+            {
+                playingPath = copy;
+                loopPlayback = loop;
+                playTime = 0;
+                ShowPathAt(0);
+            }
+        }
+
+        public void StopPlayback()
+        {
+            lock (stateLock)
+            {
+                playingPath = null;
+            }
+        }
+
+        /// <summary>The free camera's position and facing, or false when it's off.</summary>
+        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch)
+        {
+            lock (stateLock)
+            {
+                if (mode != Mode.FreeCamera)
+                {
+                    position = null;
+                    cameraYaw = 0;
+                    cameraPitch = 0;
+                    return false;
+                }
+                position = (float[])cameraPosition.Clone();
+                cameraYaw = yaw;
+                cameraPitch = pitch;
+                return true;
+            }
+        }
+
+        /// <summary>Puts the free camera somewhere (stopping any playback), or false when it's off.</summary>
+        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch)
+        {
+            lock (stateLock)
+            {
+                if (mode != Mode.FreeCamera)
+                {
+                    return false;
+                }
+                playingPath = null;
+                cameraPosition = (float[])position.Clone();
+                yaw = cameraYaw;
+                pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, cameraPitch));
+                WriteCamera();
+                return true;
+            }
+        }
 
         /// <summary>Create on the UI thread, so Stopped is raised there.</summary>
         public Sly4FreeMove(sly4 game)
@@ -137,15 +250,22 @@ namespace SluMAN
                     try { game.StopViewOverride(); } catch { }
                 }
                 mode = Mode.Off;
+                playingPath = null;
             }
             RaiseModeChanged();
         }
 
         private void RaiseModeChanged()
         {
+            Post(() => ModeChanged);
+        }
+
+        /// <summary>Raises an event on the UI thread. Reads the handler there, as it is then.</summary>
+        private void Post(Func<Action> handlerOf)
+        {
             uiContext.Post((state) =>
             {
-                Action handler = ModeChanged;
+                Action handler = handlerOf();
                 if (handler != null)
                 {
                     handler();
@@ -172,6 +292,7 @@ namespace SluMAN
                             try { game.StopViewOverride(); } catch { }
                         }
                         mode = Mode.Off;
+                        playingPath = null;
                     }
                     uiContext.Post((state) =>
                     {
@@ -289,6 +410,66 @@ namespace SluMAN
 
         private void TickCamera(float step)
         {
+            if (playingPath != null)
+            {
+                TickPlayback(step);
+            }
+            else
+            {
+                TickCameraSticks(step);
+            }
+
+            // Keep the player where they stood, so steering the camera doesn't walk them off.
+            if (playerPosition != null)
+            {
+                game.HoldPlayer(playerPosition[0], playerPosition[1], playerPosition[2]);
+            }
+        }
+
+        private void TickPlayback(float step)
+        {
+            float total = playingPath.TotalDuration;
+            playTime += step;
+            if (playTime >= total)
+            {
+                if (loopPlayback && total > 0)
+                {
+                    playTime %= total;
+                }
+                else
+                {
+                    playTime = total;
+                    ShowPathAt(total);
+                    playingPath = null;
+                    Post(() => PlaybackFinished);
+                    return;
+                }
+            }
+            ShowPathAt(playTime);
+        }
+
+        private void ShowPathAt(float time)
+        {
+            float[] position = new float[3];
+            float pathYaw;
+            float pathPitch;
+            playingPath.Evaluate(time, position, out pathYaw, out pathPitch);
+            cameraPosition = position;
+            yaw = pathYaw;
+            pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pathPitch));
+            WriteCamera();
+        }
+
+        private void TickCameraSticks(float step)
+        {
+            // R3 asks the Camera tab for a keyframe here, once per press.
+            bool r3 = Inputs.IsPressed(Inputs.Buttons.r3);
+            if (r3 && !r3WasPressed)
+            {
+                Post(() => KeyframeRequested);
+            }
+            r3WasPressed = r3;
+
             yaw -= Stick(Inputs.rx) * LookSpeed * step;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
@@ -303,12 +484,6 @@ namespace SluMAN
             }
             cameraPosition[1] += Rise() * CameraSpeed * step;
             WriteCamera();
-
-            // Keep the player where they stood, so steering the camera doesn't walk them off.
-            if (playerPosition != null)
-            {
-                game.HoldPlayer(playerPosition[0], playerPosition[1], playerPosition[2]);
-            }
         }
 
         private float[] Forward()
