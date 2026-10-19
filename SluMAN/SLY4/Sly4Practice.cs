@@ -49,6 +49,11 @@ namespace SluMAN
             }
             slotComboBox.SelectedIndex = game.selectedPositionIndex;
 
+            foreach (sly4.LevelEntry level in sly4.GetWarpLevels())
+            {
+                levelComboBox.Items.Add(level);
+            }
+
             // Before the toggles below read the game, so they show any kept cheat tunables.
             ApplyKeptTunables();
 
@@ -384,6 +389,27 @@ namespace SluMAN
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't warp: {ex.Message}");
+            }
+        }
+
+        private void loadLevelButton_Click(object sender, EventArgs e)
+        {
+            sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
+            if (level == null)
+            {
+                statusLine.Error("Pick a level first.");
+                return;
+            }
+
+            queuedGoalJob = null;
+            try
+            {
+                game.LoadLevel(level.hash);
+                TrackGameCall($"Loading {level.name}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't load the level: {ex.Message}");
             }
         }
 

@@ -9,6 +9,8 @@ namespace SluMAN
     {
         public static Sly4Addresses addr = Sly4Addresses.ForGame(Sly4Addresses.DefaultGameId);
 
+        private const uint MainMenuLevelHash = 0xE4927E12;
+
         // Display names for level hashes (gm + currentLevelHashOffset). Hashes not listed show in hex.
         private static readonly Dictionary<uint, string> levelNames = new Dictionary<uint, string>
         {
@@ -214,6 +216,18 @@ namespace SluMAN
             public override string ToString()
             {
                 return $"{EpisodeTitle}: {Title}";
+            }
+        }
+
+        /// <summary>A level for the level warp list.</summary>
+        public class LevelEntry
+        {
+            public uint hash;
+            public string name;
+
+            public override string ToString()
+            {
+                return name;
             }
         }
 
@@ -538,6 +552,20 @@ namespace SluMAN
             return levelHash.ToString("X8");
         }
 
+        /// <summary>Every named level but the main menu, in the order of the level table.</summary>
+        public static List<LevelEntry> GetWarpLevels()
+        {
+            List<LevelEntry> levels = new List<LevelEntry>();
+            foreach (KeyValuePair<uint, string> level in levelNames)
+            {
+                if (level.Key != MainMenuLevelHash)
+                {
+                    levels.Add(new LevelEntry { hash = level.Key, name = level.Value });
+                }
+            }
+            return levels;
+        }
+
         /// <summary>The current episode's title, or null when there is none.</summary>
         public string GetEpisodeName()
         {
@@ -811,6 +839,23 @@ namespace SluMAN
 
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
             codeHook.Call(addr.teleportToGoalFunction, episodeManager, goals[goalIndex], 1, 0);
+        }
+
+        /// <summary>
+        /// Loads a level by its hash, outside any job flow: the player lands at the level's
+        /// default start. The game's own calls pass (game manager, hash, 0); LoadLevel only sets
+        /// the level to load and the load flags, and the game loads it on a later frame. Any
+        /// running job is left as it is.
+        /// </summary>
+        public void LoadLevel(uint levelHash)
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            ThrowIfLoading();
+            codeHook.Call(addr.loadLevelFunction, gameManager, levelHash, 0);
         }
 
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>

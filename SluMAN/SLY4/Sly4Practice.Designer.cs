@@ -65,6 +65,8 @@ namespace SluMAN
             this.toHideoutButton = new System.Windows.Forms.Button();
             this.goalComboBox = new System.Windows.Forms.ComboBox();
             this.warpToGoalButton = new System.Windows.Forms.Button();
+            this.levelComboBox = new System.Windows.Forms.ComboBox();
+            this.loadLevelButton = new System.Windows.Forms.Button();
             this.slowMotionCheckBox = new System.Windows.Forms.CheckBox();
             this.invulnerableCheckBox = new System.Windows.Forms.CheckBox();
             this.undetectableCheckBox = new System.Windows.Forms.CheckBox();
@@ -351,9 +353,11 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.toHideoutButton);
             this.warpGroupBox.Controls.Add(this.goalComboBox);
             this.warpGroupBox.Controls.Add(this.warpToGoalButton);
+            this.warpGroupBox.Controls.Add(this.levelComboBox);
+            this.warpGroupBox.Controls.Add(this.loadLevelButton);
             this.warpGroupBox.Location = new System.Drawing.Point(12, 276);
             this.warpGroupBox.Name = "warpGroupBox";
-            this.warpGroupBox.Size = new System.Drawing.Size(276, 106);
+            this.warpGroupBox.Size = new System.Drawing.Size(276, 135);
             this.warpGroupBox.TabIndex = 3;
             this.warpGroupBox.TabStop = false;
             this.warpGroupBox.Text = "Warp";
@@ -422,10 +426,30 @@ namespace SluMAN
             this.warpToGoalButton.UseVisualStyleBackColor = true;
             this.warpToGoalButton.Click += new System.EventHandler(this.warpToGoalButton_Click);
             //
+            // levelComboBox
+            //
+            this.levelComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.levelComboBox.FormattingEnabled = true;
+            this.levelComboBox.Location = new System.Drawing.Point(10, 105);
+            this.levelComboBox.MaxDropDownItems = 20;
+            this.levelComboBox.Name = "levelComboBox";
+            this.levelComboBox.Size = new System.Drawing.Size(169, 21);
+            this.levelComboBox.TabIndex = 6;
+            //
+            // loadLevelButton
+            //
+            this.loadLevelButton.Location = new System.Drawing.Point(184, 104);
+            this.loadLevelButton.Name = "loadLevelButton";
+            this.loadLevelButton.Size = new System.Drawing.Size(82, 23);
+            this.loadLevelButton.TabIndex = 7;
+            this.loadLevelButton.Text = "Load Level";
+            this.loadLevelButton.UseVisualStyleBackColor = true;
+            this.loadLevelButton.Click += new System.EventHandler(this.loadLevelButton_Click);
+            //
             // slowMotionCheckBox
             //
             this.slowMotionCheckBox.AutoSize = true;
-            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 388);
+            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 417);
             this.slowMotionCheckBox.Name = "slowMotionCheckBox";
             this.slowMotionCheckBox.Size = new System.Drawing.Size(84, 17);
             this.slowMotionCheckBox.TabIndex = 3;
@@ -436,7 +460,7 @@ namespace SluMAN
             // invulnerableCheckBox
             //
             this.invulnerableCheckBox.AutoSize = true;
-            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 411);
+            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 440);
             this.invulnerableCheckBox.Name = "invulnerableCheckBox";
             this.invulnerableCheckBox.Size = new System.Drawing.Size(83, 17);
             this.invulnerableCheckBox.TabIndex = 4;
@@ -447,7 +471,7 @@ namespace SluMAN
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 411);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 440);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
             this.undetectableCheckBox.TabIndex = 5;
@@ -458,7 +482,7 @@ namespace SluMAN
             // skipCutscenesCheckBox
             //
             this.skipCutscenesCheckBox.AutoSize = true;
-            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 434);
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 463);
             this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
             this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
             this.skipCutscenesCheckBox.TabIndex = 7;
@@ -469,7 +493,7 @@ namespace SluMAN
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 388);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 417);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
             this.alwaysOnTopCheckBox.TabIndex = 6;
@@ -485,7 +509,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 461);
+            this.ClientSize = new System.Drawing.Size(300, 490);
             this.Controls.Add(this.gameGroupBox);
             this.Controls.Add(this.playerGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
@@ -553,6 +577,8 @@ namespace SluMAN
         private System.Windows.Forms.Button toHideoutButton;
         private System.Windows.Forms.ComboBox goalComboBox;
         private System.Windows.Forms.Button warpToGoalButton;
+        private System.Windows.Forms.ComboBox levelComboBox;
+        private System.Windows.Forms.Button loadLevelButton;
         private System.Windows.Forms.CheckBox slowMotionCheckBox;
         private System.Windows.Forms.CheckBox invulnerableCheckBox;
         private System.Windows.Forms.CheckBox undetectableCheckBox;
