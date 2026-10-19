@@ -14,7 +14,8 @@ namespace SluMAN
     /// </summary>
     public class Sly4JobsForm : Form, IRefreshOnShow
     {
-        // Goal states are one read per goal, and the game shares a reading of them every 2 s.
+        // Goal changes arrive through GoalsChanged; the timer catches the rest, such as the
+        // running job changing when the goal watcher can't run (old webMAN API).
         private const int RefreshIntervalMs = 2000;
         private const string RunningSuffix = "  (running)";
 
@@ -62,7 +63,12 @@ namespace SluMAN
 
             refreshTimer.Interval = RefreshIntervalMs;
             refreshTimer.Tick += refreshTimer_Tick;
-            FormClosing += (sender, e) => refreshTimer.Stop();
+            game.GoalsChanged += game_GoalsChanged;
+            FormClosing += (sender, e) =>
+            {
+                refreshTimer.Stop();
+                game.GoalsChanged -= game_GoalsChanged;
+            };
             FormClosed += (sender, e) => refreshTimer.Dispose();
 
             LoadJobs();
@@ -311,6 +317,23 @@ namespace SluMAN
             catch
             {
                 // The timer tries again.
+            }
+        }
+
+        private void game_GoalsChanged()
+        {
+            // Raised on the goal watcher's thread: recolour the goals now rather than on the next tick.
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke(new Action(() => refreshTimer_Tick(this, EventArgs.Empty)));
+            }
+            catch
+            {
+                // The form closed in between.
             }
         }
 

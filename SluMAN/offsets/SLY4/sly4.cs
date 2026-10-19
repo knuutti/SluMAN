@@ -28,8 +28,18 @@ namespace SluMAN
         // The debug menu's Tuning settings, read from the game when first needed.
         public readonly Sly4Tunables tunables;
 
-        // Each goal's state is its own read, so the Practice panel and the Jobs tab share one
-        // reading of them, taken at most this often. On a PS3 every read is a network round trip.
+        // Follows the current goal through memory subscriptions while it runs (see StartGoalWatcher).
+        private Sly4GoalWatcher goalWatcher;
+
+        /// <summary>
+        /// Raised on a background thread when the current goal or the goal list changes, while the
+        /// goal watcher runs.
+        /// </summary>
+        public event Action GoalsChanged;
+
+        // Without the goal watcher (the old webMAN API has no subscriptions), each goal's state is
+        // its own read, so the Practice panel and the Jobs tab share one reading of them, taken at
+        // most this often. On a PS3 every read is a network round trip.
         private static readonly TimeSpan GoalSnapshotMaxAge = TimeSpan.FromSeconds(2);
         private List<uint> snapshotGoals = new List<uint>();
         private List<int> snapshotStates = new List<int>();
@@ -347,11 +357,23 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Reads the running job's goals and their states, unless that was done within
-        /// GoalSnapshotMaxAge. For display only: warps read the goals fresh.
+        /// The running job's goals and their states: from the goal watcher while it runs, otherwise
+        /// read at most every GoalSnapshotMaxAge. For display only: warps read the goals fresh.
         /// </summary>
         private void TakeGoalSnapshot()
         {
+            Sly4GoalWatcher watcher = goalWatcher;
+            if (watcher != null)
+            {
+                List<uint> goals;
+                List<int> states;
+                int current;
+                watcher.GetState(out goals, out states, out current);
+                snapshotGoals = goals;
+                snapshotStates = states;
+                return;
+            }
+
             if (DateTime.Now - snapshotTakenAt < GoalSnapshotMaxAge)
             {
                 return;
@@ -596,6 +618,53 @@ namespace SluMAN
             }
 
             return TrimKey(ReadString(entry));
+        }
+
+        /// <summary>
+        /// Starts following the current goal through memory subscriptions, so the checkpoint and
+        /// the autosplitter see goal changes as they happen. Call again after a reconnect: the
+        /// console drops subscriptions when the game resets. Does nothing on the old webMAN API,
+        /// which has no subscriptions; the goals are polled there instead.
+        /// </summary>
+        public void StartGoalWatcher(bool afterReset = false)
+        {
+            StopGoalWatcher(!afterReset);
+            if (api is WebMAN)
+            {
+                return;
+            }
+            Sly4GoalWatcher watcher = new Sly4GoalWatcher(this);
+            watcher.Changed += () =>
+            {
+                Action handler = GoalsChanged;
+                if (handler != null)
+                {
+                    handler();
+                }
+            };
+            goalWatcher = watcher;
+            watcher.Start();
+        }
+
+        public void StopGoalWatcher(bool releaseSubscriptions = true)
+        {
+            Sly4GoalWatcher watcher = goalWatcher;
+            goalWatcher = null;
+            if (watcher != null)
+            {
+                watcher.Stop(releaseSubscriptions);
+            }
+        }
+
+        /// <summary>The running job's goal pointers (0 for empty slots), read now. For the goal watcher.</summary>
+        public List<uint> ReadGoals()
+        {
+            return GetGoals();
+        }
+
+        public int ReadGoalState(uint goal)
+        {
+            return ReadByte(goal + addr.goalStateOffset);
         }
 
         /// <summary>The current job's goal pointers (0 for empty slots), or none outside jobs.</summary>

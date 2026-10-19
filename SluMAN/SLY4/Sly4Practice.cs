@@ -80,6 +80,9 @@ namespace SluMAN
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
 
+            game.GoalsChanged += game_GoalsChanged;
+            game.StartGoalWatcher();
+
             refreshTimer.Start();
 
             practiceTabs = new PracticeTabs(this, "Practice");
@@ -103,6 +106,30 @@ namespace SluMAN
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't apply the kept tunables: {ex.Message}");
+            }
+        }
+
+        private void game_GoalsChanged()
+        {
+            // Raised on the goal watcher's thread when a goal is finished or a job starts or ends,
+            // so the checkpoint shows it at once rather than on the next refresh.
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (!IsDisposed && gameGroupBox.Visible)
+                    {
+                        RefreshGameState();
+                    }
+                }));
+            }
+            catch
+            {
+                // The form closed in between.
             }
         }
 
@@ -524,6 +551,8 @@ namespace SluMAN
             }
 
             ApplyKeptTunables();
+            // The console dropped the watcher's subscriptions with the reset.
+            game.StartGoalWatcher(true);
             practiceTabs.RefreshShownTool();
         }
 
@@ -531,6 +560,8 @@ namespace SluMAN
         {
             // The tools' own cleanup (timers) runs when they close.
             practiceTabs.CloseAll();
+            game.GoalsChanged -= game_GoalsChanged;
+            game.StopGoalWatcher();
             refreshTimer.Stop();
 
             // Leave the game unmodified. This runs before the session disconnects.
