@@ -12,9 +12,10 @@ namespace SluMAN
     /// <list type="bullet">
     /// <item>Fly: the left stick moves the player along the camera's facing, R1 and L1 move up and
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
-    /// <item>Free camera: the main view follows a camera SluMAN moves (see Sly4CameraHook). The
-    /// left stick moves it, the right stick turns it, R1 and L1 move up and down. The player is
-    /// held where they stood.</item>
+    /// <item>Free camera: SluMAN writes its own camera into the main view (see
+    /// sly4.WriteViewCamera). The left stick moves it, the right stick turns it, R1 and L1 move up
+    /// and down. The player is held where they stood, so the game's camera has no reason to move
+    /// and write the view itself.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
     /// smoothly, and keeps going whichever tab shows. The free camera turns itself off when a load
@@ -53,7 +54,7 @@ namespace SluMAN
         private float forwardSign;
         private float rightSign;
         private float upSign;
-        private float[] rowW;
+        private uint view;
 
         /// <summary>Units per second at full stick.</summary>
         public float Speed = 10f;
@@ -117,10 +118,6 @@ namespace SluMAN
 
             lock (stateLock)
             {
-                if (mode == Mode.FreeCamera)
-                {
-                    try { game.cameraHook.Disable(); } catch { }
-                }
                 mode = Mode.Off;
             }
         }
@@ -139,10 +136,6 @@ namespace SluMAN
                     running = false;
                     lock (stateLock)
                     {
-                        if (mode == Mode.FreeCamera)
-                        {
-                            try { game.cameraHook.Disable(); } catch { }
-                        }
                         mode = Mode.Off;
                     }
                     uiContext.Post((state) =>
@@ -228,11 +221,13 @@ namespace SluMAN
 
         private void StartCamera(float[] player)
         {
-            // The hook notes where the game keeps its camera's matrix, which is where the free
-            // camera starts.
-            float[] m = game.ReadMatrix(game.cameraHook.Prepare());
+            view = game.GetMainView();
+            if (view == 0)
+            {
+                throw new InvalidOperationException("The game has no camera yet.");
+            }
+            float[] m = game.ReadCameraMatrix(view);
             cameraPosition = new float[] { m[12], m[13], m[14] };
-            rowW = new float[] { m[3], m[7], m[11], m[15] };
 
             // The camera looks at the player, so the Z axis or its opposite points at them.
             float[] z = Normalize(Axis(m, 2));
@@ -249,8 +244,6 @@ namespace SluMAN
             float[] up = Cross(forward, right);
             rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
-
-            game.cameraHook.Enable(MatrixBytes());
         }
 
         private void TickCamera(float step)
@@ -268,7 +261,7 @@ namespace SluMAN
                 cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe) * Speed * step;
             }
             cameraPosition[1] += Rise() * Speed * step;
-            game.cameraHook.SetMatrix(MatrixBytes());
+            WriteCamera();
 
             // Keep the player where they stood, so steering the camera doesn't walk them off.
             if (playerPosition != null)
@@ -287,31 +280,18 @@ namespace SluMAN
             };
         }
 
-        /// <summary>The free camera as the game's matrix, in big-endian floats.</summary>
-        private byte[] MatrixBytes()
+        private void WriteCamera()
         {
             float[] forward = Forward();
             float[] right = RightOf(forward);
             float[] up = Cross(forward, right);
-            float[][] rows =
+            float[][] axes =
             {
                 Scale(right, rightSign),
                 Scale(up, upSign),
                 Scale(forward, forwardSign),
-                cameraPosition,
             };
-
-            byte[] bytes = new byte[Sly4CameraHook.MatrixSize];
-            for (int row = 0; row < 4; row++)
-            {
-                for (int column = 0; column < 4; column++)
-                {
-                    float value = column < 3 ? rows[row][column] : rowW[row];
-                    byte[] word = BitConverter.GetBytes(value).Reverse().ToArray();
-                    Array.Copy(word, 0, bytes, row * 16 + column * 4, 4);
-                }
-            }
-            return bytes;
+            game.WriteViewCamera(view, axes, cameraPosition);
         }
 
         /// <summary>One of the camera's axes (0 X, 1 Y, 2 Z): a row of its matrix.</summary>

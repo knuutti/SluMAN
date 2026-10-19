@@ -172,7 +172,6 @@ namespace SluMAN
         private const int SlowMotionClampFreqMin = 291;
 
         private readonly Sly4CodeHook codeHook;
-        public readonly Sly4CameraHook cameraHook;
 
         // The debug menu's Tuning settings, read from the game when first needed.
         public readonly Sly4Tunables tunables;
@@ -281,7 +280,6 @@ namespace SluMAN
         {
             addr = Sly4Addresses.ForGame(gameNameId);
             codeHook = new Sly4CodeHook(this);
-            cameraHook = new Sly4CameraHook(this);
             tunables = new Sly4Tunables(this);
         }
 
@@ -553,10 +551,47 @@ namespace SluMAN
             return ReadMatrix(view + addr.viewCameraMatrixOffset);
         }
 
+        /// <summary>
+        /// Points a view's camera somewhere: writes its camera matrix (the X, Y and Z axes, then
+        /// the position, each 3 floats) and the view matrix, its inverse, then marks the view so
+        /// the render rebuilds from them. Each row's 4th float holds something else, so it's left
+        /// alone. The game writes the view again when its own camera next moves.
+        /// </summary>
+        public void WriteViewCamera(uint view, float[][] axes, float[] position)
+        {
+            byte[] camera = new byte[0x40];
+            byte[] inverse = new byte[0x40];
+            for (int row = 0; row < 3; row++)
+            {
+                for (int column = 0; column < 3; column++)
+                {
+                    Array.Copy(ConvertFloatToBytes(axes[row][column]), 0, camera, row * 16 + column * 4, 4);
+                    // The rotation's inverse is its transpose.
+                    Array.Copy(ConvertFloatToBytes(axes[column][row]), 0, inverse, row * 16 + column * 4, 4);
+                }
+                Array.Copy(ConvertFloatToBytes(position[row]), 0, camera, 48 + row * 4, 4);
+                // The inverse moves the camera's position back to the origin.
+                float offset = -(position[0] * axes[row][0] + position[1] * axes[row][1] + position[2] * axes[row][2]);
+                Array.Copy(ConvertFloatToBytes(offset), 0, inverse, 48 + row * 4, 4);
+            }
+
+            for (int row = 0; row < 4; row++)
+            {
+                byte[] part = new byte[12];
+                Array.Copy(camera, row * 16, part, 0, 12);
+                api.WriteMemory(pid, view + addr.viewCameraMatrixOffset + (uint)(row * 16), part);
+                Array.Copy(inverse, row * 16, part, 0, 12);
+                api.WriteMemory(pid, view + addr.viewMatrixOffset + (uint)(row * 16), part);
+            }
+
+            byte flags = ReadByte(view + addr.viewFlagsOffset);
+            api.WriteMemory(pid, view + addr.viewFlagsOffset, new byte[] { (byte)(flags | Sly4Addresses.ViewDirtyFlag) });
+        }
+
         /// <summary>A camera matrix at an address, laid out as ReadCameraMatrix's.</summary>
         public float[] ReadMatrix(uint address)
         {
-            byte[] bytes = api.ReadMemory(pid, address, Sly4CameraHook.MatrixSize);
+            byte[] bytes = api.ReadMemory(pid, address, 0x40);
             float[] matrix = new float[16];
             for (int i = 0; i < 16; i++)
             {
@@ -1070,7 +1105,6 @@ namespace SluMAN
         public void RemoveCodeHook()
         {
             codeHook.Uninstall();
-            cameraHook.Uninstall();
         }
 
         public bool IsJobFailed()
