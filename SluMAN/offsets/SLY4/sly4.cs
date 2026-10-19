@@ -551,41 +551,96 @@ namespace SluMAN
             return ReadMatrix(view + addr.viewCameraMatrixOffset);
         }
 
-        /// <summary>
-        /// Points a view's camera somewhere: writes its camera matrix (the X, Y and Z axes, then
-        /// the position, each 3 floats) and the view matrix, its inverse, then marks the view so
-        /// the render rebuilds from them. Each row's 4th float holds something else, so it's left
-        /// alone. The game writes the view again when its own camera next moves.
-        /// </summary>
-        public void WriteViewCamera(uint view, float[][] axes, float[] position)
+        /// <summary>The main view's render copy, or 0 before the game has one.</summary>
+        public uint GetMainRenderView()
         {
-            byte[] camera = new byte[0x40];
-            byte[] inverse = new byte[0x40];
-            for (int row = 0; row < 3; row++)
+            uint view = GetMainView();
+            return view == 0 ? 0 : ReadUInt(view + addr.viewRenderCopyOffset);
+        }
+
+        /// <summary>
+        /// The view and camera matrices for a camera, as the view override takes them: the view
+        /// matrix (the camera's inverse), then the camera matrix (its X, Y and Z axes, then its
+        /// position), 4 floats a row. The 4th float of each row holds something else in the
+        /// game's views, so it's taken from <paramref name="viewW"/> and
+        /// <paramref name="cameraW"/>.
+        /// </summary>
+        public static byte[] ViewMatrices(float[][] axes, float[] position, float[] viewW, float[] cameraW)
+        {
+            byte[] bytes = new byte[0x80];
+            for (int row = 0; row < 4; row++)
             {
                 for (int column = 0; column < 3; column++)
                 {
-                    Array.Copy(ConvertFloatToBytes(axes[row][column]), 0, camera, row * 16 + column * 4, 4);
-                    // The rotation's inverse is its transpose.
-                    Array.Copy(ConvertFloatToBytes(axes[column][row]), 0, inverse, row * 16 + column * 4, 4);
+                    float view;
+                    float camera;
+                    if (row < 3)
+                    {
+                        // The rotation's inverse is its transpose.
+                        view = axes[column][row];
+                        camera = axes[row][column];
+                    }
+                    else
+                    {
+                        // The inverse moves the camera's position back to the origin.
+                        view = -(position[0] * axes[column][0] + position[1] * axes[column][1] + position[2] * axes[column][2]);
+                        camera = position[column];
+                    }
+                    Array.Copy(ConvertFloatToBytes(view), 0, bytes, row * 16 + column * 4, 4);
+                    Array.Copy(ConvertFloatToBytes(camera), 0, bytes, 0x40 + row * 16 + column * 4, 4);
                 }
-                Array.Copy(ConvertFloatToBytes(position[row]), 0, camera, 48 + row * 4, 4);
-                // The inverse moves the camera's position back to the origin.
-                float offset = -(position[0] * axes[row][0] + position[1] * axes[row][1] + position[2] * axes[row][2]);
-                Array.Copy(ConvertFloatToBytes(offset), 0, inverse, 48 + row * 4, 4);
+                Array.Copy(ConvertFloatToBytes(viewW[row]), 0, bytes, row * 16 + 12, 4);
+                Array.Copy(ConvertFloatToBytes(cameraW[row]), 0, bytes, 0x40 + row * 16 + 12, 4);
             }
+            return bytes;
+        }
 
-            for (int row = 0; row < 4; row++)
+        /// <summary>
+        /// Starts drawing the main view from the given matrices (see ViewMatrices) every frame:
+        /// the code hook runs a routine while the view is drawn, after the game has made its
+        /// render copy, that copies them in and rebuilds the render matrices. The game's camera
+        /// can't overwrite them in between, so nothing flickers.
+        /// </summary>
+        public void StartViewOverride(uint renderView, byte[] matrices)
+        {
+            SetViewOverride(matrices);
+
+            uint routine = addr.viewOverrideRoutine;
+            uint[] words =
             {
-                byte[] part = new byte[12];
-                Array.Copy(camera, row * 16, part, 0, 12);
-                api.WriteMemory(pid, view + addr.viewCameraMatrixOffset + (uint)(row * 16), part);
-                Array.Copy(inverse, row * 16, part, 0, 12);
-                api.WriteMemory(pid, view + addr.viewMatrixOffset + (uint)(row * 16), part);
+                0x38C00020,             // li r6, 32 (words)
+                0x7CC903A6,             // mtctr r6
+                0x38A302EC,             // addi r5, r3, view matrix - 4
+                0x3884FFFC,             // addi r4, r4, -4
+                0x84E40004,             // lwzu r7, 4(r4)
+                0x94E50004,             // stwu r7, 4(r5)
+                0x4200FFF8,             // bdnz -8
+                0x38800001,             // li r4, 1 (rebuild even if not marked)
+                // b CalcRenderMatrices (r3 is still the view; it returns to the hook)
+                0x48000000 | ((addr.calcRenderMatricesFunction - (routine + 8 * 4)) & 0x3FFFFFC),
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
             }
+            api.WriteMemory(pid, routine, code);
+            if (!api.ReadMemory(pid, routine, (uint)code.Length).SequenceEqual(code))
+            {
+                throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
+            }
+            codeHook.SetRepeatingCall(routine, renderView, addr.viewOverrideData);
+        }
 
-            byte flags = ReadByte(view + addr.viewFlagsOffset);
-            api.WriteMemory(pid, view + addr.viewFlagsOffset, new byte[] { (byte)(flags | Sly4Addresses.ViewDirtyFlag) });
+        public void SetViewOverride(byte[] matrices)
+        {
+            api.WriteMemory(pid, addr.viewOverrideData, matrices);
+        }
+
+        /// <summary>Lets the game draw its own camera again, from the next frame.</summary>
+        public void StopViewOverride()
+        {
+            codeHook.ClearRepeatingCall();
         }
 
         /// <summary>Where a view keeps its camera's position: the camera matrix's last row.</summary>

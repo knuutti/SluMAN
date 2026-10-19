@@ -76,12 +76,20 @@ namespace SluMAN
         // The main gameplay view (from the game manager). Its camera matrix is at
         // +viewCameraMatrixOffset (the camera's X, Y and Z axes, then its position, as 4 floats
         // each, the 4th of each holding something else) and the view matrix, its inverse, at
-        // +viewMatrixOffset; setting ViewDirtyFlag in the byte at +viewFlagsOffset makes the
-        // render rebuild its matrices from them.
+        // +viewMatrixOffset.
         public uint mainViewOffset { get; private set; }
         public uint viewMatrixOffset { get; private set; }
-        public uint viewFlagsOffset { get; private set; }
         public uint viewCameraMatrixOffset { get; private set; }
+        // The view's render copy, made from it each frame for drawing
+        public uint viewRenderCopyOffset { get; private set; }
+
+        // View override (free camera): a routine in the code cave, run every frame by the code
+        // hook while the main view is drawn, copies the matrices kept in the data area (the view
+        // matrix, then the camera matrix) into the render copy and has CalcRenderMatrices rebuild
+        // the rest from them
+        public uint calcRenderMatricesFunction { get; private set; }
+        public uint viewOverrideRoutine { get; private set; }
+        public uint viewOverrideData { get; private set; }
 
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
@@ -122,9 +130,6 @@ namespace SluMAN
 
         // Goal state once the goal is done
         public const byte GoalStateDone = 5;
-
-        // The bit in a view's flags that makes the render rebuild its matrices
-        public const byte ViewDirtyFlag = 0x80;
 
         private Sly4Addresses()
         {
@@ -211,7 +216,10 @@ namespace SluMAN
                 mainViewOffset = 0x128168,
                 viewCameraMatrixOffset = 0x330,
                 viewMatrixOffset = 0x2F0,
-                viewFlagsOffset = 0x34,
+                viewRenderCopyOffset = 0x2A0,
+                calcRenderMatricesFunction = 0x5115F0,
+                viewOverrideRoutine = 0xF05300,
+                viewOverrideData = 0x11F8A40,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,

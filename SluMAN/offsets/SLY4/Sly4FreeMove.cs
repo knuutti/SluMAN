@@ -12,10 +12,9 @@ namespace SluMAN
     /// <list type="bullet">
     /// <item>Fly: the left stick moves the player along the camera's facing, R1 and L1 move up and
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
-    /// <item>Free camera: SluMAN writes its own camera into the main view (see
-    /// sly4.WriteViewCamera). The left stick moves it, the right stick turns it, R1 and L1 move up
-    /// and down. The player is held where they stood, so the game's camera has no reason to move
-    /// and write the view itself.</item>
+    /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
+    /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down.
+    /// The player is held where they stood.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
     /// smoothly, and keeps going whichever tab shows. The free camera turns itself off when a load
@@ -54,7 +53,11 @@ namespace SluMAN
         private float forwardSign;
         private float rightSign;
         private float upSign;
-        private uint view;
+        // The main view's render copy, and the 4th float of each row of its view and camera
+        // matrices, which hold something else and are written back as they were.
+        private uint renderView;
+        private float[] viewW;
+        private float[] cameraW;
 
         /// <summary>Units per second at full stick.</summary>
         public float Speed = 10f;
@@ -118,6 +121,10 @@ namespace SluMAN
 
             lock (stateLock)
             {
+                if (mode == Mode.FreeCamera)
+                {
+                    try { game.StopViewOverride(); } catch { }
+                }
                 mode = Mode.Off;
             }
         }
@@ -136,6 +143,10 @@ namespace SluMAN
                     running = false;
                     lock (stateLock)
                     {
+                        if (mode == Mode.FreeCamera)
+                        {
+                            try { game.StopViewOverride(); } catch { }
+                        }
                         mode = Mode.Off;
                     }
                     uiContext.Post((state) =>
@@ -221,13 +232,18 @@ namespace SluMAN
 
         private void StartCamera(float[] player)
         {
-            view = game.GetMainView();
-            if (view == 0)
+            uint view = game.GetMainView();
+            renderView = game.GetMainRenderView();
+            if (view == 0 || renderView == 0)
             {
                 throw new InvalidOperationException("The game has no camera yet.");
             }
             float[] m = game.ReadCameraMatrix(view);
             cameraPosition = new float[] { m[12], m[13], m[14] };
+            float[] renderViewMatrix = game.ReadMatrix(renderView + sly4.addr.viewMatrixOffset);
+            float[] renderCamera = game.ReadMatrix(renderView + sly4.addr.viewCameraMatrixOffset);
+            viewW = new float[] { renderViewMatrix[3], renderViewMatrix[7], renderViewMatrix[11], renderViewMatrix[15] };
+            cameraW = new float[] { renderCamera[3], renderCamera[7], renderCamera[11], renderCamera[15] };
 
             // The camera looks at the player, so the Z axis or its opposite points at them.
             float[] z = Normalize(Axis(m, 2));
@@ -244,6 +260,8 @@ namespace SluMAN
             float[] up = Cross(forward, right);
             rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
+
+            WriteCamera(true);
         }
 
         private void TickCamera(float step)
@@ -280,7 +298,7 @@ namespace SluMAN
             };
         }
 
-        private void WriteCamera()
+        private void WriteCamera(bool start = false)
         {
             float[] forward = Forward();
             float[] right = RightOf(forward);
@@ -291,7 +309,15 @@ namespace SluMAN
                 Scale(up, upSign),
                 Scale(forward, forwardSign),
             };
-            game.WriteViewCamera(view, axes, cameraPosition);
+            byte[] matrices = sly4.ViewMatrices(axes, cameraPosition, viewW, cameraW);
+            if (start)
+            {
+                game.StartViewOverride(renderView, matrices);
+            }
+            else
+            {
+                game.SetViewOverride(matrices);
+            }
         }
 
         /// <summary>One of the camera's axes (0 X, 1 Y, 2 Z): a row of its matrix.</summary>
