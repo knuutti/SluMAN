@@ -40,7 +40,10 @@ namespace SluMAN
         private sly4.LevelEntry queuedLevel = null;
         private sly4.CharacterEntry queuedCharacter = null;
 
+        private sly4.SpawnPointEntry queuedSpawnPoint = null;
+
         private const string LevelCharacter = "Level's own character";
+        private const string LevelStart = "Level start";
 
         public Sly4Practice(sly4 game)
         {
@@ -63,6 +66,8 @@ namespace SluMAN
             characterComboBox.Items.Add(LevelCharacter);
             characterComboBox.Items.AddRange(sly4.Characters);
             characterComboBox.SelectedIndex = 0;
+            levelComboBox.SelectedIndexChanged += (sender, e) => FillSpawnPoints();
+            FillSpawnPoints();
 
             // Before the toggles below read the game, so they show any kept cheat tunables.
             ApplyKeptTunables();
@@ -419,6 +424,7 @@ namespace SluMAN
             }
 
             sly4.CharacterEntry character = characterComboBox.SelectedItem as sly4.CharacterEntry;
+            sly4.SpawnPointEntry spawnPoint = spawnPointComboBox.SelectedItem as sly4.SpawnPointEntry;
             queuedGoalJob = null;
             queuedLevel = null;
             try
@@ -430,11 +436,12 @@ namespace SluMAN
                     game.AbandonJob();
                     queuedLevel = level;
                     queuedCharacter = character;
+                    queuedSpawnPoint = spawnPoint;
                     TrackGameCall($"Left the job; loading {level.name}.");
                     return;
                 }
-                game.LoadLevel(level.hash, character);
-                TrackGameCall(LoadingMessage(level, character));
+                game.LoadLevel(level.hash, character, spawnPoint);
+                TrackGameCall(LoadingMessage(level, character, spawnPoint));
             }
             catch (Exception ex)
             {
@@ -448,8 +455,8 @@ namespace SluMAN
             queuedLevel = null;
             try
             {
-                game.LoadLevel(level.hash, queuedCharacter);
-                TrackGameCall(LoadingMessage(level, queuedCharacter));
+                game.LoadLevel(level.hash, queuedCharacter, queuedSpawnPoint);
+                TrackGameCall(LoadingMessage(level, queuedCharacter, queuedSpawnPoint));
             }
             catch (Exception ex)
             {
@@ -457,9 +464,35 @@ namespace SluMAN
             }
         }
 
-        private static string LoadingMessage(sly4.LevelEntry level, sly4.CharacterEntry character)
+        private static string LoadingMessage(sly4.LevelEntry level, sly4.CharacterEntry character, sly4.SpawnPointEntry spawnPoint)
         {
-            return character == null ? $"Loading {level.name}." : $"Loading {level.name} as {character.title}.";
+            string message = $"Loading {level.name}";
+            if (spawnPoint != null)
+            {
+                message += $" at {spawnPoint.title}";
+            }
+            if (character != null)
+            {
+                message += $" as {character.title}";
+            }
+            return message + ".";
+        }
+
+        /// <summary>Lists the selected level's spawn points, after its default start.</summary>
+        private void FillSpawnPoints()
+        {
+            spawnPointComboBox.Items.Clear();
+            spawnPointComboBox.Items.Add(LevelStart);
+            sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
+            if (level != null)
+            {
+                foreach (sly4.SpawnPointEntry spawnPoint in sly4.GetSpawnPoints(level.hash))
+                {
+                    spawnPointComboBox.Items.Add(spawnPoint);
+                }
+            }
+            spawnPointComboBox.SelectedIndex = 0;
+            spawnPointComboBox.Enabled = spawnPointComboBox.Items.Count > 1;
         }
 
         private void RefreshGameState()

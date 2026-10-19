@@ -231,6 +231,18 @@ namespace SluMAN
             }
         }
 
+        /// <summary>A named object in a level the player can be spawned at.</summary>
+        public class SpawnPointEntry
+        {
+            public string name;
+            public string title;
+
+            public override string ToString()
+            {
+                return title;
+            }
+        }
+
         /// <summary>A playable character, by the name the game spawns it with.</summary>
         public class CharacterEntry
         {
@@ -259,6 +271,65 @@ namespace SluMAN
         };
 
         private const int SpawnCharacterLength = 64;
+
+        // The player spawn points in each level, by level hash, from the level files in
+        // Sly4.psarc (Levels/<World>/<Level>/All_Combined.san.cooked). Only the levels whose files
+        // could be read are here; a level not listed loads at its default start
+        // (Spawn_Player_Default).
+        private static readonly Dictionary<uint, string[]> levelSpawnPoints = new Dictionary<uint, string[]>
+        {
+            { 0x2E01E5EB, new[] { // Arabia Harem
+                "Spawn_Player_HaremCrawl",
+            } },
+            { 0x2986D493, new[] { // England Ward
+                "Spawn_Player_Arm_Left", "Spawn_Player_Arm_Right", "Spawn_Player_Bentley",
+                "Spawn_Player_Carmelita", "Spawn_Player_Galleth", "Spawn_Player_Penelope",
+                "Spawn_Player_Shake_Center", "Spawn_Player_Shake_Left", "Spawn_Player_Sly",
+            } },
+            { 0xF285665B, new[] { // Ice Age Arena
+                "Spawn_Player_1ArenaEntrance", "Spawn_Player_2Bridge", "Spawn_Player_3Archway",
+                "Spawn_Player_4Costume", "Spawn_Player_5LairDoor1", "Spawn_Player_6CostumeFront",
+                "Spawn_Player_6CostumeGet", "Spawn_Player_7Fightroom", "Spawn_Player_8PounceHall",
+                "Spawn_Player_9ArenaMainFloor", "Spawn_Player_CaneSwipe", "Spawn_Player_Crawl",
+                "Spawn_Player_Playdead01",
+            } },
+            { 0xBC676503, new[] { // Japan Bridge
+                "Spawn_Player_AcrossBridge", "Spawn_Player_AfterGuardFight", "Spawn_Player_BridgeFallStart",
+                "Spawn_Player_RatFight_Murray01", "Spawn_Player_RatFight_Sly01", "Spawn_Player_Statue01",
+                "Spawn_Player_Statue02", "Spawn_Player_Statue03", "Spawn_Player_TigerBridgeBent02",
+                "Spawn_Player_TigerBridgeMur03", "Spawn_Player_TigerBridgeRio04", "Spawn_Player_TigerBridgeSly01",
+                "Spawn_Player_TigerBridgeTiger01", "Spawn_Player_UnderBridge01", "Spawn_Player_UnderBridge02",
+                "Spawn_Player_UnderBridge03",
+            } },
+            { 0x0C44F02D, new[] { // Paris Blimp
+                "Spawn_Player_BossDoor02", "Spawn_Player_Caveman01", "Spawn_Player_Caveman02",
+                "Spawn_Player_Galleth01", "Spawn_Player_Galleth02", "Spawn_Player_Galleth03",
+                "Spawn_Player_Kid01", "Spawn_Player_Kid02", "Spawn_Player_Rio01",
+                "Spawn_Player_Rio02", "Spawn_Player_Rio03", "Spawn_Player_Salim01",
+                "Spawn_Player_Salim02", "Spawn_Player_Sly01", "Spawn_Player_SlyRound1",
+                "Spawn_Player_SlyRound2", "Spawn_Player_SlyRound3",
+            } },
+            { 0x3FEEDCAF, new[] { // West Mines
+                "Spawn_Player_CampAExit", "Spawn_Player_CampAStart", "Spawn_Player_CampBEnd",
+                "Spawn_Player_CampBStart", "Spawn_Player_CrackShot",
+            } },
+            { 0xC7B84D81, new[] { // West Saloon
+                "Spawn_Player_DenStart", "Spawn_Player_Hooch", "Spawn_Player_RCCarStart",
+            } },
+            { 0x1AD96E63, new[] { // West Town
+                "Spawn_Player_BentleyJHBStart", "Spawn_Player_DefaultCarmelita", "Spawn_Player_DefaultKidCooper",
+                "Spawn_Player_GKLCarmStart", "Spawn_Player_GKLCarmelita", "Spawn_Player_GKLMurray",
+                "Spawn_Player_GKLMurrayStart", "Spawn_Player_GKLSlyStart", "Spawn_Player_MurrayMineGate",
+                "Spawn_Player_RCStart", "Spawn_Player_SB_Binoc", "Spawn_Player_SlyUAStart",
+            } },
+            { 0x40556837, new[] { // West Train
+                "Spawn_Player_Bentley", "Spawn_Player_Carmelita", "Spawn_Player_KidCooperA1",
+                "Spawn_Player_KidCooperA2", "Spawn_Player_KidCooperB1", "Spawn_Player_KidCooperB2",
+                "Spawn_Player_KidCooperGold1", "Spawn_Player_Sly", "Spawn_Player_SlyA",
+            } },
+        };
+
+        private const string SpawnPointPrefix = "Spawn_Player_";
 
         public sly4(IPS3API api, string gameNameId) : base(api)
         {
@@ -595,6 +666,25 @@ namespace SluMAN
             return levels;
         }
 
+        /// <summary>
+        /// The spawn points known for a level, shown without their "Spawn_Player_" prefix. Empty
+        /// for levels without any.
+        /// </summary>
+        public static List<SpawnPointEntry> GetSpawnPoints(uint levelHash)
+        {
+            List<SpawnPointEntry> spawnPoints = new List<SpawnPointEntry>();
+            string[] names;
+            if (levelSpawnPoints.TryGetValue(levelHash, out names))
+            {
+                foreach (string name in names)
+                {
+                    string title = name.StartsWith(SpawnPointPrefix) ? name.Substring(SpawnPointPrefix.Length) : name;
+                    spawnPoints.Add(new SpawnPointEntry { name = name, title = title.Replace('_', ' ') });
+                }
+            }
+            return spawnPoints;
+        }
+
         /// <summary>The current episode's title, or null when there is none.</summary>
         public string GetEpisodeName()
         {
@@ -880,7 +970,11 @@ namespace SluMAN
         /// The character to spawn as, or null for the level's own. Set the way door transitions
         /// keep the current character; the load reads it once and clears it.
         /// </param>
-        public void LoadLevel(uint levelHash, CharacterEntry character)
+        /// <param name="spawnPoint">
+        /// Where to spawn, or null for the level's default start. Set the way doors set their
+        /// arrival point; a name the level doesn't have falls back to the default start.
+        /// </param>
+        public void LoadLevel(uint levelHash, CharacterEntry character, SpawnPointEntry spawnPoint)
         {
             uint gameManager = ReadUInt(addr.gameManagerPtr);
             if (gameManager == 0)
@@ -896,6 +990,8 @@ namespace SluMAN
                 Encoding.ASCII.GetBytes(character.name, 0, character.name.Length, name, 0);
             }
             api.WriteMemory(pid, gameManager + addr.spawnCharacterOffset, name);
+            uint spawnHash = spawnPoint == null ? 0 : Hash(spawnPoint.name);
+            api.WriteMemory(pid, gameManager + addr.spawnPointOffset, ConvertIntToBytes((int)spawnHash));
             codeHook.Call(addr.loadLevelFunction, gameManager, levelHash, 0);
         }
 

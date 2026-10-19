@@ -68,6 +68,7 @@ namespace SluMAN
             this.levelComboBox = new System.Windows.Forms.ComboBox();
             this.loadLevelButton = new System.Windows.Forms.Button();
             this.characterComboBox = new System.Windows.Forms.ComboBox();
+            this.spawnPointComboBox = new System.Windows.Forms.ComboBox();
             this.slowMotionCheckBox = new System.Windows.Forms.CheckBox();
             this.invulnerableCheckBox = new System.Windows.Forms.CheckBox();
             this.undetectableCheckBox = new System.Windows.Forms.CheckBox();
@@ -357,9 +358,10 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.levelComboBox);
             this.warpGroupBox.Controls.Add(this.loadLevelButton);
             this.warpGroupBox.Controls.Add(this.characterComboBox);
+            this.warpGroupBox.Controls.Add(this.spawnPointComboBox);
             this.warpGroupBox.Location = new System.Drawing.Point(12, 276);
             this.warpGroupBox.Name = "warpGroupBox";
-            this.warpGroupBox.Size = new System.Drawing.Size(276, 164);
+            this.warpGroupBox.Size = new System.Drawing.Size(276, 193);
             this.warpGroupBox.TabIndex = 3;
             this.warpGroupBox.TabStop = false;
             this.warpGroupBox.Text = "Warp";
@@ -458,10 +460,20 @@ namespace SluMAN
             this.characterComboBox.Size = new System.Drawing.Size(169, 21);
             this.characterComboBox.TabIndex = 8;
             //
+            // spawnPointComboBox
+            //
+            this.spawnPointComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.spawnPointComboBox.FormattingEnabled = true;
+            this.spawnPointComboBox.Location = new System.Drawing.Point(10, 163);
+            this.spawnPointComboBox.MaxDropDownItems = 20;
+            this.spawnPointComboBox.Name = "spawnPointComboBox";
+            this.spawnPointComboBox.Size = new System.Drawing.Size(256, 21);
+            this.spawnPointComboBox.TabIndex = 9;
+            //
             // slowMotionCheckBox
             //
             this.slowMotionCheckBox.AutoSize = true;
-            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 446);
+            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 475);
             this.slowMotionCheckBox.Name = "slowMotionCheckBox";
             this.slowMotionCheckBox.Size = new System.Drawing.Size(84, 17);
             this.slowMotionCheckBox.TabIndex = 3;
@@ -472,7 +484,7 @@ namespace SluMAN
             // invulnerableCheckBox
             //
             this.invulnerableCheckBox.AutoSize = true;
-            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 469);
+            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 498);
             this.invulnerableCheckBox.Name = "invulnerableCheckBox";
             this.invulnerableCheckBox.Size = new System.Drawing.Size(83, 17);
             this.invulnerableCheckBox.TabIndex = 4;
@@ -483,7 +495,7 @@ namespace SluMAN
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 469);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 498);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
             this.undetectableCheckBox.TabIndex = 5;
@@ -494,7 +506,7 @@ namespace SluMAN
             // skipCutscenesCheckBox
             //
             this.skipCutscenesCheckBox.AutoSize = true;
-            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 492);
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 521);
             this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
             this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
             this.skipCutscenesCheckBox.TabIndex = 7;
@@ -505,7 +517,7 @@ namespace SluMAN
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 446);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 475);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
             this.alwaysOnTopCheckBox.TabIndex = 6;
@@ -521,7 +533,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 519);
+            this.ClientSize = new System.Drawing.Size(300, 548);
             this.Controls.Add(this.gameGroupBox);
             this.Controls.Add(this.playerGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
@@ -592,6 +604,7 @@ namespace SluMAN
         private System.Windows.Forms.ComboBox levelComboBox;
         private System.Windows.Forms.Button loadLevelButton;
         private System.Windows.Forms.ComboBox characterComboBox;
+        private System.Windows.Forms.ComboBox spawnPointComboBox;
         private System.Windows.Forms.CheckBox slowMotionCheckBox;
         private System.Windows.Forms.CheckBox invulnerableCheckBox;
         private System.Windows.Forms.CheckBox undetectableCheckBox;
