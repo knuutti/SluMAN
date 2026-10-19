@@ -71,7 +71,8 @@ namespace SluMAN
 
         /// <summary>
         /// The running job's goal pointers (0 for empty slots), their states as last read, and the
-        /// current goal's index (-1 outside jobs; the last goal once all are done).
+        /// current goal's index (-1 outside jobs; the goal count once all are done, so finishing the
+        /// last goal shows as a change too).
         /// </summary>
         public void GetState(out List<uint> goalList, out List<int> stateList, out int currentIndex)
         {
@@ -136,7 +137,10 @@ namespace SluMAN
                             Release(ref previousSubID);
                             if (currentIndex >= 0)
                             {
-                                currentSubID = SubscribeState(goalList, currentIndex, true);
+                                if (currentIndex < goalList.Count)
+                                {
+                                    currentSubID = SubscribeState(goalList, currentIndex, true);
+                                }
                                 int previous = PreviousGoal(goalList, currentIndex);
                                 if (previous >= 0)
                                 {
@@ -238,23 +242,23 @@ namespace SluMAN
             }
         }
 
-        /// <summary>The first goal not done, or the last goal once all are done; -1 without goals.</summary>
+        /// <summary>The first goal not done, or the goal count once all are done; -1 without goals.</summary>
         private static int CurrentIndex(List<uint> goalList, List<int> stateList)
         {
-            int last = -1;
+            bool any = false;
             for (int i = 0; i < goalList.Count; i++)
             {
                 if (goalList[i] == 0)
                 {
                     continue;
                 }
-                last = i;
+                any = true;
                 if (stateList[i] != Sly4Addresses.GoalStateDone)
                 {
                     return i;
                 }
             }
-            return last;
+            return any ? goalList.Count : -1;
         }
 
         private static int PreviousGoal(List<uint> goalList, int index)

@@ -17,6 +17,13 @@ namespace SluMAN
         public string GameId { get; private set; }
         public string DisplayName { get; private set; }
 
+        // Inputs: the game's pad object, which holds the controller data the game read this frame.
+        // Buttons are the two button bytes as a 4-byte word: 00, Select..Left, 00, L2..Square.
+        // Each stick is two big-endian floats, X then Y.
+        public uint inputButtons { get; private set; }
+        public uint analogLeft { get; private set; }
+        public uint analogRight { get; private set; }
+
         // Pointers
         public uint gameManagerPtr { get; private set; }
         public uint episodeManagerPtr { get; private set; }
@@ -25,6 +32,7 @@ namespace SluMAN
         public uint coinCountOffset { get; private set; }
         public uint playerRefOffset { get; private set; }
         public uint loadPhaseOffset { get; private set; }
+        public uint inGameOffset { get; private set; }
         public uint goalArrayOffset { get; private set; }
         public uint goalCountOffset { get; private set; }
         public uint currentLevelHashOffset { get; private set; }
@@ -137,12 +145,18 @@ namespace SluMAN
                 GameId = GameIdPALDisc,
                 DisplayName = "SLY 4 (PAL, Disc)",
 
+                // From the RaCMAN input viewer for NPEA00429; the pad object is at 0x30A1C040.
+                inputButtons = 0x30A1C0E0,
+                analogLeft = 0x30A1C060,
+                analogRight = 0x30A1C068,
+
                 gameManagerPtr = 0xF65CA0,
                 episodeManagerPtr = 0xF64C20,
 
                 coinCountOffset = 0x70,
                 playerRefOffset = 0x1078,
                 loadPhaseOffset = 0x32,
+                inGameOffset = 0x2F,
                 goalArrayOffset = 0x10C0,
                 goalCountOffset = 0x10C8,
                 currentLevelHashOffset = 0x128114,

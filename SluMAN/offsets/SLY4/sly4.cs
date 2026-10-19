@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SluMAN
 {
-    public class sly4 : IGame
+    public class sly4 : IGame, IAutosplitterAvailable, IAutosplitterComputedValues
     {
         public static Sly4Addresses addr = Sly4Addresses.ForGame(Sly4Addresses.DefaultGameId);
 
@@ -30,6 +30,10 @@ namespace SluMAN
 
         // Follows the current goal through memory subscriptions while it runs (see StartGoalWatcher).
         private Sly4GoalWatcher goalWatcher;
+
+        // The autosplitter's values while it runs, and whether it started the goal watcher.
+        private Sly4AutosplitterValues autosplitterValues;
+        private bool autosplitterStartedGoalWatcher;
 
         /// <summary>
         /// Raised on a background thread when the current goal or the goal list changes, while the
@@ -98,9 +102,87 @@ namespace SluMAN
         }
 
         // TODO: The pad address isn't known yet, so there is no input display and combos never fire.
+        /// <summary>
+        /// None: every Sly 4 value hangs off the game or episode manager, which only exist once the
+        /// game has booted, so they're all computed values (see Sly4AutosplitterValues).
+        /// </summary>
+        public IEnumerable<(uint addr, uint size)> AutosplitterAddresses => new (uint, uint)[0];
+
+        public void StartComputedValues(Action<int, byte[]> write)
+        {
+            StopComputedValues();
+            autosplitterValues = new Sly4AutosplitterValues(this, write);
+            autosplitterValues.Start();
+            GoalsChanged += WriteAutosplitterGoal;
+            if (goalWatcher == null)
+            {
+                StartGoalWatcher();
+                autosplitterStartedGoalWatcher = true;
+            }
+            WriteAutosplitterGoal();
+        }
+
+        public void StopComputedValues()
+        {
+            GoalsChanged -= WriteAutosplitterGoal;
+            if (autosplitterValues != null)
+            {
+                autosplitterValues.Stop();
+                autosplitterValues = null;
+            }
+            if (autosplitterStartedGoalWatcher)
+            {
+                StopGoalWatcher();
+                autosplitterStartedGoalWatcher = false;
+            }
+        }
+
+        /// <summary>Copies the goal watcher's current goal to the autosplitter. Runs on the watcher's threads.</summary>
+        private void WriteAutosplitterGoal()
+        {
+            Sly4AutosplitterValues values = autosplitterValues;
+            Sly4GoalWatcher watcher = goalWatcher;
+            if (values == null || watcher == null)
+            {
+                return;
+            }
+            List<uint> goals;
+            List<int> states;
+            int current;
+            watcher.GetState(out goals, out states, out current);
+            values.WriteGoal(current, goals.Count);
+        }
+
         public override void CheckInputs(object sender, EventArgs e)
         {
             RunCombos();
+        }
+
+        protected override void SetupInputDisplayMemorySubsButtons()
+        {
+            api.SubMemory(pid, addr.inputButtons, 4, (value) =>
+            {
+                // The word is 00, Select..Left, 00, L2..Square, which is the standard layout's two
+                // bytes with a gap between them.
+                int buttons = BitConverter.ToInt32(value, 0);
+                Inputs.RawInputs = (buttons & 0xFF) | ((buttons >> 8) & 0xFF00);
+            });
+        }
+
+        protected override void SetupInputDisplayMemorySubsAnalogs()
+        {
+            // Each stick is X then Y as big-endian floats. The callback gets the 8 bytes reversed,
+            // so Y comes first.
+            api.SubMemory(pid, addr.analogLeft, 8, (value) =>
+            {
+                Inputs.ly = BitConverter.ToSingle(value, 0);
+                Inputs.lx = BitConverter.ToSingle(value, 4);
+            });
+            api.SubMemory(pid, addr.analogRight, 8, (value) =>
+            {
+                Inputs.ry = BitConverter.ToSingle(value, 0);
+                Inputs.rx = BitConverter.ToSingle(value, 4);
+            });
         }
 
         public bool IsPlayerLoaded()

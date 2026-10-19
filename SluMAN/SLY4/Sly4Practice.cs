@@ -72,6 +72,9 @@ namespace SluMAN
                 // Left unchecked; ticking them writes the values anyway.
             }
 
+            // The controller feeds the combos and the input display.
+            game.SetupInputDisplayMemorySubs();
+
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
             game.combosActive = true;
             game.InputsTimer.Start();
@@ -84,6 +87,10 @@ namespace SluMAN
             game.StartGoalWatcher();
 
             refreshTimer.Start();
+
+            ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
+            inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
+            toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
 
             practiceTabs = new PracticeTabs(this, "Practice");
             practiceTabs.AddTool(PositionTab, () => new Sly4PositionForm(game));
