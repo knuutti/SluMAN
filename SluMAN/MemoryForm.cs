@@ -49,6 +49,18 @@ namespace SluMAN
 
         private const string FrozenMarker = "❄ ";
 
+        // The list's columns, by sub-item index (the user can reorder how they show).
+        private const int NameColumn = 0;
+        private const int AddressColumn = 1;
+        private const int TypeColumn = 2;
+        private const int ValueColumn = 3;
+
+        // Built when it opens, for the row under the mouse and the checked rows.
+        private readonly ContextMenuStrip rowMenu = new ContextMenuStrip();
+
+        // Set while a double-click is handled: the list would otherwise tick the row's checkbox.
+        private bool suppressCheck;
+
         private StatusLine statusLine;
 
         // Pointer chains can't use subscriptions, since the address they end at moves, so they're
@@ -107,6 +119,11 @@ namespace SluMAN
             watchedMemoryAddressesListView.AfterLabelEdit += watchedMemoryAddressesListView_AfterLabelEdit;
             watchedMemoryAddressesListView.ShowItemToolTips = true;
             watchedMemoryAddressesListView.MouseDoubleClick += watchedMemoryAddressesListView_MouseDoubleClick;
+            watchedMemoryAddressesListView.MouseDown += watchedMemoryAddressesListView_MouseDown;
+            watchedMemoryAddressesListView.ItemCheck += watchedMemoryAddressesListView_ItemCheck;
+            watchedMemoryAddressesListView.KeyDown += watchedMemoryAddressesListView_KeyDown;
+            watchedMemoryAddressesListView.ContextMenuStrip = rowMenu;
+            rowMenu.Opening += rowMenu_Opening;
             GameReconnect.GameReconnected += GameReconnect_GameReconnected;
 
             addressToolTip.SetToolTip(registerAddressTextBox,
@@ -228,7 +245,7 @@ namespace SluMAN
                 }
                 watched.lastValue = value;
                 watched.number = ParseNumber(watched, value);
-                item.SubItems[2].Text = (watched.isFrozen ? FrozenMarker : "") + value;
+                item.SubItems[ValueColumn].Text = (watched.isFrozen ? FrozenMarker : "") + value;
             };
 
             if (InvokeRequired)
@@ -329,6 +346,7 @@ namespace SluMAN
         {
             ListViewItem item = new ListViewItem(name);
             item.SubItems.Add(expression.ToString());
+            item.SubItems.Add(type);
             item.SubItems.Add("Waiting...");
 
             WatchedAddress watched = new WatchedAddress
@@ -361,6 +379,7 @@ namespace SluMAN
         {
             ListViewItem item = new ListViewItem(name);
             item.SubItems.Add("");
+            item.SubItems.Add("Function");
             item.SubItems.Add("");
             item.Tag = new WatchedAddress { name = name, formula = formula, type = "Function" };
             ShowFormula(item);
@@ -371,7 +390,7 @@ namespace SluMAN
         private static void ShowFormula(ListViewItem item)
         {
             WatchedAddress watched = Watched(item);
-            item.SubItems[1].Text = "= " + watched.formula.Text;
+            item.SubItems[AddressColumn].Text = "= " + watched.formula.Text;
             item.ToolTipText = watched.formula.Text;
         }
 
@@ -421,9 +440,9 @@ namespace SluMAN
 
             watched.lastValue = text;
             // Setting the same text still repaints the row, which flickers at this rate.
-            if (item.SubItems[2].Text != text)
+            if (item.SubItems[ValueColumn].Text != text)
             {
-                item.SubItems[2].Text = text;
+                item.SubItems[ValueColumn].Text = text;
             }
         }
 
@@ -669,9 +688,9 @@ namespace SluMAN
             openViewer();
         }
 
-        private void MenuStripShowInViewer_Click(object sender, EventArgs e)
+        private void ShowInViewer(ListViewItem item)
         {
-            WatchedAddress watched = Watched(watchedMemoryAddressesListView.FocusedItem);
+            WatchedAddress watched = Watched(item);
             if (watched == null)
             {
                 return;
@@ -733,6 +752,7 @@ namespace SluMAN
             functionTimer.Stop();
             functionTimer.Dispose();
             addressToolTip.Dispose();
+            rowMenu.Dispose();
             GameReconnect.GameReconnected -= GameReconnect_GameReconnected;
             ReleaseAll();
 
@@ -742,49 +762,140 @@ namespace SluMAN
             }
         }
 
-        private void watchedMemoryAddressesListView_MouseDoubleClick(object sender, MouseEventArgs e)
+        private void watchedMemoryAddressesListView_MouseDown(object sender, MouseEventArgs e)
         {
-            ListViewItem item = watchedMemoryAddressesListView.GetItemAt(e.X, e.Y);
-            WatchedAddress watched = Watched(item);
-            if (e.Button == MouseButtons.Left && watched != null && watched.IsFunction)
+            suppressCheck = e.Clicks > 1;
+        }
+
+        private void watchedMemoryAddressesListView_ItemCheck(object sender, ItemCheckEventArgs e)
+        {
+            if (suppressCheck)
             {
-                EditFunction(item);
+                e.NewValue = e.CurrentValue;
             }
         }
 
-        private void watchedMemoryAddressesListView_MouseClick(object sender, MouseEventArgs e)
+        /// <summary>
+        /// A double-click on a watch's name renames it, anywhere else on the row edits its value.
+        /// A function opens its editor.
+        /// </summary>
+        private void watchedMemoryAddressesListView_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Right)
+            suppressCheck = false;
+            ListViewHitTestInfo hit = watchedMemoryAddressesListView.HitTest(e.Location);
+            WatchedAddress watched = Watched(hit.Item);
+            if (e.Button != MouseButtons.Left || watched == null || hit.Location == ListViewHitTestLocations.StateImage)
             {
                 return;
             }
 
-            ListViewItem focusedItem = watchedMemoryAddressesListView.FocusedItem;
-            if (focusedItem == null || !focusedItem.Bounds.Contains(e.Location))
+            if (watched.IsFunction)
+            {
+                EditFunction(hit.Item);
+                return;
+            }
+            int column = hit.SubItem == null ? NameColumn : hit.Item.SubItems.IndexOf(hit.SubItem);
+            if (column == NameColumn)
+            {
+                hit.Item.BeginEdit();
+            }
+            else
+            {
+                EditValue(hit.Item);
+            }
+        }
+
+        private void watchedMemoryAddressesListView_KeyDown(object sender, KeyEventArgs e)
+        {
+            suppressCheck = false;
+            if (e.KeyCode != Keys.Delete)
             {
                 return;
+            }
+            // The checked rows, or the selected ones when none are checked.
+            List<ListViewItem> items = CheckedRows();
+            if (items.Count == 0)
+            {
+                items = watchedMemoryAddressesListView.SelectedItems.Cast<ListViewItem>().ToList();
+            }
+            DeleteRows(items);
+            e.Handled = true;
+        }
+
+        private List<ListViewItem> CheckedRows()
+        {
+            return watchedMemoryAddressesListView.CheckedItems.Cast<ListViewItem>().ToList();
+        }
+
+        /// <summary>
+        /// Fills the right-click menu: the row under the mouse (anywhere on it), then the checked
+        /// rows, which are frozen, unfrozen or deleted together.
+        /// </summary>
+        private void rowMenu_Opening(object sender, CancelEventArgs e)
+        {
+            rowMenu.Items.Clear();
+
+            Point point = watchedMemoryAddressesListView.PointToClient(Cursor.Position);
+            ListViewItem item = watchedMemoryAddressesListView.HitTest(point).Item;
+            if (item == null && !watchedMemoryAddressesListView.ClientRectangle.Contains(point))
+            {
+                // Opened with the keyboard's menu key.
+                item = watchedMemoryAddressesListView.FocusedItem;
             }
 
-            WatchedAddress watched = Watched(focusedItem);
-            ContextMenuStrip menuStrip = new ContextMenuStrip();
-            if (watched != null && watched.IsFunction)
+            WatchedAddress watched = Watched(item);
+            if (watched != null)
             {
-                // A function has no memory of its own to edit, freeze or view.
-                menuStrip.Items.Add("Edit function...", null, (s, args) => EditFunction(focusedItem));
-                menuStrip.Items.Add("Rename", null, (s, args) => focusedItem.BeginEdit());
-                menuStrip.Items.Add(new ToolStripSeparator());
-                menuStrip.Items.Add("Delete", null, MenuStripDelete_Click);
-                menuStrip.Show(Cursor.Position);
-                return;
+                item.Selected = true;
+                item.Focused = true;
+                if (watched.IsFunction)
+                {
+                    // A function has no memory of its own to edit, freeze or view.
+                    rowMenu.Items.Add("Edit function...", null, (s, args) => EditFunction(item));
+                    rowMenu.Items.Add("Rename", null, (s, args) => item.BeginEdit());
+                }
+                else
+                {
+                    rowMenu.Items.Add("Edit value...", null, (s, args) => EditValue(item));
+                    rowMenu.Items.Add(watched.isFrozen ? "Unfreeze" : "Freeze", null, (s, args) => SetFrozen(new List<ListViewItem> { item }, !watched.isFrozen));
+                    rowMenu.Items.Add("Rename", null, (s, args) => item.BeginEdit());
+                    rowMenu.Items.Add("Copy address", null, (s, args) => CopyAddress(item));
+                    rowMenu.Items.Add("Show in viewer", null, (s, args) => ShowInViewer(item));
+                }
+                rowMenu.Items.Add("Delete", null, (s, args) => DeleteRows(new List<ListViewItem> { item }));
             }
-            menuStrip.Items.Add("Edit value...", null, MenuStripEditValue_Click);
-            menuStrip.Items.Add(watched != null && watched.isFrozen ? "Unfreeze" : "Freeze", null, MenuStripEditValue_Freeze);
-            menuStrip.Items.Add("Rename", null, (s, args) => focusedItem.BeginEdit());
-            menuStrip.Items.Add("Copy address", null, MenuStripCopyAddress_Click);
-            menuStrip.Items.Add("Show in viewer", null, MenuStripShowInViewer_Click);
-            menuStrip.Items.Add(new ToolStripSeparator());
-            menuStrip.Items.Add("Delete", null, MenuStripDelete_Click);
-            menuStrip.Show(Cursor.Position);
+
+            List<ListViewItem> checkedRows = CheckedRows();
+            if (checkedRows.Count > 0)
+            {
+                if (rowMenu.Items.Count > 0)
+                {
+                    rowMenu.Items.Add(new ToolStripSeparator());
+                }
+                rowMenu.Items.Add($"Freeze checked ({checkedRows.Count})", null, (s, args) => SetFrozen(checkedRows, true));
+                rowMenu.Items.Add($"Unfreeze checked ({checkedRows.Count})", null, (s, args) => SetFrozen(checkedRows, false));
+                rowMenu.Items.Add($"Delete checked ({checkedRows.Count})", null, (s, args) => DeleteRows(checkedRows));
+                rowMenu.Items.Add("Uncheck all", null, (s, args) => SetAllChecked(false));
+            }
+            if (checkedRows.Count < watchedMemoryAddressesListView.Items.Count)
+            {
+                if (rowMenu.Items.Count > 0 && checkedRows.Count == 0)
+                {
+                    rowMenu.Items.Add(new ToolStripSeparator());
+                }
+                rowMenu.Items.Add("Check all", null, (s, args) => SetAllChecked(true));
+            }
+
+            // The menu starts out empty, so it has to be told to open.
+            e.Cancel = rowMenu.Items.Count == 0;
+        }
+
+        private void SetAllChecked(bool check)
+        {
+            foreach (ListViewItem item in watchedMemoryAddressesListView.Items)
+            {
+                item.Checked = check;
+            }
         }
 
         /// <summary>
@@ -801,59 +912,74 @@ namespace SluMAN
             watched.isFrozen = true;
         }
 
-        private void MenuStripEditValue_Freeze(object sender, EventArgs e)
+        /// <summary>
+        /// Freezes rows at the values they have now, or unfreezes them. Functions and rows already
+        /// in that state are left alone.
+        /// </summary>
+        private void SetFrozen(List<ListViewItem> items, bool freeze)
         {
-            ListViewItem focusedItem = watchedMemoryAddressesListView.FocusedItem;
-            WatchedAddress watched = Watched(focusedItem);
-            if (watched == null)
+            int failed = 0;
+            string lastError = null;
+            foreach (ListViewItem item in items)
             {
-                return;
+                WatchedAddress watched = Watched(item);
+                if (watched == null || watched.IsFunction || watched.isFrozen == freeze || item.ListView == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (!freeze)
+                    {
+                        if (watched.freezeSub != -1)
+                        {
+                            api.ReleaseSubID(watched.freezeSub);
+                        }
+                        watched.freezeSub = -1;
+                        watched.freezeBytes = null;
+                        watched.isFrozen = false;
+                    }
+                    else
+                    {
+                        if (!watched.expression.IsStatic && !ResolvePointerWatch(item, watched))
+                        {
+                            failed++;
+                            lastError = $"{watched.name}: a pointer on its chain is null right now";
+                            continue;
+                        }
+                        // Hold the value it has right now.
+                        byte[] current = api.ReadMemory(Pid, watched.address, watched.size);
+                        Freeze(watched, current);
+                    }
+                    SetItemValueText(item, watched.lastValue);
+                }
+                catch (Exception ex)
+                {
+                    watched.isFrozen = false;
+                    watched.freezeSub = -1;
+                    failed++;
+                    lastError = $"{watched.name}: {ex.Message}";
+                    Console.WriteLine(ex);
+                }
             }
 
-            try
+            if (failed > 0)
             {
-                if (watched.isFrozen)
-                {
-                    if (watched.freezeSub != -1)
-                    {
-                        api.ReleaseSubID(watched.freezeSub);
-                    }
-                    watched.freezeSub = -1;
-                    watched.freezeBytes = null;
-                    watched.isFrozen = false;
-                }
-                else
-                {
-                    if (!watched.expression.IsStatic && !ResolvePointerWatch(focusedItem, watched))
-                    {
-                        statusLine.Error("A pointer on the chain is null right now, so there's nothing to freeze.");
-                        return;
-                    }
-                    // Hold the value it has right now.
-                    byte[] current = api.ReadMemory(Pid, watched.address, watched.size);
-                    Freeze(watched, current);
-                }
-                SetItemValueText(focusedItem, watched.lastValue);
-            }
-            catch (Exception ex)
-            {
-                watched.isFrozen = false;
-                watched.freezeSub = -1;
-                statusLine.Error($"Couldn't freeze 0x{watched.address:X}: {ex.Message}");
-                Console.WriteLine(ex);
+                string action = freeze ? "freeze" : "unfreeze";
+                statusLine.Error(failed == 1 ? $"Couldn't {action} {lastError}" : $"Couldn't {action} {failed} watches. Last: {lastError}");
             }
         }
 
-        private void MenuStripEditValue_Click(object sender, EventArgs e)
+        private void EditValue(ListViewItem item)
         {
-            ListViewItem focusedItem = watchedMemoryAddressesListView.FocusedItem;
-            WatchedAddress watched = Watched(focusedItem);
-            if (watched == null)
+            WatchedAddress watched = Watched(item);
+            if (watched == null || watched.IsFunction)
             {
                 return;
             }
 
-            if (!watched.expression.IsStatic && !ResolvePointerWatch(focusedItem, watched))
+            if (!watched.expression.IsStatic && !ResolvePointerWatch(item, watched))
             {
                 statusLine.Error("A pointer on the chain is null right now, so there's nothing to edit.");
                 return;
@@ -913,9 +1039,9 @@ namespace SluMAN
             }
         }
 
-        private void MenuStripCopyAddress_Click(object sender, EventArgs e)
+        private void CopyAddress(ListViewItem item)
         {
-            WatchedAddress watched = Watched(watchedMemoryAddressesListView.FocusedItem);
+            WatchedAddress watched = Watched(item);
             if (watched == null)
             {
                 return;
@@ -931,18 +1057,24 @@ namespace SluMAN
             }
         }
 
-        private void MenuStripDelete_Click(object sender, EventArgs e)
+        private void DeleteRows(List<ListViewItem> items)
         {
-            ListViewItem focusedItem = watchedMemoryAddressesListView.FocusedItem;
-            WatchedAddress watched = Watched(focusedItem);
-            if (watched == null)
+            bool deleted = false;
+            foreach (ListViewItem item in items)
             {
-                return;
+                WatchedAddress watched = Watched(item);
+                if (watched == null || item.ListView == null)
+                {
+                    continue;
+                }
+                Release(watched);
+                watchedMemoryAddressesListView.Items.Remove(item);
+                deleted = true;
             }
-
-            Release(watched);
-            watchedMemoryAddressesListView.Items.Remove(focusedItem);
-            SaveCurrentWatchlist();
+            if (deleted)
+            {
+                SaveCurrentWatchlist();
+            }
         }
 
         // --- Watchlists ---
