@@ -28,6 +28,19 @@ namespace SluMAN
         // The debug menu's Tuning settings, read from the game when first needed.
         public readonly Sly4Tunables tunables;
 
+        // Each goal's state is its own read, so the Practice panel and the Jobs tab share one
+        // reading of them, taken at most this often. On a PS3 every read is a network round trip.
+        private static readonly TimeSpan GoalSnapshotMaxAge = TimeSpan.FromSeconds(2);
+        private List<uint> snapshotGoals = new List<uint>();
+        private List<int> snapshotStates = new List<int>();
+        private DateTime snapshotTakenAt = DateTime.MinValue;
+        // The current goal's name, read again only when the current goal changes.
+        private uint snapshotNameGoal;
+        private string snapshotName;
+
+        // The most read at once: Ratchetron's receive buffer is about 2 KB.
+        private const uint MaxReadSize = 0x800;
+
         /// <summary>A job in the game's job array.</summary>
         public class JobEntry
         {
@@ -123,17 +136,31 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The player's velocity on X, Y and Z, or null when the player isn't loaded.
+        /// The player's position and velocity together, following the pointer chain once rather
+        /// than once for each. False when the player isn't loaded.
         /// </summary>
-        public float[] GetVelocity()
+        public bool ReadMotion(out float[] position, out float[] velocity)
         {
+            position = null;
+            velocity = null;
+
             uint controller = GetCharacterController();
             if (controller == 0)
             {
-                return null;
+                return false;
             }
-            byte[] bytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
-            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+            uint characterBody = ReadUInt(controller + addr.characterBodyOffset);
+            uint body = characterBody == 0 ? 0 : ReadUInt(characterBody + addr.rigidBodyOffset);
+            if (body == 0)
+            {
+                return false;
+            }
+
+            byte[] positionBytes = api.ReadMemory(pid, body + addr.bodyPositionOffset, 12);
+            byte[] velocityBytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
+            position = new float[] { ToFloat(positionBytes, 0), ToFloat(positionBytes, 4), ToFloat(positionBytes, 8) };
+            velocity = new float[] { ToFloat(velocityBytes, 0), ToFloat(velocityBytes, 4), ToFloat(velocityBytes, 8) };
+            return true;
         }
 
         /// <summary>
@@ -291,19 +318,18 @@ namespace SluMAN
             checkpoint = 0;
             goalName = null;
 
-            List<uint> goals = GetGoals();
-            goalCount = goals.Count;
+            TakeGoalSnapshot();
+            goalCount = snapshotGoals.Count;
             uint current = 0;
-            for (int i = 0; i < goals.Count; i++)
+            for (int i = 0; i < snapshotGoals.Count; i++)
             {
-                uint goal = goals[i];
-                if (goal == 0)
+                if (snapshotGoals[i] == 0)
                 {
                     continue;
                 }
                 checkpoint = i + 1;
-                current = goal;
-                if (ReadByte(goal + addr.goalStateOffset) != Sly4Addresses.GoalStateDone)
+                current = snapshotGoals[i];
+                if (snapshotStates[i] != Sly4Addresses.GoalStateDone)
                 {
                     break;
                 }
@@ -311,11 +337,41 @@ namespace SluMAN
 
             if (current != 0)
             {
-                goalName = ReadString(current + addr.goalNameOffset);
+                if (current != snapshotNameGoal)
+                {
+                    snapshotName = ReadString(current + addr.goalNameOffset);
+                    snapshotNameGoal = current;
+                }
+                goalName = snapshotName;
             }
         }
 
-        /// <summary>Every job in the game, in the job array's order.</summary>
+        /// <summary>
+        /// Reads the running job's goals and their states, unless that was done within
+        /// GoalSnapshotMaxAge. For display only: warps read the goals fresh.
+        /// </summary>
+        private void TakeGoalSnapshot()
+        {
+            if (DateTime.Now - snapshotTakenAt < GoalSnapshotMaxAge)
+            {
+                return;
+            }
+
+            List<uint> goals = GetGoals();
+            List<int> states = new List<int>();
+            foreach (uint goal in goals)
+            {
+                states.Add(goal == 0 ? -1 : ReadByte(goal + addr.goalStateOffset));
+            }
+            snapshotGoals = goals;
+            snapshotStates = states;
+            snapshotTakenAt = DateTime.Now;
+        }
+
+        /// <summary>
+        /// Every job in the game, in the job array's order. The episode and job arrays are read in
+        /// a few large reads rather than a couple of reads per entry.
+        /// </summary>
         public List<JobEntry> GetJobs()
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
@@ -325,27 +381,29 @@ namespace SluMAN
             }
 
             uint episodeArray = ReadUInt(episodeManager + addr.episodeArrayOffset);
-            int episodeCount = (int)ReadUInt(episodeManager + addr.episodeCountOffset);
+            int episodeCount = (int)Math.Min(ReadUInt(episodeManager + addr.episodeCountOffset), 32u);
+            byte[] episodeBytes = ReadLarge(episodeArray, (uint)episodeCount * Sly4Addresses.EpisodeStride);
             List<string> episodes = new List<string>();
-            for (int i = 0; i < episodeCount && i < 32; i++)
+            for (int i = 0; i < episodeCount; i++)
             {
-                episodes.Add(TrimKey(ReadString(episodeArray + (uint)i * Sly4Addresses.EpisodeStride)));
+                episodes.Add(TrimKey(ReadString(episodeBytes, i * (int)Sly4Addresses.EpisodeStride)));
             }
 
             uint jobArray = ReadUInt(episodeManager + addr.jobArrayOffset);
-            int jobCount = (int)ReadUInt(episodeManager + addr.jobCountOffset);
+            int jobCount = (int)Math.Min(ReadUInt(episodeManager + addr.jobCountOffset), 256u);
+            byte[] jobBytes = ReadLarge(jobArray, (uint)jobCount * Sly4Addresses.JobStride);
             List<JobEntry> jobs = new List<JobEntry>();
-            for (int i = 0; i < jobCount && i < 256; i++)
+            for (int i = 0; i < jobCount; i++)
             {
-                uint job = jobArray + (uint)i * Sly4Addresses.JobStride;
+                int job = i * (int)Sly4Addresses.JobStride;
                 // Unused slots have no name.
-                string name = TrimKey(ReadString(job));
+                string name = TrimKey(ReadString(jobBytes, job));
                 if (name == "")
                 {
                     continue;
                 }
 
-                int episode = ReadByte(job + addr.jobEpisodeIndexOffset);
+                int episode = jobBytes[job + (int)addr.jobEpisodeIndexOffset];
                 jobs.Add(new JobEntry
                 {
                     index = i,
@@ -401,16 +459,12 @@ namespace SluMAN
 
         /// <summary>
         /// The state of each of the running job's goals (GoalStateDone once done), -1 for an empty
-        /// slot. Empty outside jobs.
+        /// slot. Empty outside jobs. Up to GoalSnapshotMaxAge old.
         /// </summary>
         public List<int> GetGoalStates()
         {
-            List<int> states = new List<int>();
-            foreach (uint goal in GetGoals())
-            {
-                states.Add(goal == 0 ? -1 : ReadByte(goal + addr.goalStateOffset));
-            }
-            return states;
+            TakeGoalSnapshot();
+            return new List<int>(snapshotStates);
         }
 
         public bool IsJobRunning(int jobIndex)
@@ -591,6 +645,33 @@ namespace SluMAN
             byte[] bytes = api.ReadMemory(pid, address, 64);
             int length = Array.IndexOf(bytes, (byte)0);
             return Encoding.ASCII.GetString(bytes, 0, length < 0 ? bytes.Length : length);
+        }
+
+        /// <summary>A string of up to 64 characters at <paramref name="offset"/> in bytes already read.</summary>
+        private static string ReadString(byte[] bytes, int offset)
+        {
+            int maxLength = Math.Min(64, bytes.Length - offset);
+            int length = 0;
+            while (length < maxLength && bytes[offset + length] != 0)
+            {
+                length++;
+            }
+            return Encoding.ASCII.GetString(bytes, offset, length);
+        }
+
+        /// <summary>Reads more than one request can carry, in MaxReadSize pieces.</summary>
+        private byte[] ReadLarge(uint address, uint size)
+        {
+            byte[] result = new byte[size];
+            uint done = 0;
+            while (done < size)
+            {
+                uint chunk = Math.Min(MaxReadSize, size - done);
+                byte[] part = api.ReadMemory(pid, address + done, chunk);
+                Array.Copy(part, 0, result, done, chunk);
+                done += chunk;
+            }
+            return result;
         }
 
         /// <summary>The player ref, or 0 while the player doesn't exist.</summary>

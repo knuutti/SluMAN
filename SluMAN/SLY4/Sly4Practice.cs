@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Windows.Forms;
 
 namespace SluMAN
@@ -10,12 +9,14 @@ namespace SluMAN
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
-        // The game state is refreshed every few ticks: it takes a dozen reads, which is slow on a PS3.
-        private const int GameStateRefreshTicks = 3;
+        // The game state and coins are refreshed every few ticks: they take a dozen reads, and on a
+        // PS3 every read is a network round trip.
+        private const int GameStateRefreshTicks = 5;
 
         // How long a queued warp may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
+        private const string PositionTab = "Position";
         private const string JobsTab = "Jobs";
         private const string TunablesTab = "Tunables";
 
@@ -41,7 +42,6 @@ namespace SluMAN
             InitializeComponent();
             statusLine = new StatusLine(this, true);
             func.BindEnter(coinsTextBox, setCoinsButton);
-            func.BindEnter(zTextBox, teleportButton);
 
             for (int slot = 1; slot <= IGame.PositionSlotCount; slot++)
             {
@@ -83,6 +83,7 @@ namespace SluMAN
             refreshTimer.Start();
 
             practiceTabs = new PracticeTabs(this, "Practice");
+            practiceTabs.AddTool(PositionTab, () => new Sly4PositionForm(game));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
         }
@@ -107,27 +108,9 @@ namespace SluMAN
 
         private void refreshTimer_Tick(object sender, EventArgs e)
         {
-            try
-            {
-                coinsValueLabel.Text = game.GetCoinCount().ToString();
-            }
-            catch
-            {
-                coinsValueLabel.Text = "-";
-            }
-
-            try
-            {
-                positionValueLabel.Text = FormatVector(game.GetPosition());
-                velocityValueLabel.Text = FormatVector(game.GetVelocity());
-            }
-            catch
-            {
-                positionValueLabel.Text = "-";
-                velocityValueLabel.Text = "-";
-            }
-
-            if (refreshTick++ % GameStateRefreshTicks == 0)
+            // The labels are only read while the Practice tab shows. The timer keeps running for
+            // the warps it tracks.
+            if (refreshTick++ % GameStateRefreshTicks == 0 && gameGroupBox.Visible)
             {
                 RefreshGameState();
             }
@@ -374,6 +357,15 @@ namespace SluMAN
         {
             try
             {
+                coinsValueLabel.Text = game.GetCoinCount().ToString();
+            }
+            catch
+            {
+                coinsValueLabel.Text = "-";
+            }
+
+            try
+            {
                 uint levelHash = game.GetLevelHash();
                 string level = levelHash == 0 ? "-" : sly4.GetLevelName(levelHash);
                 if (game.IsLoading())
@@ -408,15 +400,6 @@ namespace SluMAN
             }
         }
 
-        private static string FormatVector(float[] vector)
-        {
-            if (vector == null)
-            {
-                return "-";
-            }
-            return string.Join(", ", Array.ConvertAll(vector, v => v.ToString("F2", CultureInfo.InvariantCulture)));
-        }
-
         private void setCoinsButton_Click(object sender, EventArgs e)
         {
             if (!int.TryParse(coinsTextBox.Text, out int coins))
@@ -433,56 +416,6 @@ namespace SluMAN
             {
                 statusLine.Error($"Couldn't set coins: {ex.Message}");
             }
-        }
-
-        private void currentPositionButton_Click(object sender, EventArgs e)
-        {
-            float[] position;
-            try
-            {
-                position = game.GetPosition();
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't read the position: {ex.Message}");
-                return;
-            }
-
-            if (position == null)
-            {
-                statusLine.Error("The player isn't loaded.");
-                return;
-            }
-
-            xTextBox.Text = position[0].ToString("F3", CultureInfo.InvariantCulture);
-            yTextBox.Text = position[1].ToString("F3", CultureInfo.InvariantCulture);
-            zTextBox.Text = position[2].ToString("F3", CultureInfo.InvariantCulture);
-        }
-
-        private void teleportButton_Click(object sender, EventArgs e)
-        {
-            if (!TryParseCoordinate(xTextBox.Text, out float x)
-                || !TryParseCoordinate(yTextBox.Text, out float y)
-                || !TryParseCoordinate(zTextBox.Text, out float z))
-            {
-                statusLine.Error("X, Y and Z must be numbers.");
-                return;
-            }
-
-            try
-            {
-                game.Teleport(x, y, z);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't teleport: {ex.Message}");
-            }
-        }
-
-        /// <summary>Accepts both "1.5" and "1,5", since Windows may use either.</summary>
-        private static bool TryParseCoordinate(string text, out float value)
-        {
-            return float.TryParse(text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
         private void slotComboBox_SelectedIndexChanged(object sender, EventArgs e)

@@ -54,15 +54,6 @@ namespace SluMAN
             this.coinsValueLabel = new System.Windows.Forms.Label();
             this.coinsTextBox = new System.Windows.Forms.TextBox();
             this.setCoinsButton = new System.Windows.Forms.Button();
-            this.positionLabel = new System.Windows.Forms.Label();
-            this.positionValueLabel = new System.Windows.Forms.Label();
-            this.velocityLabel = new System.Windows.Forms.Label();
-            this.velocityValueLabel = new System.Windows.Forms.Label();
-            this.xTextBox = new System.Windows.Forms.TextBox();
-            this.yTextBox = new System.Windows.Forms.TextBox();
-            this.zTextBox = new System.Windows.Forms.TextBox();
-            this.currentPositionButton = new System.Windows.Forms.Button();
-            this.teleportButton = new System.Windows.Forms.Button();
             this.savedPositionsGroupBox = new System.Windows.Forms.GroupBox();
             this.slotComboBox = new System.Windows.Forms.ComboBox();
             this.savePosButton = new System.Windows.Forms.Button();
@@ -268,18 +259,9 @@ namespace SluMAN
             this.playerGroupBox.Controls.Add(this.coinsValueLabel);
             this.playerGroupBox.Controls.Add(this.coinsTextBox);
             this.playerGroupBox.Controls.Add(this.setCoinsButton);
-            this.playerGroupBox.Controls.Add(this.positionLabel);
-            this.playerGroupBox.Controls.Add(this.positionValueLabel);
-            this.playerGroupBox.Controls.Add(this.velocityLabel);
-            this.playerGroupBox.Controls.Add(this.velocityValueLabel);
-            this.playerGroupBox.Controls.Add(this.xTextBox);
-            this.playerGroupBox.Controls.Add(this.yTextBox);
-            this.playerGroupBox.Controls.Add(this.zTextBox);
-            this.playerGroupBox.Controls.Add(this.currentPositionButton);
-            this.playerGroupBox.Controls.Add(this.teleportButton);
             this.playerGroupBox.Location = new System.Drawing.Point(12, 160);
             this.playerGroupBox.Name = "playerGroupBox";
-            this.playerGroupBox.Size = new System.Drawing.Size(276, 156);
+            this.playerGroupBox.Size = new System.Drawing.Size(276, 50);
             this.playerGroupBox.TabIndex = 1;
             this.playerGroupBox.TabStop = false;
             this.playerGroupBox.Text = "Player";
@@ -319,89 +301,12 @@ namespace SluMAN
             this.setCoinsButton.UseVisualStyleBackColor = true;
             this.setCoinsButton.Click += new System.EventHandler(this.setCoinsButton_Click);
             //
-            // positionLabel
-            //
-            this.positionLabel.AutoSize = true;
-            this.positionLabel.Location = new System.Drawing.Point(8, 51);
-            this.positionLabel.Name = "positionLabel";
-            this.positionLabel.Size = new System.Drawing.Size(47, 13);
-            this.positionLabel.TabIndex = 4;
-            this.positionLabel.Text = "Position:";
-            //
-            // positionValueLabel
-            //
-            this.positionValueLabel.AutoSize = true;
-            this.positionValueLabel.Location = new System.Drawing.Point(64, 51);
-            this.positionValueLabel.Name = "positionValueLabel";
-            this.positionValueLabel.Size = new System.Drawing.Size(10, 13);
-            this.positionValueLabel.TabIndex = 5;
-            this.positionValueLabel.Text = "-";
-            //
-            // velocityLabel
-            //
-            this.velocityLabel.AutoSize = true;
-            this.velocityLabel.Location = new System.Drawing.Point(8, 73);
-            this.velocityLabel.Name = "velocityLabel";
-            this.velocityLabel.Size = new System.Drawing.Size(47, 13);
-            this.velocityLabel.TabIndex = 6;
-            this.velocityLabel.Text = "Velocity:";
-            //
-            // velocityValueLabel
-            //
-            this.velocityValueLabel.AutoSize = true;
-            this.velocityValueLabel.Location = new System.Drawing.Point(64, 73);
-            this.velocityValueLabel.Name = "velocityValueLabel";
-            this.velocityValueLabel.Size = new System.Drawing.Size(10, 13);
-            this.velocityValueLabel.TabIndex = 7;
-            this.velocityValueLabel.Text = "-";
-            //
-            // xTextBox
-            //
-            this.xTextBox.Location = new System.Drawing.Point(10, 98);
-            this.xTextBox.Name = "xTextBox";
-            this.xTextBox.Size = new System.Drawing.Size(60, 20);
-            this.xTextBox.TabIndex = 8;
-            //
-            // yTextBox
-            //
-            this.yTextBox.Location = new System.Drawing.Point(76, 98);
-            this.yTextBox.Name = "yTextBox";
-            this.yTextBox.Size = new System.Drawing.Size(60, 20);
-            this.yTextBox.TabIndex = 9;
-            //
-            // zTextBox
-            //
-            this.zTextBox.Location = new System.Drawing.Point(142, 98);
-            this.zTextBox.Name = "zTextBox";
-            this.zTextBox.Size = new System.Drawing.Size(60, 20);
-            this.zTextBox.TabIndex = 10;
-            //
-            // currentPositionButton
-            //
-            this.currentPositionButton.Location = new System.Drawing.Point(206, 96);
-            this.currentPositionButton.Name = "currentPositionButton";
-            this.currentPositionButton.Size = new System.Drawing.Size(60, 23);
-            this.currentPositionButton.TabIndex = 11;
-            this.currentPositionButton.Text = "Current";
-            this.currentPositionButton.UseVisualStyleBackColor = true;
-            this.currentPositionButton.Click += new System.EventHandler(this.currentPositionButton_Click);
-            //
-            // teleportButton
-            //
-            this.teleportButton.Location = new System.Drawing.Point(10, 124);
-            this.teleportButton.Name = "teleportButton";
-            this.teleportButton.Size = new System.Drawing.Size(256, 23);
-            this.teleportButton.TabIndex = 12;
-            this.teleportButton.Text = "Teleport to X, Y, Z";
-            this.teleportButton.UseVisualStyleBackColor = true;
-            this.teleportButton.Click += new System.EventHandler(this.teleportButton_Click);
-            //
             // savedPositionsGroupBox
             //
             this.savedPositionsGroupBox.Controls.Add(this.slotComboBox);
             this.savedPositionsGroupBox.Controls.Add(this.savePosButton);
             this.savedPositionsGroupBox.Controls.Add(this.loadPosButton);
-            this.savedPositionsGroupBox.Location = new System.Drawing.Point(12, 322);
+            this.savedPositionsGroupBox.Location = new System.Drawing.Point(12, 216);
             this.savedPositionsGroupBox.Name = "savedPositionsGroupBox";
             this.savedPositionsGroupBox.Size = new System.Drawing.Size(276, 54);
             this.savedPositionsGroupBox.TabIndex = 2;
@@ -446,7 +351,7 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.toHideoutButton);
             this.warpGroupBox.Controls.Add(this.goalComboBox);
             this.warpGroupBox.Controls.Add(this.warpToGoalButton);
-            this.warpGroupBox.Location = new System.Drawing.Point(12, 382);
+            this.warpGroupBox.Location = new System.Drawing.Point(12, 276);
             this.warpGroupBox.Name = "warpGroupBox";
             this.warpGroupBox.Size = new System.Drawing.Size(276, 106);
             this.warpGroupBox.TabIndex = 3;
@@ -520,7 +425,7 @@ namespace SluMAN
             // slowMotionCheckBox
             //
             this.slowMotionCheckBox.AutoSize = true;
-            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 494);
+            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 388);
             this.slowMotionCheckBox.Name = "slowMotionCheckBox";
             this.slowMotionCheckBox.Size = new System.Drawing.Size(84, 17);
             this.slowMotionCheckBox.TabIndex = 3;
@@ -531,7 +436,7 @@ namespace SluMAN
             // invulnerableCheckBox
             //
             this.invulnerableCheckBox.AutoSize = true;
-            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 517);
+            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 411);
             this.invulnerableCheckBox.Name = "invulnerableCheckBox";
             this.invulnerableCheckBox.Size = new System.Drawing.Size(83, 17);
             this.invulnerableCheckBox.TabIndex = 4;
@@ -542,7 +447,7 @@ namespace SluMAN
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 517);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 411);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
             this.undetectableCheckBox.TabIndex = 5;
@@ -553,7 +458,7 @@ namespace SluMAN
             // skipCutscenesCheckBox
             //
             this.skipCutscenesCheckBox.AutoSize = true;
-            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 540);
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 434);
             this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
             this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
             this.skipCutscenesCheckBox.TabIndex = 7;
@@ -564,7 +469,7 @@ namespace SluMAN
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 494);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 388);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
             this.alwaysOnTopCheckBox.TabIndex = 6;
@@ -580,7 +485,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 567);
+            this.ClientSize = new System.Drawing.Size(300, 461);
             this.Controls.Add(this.gameGroupBox);
             this.Controls.Add(this.playerGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
@@ -637,15 +542,6 @@ namespace SluMAN
         private System.Windows.Forms.Label coinsValueLabel;
         private System.Windows.Forms.TextBox coinsTextBox;
         private System.Windows.Forms.Button setCoinsButton;
-        private System.Windows.Forms.Label positionLabel;
-        private System.Windows.Forms.Label positionValueLabel;
-        private System.Windows.Forms.Label velocityLabel;
-        private System.Windows.Forms.Label velocityValueLabel;
-        private System.Windows.Forms.TextBox xTextBox;
-        private System.Windows.Forms.TextBox yTextBox;
-        private System.Windows.Forms.TextBox zTextBox;
-        private System.Windows.Forms.Button currentPositionButton;
-        private System.Windows.Forms.Button teleportButton;
         private System.Windows.Forms.GroupBox savedPositionsGroupBox;
         private System.Windows.Forms.ComboBox slotComboBox;
         private System.Windows.Forms.Button savePosButton;

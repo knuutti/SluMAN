@@ -14,7 +14,8 @@ namespace SluMAN
     /// </summary>
     public class Sly4JobsForm : Form, IRefreshOnShow
     {
-        private const int RefreshIntervalMs = 1000;
+        // Goal states are one read per goal, and the game shares a reading of them every 2 s.
+        private const int RefreshIntervalMs = 2000;
         private const string RunningSuffix = "  (running)";
 
         private static readonly Color DoneColor = Color.ForestGreen;
@@ -202,7 +203,7 @@ namespace SluMAN
             }
         }
 
-        /// <summary>Marks the running job and colours its goals. Cheap enough to run every second.</summary>
+        /// <summary>Marks the running job and colours its goals.</summary>
         private void RefreshRunningJob()
         {
             int running = game.GetRunningJobIndex();
@@ -221,7 +222,7 @@ namespace SluMAN
             }
 
             // The running job's goals are read from the game, which may differ from the known list.
-            int count = game.GetGoalCount();
+            int count = game.GetGoalStates().Count;
             if (count != runningGoalCount)
             {
                 FillGoals(jobNode);

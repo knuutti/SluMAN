@@ -15,6 +15,7 @@ namespace SluMAN
     {
         private const int RefreshIntervalMs = 500;
         private const int SearchDelayMs = 300;
+        private const int ScrollDelayMs = 150;
 
         private const int NameColumn = 0;
         private const int TypeColumn = 1;
@@ -31,6 +32,7 @@ namespace SluMAN
         private readonly DataGridView grid = new DataGridView();
         private readonly Timer refreshTimer = new Timer();
         private readonly Timer searchTimer = new Timer();
+        private readonly Timer scrollTimer = new Timer();
         private StatusLine statusLine;
 
         // The category selected in the tree, e.g. "Camera.Default", or "" for all of them.
@@ -59,15 +61,19 @@ namespace SluMAN
             refreshTimer.Tick += refreshTimer_Tick;
             searchTimer.Interval = SearchDelayMs;
             searchTimer.Tick += searchTimer_Tick;
+            scrollTimer.Interval = ScrollDelayMs;
+            scrollTimer.Tick += scrollTimer_Tick;
             FormClosing += (sender, e) =>
             {
                 refreshTimer.Stop();
                 searchTimer.Stop();
+                scrollTimer.Stop();
             };
             FormClosed += (sender, e) =>
             {
                 refreshTimer.Dispose();
                 searchTimer.Dispose();
+                scrollTimer.Dispose();
             };
 
             LoadTunables();
@@ -174,6 +180,7 @@ namespace SluMAN
             grid.CellEndEdit += grid_CellEndEdit;
             grid.CurrentCellDirtyStateChanged += grid_CurrentCellDirtyStateChanged;
             grid.CellValueChanged += grid_CellValueChanged;
+            grid.Scroll += grid_Scroll;
             Controls.Add(grid);
         }
 
@@ -297,7 +304,19 @@ namespace SluMAN
             updating = false;
 
             countLabel.Text = $"{shown.Count} tunables, {game.tunables.KeptCount} kept";
-            RefreshValues(grid.Rows.Cast<DataGridViewRow>());
+
+            // Only the rows on screen: on a PS3 each read is a network round trip, and reading a
+            // few thousand values would stall the window on every search. Others are read when
+            // scrolled to.
+            grid.PerformLayout();
+            try
+            {
+                RefreshValues(DisplayedRows());
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the values: {ex.Message}");
+            }
         }
 
         /// <summary>Reads the given rows' values from the game and shows any that changed.</summary>
@@ -382,6 +401,26 @@ namespace SluMAN
             catch
             {
                 // The game is loading or reconnecting; the next tick tries again.
+            }
+        }
+
+        private void grid_Scroll(object sender, ScrollEventArgs e)
+        {
+            // Read the rows scrolled to once scrolling pauses, not on every step of it.
+            scrollTimer.Stop();
+            scrollTimer.Start();
+        }
+
+        private void scrollTimer_Tick(object sender, EventArgs e)
+        {
+            scrollTimer.Stop();
+            try
+            {
+                RefreshValues(DisplayedRows());
+            }
+            catch
+            {
+                // The refresh timer tries again.
             }
         }
 
