@@ -245,7 +245,12 @@ namespace SluMAN
             }
 
             int row = grid.CurrentCell != null ? grid.CurrentCell.RowIndex : 0;
-            if (e.KeyCode == Keys.PageDown)
+            if (e.Control && e.KeyCode == Keys.C)
+            {
+                CopyView();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.PageDown)
             {
                 ScrollView(ViewSize);
                 e.Handled = true;
@@ -470,6 +475,7 @@ namespace SluMAN
             }
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Copy address", null, (s, args) => CopyAddress(address));
+            menu.Items.Add("Copy view as text (Ctrl+C)", null, (s, args) => CopyView());
             menu.Show(Cursor.Position);
         }
 
@@ -482,6 +488,37 @@ namespace SluMAN
                 return;
             }
             memoryForm.AddWatchAt(address, type);
+        }
+
+        /// <summary>
+        /// Copies the bytes on screen as text, a row of 16 per line after its address, as the
+        /// grid shows them.
+        /// </summary>
+        private void CopyView()
+        {
+            if (shown == null)
+            {
+                return;
+            }
+            System.Text.StringBuilder text = new System.Text.StringBuilder();
+            for (int row = 0; row * Columns < shown.Length; row++)
+            {
+                text.Append(unchecked(viewStart + (uint)(row * Columns)).ToString("X8")).Append(':');
+                for (int column = 0; column < Columns && row * Columns + column < shown.Length; column++)
+                {
+                    text.Append(' ').Append(shown[row * Columns + column].ToString("X2"));
+                }
+                text.AppendLine();
+            }
+            try
+            {
+                Clipboard.SetText(text.ToString());
+                statusLine.Info($"Copied {shown.Length} bytes from {viewStart:X8}.");
+            }
+            catch
+            {
+                statusLine.Error("Couldn't copy to the clipboard.");
+            }
         }
 
         private void CopyAddress(uint address)

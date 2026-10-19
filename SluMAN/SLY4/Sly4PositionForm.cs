@@ -45,6 +45,9 @@ namespace SluMAN
         private readonly NumericUpDown speedUpDown = new NumericUpDown();
         private readonly Timer refreshTimer = new Timer();
         private readonly Sly4FreeMove freeMove;
+
+        // The last Find camera result, to point out the copies that are found again.
+        private List<uint> lastCameraFinds;
         private StatusLine statusLine;
 
         private float topSpeed;
@@ -271,12 +274,21 @@ namespace SluMAN
                 text.AppendLine();
                 foreach (uint address in found)
                 {
-                    text.AppendLine($"{address:X8}");
+                    // Found by the last search too: a copy the game keeps up to date.
+                    bool again = lastCameraFinds != null && lastCameraFinds.Contains(address);
+                    text.AppendLine($"{address:X8}{(again ? "  (also last time)" : "")}");
                 }
                 if (found.Count == 0)
                 {
                     text.AppendLine("No copies found.");
                 }
+                lastCameraFinds = found;
+
+                // Message boxes can't be selected from, so the result goes on the clipboard.
+                bool copied = true;
+                try { Clipboard.SetText(text.ToString()); } catch { copied = false; }
+                text.AppendLine();
+                text.AppendLine(copied ? "This text is on the clipboard: paste it anywhere." : "Couldn't copy this to the clipboard.");
                 MessageBox.Show(this, text.ToString(), $"Camera position found {found.Count} times");
             }
             catch (Exception ex)
