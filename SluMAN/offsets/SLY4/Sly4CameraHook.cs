@@ -126,8 +126,9 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The stub's PowerPC code. r0, r11 and r12 are free to use at a function's start; r3 is
-        /// the view, r4 the matrix, and the link register the caller.
+        /// The stub's PowerPC code: r3 is the view, r4 the matrix, and the link register the
+        /// caller. It only uses r5 to r7, which SetCamera sets before reading: SetCamera leaves
+        /// r0 and r9 to r12 alone, so its callers may keep values there across the call.
         /// </summary>
         private byte[] BuildStub()
         {
@@ -138,22 +139,22 @@ namespace SluMAN
 
             uint[] words =
             {
-                0x3D600000 | high,               //  0 lis r11, data@ha
-                0x396B0000 | low,                //  1 addi r11, r11, data@l
-                0x818B0000 | ViewOffset,         //  2 lwz r12, view(r11)
-                0x7C036000,                      //  3 cmpw r3, r12
+                0x3CA00000 | high,               //  0 lis r5, data@ha
+                0x38A50000 | low,                //  1 addi r5, r5, data@l
+                0x80C50000 | ViewOffset,         //  2 lwz r6, view(r5)
+                0x7C033000,                      //  3 cmpw r3, r6
                 0x40820030,                      //  4 bne +0x30 (to 16, the original instruction)
-                0x7D8802A6,                      //  5 mflr r12
-                0x918B0000 | LastCallerOffset,   //  6 stw r12, caller(r11)
-                0x800B0000,                      //  7 lwz r0, 0(r11)
-                0x2C000000,                      //  8 cmpwi r0, 0
+                0x7CC802A6,                      //  5 mflr r6
+                0x90C50000 | LastCallerOffset,   //  6 stw r6, caller(r5)
+                0x80E50000,                      //  7 lwz r7, 0(r5)
+                0x2C070000,                      //  8 cmpwi r7, 0
                 0x4182001C,                      //  9 beq +0x1C (to 16)
-                0x800B0000 | CallerFilterOffset, // 10 lwz r0, filter(r11)
-                0x2C000000,                      // 11 cmpwi r0, 0
+                0x80E50000 | CallerFilterOffset, // 10 lwz r7, filter(r5)
+                0x2C070000,                      // 11 cmpwi r7, 0
                 0x4182000C,                      // 12 beq +0xC (to 15: any caller)
-                0x7C0C0000,                      // 13 cmpw r12, r0
+                0x7C063800,                      // 13 cmpw r6, r7
                 0x40820008,                      // 14 bne +8 (to 16)
-                0x388B0000 | MatrixOffset,       // 15 addi r4, r11, matrix
+                0x38850000 | MatrixOffset,       // 15 addi r4, r5, matrix
                 OriginalInstruction,             // 16 lfs f1, 0(r4)
                 Branch(stub + 17 * 4, sly4.addr.setCameraFunction + 4, false),
             };
