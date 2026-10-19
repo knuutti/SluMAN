@@ -273,7 +273,8 @@ namespace SluMAN
 
         private const int SpawnCharacterLength = 64;
 
-        private const string SpawnPointPrefix = "Spawn_Player_";
+        // Spawn point names start with one of these; the titles leave it out.
+        private static readonly string[] SpawnPointPrefixes = { "Spawn_Player_", "Spawn_" };
 
         public sly4(IPS3API api, string gameNameId) : base(api)
         {
@@ -629,13 +630,20 @@ namespace SluMAN
 
         /// <summary>
         /// A spawn point's name without its prefix, as words: "Spawn_Player_5LairDoor1" is
-        /// "5 Lair Door 1". The game has no display names for them.
+        /// "5 Lair Door 1" and "Spawn_GeishaTower01" is "Geisha Tower 1". The game has no
+        /// display names for them.
         /// </summary>
         private static string SpawnPointTitle(string name)
         {
-            string title = name.StartsWith(SpawnPointPrefix, StringComparison.OrdinalIgnoreCase)
-                ? name.Substring(SpawnPointPrefix.Length)
-                : name;
+            string title = name;
+            foreach (string prefix in SpawnPointPrefixes)
+            {
+                if (title.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    title = title.Substring(prefix.Length);
+                    break;
+                }
+            }
             title = Regex.Replace(title.Replace('_', ' '), @"(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Za-z])", " ");
             // "01" reads as "1".
             title = Regex.Replace(title, @"\b0+(?=[0-9])", "");
