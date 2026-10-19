@@ -7,9 +7,9 @@ using SluMAN.Memory;
 namespace SluMAN
 {
     /// <summary>
-    /// The player's live position, velocity and horizontal speed (with the top speed reached), and
-    /// teleporting to typed coordinates. Read only while its tab shows. The controls are built in
-    /// code.
+    /// The Player tab: the player's live position, velocity and horizontal speed (with the top
+    /// speed reached), teleporting to typed coordinates, coins and fly mode. Read only while its
+    /// tab shows. The controls are built in code.
     /// </summary>
     public class Sly4PositionForm : Form, IRefreshOnShow
     {
@@ -17,6 +17,8 @@ namespace SluMAN
         // read is a network round trip, and one refresh takes about eight.
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
+        // Coins change rarely, so they're read on every few refreshes.
+        private const int CoinRefreshTicks = 10;
 
         private readonly sly4 game;
 
@@ -30,42 +32,45 @@ namespace SluMAN
         private readonly TextBox zTextBox = new TextBox();
         private readonly Button currentPositionButton = new Button();
         private readonly Button teleportButton = new Button();
+        private readonly Label coinsValueLabel = new Label();
+        private readonly TextBox coinsTextBox = new TextBox();
+        private readonly Button setCoinsButton = new Button();
         private readonly CheckBox flyCheckBox = new CheckBox();
-        private readonly CheckBox freeCameraCheckBox = new CheckBox();
         private readonly NumericUpDown speedUpDown = new NumericUpDown();
         private readonly Timer refreshTimer = new Timer();
         private readonly Sly4FreeMove freeMove;
         private StatusLine statusLine;
 
         private float topSpeed;
+        private int refreshTick = 0;
 
-        public Sly4PositionForm(sly4 game)
+        public Sly4PositionForm(sly4 game, Sly4FreeMove freeMove)
         {
             this.game = game;
+            this.freeMove = freeMove;
             Name = "Sly4PositionForm";
-            Text = "SluMAN :: Position";
+            Text = "SluMAN :: Player";
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             Font = new Font("Microsoft Sans Serif", 8.25F);
 
             GroupBox liveGroupBox = BuildLiveGroup();
             GroupBox teleportGroupBox = BuildTeleportGroup(liveGroupBox.Bottom + 6);
-            GroupBox freeMoveGroupBox = BuildFreeMoveGroup(teleportGroupBox.Bottom + 6);
-            ClientSize = new Size(liveGroupBox.Right + 8, freeMoveGroupBox.Bottom + 8);
+            GroupBox flyGroupBox = BuildFlyGroup(teleportGroupBox.Bottom + 6);
+            GroupBox coinsGroupBox = BuildCoinsGroup(flyGroupBox.Bottom + 6);
+            ClientSize = new Size(liveGroupBox.Right + 8, coinsGroupBox.Bottom + 8);
             statusLine = new StatusLine(this, false);
 
-            freeMove = new Sly4FreeMove(game);
-            freeMove.Stopped += (message) =>
-            {
-                ShowMode();
-                statusLine.Error($"Fly / free camera stopped: {message}");
-            };
-            FormClosing += (sender, e) => freeMove.Stop();
+            // Fly mode keeps running when this tab is left or closed; Sly4Practice stops it.
+            freeMove.ModeChanged += ShowMode;
+            FormClosing += (sender, e) => freeMove.ModeChanged -= ShowMode;
+            ShowMode();
 
             refreshTimer.Interval = game.api is RPCS3 ? Rpcs3RefreshIntervalMs : PS3RefreshIntervalMs;
             refreshTimer.Tick += refreshTimer_Tick;
             FormClosing += (sender, e) => refreshTimer.Stop();
             FormClosed += (sender, e) => refreshTimer.Dispose();
+            ReadCoins();
             refreshTimer.Start();
         }
 
@@ -163,25 +168,19 @@ namespace SluMAN
             return group;
         }
 
-        private GroupBox BuildFreeMoveGroup(int top)
+        private GroupBox BuildFlyGroup(int top)
         {
             GroupBox group = new GroupBox();
-            group.Text = "Fly / Free camera";
+            group.Text = "Fly";
             group.Location = new Point(8, top);
-            group.Size = new Size(284, 92);
+            group.Size = new Size(284, 78);
             Controls.Add(group);
 
             flyCheckBox.Text = "Fly";
             flyCheckBox.AutoSize = true;
             flyCheckBox.Location = new Point(10, 20);
-            flyCheckBox.Click += (sender, e) => SetMode(flyCheckBox.Checked ? Sly4FreeMove.Mode.Fly : Sly4FreeMove.Mode.Off);
+            flyCheckBox.Click += flyCheckBox_Click;
             group.Controls.Add(flyCheckBox);
-
-            freeCameraCheckBox.Text = "Free camera";
-            freeCameraCheckBox.AutoSize = true;
-            freeCameraCheckBox.Location = new Point(70, 20);
-            freeCameraCheckBox.Click += (sender, e) => SetMode(freeCameraCheckBox.Checked ? Sly4FreeMove.Mode.FreeCamera : Sly4FreeMove.Mode.Off);
-            group.Controls.Add(freeCameraCheckBox);
 
             Label speedLabel = new Label();
             speedLabel.Text = "Speed:";
@@ -191,47 +190,108 @@ namespace SluMAN
 
             speedUpDown.Minimum = 1;
             speedUpDown.Maximum = 200;
-            speedUpDown.Value = 10;
+            speedUpDown.Value = (decimal)Math.Max(1, Math.Min(200, freeMove.FlySpeed));
             speedUpDown.Location = new Point(214, 18);
             speedUpDown.Size = new Size(60, 20);
-            speedUpDown.ValueChanged += (sender, e) => freeMove.Speed = (float)speedUpDown.Value;
+            speedUpDown.ValueChanged += (sender, e) => freeMove.FlySpeed = (float)speedUpDown.Value;
             group.Controls.Add(speedUpDown);
 
             Label help = new Label();
-            help.Text = "Left stick moves, R1 / L1 go up and down. The free camera\n" +
-                "turns with the right stick and holds the player in place.";
-            help.Location = new Point(8, 46);
-            help.Size = new Size(270, 40);
+            help.Text = "Left stick moves along the camera's facing, R1 / L1 go up\nand down.";
+            help.Location = new Point(8, 44);
+            help.Size = new Size(270, 28);
             group.Controls.Add(help);
 
             return group;
         }
 
-        private void SetMode(Sly4FreeMove.Mode mode)
+        private GroupBox BuildCoinsGroup(int top)
+        {
+            GroupBox group = new GroupBox();
+            group.Text = "Coins";
+            group.Location = new Point(8, top);
+            group.Size = new Size(284, 50);
+            Controls.Add(group);
+
+            coinsValueLabel.AutoSize = true;
+            coinsValueLabel.Location = new Point(8, 23);
+            coinsValueLabel.Text = "-";
+            group.Controls.Add(coinsValueLabel);
+
+            coinsTextBox.Location = new Point(138, 20);
+            coinsTextBox.Size = new Size(70, 20);
+            group.Controls.Add(coinsTextBox);
+
+            setCoinsButton.Text = "Set";
+            setCoinsButton.Location = new Point(214, 18);
+            setCoinsButton.Size = new Size(60, 23);
+            setCoinsButton.UseVisualStyleBackColor = true;
+            setCoinsButton.Click += setCoinsButton_Click;
+            group.Controls.Add(setCoinsButton);
+
+            func.BindEnter(coinsTextBox, setCoinsButton);
+            return group;
+        }
+
+        private void flyCheckBox_Click(object sender, EventArgs e)
         {
             try
             {
-                freeMove.Speed = (float)speedUpDown.Value;
-                freeMove.Start(mode);
+                freeMove.FlySpeed = (float)speedUpDown.Value;
+                freeMove.Start(flyCheckBox.Checked ? Sly4FreeMove.Mode.Fly : Sly4FreeMove.Mode.Off);
             }
             catch (Exception ex)
             {
                 freeMove.Stop();
-                statusLine.Error($"Couldn't start: {ex.Message}");
+                statusLine.Error($"Couldn't start flying: {ex.Message}");
             }
             ShowMode();
-
         }
 
         private void ShowMode()
         {
-            flyCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.Fly;
-            freeCameraCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
+            if (!IsDisposed)
+            {
+                flyCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.Fly;
+            }
+        }
+
+        private void setCoinsButton_Click(object sender, EventArgs e)
+        {
+            if (!int.TryParse(coinsTextBox.Text, out int coins))
+            {
+                statusLine.Error("Coins must be a whole number.");
+                return;
+            }
+
+            try
+            {
+                game.SetCoinCount(coins);
+                ReadCoins();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't set coins: {ex.Message}");
+            }
+        }
+
+        private void ReadCoins()
+        {
+            try
+            {
+                coinsValueLabel.Text = $"Coins: {game.GetCoinCount()}";
+            }
+            catch
+            {
+                coinsValueLabel.Text = "Coins: -";
+            }
         }
 
         public void RefreshFromGame()
         {
             ReadMotion();
+            ReadCoins();
+            ShowMode();
         }
 
         private void refreshTimer_Tick(object sender, EventArgs e)
@@ -242,6 +302,10 @@ namespace SluMAN
                 return;
             }
             ReadMotion();
+            if (++refreshTick % CoinRefreshTicks == 0)
+            {
+                ReadCoins();
+            }
         }
 
         private void ReadMotion()

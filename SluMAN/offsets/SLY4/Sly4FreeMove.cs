@@ -17,7 +17,7 @@ namespace SluMAN
     /// The player is held where they stood.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
-    /// smoothly, and keeps going whichever tab shows. The free camera turns itself off when a load
+    /// smoothly, and keeps going whichever tab shows. Sly4Practice owns the one instance. The free camera turns itself off when a load
     /// starts; fly mode waits for the player to be back.
     /// </summary>
     public class Sly4FreeMove
@@ -27,8 +27,6 @@ namespace SluMAN
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 50;
         private const float DeadZone = 0.2f;
-        // Radians per second at full stick.
-        private const float LookSpeed = 2.0f;
         private const float MaxPitch = 1.5f;
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
@@ -59,14 +57,26 @@ namespace SluMAN
         private float[] viewW;
         private float[] cameraW;
 
-        /// <summary>Units per second at full stick.</summary>
-        public float Speed = 10f;
+        /// <summary>How fast fly mode moves the player: units per second at full stick.</summary>
+        public float FlySpeed = 10f;
+
+        /// <summary>How fast the free camera moves: units per second at full stick.</summary>
+        public float CameraSpeed = 10f;
+
+        /// <summary>How fast the free camera turns: radians per second at full stick.</summary>
+        public float LookSpeed = 2f;
 
         /// <summary>
         /// Raised on the UI thread when a mode stops by itself: an error, or a load turning the
         /// free camera off.
         /// </summary>
         public event Action<string> Stopped;
+
+        /// <summary>
+        /// Raised on the UI thread whenever the mode may have changed, so the Player and Camera
+        /// tabs can show which one is on.
+        /// </summary>
+        public event Action ModeChanged;
 
         /// <summary>Create on the UI thread, so Stopped is raised there.</summary>
         public Sly4FreeMove(sly4 game)
@@ -107,6 +117,7 @@ namespace SluMAN
             worker.IsBackground = true;
             worker.Name = "Sly 4 fly / free camera";
             worker.Start();
+            RaiseModeChanged();
         }
 
         public void Stop()
@@ -127,6 +138,19 @@ namespace SluMAN
                 }
                 mode = Mode.Off;
             }
+            RaiseModeChanged();
+        }
+
+        private void RaiseModeChanged()
+        {
+            uiContext.Post((state) =>
+            {
+                Action handler = ModeChanged;
+                if (handler != null)
+                {
+                    handler();
+                }
+            }, null);
         }
 
         private void Run()
@@ -157,6 +181,7 @@ namespace SluMAN
                             handler(stopReason);
                         }
                     }, null);
+                    RaiseModeChanged();
                     return;
                 }
                 Thread.Sleep(intervalMs);
@@ -219,9 +244,9 @@ namespace SluMAN
                 float rise = Rise();
                 for (int axis = 0; axis < 3; axis++)
                 {
-                    playerPosition[axis] += (forward[axis] * move + right[axis] * strafe) * Speed * step;
+                    playerPosition[axis] += (forward[axis] * move + right[axis] * strafe) * FlySpeed * step;
                 }
-                playerPosition[1] += rise * Speed * step;
+                playerPosition[1] += rise * FlySpeed * step;
             }
 
             if (!game.HoldPlayer(playerPosition[0], playerPosition[1], playerPosition[2]))
@@ -274,9 +299,9 @@ namespace SluMAN
             float strafe = Stick(Inputs.lx);
             for (int axis = 0; axis < 3; axis++)
             {
-                cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe) * Speed * step;
+                cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe) * CameraSpeed * step;
             }
-            cameraPosition[1] += Rise() * Speed * step;
+            cameraPosition[1] += Rise() * CameraSpeed * step;
             WriteCamera();
 
             // Keep the player where they stood, so steering the camera doesn't walk them off.

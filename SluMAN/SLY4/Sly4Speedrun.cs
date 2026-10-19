@@ -47,7 +47,6 @@ namespace SluMAN
         {
             ToolStripMenuItem tools = new ToolStripMenuItem("Tools");
             tools.DropDownItems.Add("Switch Game/Mode", null, (sender, e) => session.SwitchGameOrMode());
-            tools.DropDownItems.Add("Memory Utilities...", null, (sender, e) => MemoryForm.ShowFor(this));
             tools.DropDownItems.Add("Open User Data Folder", null, (sender, e) => UserData.OpenInExplorer());
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add("Power Off (PS3)", null, (sender, e) => session.PowerOffPS3());

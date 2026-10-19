@@ -49,11 +49,7 @@ namespace SluMAN
             this.checkpointValueLabel = new System.Windows.Forms.Label();
             this.goalLabel = new System.Windows.Forms.Label();
             this.goalValueLabel = new System.Windows.Forms.Label();
-            this.playerGroupBox = new System.Windows.Forms.GroupBox();
-            this.coinsLabel = new System.Windows.Forms.Label();
-            this.coinsValueLabel = new System.Windows.Forms.Label();
-            this.coinsTextBox = new System.Windows.Forms.TextBox();
-            this.setCoinsButton = new System.Windows.Forms.Button();
+            this.retryCheckpointButton = new System.Windows.Forms.Button();
             this.savedPositionsGroupBox = new System.Windows.Forms.GroupBox();
             this.slotComboBox = new System.Windows.Forms.ComboBox();
             this.savePosButton = new System.Windows.Forms.Button();
@@ -65,10 +61,12 @@ namespace SluMAN
             this.toHideoutButton = new System.Windows.Forms.Button();
             this.goalComboBox = new System.Windows.Forms.ComboBox();
             this.warpToGoalButton = new System.Windows.Forms.Button();
+            this.levelGroupBox = new System.Windows.Forms.GroupBox();
             this.levelComboBox = new System.Windows.Forms.ComboBox();
             this.loadLevelButton = new System.Windows.Forms.Button();
             this.characterComboBox = new System.Windows.Forms.ComboBox();
             this.spawnPointComboBox = new System.Windows.Forms.ComboBox();
+            this.optionsGroupBox = new System.Windows.Forms.GroupBox();
             this.slowMotionCheckBox = new System.Windows.Forms.CheckBox();
             this.invulnerableCheckBox = new System.Windows.Forms.CheckBox();
             this.undetectableCheckBox = new System.Windows.Forms.CheckBox();
@@ -77,9 +75,10 @@ namespace SluMAN
             this.refreshTimer = new System.Windows.Forms.Timer(this.components);
             this.menuStrip1.SuspendLayout();
             this.gameGroupBox.SuspendLayout();
-            this.playerGroupBox.SuspendLayout();
             this.savedPositionsGroupBox.SuspendLayout();
             this.warpGroupBox.SuspendLayout();
+            this.levelGroupBox.SuspendLayout();
+            this.optionsGroupBox.SuspendLayout();
             this.SuspendLayout();
             //
             // menuStrip1
@@ -160,6 +159,7 @@ namespace SluMAN
             this.gameGroupBox.Controls.Add(this.checkpointValueLabel);
             this.gameGroupBox.Controls.Add(this.goalLabel);
             this.gameGroupBox.Controls.Add(this.goalValueLabel);
+            this.gameGroupBox.Controls.Add(this.retryCheckpointButton);
             this.gameGroupBox.Location = new System.Drawing.Point(12, 32);
             this.gameGroupBox.Name = "gameGroupBox";
             this.gameGroupBox.Size = new System.Drawing.Size(276, 122);
@@ -257,63 +257,25 @@ namespace SluMAN
             this.goalValueLabel.TabIndex = 9;
             this.goalValueLabel.Text = "-";
             //
-            // playerGroupBox
+            // retryCheckpointButton
             //
-            this.playerGroupBox.Controls.Add(this.coinsLabel);
-            this.playerGroupBox.Controls.Add(this.coinsValueLabel);
-            this.playerGroupBox.Controls.Add(this.coinsTextBox);
-            this.playerGroupBox.Controls.Add(this.setCoinsButton);
-            this.playerGroupBox.Location = new System.Drawing.Point(12, 160);
-            this.playerGroupBox.Name = "playerGroupBox";
-            this.playerGroupBox.Size = new System.Drawing.Size(276, 50);
-            this.playerGroupBox.TabIndex = 1;
-            this.playerGroupBox.TabStop = false;
-            this.playerGroupBox.Text = "Player";
-            //
-            // coinsLabel
-            //
-            this.coinsLabel.AutoSize = true;
-            this.coinsLabel.Location = new System.Drawing.Point(8, 23);
-            this.coinsLabel.Name = "coinsLabel";
-            this.coinsLabel.Size = new System.Drawing.Size(36, 13);
-            this.coinsLabel.TabIndex = 0;
-            this.coinsLabel.Text = "Coins:";
-            //
-            // coinsValueLabel
-            //
-            this.coinsValueLabel.AutoSize = true;
-            this.coinsValueLabel.Location = new System.Drawing.Point(64, 23);
-            this.coinsValueLabel.Name = "coinsValueLabel";
-            this.coinsValueLabel.Size = new System.Drawing.Size(10, 13);
-            this.coinsValueLabel.TabIndex = 1;
-            this.coinsValueLabel.Text = "-";
-            //
-            // coinsTextBox
-            //
-            this.coinsTextBox.Location = new System.Drawing.Point(130, 20);
-            this.coinsTextBox.Name = "coinsTextBox";
-            this.coinsTextBox.Size = new System.Drawing.Size(70, 20);
-            this.coinsTextBox.TabIndex = 2;
-            //
-            // setCoinsButton
-            //
-            this.setCoinsButton.Location = new System.Drawing.Point(206, 18);
-            this.setCoinsButton.Name = "setCoinsButton";
-            this.setCoinsButton.Size = new System.Drawing.Size(60, 23);
-            this.setCoinsButton.TabIndex = 3;
-            this.setCoinsButton.Text = "Set";
-            this.setCoinsButton.UseVisualStyleBackColor = true;
-            this.setCoinsButton.Click += new System.EventHandler(this.setCoinsButton_Click);
+            this.retryCheckpointButton.Location = new System.Drawing.Point(206, 75);
+            this.retryCheckpointButton.Name = "retryCheckpointButton";
+            this.retryCheckpointButton.Size = new System.Drawing.Size(60, 22);
+            this.retryCheckpointButton.TabIndex = 10;
+            this.retryCheckpointButton.Text = "Retry";
+            this.retryCheckpointButton.UseVisualStyleBackColor = true;
+            this.retryCheckpointButton.Click += new System.EventHandler(this.retryCheckpointButton_Click);
             //
             // savedPositionsGroupBox
             //
             this.savedPositionsGroupBox.Controls.Add(this.slotComboBox);
             this.savedPositionsGroupBox.Controls.Add(this.savePosButton);
             this.savedPositionsGroupBox.Controls.Add(this.loadPosButton);
-            this.savedPositionsGroupBox.Location = new System.Drawing.Point(12, 216);
+            this.savedPositionsGroupBox.Location = new System.Drawing.Point(12, 160);
             this.savedPositionsGroupBox.Name = "savedPositionsGroupBox";
             this.savedPositionsGroupBox.Size = new System.Drawing.Size(276, 54);
-            this.savedPositionsGroupBox.TabIndex = 2;
+            this.savedPositionsGroupBox.TabIndex = 1;
             this.savedPositionsGroupBox.TabStop = false;
             this.savedPositionsGroupBox.Text = "Saved Positions";
             //
@@ -355,16 +317,12 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.toHideoutButton);
             this.warpGroupBox.Controls.Add(this.goalComboBox);
             this.warpGroupBox.Controls.Add(this.warpToGoalButton);
-            this.warpGroupBox.Controls.Add(this.levelComboBox);
-            this.warpGroupBox.Controls.Add(this.loadLevelButton);
-            this.warpGroupBox.Controls.Add(this.characterComboBox);
-            this.warpGroupBox.Controls.Add(this.spawnPointComboBox);
-            this.warpGroupBox.Location = new System.Drawing.Point(12, 276);
+            this.warpGroupBox.Location = new System.Drawing.Point(12, 220);
             this.warpGroupBox.Name = "warpGroupBox";
-            this.warpGroupBox.Size = new System.Drawing.Size(276, 193);
-            this.warpGroupBox.TabIndex = 3;
+            this.warpGroupBox.Size = new System.Drawing.Size(276, 106);
+            this.warpGroupBox.TabIndex = 2;
             this.warpGroupBox.TabStop = false;
-            this.warpGroupBox.Text = "Warp";
+            this.warpGroupBox.Text = "Job";
             //
             // jobComboBox
             //
@@ -430,23 +388,36 @@ namespace SluMAN
             this.warpToGoalButton.UseVisualStyleBackColor = true;
             this.warpToGoalButton.Click += new System.EventHandler(this.warpToGoalButton_Click);
             //
+            // levelGroupBox
+            //
+            this.levelGroupBox.Controls.Add(this.levelComboBox);
+            this.levelGroupBox.Controls.Add(this.loadLevelButton);
+            this.levelGroupBox.Controls.Add(this.characterComboBox);
+            this.levelGroupBox.Controls.Add(this.spawnPointComboBox);
+            this.levelGroupBox.Location = new System.Drawing.Point(12, 332);
+            this.levelGroupBox.Name = "levelGroupBox";
+            this.levelGroupBox.Size = new System.Drawing.Size(276, 107);
+            this.levelGroupBox.TabIndex = 3;
+            this.levelGroupBox.TabStop = false;
+            this.levelGroupBox.Text = "Load Level";
+            //
             // levelComboBox
             //
             this.levelComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.levelComboBox.FormattingEnabled = true;
-            this.levelComboBox.Location = new System.Drawing.Point(10, 105);
+            this.levelComboBox.Location = new System.Drawing.Point(10, 20);
             this.levelComboBox.MaxDropDownItems = 20;
             this.levelComboBox.Name = "levelComboBox";
             this.levelComboBox.Size = new System.Drawing.Size(169, 21);
-            this.levelComboBox.TabIndex = 6;
+            this.levelComboBox.TabIndex = 0;
             //
             // loadLevelButton
             //
-            this.loadLevelButton.Location = new System.Drawing.Point(184, 104);
+            this.loadLevelButton.Location = new System.Drawing.Point(184, 19);
             this.loadLevelButton.Name = "loadLevelButton";
             this.loadLevelButton.Size = new System.Drawing.Size(82, 23);
-            this.loadLevelButton.TabIndex = 7;
-            this.loadLevelButton.Text = "Load Level";
+            this.loadLevelButton.TabIndex = 1;
+            this.loadLevelButton.Text = "Load";
             this.loadLevelButton.UseVisualStyleBackColor = true;
             this.loadLevelButton.Click += new System.EventHandler(this.loadLevelButton_Click);
             //
@@ -454,29 +425,43 @@ namespace SluMAN
             //
             this.characterComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.characterComboBox.FormattingEnabled = true;
-            this.characterComboBox.Location = new System.Drawing.Point(10, 134);
+            this.characterComboBox.Location = new System.Drawing.Point(10, 49);
             this.characterComboBox.MaxDropDownItems = 20;
             this.characterComboBox.Name = "characterComboBox";
-            this.characterComboBox.Size = new System.Drawing.Size(169, 21);
-            this.characterComboBox.TabIndex = 8;
+            this.characterComboBox.Size = new System.Drawing.Size(256, 21);
+            this.characterComboBox.TabIndex = 2;
             //
             // spawnPointComboBox
             //
             this.spawnPointComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.spawnPointComboBox.FormattingEnabled = true;
-            this.spawnPointComboBox.Location = new System.Drawing.Point(10, 163);
+            this.spawnPointComboBox.Location = new System.Drawing.Point(10, 78);
             this.spawnPointComboBox.MaxDropDownItems = 20;
             this.spawnPointComboBox.Name = "spawnPointComboBox";
             this.spawnPointComboBox.Size = new System.Drawing.Size(256, 21);
-            this.spawnPointComboBox.TabIndex = 9;
+            this.spawnPointComboBox.TabIndex = 3;
+            //
+            // optionsGroupBox
+            //
+            this.optionsGroupBox.Controls.Add(this.slowMotionCheckBox);
+            this.optionsGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
+            this.optionsGroupBox.Controls.Add(this.invulnerableCheckBox);
+            this.optionsGroupBox.Controls.Add(this.undetectableCheckBox);
+            this.optionsGroupBox.Controls.Add(this.skipCutscenesCheckBox);
+            this.optionsGroupBox.Location = new System.Drawing.Point(12, 445);
+            this.optionsGroupBox.Name = "optionsGroupBox";
+            this.optionsGroupBox.Size = new System.Drawing.Size(276, 88);
+            this.optionsGroupBox.TabIndex = 4;
+            this.optionsGroupBox.TabStop = false;
+            this.optionsGroupBox.Text = "Options";
             //
             // slowMotionCheckBox
             //
             this.slowMotionCheckBox.AutoSize = true;
-            this.slowMotionCheckBox.Location = new System.Drawing.Point(18, 475);
+            this.slowMotionCheckBox.Location = new System.Drawing.Point(10, 19);
             this.slowMotionCheckBox.Name = "slowMotionCheckBox";
             this.slowMotionCheckBox.Size = new System.Drawing.Size(84, 17);
-            this.slowMotionCheckBox.TabIndex = 3;
+            this.slowMotionCheckBox.TabIndex = 0;
             this.slowMotionCheckBox.Text = "Slow Motion";
             this.slowMotionCheckBox.UseVisualStyleBackColor = true;
             this.slowMotionCheckBox.CheckedChanged += new System.EventHandler(this.slowMotionCheckBox_CheckedChanged);
@@ -484,10 +469,10 @@ namespace SluMAN
             // invulnerableCheckBox
             //
             this.invulnerableCheckBox.AutoSize = true;
-            this.invulnerableCheckBox.Location = new System.Drawing.Point(18, 498);
+            this.invulnerableCheckBox.Location = new System.Drawing.Point(10, 42);
             this.invulnerableCheckBox.Name = "invulnerableCheckBox";
             this.invulnerableCheckBox.Size = new System.Drawing.Size(83, 17);
-            this.invulnerableCheckBox.TabIndex = 4;
+            this.invulnerableCheckBox.TabIndex = 2;
             this.invulnerableCheckBox.Text = "Invulnerable";
             this.invulnerableCheckBox.UseVisualStyleBackColor = true;
             this.invulnerableCheckBox.CheckedChanged += new System.EventHandler(this.invulnerableCheckBox_CheckedChanged);
@@ -495,10 +480,10 @@ namespace SluMAN
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(150, 498);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(142, 42);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
-            this.undetectableCheckBox.TabIndex = 5;
+            this.undetectableCheckBox.TabIndex = 3;
             this.undetectableCheckBox.Text = "Undetectable";
             this.undetectableCheckBox.UseVisualStyleBackColor = true;
             this.undetectableCheckBox.CheckedChanged += new System.EventHandler(this.undetectableCheckBox_CheckedChanged);
@@ -506,10 +491,10 @@ namespace SluMAN
             // skipCutscenesCheckBox
             //
             this.skipCutscenesCheckBox.AutoSize = true;
-            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(18, 521);
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(10, 65);
             this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
             this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.skipCutscenesCheckBox.TabIndex = 7;
+            this.skipCutscenesCheckBox.TabIndex = 4;
             this.skipCutscenesCheckBox.Text = "Skip Cutscenes";
             this.skipCutscenesCheckBox.UseVisualStyleBackColor = true;
             this.skipCutscenesCheckBox.CheckedChanged += new System.EventHandler(this.skipCutscenesCheckBox_CheckedChanged);
@@ -517,10 +502,10 @@ namespace SluMAN
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(150, 475);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(142, 19);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.alwaysOnTopCheckBox.TabIndex = 6;
+            this.alwaysOnTopCheckBox.TabIndex = 1;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
             //
@@ -533,16 +518,12 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(300, 548);
+            this.ClientSize = new System.Drawing.Size(300, 541);
             this.Controls.Add(this.gameGroupBox);
-            this.Controls.Add(this.playerGroupBox);
             this.Controls.Add(this.savedPositionsGroupBox);
             this.Controls.Add(this.warpGroupBox);
-            this.Controls.Add(this.slowMotionCheckBox);
-            this.Controls.Add(this.invulnerableCheckBox);
-            this.Controls.Add(this.undetectableCheckBox);
-            this.Controls.Add(this.skipCutscenesCheckBox);
-            this.Controls.Add(this.alwaysOnTopCheckBox);
+            this.Controls.Add(this.levelGroupBox);
+            this.Controls.Add(this.optionsGroupBox);
             this.Controls.Add(this.menuStrip1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -555,10 +536,11 @@ namespace SluMAN
             this.menuStrip1.PerformLayout();
             this.gameGroupBox.ResumeLayout(false);
             this.gameGroupBox.PerformLayout();
-            this.playerGroupBox.ResumeLayout(false);
-            this.playerGroupBox.PerformLayout();
             this.savedPositionsGroupBox.ResumeLayout(false);
             this.warpGroupBox.ResumeLayout(false);
+            this.levelGroupBox.ResumeLayout(false);
+            this.optionsGroupBox.ResumeLayout(false);
+            this.optionsGroupBox.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -585,11 +567,7 @@ namespace SluMAN
         private System.Windows.Forms.Label checkpointValueLabel;
         private System.Windows.Forms.Label goalLabel;
         private System.Windows.Forms.Label goalValueLabel;
-        private System.Windows.Forms.GroupBox playerGroupBox;
-        private System.Windows.Forms.Label coinsLabel;
-        private System.Windows.Forms.Label coinsValueLabel;
-        private System.Windows.Forms.TextBox coinsTextBox;
-        private System.Windows.Forms.Button setCoinsButton;
+        private System.Windows.Forms.Button retryCheckpointButton;
         private System.Windows.Forms.GroupBox savedPositionsGroupBox;
         private System.Windows.Forms.ComboBox slotComboBox;
         private System.Windows.Forms.Button savePosButton;
@@ -601,10 +579,12 @@ namespace SluMAN
         private System.Windows.Forms.Button toHideoutButton;
         private System.Windows.Forms.ComboBox goalComboBox;
         private System.Windows.Forms.Button warpToGoalButton;
+        private System.Windows.Forms.GroupBox levelGroupBox;
         private System.Windows.Forms.ComboBox levelComboBox;
         private System.Windows.Forms.Button loadLevelButton;
         private System.Windows.Forms.ComboBox characterComboBox;
         private System.Windows.Forms.ComboBox spawnPointComboBox;
+        private System.Windows.Forms.GroupBox optionsGroupBox;
         private System.Windows.Forms.CheckBox slowMotionCheckBox;
         private System.Windows.Forms.CheckBox invulnerableCheckBox;
         private System.Windows.Forms.CheckBox undetectableCheckBox;

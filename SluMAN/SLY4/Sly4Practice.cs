@@ -9,16 +9,22 @@ namespace SluMAN
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
-        // The game state and coins are refreshed every few ticks: they take a dozen reads, and on a
-        // PS3 every read is a network round trip.
+        // The game state is refreshed every few ticks: it takes a dozen reads, and on a PS3 every
+        // read is a network round trip.
         private const int GameStateRefreshTicks = 5;
 
         // How long a queued warp may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
-        private const string PositionTab = "Position";
+        private const string PlayerTab = "Player";
+        private const string CameraTab = "Camera";
         private const string JobsTab = "Jobs";
         private const string TunablesTab = "Tunables";
+        private const string MemoryTab = "Memory";
+        private const string ViewerTab = "Memory Viewer";
+
+        /// <summary>Fly mode (Player tab) and the free camera (Camera tab): one runs at a time.</summary>
+        public Sly4FreeMove FreeMove;
 
         private StatusLine statusLine;
         private GameSession session;
@@ -50,7 +56,6 @@ namespace SluMAN
             this.game = game;
             InitializeComponent();
             statusLine = new StatusLine(this, true);
-            func.BindEnter(coinsTextBox, setCoinsButton);
 
             for (int slot = 1; slot <= IGame.PositionSlotCount; slot++)
             {
@@ -108,14 +113,27 @@ namespace SluMAN
 
             refreshTimer.Start();
 
+            FreeMove = new Sly4FreeMove(game);
+            FreeMove.Stopped += (message) =>
+            {
+                if (!IsDisposed)
+                {
+                    statusLine.Error($"Fly / free camera stopped: {message}");
+                }
+            };
+
             ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
             inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
             toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
 
             practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(PositionTab, () => new Sly4PositionForm(game));
+            practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
+            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(FreeMove));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
+            // The watch list and the hex viewer open each other's tabs.
+            practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
+            practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
         }
 
         /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
@@ -414,6 +432,26 @@ namespace SluMAN
             }
         }
 
+        private void retryCheckpointButton_Click(object sender, EventArgs e)
+        {
+            int checkpoint;
+            try
+            {
+                game.GetCheckpoint(out checkpoint, out int goalCount, out string goalName);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the checkpoint: {ex.Message}");
+                return;
+            }
+            if (checkpoint == 0)
+            {
+                statusLine.Error("Not in a job, so there's no checkpoint to retry.");
+                return;
+            }
+            WarpToGoal(null, checkpoint - 1);
+        }
+
         private void loadLevelButton_Click(object sender, EventArgs e)
         {
             sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
@@ -499,15 +537,6 @@ namespace SluMAN
         {
             try
             {
-                coinsValueLabel.Text = game.GetCoinCount().ToString();
-            }
-            catch
-            {
-                coinsValueLabel.Text = "-";
-            }
-
-            try
-            {
                 uint levelHash = game.GetLevelHash();
                 string level = levelHash == 0 ? "-" : sly4.GetLevelName(levelHash);
                 if (game.IsLoading())
@@ -539,24 +568,6 @@ namespace SluMAN
                 jobValueLabel.Text = "-";
                 checkpointValueLabel.Text = "-";
                 goalValueLabel.Text = "-";
-            }
-        }
-
-        private void setCoinsButton_Click(object sender, EventArgs e)
-        {
-            if (!int.TryParse(coinsTextBox.Text, out int coins))
-            {
-                statusLine.Error("Coins must be a whole number.");
-                return;
-            }
-
-            try
-            {
-                game.SetCoinCount(coins);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't set coins: {ex.Message}");
             }
         }
 
@@ -675,6 +686,7 @@ namespace SluMAN
         {
             // The tools' own cleanup (timers) runs when they close.
             practiceTabs.CloseAll();
+            FreeMove.Stop();
             game.GoalsChanged -= game_GoalsChanged;
             game.StopGoalWatcher();
             refreshTimer.Stop();
@@ -708,7 +720,7 @@ namespace SluMAN
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MemoryForm.ShowFor(this);
+            practiceTabs.Show(MemoryTab);
         }
 
         private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
