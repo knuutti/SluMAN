@@ -447,12 +447,12 @@ namespace SluMAN
             Sly4GoalWatcher watcher = goalWatcher;
             if (watcher != null)
             {
-                List<uint> goals;
-                List<int> states;
+                List<uint> watchedGoals;
+                List<int> watchedStates;
                 int current;
-                watcher.GetState(out goals, out states, out current);
-                snapshotGoals = goals;
-                snapshotStates = states;
+                watcher.GetState(out watchedGoals, out watchedStates, out current);
+                snapshotGoals = watchedGoals;
+                snapshotStates = watchedStates;
                 return;
             }
 
