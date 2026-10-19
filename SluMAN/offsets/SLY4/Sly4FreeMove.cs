@@ -54,6 +54,8 @@ namespace SluMAN
         private float rightSign;
         private float upSign;
         private float[] rowW;
+        // The game camera's matrix when the free camera started, handed back when it stops.
+        private byte[] gameMatrix;
 
         /// <summary>Units per second at full stick.</summary>
         public float Speed = 10f;
@@ -119,7 +121,7 @@ namespace SluMAN
             {
                 if (mode == Mode.FreeCamera)
                 {
-                    try { game.cameraHook.Disable(); } catch { }
+                    try { game.cameraHook.Disable(gameMatrix); } catch { }
                 }
                 mode = Mode.Off;
             }
@@ -141,7 +143,8 @@ namespace SluMAN
                     {
                         if (mode == Mode.FreeCamera)
                         {
-                            try { game.cameraHook.Disable(); } catch { }
+                            // Not the old matrix: a load puts the camera somewhere else anyway.
+                            try { game.cameraHook.Disable(null); } catch { }
                         }
                         mode = Mode.Off;
                     }
@@ -254,7 +257,8 @@ namespace SluMAN
             rightSign = Dot(new float[] { m[0], m[1], m[2] }, right) < 0 ? -1 : 1;
             upSign = Dot(new float[] { m[4], m[5], m[6] }, up) < 0 ? -1 : 1;
 
-            game.cameraHook.Enable(MatrixBytes());
+            gameMatrix = MatrixBytes(m);
+            game.cameraHook.Enable(view, MatrixBytes());
         }
 
         private void TickCamera(float step)
@@ -314,6 +318,16 @@ namespace SluMAN
                     byte[] word = BitConverter.GetBytes(value).Reverse().ToArray();
                     Array.Copy(word, 0, bytes, row * 16 + column * 4, 4);
                 }
+            }
+            return bytes;
+        }
+
+        private static byte[] MatrixBytes(float[] m)
+        {
+            byte[] bytes = new byte[Sly4CameraHook.MatrixSize];
+            for (int i = 0; i < 16; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(m[i]).Reverse().ToArray(), 0, bytes, i * 4, 4);
             }
             return bytes;
         }

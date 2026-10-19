@@ -208,6 +208,7 @@ namespace SluMAN
 
         private void SetMode(Sly4FreeMove.Mode mode)
         {
+            bool wasFreeCamera = freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
             try
             {
                 freeMove.Speed = (float)speedUpDown.Value;
@@ -219,6 +220,19 @@ namespace SluMAN
                 statusLine.Error($"Couldn't start: {ex.Message}");
             }
             ShowMode();
+
+            // Which code sets the gameplay camera, to tell it from the menus' (see Sly4CameraHook).
+            if (wasFreeCamera && freeMove.Current == Sly4FreeMove.Mode.Off)
+            {
+                try
+                {
+                    statusLine.Info($"Free camera off. The camera was last set from {game.cameraHook.GetLastCaller():X8}.");
+                }
+                catch
+                {
+                    // Only a hint.
+                }
+            }
         }
 
         private void ShowMode()
