@@ -76,6 +76,20 @@ namespace SluMAN
         public uint cheatUndetectable { get; private set; }
         public uint cutSceneEnable { get; private set; }
 
+        // Tunable registry: an array of pointers to every tunable struct, and its length
+        public uint tunableRegistry { get; private set; }
+        public uint tunableCount { get; private set; }
+
+        // Tunable struct vtables, one per value type
+        public uint tunableVtableBool { get; private set; }
+        public uint tunableVtableInt { get; private set; }
+        public uint tunableVtableFloat { get; private set; }
+        public uint tunableVtableVec2 { get; private set; }
+        public uint tunableVtableVec3 { get; private set; }
+        public uint tunableVtableColor { get; private set; }
+        public uint tunableVtableString { get; private set; }
+        public uint tunableVtableStringHash { get; private set; }
+
         // Entry sizes in the episode and job arrays
         public const uint EpisodeStride = 0x35C;
         public const uint JobStride = 0x218;
@@ -170,6 +184,18 @@ namespace SluMAN
                 cheatUndetectable = 0xF9BC28,
                 // Game.CutSceneEnable, 1 by default
                 cutSceneEnable = 0x10B8B48,
+
+                tunableRegistry = 0x10C2DBC,
+                tunableCount = 0x10C597C,
+
+                tunableVtableBool = 0xB0D934,
+                tunableVtableInt = 0xB0D968,
+                tunableVtableFloat = 0xB0D99C,
+                tunableVtableVec2 = 0xB13940,
+                tunableVtableVec3 = 0xB0D9D0,
+                tunableVtableColor = 0xB0DA04,
+                tunableVtableString = 0xB0DA38,
+                tunableVtableStringHash = 0xB0DA6C,
             };
 
             Sly4Addresses palDigital = palDisc.CopyAs(GameIdPALDigital, "SLY 4 (PAL, Digital)");

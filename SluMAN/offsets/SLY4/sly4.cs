@@ -25,6 +25,9 @@ namespace SluMAN
 
         private readonly Sly4CodeHook codeHook;
 
+        // The debug menu's Tuning settings, read from the game when first needed.
+        public readonly Sly4Tunables tunables;
+
         /// <summary>A job in the game's job array.</summary>
         public class JobEntry
         {
@@ -42,6 +45,7 @@ namespace SluMAN
         {
             addr = Sly4Addresses.ForGame(gameNameId);
             codeHook = new Sly4CodeHook(this);
+            tunables = new Sly4Tunables(this);
         }
 
         public override void SavePosition()

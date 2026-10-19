@@ -16,8 +16,11 @@ namespace SluMAN
         // How long a queued warp may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
+        private const string TunablesTab = "Tunables";
+
         private StatusLine statusLine;
         private GameSession session;
+        private PracticeTabs practiceTabs;
         private int refreshTick = 0;
         private bool gameCallPending = false;
         private DateTime gameCallDeadline;
@@ -44,6 +47,9 @@ namespace SluMAN
                 slotComboBox.Items.Add($"Slot {slot}");
             }
             slotComboBox.SelectedIndex = game.selectedPositionIndex;
+
+            // Before the toggles below read the game, so they show any kept cheat tunables.
+            ApplyKeptTunables();
 
             try
             {
@@ -74,6 +80,27 @@ namespace SluMAN
             session.Reconnected += session_Reconnected;
 
             refreshTimer.Start();
+
+            practiceTabs = new PracticeTabs(this, "Practice");
+            practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
+        }
+
+        /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
+        private void ApplyKeptTunables()
+        {
+            if (game.tunables.KeptCount == 0)
+            {
+                return;
+            }
+            try
+            {
+                int applied = game.tunables.ApplyKept();
+                statusLine.Info($"Applied {applied} kept tunables.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't apply the kept tunables: {ex.Message}");
+            }
         }
 
         private void refreshTimer_Tick(object sender, EventArgs e)
@@ -546,10 +573,15 @@ namespace SluMAN
             {
                 statusLine.Error($"Couldn't turn the cheats back on: {ex.Message}");
             }
+
+            ApplyKeptTunables();
+            practiceTabs.RefreshShownTool();
         }
 
         private void Sly4Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // The tools' own cleanup (timers) runs when they close.
+            practiceTabs.CloseAll();
             refreshTimer.Stop();
 
             // Leave the game unmodified. This runs before the session disconnects.

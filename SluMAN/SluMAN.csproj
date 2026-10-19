@@ -171,6 +171,7 @@
     <Compile Include="offsets\SLY3\sly3.cs" />
     <Compile Include="offsets\SLY3\Sly3Addresses.cs" />
     <Compile Include="offsets\SLY4\sly4.cs" />
+    <Compile Include="offsets\SLY4\Sly4Tunables.cs" />
     <Compile Include="offsets\SLY4\Sly4CodeHook.cs" />
     <Compile Include="offsets\SLY4\Sly4Goals.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
@@ -260,6 +261,9 @@
     </Compile>
     <Compile Include="SLY4\Sly4Practice.Designer.cs">
       <DependentUpon>Sly4Practice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SLY4\Sly4TunablesForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="func.cs" />
   </ItemGroup>
