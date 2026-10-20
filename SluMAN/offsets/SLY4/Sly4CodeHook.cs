@@ -61,6 +61,12 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, sly4.addr.hookMailbox, ToBytes(function));
         }
 
+        /// <summary>What the last call returned (r3), once IsCallPending is false.</summary>
+        public uint ReturnValue()
+        {
+            return ReadUInt(sly4.addr.hookMailbox + 4);
+        }
+
         public bool IsCallPending()
         {
             return ReadUInt(sly4.addr.hookMailbox) != 0;

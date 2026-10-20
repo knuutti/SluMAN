@@ -109,6 +109,13 @@ namespace SluMAN
             freeCameraCheckBox.Click += freeCameraCheckBox_Click;
             group.Controls.Add(freeCameraCheckBox);
 
+            Button hudButton = new Button();
+            SetButton(hudButton, "Toggle HUD", 190, 16, 84, (sender, e) => ToggleHud());
+            group.Controls.Add(hudButton);
+            ToolTip hudTip = new ToolTip();
+            hudTip.SetToolTip(hudButton, "Hides the HUD, or shows it again, like the debug menu's Toggle HUD.");
+            FormClosed += (sender, e) => hudTip.Dispose();
+
             Label moveLabel = new Label();
             moveLabel.Text = "Move speed (units / s):";
             moveLabel.AutoSize = true;
@@ -340,6 +347,19 @@ namespace SluMAN
             }
             freeCameraCheckBox.Checked = freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
             ShowPlaying();
+        }
+
+        private void ToggleHud()
+        {
+            try
+            {
+                game.ToggleHud();
+                statusLine.Info("Toggled the HUD.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't toggle the HUD: {ex.Message}");
+            }
         }
 
         /// <summary>Turns the free camera on if it isn't. False (with the reason shown) if it can't be.</summary>

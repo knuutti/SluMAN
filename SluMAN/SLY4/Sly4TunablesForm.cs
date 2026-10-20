@@ -55,6 +55,11 @@ namespace SluMAN
             BuildTree();
             BuildGrid();
             ClientSize = new Size(grid.Right + 8, grid.Bottom + 8);
+            // The tree and grid grow with the tab when the Practice window has a fixed size.
+            // Anchored only now: an anchor keeps the distance to the window's edge it has when
+            // set, and before the window took this size that distance was wrong.
+            categoryTree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             statusLine = new StatusLine(this, false);
 
             refreshTimer.Interval = RefreshIntervalMs;
@@ -128,8 +133,6 @@ namespace SluMAN
         {
             categoryTree.Location = new Point(8, 38);
             categoryTree.Size = new Size(210, 420);
-            // The tree and grid grow with the tab when the Practice window has a fixed size.
-            categoryTree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             categoryTree.HideSelection = false;
             categoryTree.AfterSelect += categoryTree_AfterSelect;
             Controls.Add(categoryTree);
@@ -139,7 +142,6 @@ namespace SluMAN
         {
             grid.Location = new Point(224, 38);
             grid.Size = new Size(500, 420);
-            grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grid.AllowUserToAddRows = false;
             grid.AllowUserToDeleteRows = false;
             grid.AllowUserToResizeRows = false;

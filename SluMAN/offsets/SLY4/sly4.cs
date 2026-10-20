@@ -1186,6 +1186,63 @@ namespace SluMAN
             codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
         }
 
+        // HUD screens the debug menu's Toggle HUD shows and hides, 16 bytes apart in hudScreenNames.
+        private static readonly string[] HudScreens = { "Common", "InGame" };
+        private static readonly TimeSpan HudCallTimeout = TimeSpan.FromSeconds(3);
+
+        /// <summary>
+        /// Shows or hides the HUD, as the debug menu's Toggle HUD does: finds the Common and
+        /// InGame GUI screens with the game's FindInstance and calls each one's toggle (its vtable
+        /// entry at hudToggleVtableOffset). Each call runs on a game frame, so this waits up to a
+        /// few frames per call. The game doesn't say whether the HUD shows, so it only toggles.
+        /// </summary>
+        public void ToggleHud()
+        {
+            ThrowIfLoading();
+            for (int i = 0; i < HudScreens.Length; i++)
+            {
+                byte[] name = new byte[16];
+                Encoding.ASCII.GetBytes(HudScreens[i], 0, HudScreens[i].Length, name, 0);
+                api.WriteMemory(pid, addr.hudScreenNames + (uint)i * 16, name);
+            }
+
+            int toggled = 0;
+            for (int i = 0; i < HudScreens.Length; i++)
+            {
+                uint screen = CallAndWait(addr.findInstanceFunction, addr.hudScreenNames + (uint)i * 16, 0);
+                if (screen == 0)
+                {
+                    continue;
+                }
+                // PS3 vtables hold function descriptors; the first word is the code address.
+                uint vtable = ReadUInt(screen);
+                uint toggle = ReadUInt(vtable + addr.hudToggleVtableOffset);
+                CallAndWait(toggle, screen);
+                toggled++;
+            }
+            if (toggled == 0)
+            {
+                throw new InvalidOperationException("The game has no HUD screens right now.");
+            }
+        }
+
+        /// <summary>Runs a game function through the code hook and waits for what it returns.</summary>
+        private uint CallAndWait(uint function, params uint[] arguments)
+        {
+            codeHook.Call(function, arguments);
+            DateTime deadline = DateTime.Now + HudCallTimeout;
+            while (codeHook.IsCallPending())
+            {
+                if (DateTime.Now > deadline)
+                {
+                    codeHook.CancelCall();
+                    throw new InvalidOperationException("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
+                }
+                System.Threading.Thread.Sleep(5);
+            }
+            return codeHook.ReturnValue();
+        }
+
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>
         private void ThrowIfLoading()
         {

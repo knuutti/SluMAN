@@ -65,6 +65,12 @@ namespace SluMAN
         public uint teleportToGoalFunction { get; private set; }
         public uint loadLevelFunction { get; private set; }
         public uint abandonCurrentJobFunction { get; private set; }
+        // Finds a GUI screen by name ("Common", "InGame"); the screen's vtable entry at
+        // +hudToggleVtableOffset shows or hides it (the debug menu's Toggle HUD)
+        public uint findInstanceFunction { get; private set; }
+        public uint hudToggleVtableOffset { get; private set; }
+        // Where the screen names are written for FindInstance (unused end of the data segment)
+        public uint hudScreenNames { get; private set; }
 
         // Code hook: a call made once per frame is pointed at a stub in the unused end of the code
         // segment, which runs the call queued in the mailbox (unused end of the data segment)
@@ -208,6 +214,9 @@ namespace SluMAN
                 teleportToGoalFunction = 0x2E0498,
                 loadLevelFunction = 0x4674C4,
                 abandonCurrentJobFunction = 0x2E5060,
+                findInstanceFunction = 0x4D5544,
+                hudToggleVtableOffset = 88,
+                hudScreenNames = 0x11F8B00,
 
                 hookCallSite = 0x5221DC,
                 hookCallTarget = 0x56AEFC,

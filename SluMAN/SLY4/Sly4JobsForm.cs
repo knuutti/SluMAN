@@ -59,6 +59,13 @@ namespace SluMAN
 
             BuildControls();
             ClientSize = new Size(tree.Right + 8, legendLabel.Bottom + 8);
+            // The tree grows with the tab when the Practice window has a fixed size. Anchored
+            // only now: an anchor keeps the distance to the window's edge it has when set.
+            tree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            foreach (Control control in new Control[] { startJobButton, toHubButton, toHideoutButton, warpToGoalButton, reloadButton, legendLabel })
+            {
+                control.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            }
 
             refreshTimer.Interval = RefreshIntervalMs;
             refreshTimer.Tick += refreshTimer_Tick;
@@ -78,8 +85,6 @@ namespace SluMAN
         {
             tree.Location = new Point(8, 8);
             tree.Size = new Size(440, 400);
-            // Grows with the tab when the Practice window has a fixed size.
-            tree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tree.HideSelection = false;
             tree.ShowNodeToolTips = true;
             tree.BeforeExpand += tree_BeforeExpand;
@@ -95,7 +100,6 @@ namespace SluMAN
 
             legendLabel.AutoSize = true;
             legendLabel.Location = new Point(8, 442);
-            legendLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             legendLabel.ForeColor = SystemColors.GrayText;
             legendLabel.Text = "Running job: green done, orange current, red upcoming. Double-click a goal to warp.";
             Controls.Add(legendLabel);
@@ -116,7 +120,6 @@ namespace SluMAN
             button.Text = text;
             button.Location = new Point(x, 414);
             button.Size = new Size(width, 23);
-            button.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             button.UseVisualStyleBackColor = true;
             button.Click += click;
             Controls.Add(button);
