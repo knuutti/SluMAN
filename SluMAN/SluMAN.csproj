@@ -129,6 +129,7 @@
     <Compile Include="GameReconnect.cs" />
     <Compile Include="GameLanguages.cs" />
     <Compile Include="GameSession.cs" />
+    <Compile Include="JobPicker.cs" />
     <Compile Include="FirewallHelper.cs" />
     <Compile Include="FunctionEditorForm.cs">
       <SubType>Form</SubType>

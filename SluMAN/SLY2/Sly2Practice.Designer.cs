@@ -31,6 +31,7 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly2Practice));
             this.jobGroupBox = new System.Windows.Forms.GroupBox();
             this.jobComboBox = new System.Windows.Forms.ComboBox();
+            this.checkpointComboBox = new System.Windows.Forms.ComboBox();
             this.loadJobButton = new System.Windows.Forms.Button();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.mapComboBox = new System.Windows.Forms.ComboBox();
@@ -77,15 +78,16 @@
             // jobGroupBox
             // 
             this.jobGroupBox.Controls.Add(this.jobComboBox);
+            this.jobGroupBox.Controls.Add(this.checkpointComboBox);
             this.jobGroupBox.Controls.Add(this.loadJobButton);
             this.jobGroupBox.Location = new System.Drawing.Point(12, 122);
             this.jobGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.jobGroupBox.Name = "jobGroupBox";
             this.jobGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.jobGroupBox.Size = new System.Drawing.Size(312, 89);
+            this.jobGroupBox.Size = new System.Drawing.Size(312, 80);
             this.jobGroupBox.TabIndex = 33;
             this.jobGroupBox.TabStop = false;
-            this.jobGroupBox.Text = "Jobs";
+            this.jobGroupBox.Text = "Job";
             // 
             // jobComboBox
             // 
@@ -359,17 +361,26 @@
             " [SWC] Paraglide",
             " [SWC] Hit the head",
             " [SWC] Get the hate chip"});
-            this.jobComboBox.Location = new System.Drawing.Point(16, 25);
+            this.jobComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.jobComboBox.Location = new System.Drawing.Point(10, 20);
             this.jobComboBox.Name = "jobComboBox";
-            this.jobComboBox.Size = new System.Drawing.Size(282, 21);
+            this.jobComboBox.Size = new System.Drawing.Size(292, 21);
             this.jobComboBox.TabIndex = 16;
-            this.jobComboBox.Text = "Select a job...";
+            // 
+            // checkpointComboBox
+            // 
+            this.checkpointComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.checkpointComboBox.FormattingEnabled = true;
+            this.checkpointComboBox.Location = new System.Drawing.Point(10, 49);
+            this.checkpointComboBox.Name = "checkpointComboBox";
+            this.checkpointComboBox.Size = new System.Drawing.Size(193, 21);
+            this.checkpointComboBox.TabIndex = 17;
             // 
             // loadJobButton
             // 
-            this.loadJobButton.Location = new System.Drawing.Point(16, 51);
+            this.loadJobButton.Location = new System.Drawing.Point(208, 48);
             this.loadJobButton.Name = "loadJobButton";
-            this.loadJobButton.Size = new System.Drawing.Size(88, 24);
+            this.loadJobButton.Size = new System.Drawing.Size(94, 23);
             this.loadJobButton.TabIndex = 17;
             this.loadJobButton.Text = "Load";
             this.loadJobButton.UseVisualStyleBackColor = true;
@@ -765,6 +776,7 @@
 
         private System.Windows.Forms.GroupBox jobGroupBox;
         private System.Windows.Forms.ComboBox jobComboBox;
+        private System.Windows.Forms.ComboBox checkpointComboBox;
         private System.Windows.Forms.Button loadJobButton;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.ComboBox mapComboBox;

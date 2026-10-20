@@ -26,12 +26,15 @@ namespace SluMAN
         public string gameNameId;
 
         private StatusLine statusLine;
+        private JobPicker jobPicker;
         private GameSession session;
 
         public Sly2Practice(sly2 game)
         {
             this.game = game;
             InitializeComponent();
+            // The designer holds the flat job list; the picker splits it into jobs and checkpoints.
+            jobPicker = new JobPicker(jobComboBox, checkpointComboBox, jobComboBox.Items.Cast<string>().ToList());
             statusLine = new StatusLine(this, true);
             func.BindEnter(healthTextBox, setHealthButton);
 
@@ -384,7 +387,13 @@ namespace SluMAN
 
         private void loadJobButton_Click(object sender, EventArgs e)
         {
-            game.LoadJob(jobComboBox.Text);
+            string entry = jobPicker.SelectedEntry;
+            if (entry == null)
+            {
+                statusLine.Error("Select a job to load first.");
+                return;
+            }
+            game.LoadJob(entry);
         }
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
