@@ -31,6 +31,10 @@ namespace SluMAN
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
         private readonly NumericUpDown farUpDown = new NumericUpDown();
+        private readonly CheckBox noFogCheckBox = new CheckBox();
+        // No fog is checked again every this many field-of-view refreshes (a load sets the fog).
+        private const int NoFogRefreshTicks = 10;
+        private int noFogTick;
         private bool updatingFar;
         // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
         private readonly Timer fovTimer = new Timer();
@@ -93,6 +97,10 @@ namespace SluMAN
                 {
                     try { game.SetHudHidden(false); } catch { }
                 }
+                if (noFogCheckBox.Checked)
+                {
+                    try { game.SetFogDisabled(false); } catch { }
+                }
             };
             FormClosed += (sender, e) =>
             {
@@ -107,6 +115,11 @@ namespace SluMAN
                 if (freeMove.Current == Sly4FreeMove.Mode.FreeCamera)
                 {
                     ShowFar();
+                }
+                // A level load sets the fog again.
+                if (noFogCheckBox.Checked && ++noFogTick % NoFogRefreshTicks == 0)
+                {
+                    try { game.SetFogDisabled(true); } catch { }
                 }
             };
             fovTimer.Start();
@@ -448,10 +461,17 @@ namespace SluMAN
             });
             group.Controls.Add(gameFarButton);
 
+            noFogCheckBox.Text = "No fog";
+            noFogCheckBox.AutoSize = true;
+            noFogCheckBox.Location = new Point(264, 105);
+            noFogCheckBox.Click += (sender, e) => SetFogDisabled(noFogCheckBox.Checked);
+            group.Controls.Add(noFogCheckBox);
+
             ToolTip tip = new ToolTip();
             tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees.");
             tip.SetToolTip(farUpDown, "How far the free camera draws. Distance fog may follow it.");
             tip.SetToolTip(gameFarButton, "Back to the game's own far distance.");
+            tip.SetToolTip(noFogCheckBox, "Moves the level's fog out of sight, and keeps it there after loads. Untick to put it back.");
             FormClosed += (sender, e) => tip.Dispose();
             return group;
         }
@@ -561,6 +581,23 @@ namespace SluMAN
             {
                 hideHudCheckBox.Checked = !hidden;
                 statusLine.Error($"Couldn't {(hidden ? "hide" : "show")} the HUD: {ex.Message}");
+            }
+        }
+
+        private void SetFogDisabled(bool disabled)
+        {
+            try
+            {
+                if (!game.SetFogDisabled(disabled))
+                {
+                    statusLine.Error("The game has no camera yet; No fog applies once a level is loaded.");
+                    return;
+                }
+                statusLine.Info(disabled ? "Fog moved out of sight." : "Fog put back.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change the fog: {ex.Message}");
             }
         }
 

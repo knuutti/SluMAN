@@ -85,6 +85,10 @@ namespace SluMAN
         public uint viewFovOffset { get; private set; }
         // The view's far clipping distance (near is just before it, at +0x3C)
         public uint viewFarOffset { get; private set; }
+        // The view's two fog blocks, each: 2 flag bytes and the colour as RGBA bytes (at -8),
+        // then the fog's start and end distances (floats), then the colour as 4 floats. The
+        // level's Fog settings are copied here when it loads.
+        public uint[] viewFogDistanceOffsets { get; private set; }
 
         // View override (free camera): each frame the game rebuilds each view's render matrices
         // and then copies the view for drawing; that copy call is pointed at a stub (after the
@@ -247,6 +251,7 @@ namespace SluMAN
                 viewMatrixOffset = 0x2F0,
                 viewFovOffset = 0x38,
                 viewFarOffset = 0x40,
+                viewFogDistanceOffsets = new uint[] { 0x88, 0xC8 },
                 viewUpdateCopyCall = 0x512078,
                 viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,

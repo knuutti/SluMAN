@@ -636,6 +636,58 @@ namespace SluMAN
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
         }
 
+        // No fog pushes the fog's start and end this far away.
+        private const float NoFogDistance = 2147483648f;
+        // The fog distances No fog replaced, by view and block, to put back.
+        private readonly Dictionary<uint, float[]> fogBeforeNoFog = new Dictionary<uint, float[]>();
+
+        /// <summary>
+        /// Turns the main view's fog off by moving both fog blocks' start and end distances far
+        /// away, or puts back what they were. A level load sets them again, so call it again
+        /// after one; it only writes when a block isn't already moved. Returns whether the view
+        /// was there.
+        /// </summary>
+        public bool SetFogDisabled(bool disabled)
+        {
+            uint view = GetMainView();
+            if (view == 0)
+            {
+                return false;
+            }
+            foreach (uint offset in addr.viewFogDistanceOffsets)
+            {
+                uint address = view + offset;
+                byte[] bytes = api.ReadMemory(pid, address, 8);
+                float start = ToFloat(bytes, 0);
+                float end = ToFloat(bytes, 4);
+                bool moved = end == NoFogDistance;
+                if (disabled && !moved)
+                {
+                    fogBeforeNoFog[address] = new float[] { start, end };
+                    byte[] far = new byte[8];
+                    Array.Copy(ConvertFloatToBytes(NoFogDistance), 0, far, 0, 4);
+                    Array.Copy(ConvertFloatToBytes(NoFogDistance), 0, far, 4, 4);
+                    api.WriteMemory(pid, address, far);
+                }
+                else if (!disabled && moved)
+                {
+                    float[] before;
+                    if (fogBeforeNoFog.TryGetValue(address, out before))
+                    {
+                        byte[] original = new byte[8];
+                        Array.Copy(ConvertFloatToBytes(before[0]), 0, original, 0, 4);
+                        Array.Copy(ConvertFloatToBytes(before[1]), 0, original, 4, 4);
+                        api.WriteMemory(pid, address, original);
+                    }
+                }
+            }
+            if (!disabled)
+            {
+                fogBeforeNoFog.Clear();
+            }
+            return true;
+        }
+
         /// <summary>A view's far clipping distance.</summary>
         public float ReadViewFar(uint view)
         {
