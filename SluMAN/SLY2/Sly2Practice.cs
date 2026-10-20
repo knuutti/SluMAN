@@ -59,6 +59,7 @@ namespace SluMAN
             {
                 GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly2, statusLine, game.GetLanguage, game.SetLanguage);
             }
+            AddCopyEpisodeStateMenu();
 
             session = new GameSession(this, game, gameNameId, "Sly 2", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
@@ -82,6 +83,35 @@ namespace SluMAN
             practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
+        }
+
+        /// <summary>
+        /// Tools -> Copy Episode State: copies an episode's save data as it is now, in
+        /// data/s2_job_config.txt's format, to record a job state or compare one.
+        /// </summary>
+        private void AddCopyEpisodeStateMenu()
+        {
+            ToolStripMenuItem copyMenu = new ToolStripMenuItem("Copy Episode State");
+            for (int episode = 0; episode < sly2.EpisodeStateSizes.Length; episode++)
+            {
+                int current = episode;
+                copyMenu.DropDownItems.Add(episode == 0 ? "Prologue" : $"Episode {episode}", null, (sender, e) =>
+                {
+                    try
+                    {
+                        Clipboard.SetText(game.ReadEpisodeState(current));
+                        statusLine.Info($"Copied episode {current}'s state ({sly2.EpisodeStateSizes[current]} bytes from {sly2.addr.episodeData[current]:X}).");
+                    }
+                    catch (Exception ex)
+                    {
+                        statusLine.Error($"Couldn't copy the episode state: {ex.Message}");
+                    }
+                });
+            }
+
+            // Before the separator above Power Off / Reboot, with the other game tools.
+            int index = menuToolStripMenuItem.DropDownItems.IndexOf(toolStripSeparator1);
+            menuToolStripMenuItem.DropDownItems.Insert(index >= 0 ? index : menuToolStripMenuItem.DropDownItems.Count, copyMenu);
         }
 
         private void infiniteJumpCheckBox_CheckedChanged(object sender, EventArgs e)

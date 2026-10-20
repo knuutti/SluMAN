@@ -579,6 +579,32 @@ namespace SluMAN
             return (sly2.addr.episodeData[index], 4096);
         }
 
+        // How many bytes of each episode's save data a job state holds (data/s2_job_config.txt),
+        // indexed by episode.
+        public static readonly int[] EpisodeStateSizes = new int[] { 316, 1968, 1852, 1636, 2200, 2040, 1440, 2440, 1980 };
+
+        /// <summary>
+        /// The episode's save data as it is now, in data/s2_job_config.txt's format: a byte
+        /// value per entry, comma separated.
+        /// </summary>
+        public string ReadEpisodeState(int episode)
+        {
+            const int ChunkSize = 1024; // A single read is limited to about 2 KB.
+            uint start = sly2.addr.episodeData[episode];
+            int size = EpisodeStateSizes[episode];
+            List<string> values = new List<string>(size);
+            for (int done = 0; done < size; done += ChunkSize)
+            {
+                int chunk = Math.Min(ChunkSize, size - done);
+                byte[] bytes = api.ReadMemory(pid, start + (uint)done, (uint)chunk);
+                foreach (byte value in bytes)
+                {
+                    values.Add(value.ToString());
+                }
+            }
+            return string.Join(",", values);
+        }
+
         public void SkipCinematic()
         {
             // Skip FMV
