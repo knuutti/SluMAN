@@ -127,7 +127,11 @@
       <DependentUpon>DiagnosticsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="GameReconnect.cs" />
+    <Compile Include="GameLanguages.cs" />
     <Compile Include="GameSession.cs" />
+    <Compile Include="JobPicker.cs" />
+    <Compile Include="MapPicker.cs" />
+    <Compile Include="SpawnPoints.cs" />
     <Compile Include="FirewallHelper.cs" />
     <Compile Include="FunctionEditorForm.cs">
       <SubType>Form</SubType>
@@ -228,11 +232,11 @@
     <Compile Include="SLY2\Sly2Practice.Designer.cs">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY2\Sly2Speedrun.cs">
+    <Compile Include="SLY2\Sly2RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\Sly2Speedrun.Designer.cs">
-      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
+    <Compile Include="SLY2\Sly2Speedrun.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY3\Sly3Practice.cs">
       <SubType>Form</SubType>
@@ -248,6 +252,9 @@
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
     <Compile Include="PracticeTabs.cs" />
+    <Compile Include="RunFilesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="WatchFormula.cs" />
     <Compile Include="PositionEditor.cs">
       <SubType>Form</SubType>
@@ -255,11 +262,11 @@
     <Compile Include="PositionEditor.Designer.cs">
       <DependentUpon>PositionEditor.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\Sly3Speedrun.cs">
+    <Compile Include="SLY3\Sly3RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3Speedrun.Designer.cs">
-      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
+    <Compile Include="SLY3\Sly3Speedrun.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY4\Sly4Practice.cs">
       <SubType>Form</SubType>
@@ -337,9 +344,6 @@
     <EmbeddedResource Include="SLY2\Sly2Practice.resx">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY2\Sly2Speedrun.resx">
-      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="SLY3\Sly3Practice.resx">
       <DependentUpon>Sly3Practice.cs</DependentUpon>
     </EmbeddedResource>
@@ -348,9 +352,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="PositionEditor.resx">
       <DependentUpon>PositionEditor.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\Sly3Speedrun.resx">
-      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="SLY4\Sly4Practice.resx">
       <DependentUpon>Sly4Practice.cs</DependentUpon>
@@ -382,6 +383,18 @@
     </Content>
     <Content Include="..\data\s2_job_config.txt">
       <Link>data/s2_job_config.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\THIRD-PARTY-NOTICES.txt">
+      <Link>THIRD-PARTY-NOTICES.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\data\s2_spawn_points.txt">
+      <Link>data/s2_spawn_points.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\data\s3_spawn_points.txt">
+      <Link>data/s3_spawn_points.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\data\sly3_warp_locations.txt">

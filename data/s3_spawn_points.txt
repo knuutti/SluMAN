@@ -1,0 +1,37 @@
+# Sly 3 spawn points: map | spawn ID | English name
+#
+# The Map group in Practice Mode lists a map's spawn points from this file, after the map's own
+# start. The map is its internal name without "Y$KF"; the spawn ID is the value at the spawn
+# location address after going through a door. Write the English name after the second |; a
+# spawn point without one shows as its ID. Everything after a # is a comment: here, where the ID
+# came from (a run file or the map's start), to help name it.
+#
+# Sly 3's job list loads jobs without a spawn ID, so this file starts with only the IDs from the
+# map list and the run files.
+
+# ==== Hazard Room ====
+i_trainer | 424 |  # Hazard Room map start
+
+# ==== Venice Hub ====
+v_ext | 424 |  # Episode 1 run file
+v_ext | 44438 |  # Venice Hub map start
+
+# ==== Outback Hub ====
+o_ext | 424 |  # Episode 2 run file
+o_ext | 44438 |  # Outback Hub map start
+
+# ==== Holland Hub ====
+h_ext | 424 |  # Episode 3 run file
+h_ext | 44438 |  # Holland Hub map start
+
+# ==== China Hub ====
+c_ext | 424 |  # Episode 4 run file
+c_ext | 44438 |  # China Hub map start
+
+# ==== Pirate Hub ====
+p_ext | 424 |  # Episode 5 run file
+p_ext | 44438 |  # Pirate Hub map start
+
+# ==== Kaine Island ====
+m_ext | 15022 |  # Kaine Island map start
+m_ext | 16386 |  # Episode 6 run files

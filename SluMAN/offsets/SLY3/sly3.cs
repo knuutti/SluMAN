@@ -124,9 +124,20 @@ namespace SluMAN
                 func.Status("Select a map to load first.", true);
                 return;
             }
-            
+            LoadMap(mapIndex, maps[mapIndex].defaultWarp);
+        }
+
+        /// <summary>Loads a map at one of its spawn points (see data/s3_spawn_points.txt).</summary>
+        public void LoadMap(int mapIndex, uint spawnLocation)
+        {
+            if (mapIndex < 0 || mapIndex >= maps.Length)
+            {
+                func.Status("Select a map to load first.", true);
+                return;
+            }
+
             MapData selectedMap = maps[mapIndex];
-            
+
             try
             {
                 byte[] clearBytes = new byte[64];
@@ -134,8 +145,8 @@ namespace SluMAN
 
                 byte[] indicatorBytes = System.Text.Encoding.ASCII.GetBytes(selectedMap.indicator);
                 api.WriteMemory(pid, sly3.addr.mapAOB, indicatorBytes);
-                
-                api.WriteMemory(pid, sly3.addr.spawnLocation, selectedMap.defaultWarp);
+
+                api.WriteMemory(pid, sly3.addr.spawnLocation, spawnLocation);
                 
                 api.WriteMemory(pid, sly3.addr.loadTrigger, (uint)1);
             }
@@ -502,6 +513,27 @@ namespace SluMAN
             api.WriteMemory(pid, sly3.addr.loadTrigger, (uint)1);
         }
 
+        /// <summary>The game's language index (see <see cref="GameLanguages.Sly3"/>), or -1 if it can't be read.</summary>
+        public int GetLanguage()
+        {
+            try
+            {
+                byte[] bytes = api.ReadMemory(pid, sly3.addr.language, 4);
+                return BitConverter.ToInt32(bytes.Reverse().ToArray(), 0);
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>Sets the language and reloads, which loads the game's text and voices in it.</summary>
+        public void SetLanguage(int language)
+        {
+            api.WriteMemory(pid, sly3.addr.language, ConvertIntToBytes(language));
+            TriggerGameLoad((uint)Sly3Addresses.LoadTypes.Job);
+        }
+
         public (uint startAddress, uint size) GetMemoryRegionForEpisode(string episode)
         {
             switch (episode)
@@ -568,7 +600,8 @@ namespace SluMAN
             }
             if (enabled)
             {
-                autoSkipper = new AutoSkipper(api, pid, sly3.addr.fmvState, sly3.addr.dialogueState, sly3.addr.dialogueFrameCounter);
+                // Sly 3's dialogue state skips every line while it's frozen to 0.
+                autoSkipper = new AutoSkipper(api, pid, sly3.addr.fmvState, sly3.addr.dialogueState, sly3.addr.dialogueFrameCounter, true);
                 autoSkipper.Start();
             }
         }

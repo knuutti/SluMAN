@@ -17,8 +17,9 @@ namespace SluMAN
 
         // One window: the Practice controls on the first tab, the tools on the others.
         private PracticeTabs practiceTabs;
+        private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
-        private const string PositionTab = "Position Editor";
+        private const string RunFilesTab = "Run Files";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
 
@@ -38,17 +39,22 @@ namespace SluMAN
         private const float FlyBoostMultiplier = 8.0f;
 
         private StatusLine statusLine;
+        private JobPicker jobPicker;
+        private MapPicker mapPicker;
         private GameSession session;
 
         public Sly3Practice(sly3 game)
         {
             this.game = game;
             InitializeComponent();
+            // The designer holds the flat job list; the picker splits it into jobs and checkpoints.
+            jobPicker = new JobPicker(jobComboBox, checkpointComboBox, jobComboBox.Items.Cast<string>().ToList());
             statusLine = new StatusLine(this, true);
             func.BindEnter(healthTextBox, setHealthButton);
 
-            mapComboBox.Items.AddRange(game.GetMapNames());
-            mapComboBox.SelectedIndex = 0;
+            mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
+                game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
+                new SpawnPoints("data/s3_spawn_points.txt"));
 
             gameNameId = sly3.addr.GameId;
 
@@ -60,6 +66,12 @@ namespace SluMAN
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
             game.combosActive = true;
             game.InputsTimer.Start();
+
+            // Only the PAL versions have more than one language.
+            if (sly3.addr.language != 0)
+            {
+                GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly3, statusLine, game.GetLanguage, game.SetLanguage);
+            }
 
             session = new GameSession(this, game, gameNameId, "Sly 3", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
@@ -76,12 +88,16 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
-            practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
+            practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -432,17 +448,7 @@ namespace SluMAN
 
         private void loadMapButton_Click(object sender, EventArgs e)
         {
-            game.LoadMap(mapComboBox.SelectedIndex);
-        }
-
-        private void gadgetsButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(GadgetsTab);
-        }
-
-        private void positionEditorButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(PositionTab);
+            game.LoadMap(mapComboBox.SelectedIndex, mapPicker.SelectedSpawn);
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
@@ -525,7 +531,13 @@ namespace SluMAN
 
         private void loadJobButton_Click(object sender, EventArgs e)
         {
-            game.LoadJob(jobComboBox.Text);
+            string entry = jobPicker.SelectedEntry;
+            if (entry == null)
+            {
+                statusLine.Error("Select a job to load first.");
+                return;
+            }
+            game.LoadJob(entry);
         }
 
         private void abandonJobButton_Click(object sender, EventArgs e)

@@ -1,260 +1,88 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Reflection;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Text;
-using System.Threading;
+using System.Drawing;
 using System.Windows.Forms;
-using static SluMAN.Sly3Speedrun;
-using Timer = System.Windows.Forms.Timer;
 
 namespace SluMAN
 {
-    public partial class Sly2Speedrun : Form
+    /// <summary>
+    /// Sly 2 Speedrun Mode: the autosplitter (autosplitters/sly2-autosplitter.asl), the input
+    /// display and nothing that changes the game. Run files are made in Practice Mode's Run Files
+    /// tab and kept in an anchor file. The controls are built in code.
+    /// </summary>
+    public class Sly2Speedrun : Form
     {
-        public Form GadgetsWindow;
         public sly2 game;
-        public string gameNameId;
+        public string gameNameId = sly2.addr.GameId;
 
+        private readonly MenuStrip menuStrip = new MenuStrip();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
+        private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
+        private readonly Button inputDisplayButton = new Button();
         private StatusLine statusLine;
         private GameSession session;
 
         public Sly2Speedrun(sly2 game)
         {
             this.game = game;
-            gameNameId = sly2.addr.GameId;
-            InitializeComponent();
+            Name = "Sly2Speedrun";
+            Text = "SluMAN :: Sly 2: Band of Thieves (Speedrun Mode)";
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            Font = new Font("Microsoft Sans Serif", 8.25F);
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+
+            BuildMenu();
+            BuildControls();
+            ClientSize = new Size(260, inputDisplayButton.Bottom + 12);
             statusLine = new StatusLine(this, true);
 
             game.SetupInputDisplayMemorySubs();
-            game.CheckRunFileConfig();
 
             session = new GameSession(this, game, gameNameId, "Sly 2", true);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
-            session.BindAutosplitter(autosplitterCheckbox);
+            session.BindAutosplitter(autosplitterCheckBox);
         }
 
-        private void Sly2Speedrun_Load(object sender, EventArgs e)
+        private void BuildMenu()
         {
-
+            ToolStripMenuItem tools = new ToolStripMenuItem("Tools");
+            tools.DropDownItems.Add("Switch Game/Mode", null, (sender, e) => session.SwitchGameOrMode());
+            tools.DropDownItems.Add("Open User Data Folder", null, (sender, e) => UserData.OpenInExplorer());
+            tools.DropDownItems.Add(new ToolStripSeparator());
+            tools.DropDownItems.Add("Power Off (PS3)", null, (sender, e) => session.PowerOffPS3());
+            tools.DropDownItems.Add("Reboot (PS3)", null, (sender, e) => session.RebootPS3());
+            menuStrip.Items.Add(tools);
+            MainMenuStrip = menuStrip;
+            Controls.Add(menuStrip);
         }
 
-        private void inputDisplayButton_Click(object sender, EventArgs e)
+        private void BuildControls()
         {
-            session.ShowInputDisplay();
-        }
+            int top = menuStrip.PreferredSize.Height + 12;
 
-        private void gadgetsButton_Click(object sender, EventArgs e)
-        {
-            if (GadgetsWindow == null || GadgetsWindow.IsDisposed)
-            {
-                GadgetsWindow = new Sly2Gadgets(game);
-                GadgetsWindow.FormClosed += GadgetsWindow_FormClosed;
-                session.AddGameWindow(GadgetsWindow);
-                GadgetsWindow.Show();
-            }
-            else
-            {
-                GadgetsWindow.Focus();
-            }
-        }
+            autosplitterCheckBox.Text = "Autosplitter";
+            autosplitterCheckBox.AutoSize = true;
+            autosplitterCheckBox.Location = new Point(14, top);
+            Controls.Add(autosplitterCheckBox);
 
-        private void GadgetsWindow_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            GadgetsWindow = null;
-        }
+            alwaysOnTopCheckBox.Text = "Always On Top";
+            alwaysOnTopCheckBox.AutoSize = true;
+            alwaysOnTopCheckBox.Location = new Point(134, top);
+            Controls.Add(alwaysOnTopCheckBox);
 
-        private void loadRunFileButton_Click(object sender, EventArgs e)
-        {
-            if (runFileComboBox.SelectedItem == null)
-            {
-                statusLine.Error("Select a run file to load first.");
-                return;
-            }
+            inputDisplayButton.Text = "Input Display";
+            inputDisplayButton.Location = new Point(12, top + 28);
+            inputDisplayButton.Size = new Size(236, 28);
+            inputDisplayButton.UseVisualStyleBackColor = true;
+            inputDisplayButton.Click += (sender, e) => session.ShowInputDisplay();
+            Controls.Add(inputDisplayButton);
 
-            LoadCompleteRunFile();
-        }
-
-        private void LoadCompleteRunFile()
-        {
-            string episodeKey = GetEpisodeKey(runFileComboBox.SelectedItem.ToString());
-
-            try
-            {
-                var runFileData = LoadRunFileDataFromConfig(episodeKey);
-
-                if (runFileData == null)
-                {
-                    game.api.Notify("Error loading a run file: Config file not found.");
-                    return;
-                }
-
-                if (runFileData.MemoryData != null && runFileData.MemoryData.Length > 0)
-                {
-                    game.WriteMemoryRegion(runFileData.MemoryStartAddress, runFileData.MemoryData);
-                }
-
-                if (!string.IsNullOrEmpty(runFileData.MapName))
-                {
-                    game.SetMapName(runFileData.MapName);
-                }
-
-                game.SetSpawnLocation((int)runFileData.SpawnLocation);
-
-                LoadRunFileGadgets();
-
-                var loadType = (uint)Sly2Addresses.LoadTypes.RunFile;
-
-                game.api.Notify($"SluMAN {func.VersionText}: Loading {runFileComboBox.SelectedItem} run file.");
-
-                game.TriggerGameLoad(loadType);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't load the run file: {ex.Message}");
-                Console.WriteLine(ex);
-            }
-        }
-
-        private RunFileData LoadRunFileDataFromConfig(string episodeKey)
-        {
-            string mapName = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MapName");
-            string spawnLocationStr = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_SpawnLocation");
-            string memoryDataHex = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MemoryData");
-            string memoryAddressStr = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MemoryAddress");
-
-            if (string.IsNullOrEmpty(mapName) && string.IsNullOrEmpty(memoryDataHex))
-            {
-                return null;
-            }
-
-            var runFileData = new RunFileData();
-
-            runFileData.MapName = mapName;
-
-            if (uint.TryParse(spawnLocationStr, out uint spawnLocation))
-            {
-                runFileData.SpawnLocation = spawnLocation;
-            }
-
-            if (!string.IsNullOrEmpty(memoryDataHex))
-            {
-                try
-                {
-                    runFileData.MemoryData = IGame.ConvertMemoryDataString(memoryDataHex);
-                }
-                catch
-                {
-                    runFileData.MemoryData = null;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(memoryAddressStr))
-            {
-                try
-                {
-                    runFileData.MemoryStartAddress = Convert.ToUInt32(memoryAddressStr, 16);
-                }
-                catch
-                {
-                    var (startAddress, size) = game.GetMemoryRegionForEpisode(episodeKey);
-                    runFileData.MemoryStartAddress = startAddress;
-                }
-            }
-            else
-            {
-                var (startAddress, size) = game.GetMemoryRegionForEpisode(episodeKey);
-                runFileData.MemoryStartAddress = startAddress;
-            }
-
-            return runFileData;
-        }
-
-        private void LoadRunFileGadgets()
-        {
-            string episodeKey = GetEpisodeKey(runFileComboBox.SelectedItem.ToString());
-
-            string gadgetHex = func.GetConfigData("config.txt", episodeKey + "_Sly2GadgetUnlocks");
-            string bindingHex = func.GetConfigData("config.txt", episodeKey + "_Sly2GadgetBindings");
-            string lastGadgetUpdate = func.GetConfigData("config.txt", "GadgetConfigUpdate");
-
-            if (string.IsNullOrEmpty(gadgetHex) || string.IsNullOrEmpty(lastGadgetUpdate))
-            {
-                gadgetHex = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_Sly2GadgetUnlocks");
-                bindingHex = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_Sly2GadgetBindings");
-                func.ChangeFileLines("config.txt", "29032026", "GadgetConfigUpdate");
-            }
-
-            try
-            {
-                byte[] gadgetBytes = IPS3API.HexToBytes(gadgetHex);
-                byte[] bindingBytes = IPS3API.HexToBytes(bindingHex);
-
-                game.SetGadgetUnlocks(gadgetBytes);
-
-                if (!string.IsNullOrEmpty(bindingHex))
-                {
-                    game.SetGadgetBindings(bindingBytes);
-                }
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't load the gadget setup: {ex.Message}");
-                Console.WriteLine(ex);
-            }
-        }
-
-        public class RunFileData
-        {
-            public string MapName { get; set; }
-            public uint SpawnLocation { get; set; }
-            public byte[] MemoryData { get; set; }
-            public uint MemoryStartAddress { get; set; }
-            public float SuckValue { get; set; } = 0.0f;
-        }
-
-        private string GetEpisodeKey(string episodeName)
-        {
-            switch (episodeName)
-            {
-                case "Episode 1": return "Episode1";
-                case "Episode 2": return "Episode2";
-                case "Episode 3": return "Episode3";
-                case "Episode 4": return "Episode4";
-                case "Episode 5": return "Episode5";
-                case "Episode 6": return "Episode6";
-                case "Episode 7": return "Episode7";
-                case "Episode 8": return "Episode8";
-                default: return "Episode1";
-            }
-        }
-
-        private void toolsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void switchGameModeItem_Click(object sender, EventArgs e)
-        {
-            session.SwitchGameOrMode();
-        }
-
-
-        private void powerOffPS3Item_Click(object sender, EventArgs e)
-        {
-            session.PowerOffPS3();
-        }
-
-        private void rebootPS3Item_Click(object sender, EventArgs e)
-        {
-            session.RebootPS3();
-        }
-
-        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            UserData.OpenInExplorer();
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/sly2-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter.");
+            FormClosed += (sender, e) => tip.Dispose();
         }
     }
 }

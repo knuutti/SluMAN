@@ -17,25 +17,31 @@ namespace SluMAN
 
         // One window: the Practice controls on the first tab, the tools on the others.
         private PracticeTabs practiceTabs;
+        private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
-        private const string PositionTab = "Position Editor";
+        private const string RunFilesTab = "Run Files";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         public sly2 game;
         public string gameNameId;
 
         private StatusLine statusLine;
+        private JobPicker jobPicker;
+        private MapPicker mapPicker;
         private GameSession session;
 
         public Sly2Practice(sly2 game)
         {
             this.game = game;
             InitializeComponent();
+            // The designer holds the flat job list; the picker splits it into jobs and checkpoints.
+            jobPicker = new JobPicker(jobComboBox, checkpointComboBox, jobComboBox.Items.Cast<string>().ToList());
             statusLine = new StatusLine(this, true);
             func.BindEnter(healthTextBox, setHealthButton);
 
-            mapComboBox.Items.AddRange(game.GetMapNames());
-            mapComboBox.SelectedIndex = 0;
+            mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
+                game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
+                new SpawnPoints("data/s2_spawn_points.txt"));
 
             gameNameId = sly2.addr.GameId;
 
@@ -48,6 +54,13 @@ namespace SluMAN
             game.combosActive = true;
             game.InputsTimer.Start();
 
+            // Only the PAL versions have more than one language.
+            if (sly2.addr.language != 0)
+            {
+                GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly2, statusLine, game.GetLanguage, game.SetLanguage);
+            }
+            AddCopyEpisodeStateMenu();
+
             session = new GameSession(this, game, gameNameId, "Sly 2", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
@@ -58,24 +71,52 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
-            practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
+            practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
+        }
+
+        /// <summary>
+        /// Tools -> Copy Episode State: copies an episode's save data as it is now, in
+        /// data/s2_job_config.txt's format, to record a job state or compare one.
+        /// </summary>
+        private void AddCopyEpisodeStateMenu()
+        {
+            ToolStripMenuItem copyMenu = new ToolStripMenuItem("Copy Episode State");
+            for (int episode = 0; episode < sly2.EpisodeStateSizes.Length; episode++)
+            {
+                int current = episode;
+                copyMenu.DropDownItems.Add(episode == 0 ? "Prologue" : $"Episode {episode}", null, (sender, e) =>
+                {
+                    try
+                    {
+                        Clipboard.SetText(game.ReadEpisodeState(current));
+                        statusLine.Info($"Copied episode {current}'s state ({sly2.EpisodeStateSizes[current]} bytes from {sly2.addr.episodeData[current]:X}).");
+                    }
+                    catch (Exception ex)
+                    {
+                        statusLine.Error($"Couldn't copy the episode state: {ex.Message}");
+                    }
+                });
+            }
+
+            // Before the separator above Power Off / Reboot, with the other game tools.
+            int index = menuToolStripMenuItem.DropDownItems.IndexOf(toolStripSeparator1);
+            menuToolStripMenuItem.DropDownItems.Insert(index >= 0 ? index : menuToolStripMenuItem.DropDownItems.Count, copyMenu);
         }
 
         private void infiniteJumpCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             ApplyToggle(infiniteJumpCheckBox, () => game.SetInfiniteJump(infiniteJumpCheckBox.Checked));
-        }
-
-        private void positionEditorButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(PositionTab);
         }
 
         private void game_LoadStarted()
@@ -288,11 +329,6 @@ namespace SluMAN
             game.SkipCinematic();
         }
 
-        private void gadgetButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(GadgetsTab);
-        }
-
         private void reloadButton_Click(object sender, EventArgs e)
         {
             switch (reloadAsCharacterComboBox.SelectedIndex)
@@ -376,19 +412,20 @@ namespace SluMAN
             SetHealthFromTextBox();
         }
 
-        private void inputDisplayButton_Click(object sender, EventArgs e)
-        {
-            OpenInputDisplay();
-        }
-
         private void loadMapButton_Click(object sender, EventArgs e)
         {
-            game.LoadMap(mapComboBox.SelectedIndex);
+            game.LoadMap(mapComboBox.SelectedIndex, mapPicker.SelectedSpawn);
         }
 
         private void loadJobButton_Click(object sender, EventArgs e)
         {
-            game.LoadJob(jobComboBox.Text);
+            string entry = jobPicker.SelectedEntry;
+            if (entry == null)
+            {
+                statusLine.Error("Select a job to load first.");
+                return;
+            }
+            game.LoadJob(entry);
         }
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
