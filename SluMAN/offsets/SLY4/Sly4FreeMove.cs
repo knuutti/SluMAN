@@ -115,6 +115,42 @@ namespace SluMAN
             }
         }
 
+        private bool characterControl;
+
+        /// <summary>
+        /// While on, the free camera stays where it is (or keeps playing its path) and the player
+        /// isn't held: the controller moves the character as usual. Turning it off holds the
+        /// player where they are then.
+        /// </summary>
+        public bool CharacterControl
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return characterControl;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    characterControl = value;
+                    if (!value && mode == Mode.FreeCamera)
+                    {
+                        try
+                        {
+                            playerPosition = game.GetPosition();
+                        }
+                        catch
+                        {
+                            playerPosition = null;
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>The game's field of view when the free camera started, in radians.</summary>
         public float GameFov
         {
@@ -496,13 +532,15 @@ namespace SluMAN
             {
                 TickPlayback(step);
             }
-            else
+            else if (!characterControl)
             {
                 TickCameraSticks(step);
             }
+            // With character control the camera stays put: the view override keeps drawing from
+            // the matrices last written.
 
             // Keep the player where they stood, so steering the camera doesn't walk them off.
-            if (playerPosition != null)
+            if (!characterControl && playerPosition != null)
             {
                 game.HoldPlayer(playerPosition[0], playerPosition[1], playerPosition[2]);
             }

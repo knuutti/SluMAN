@@ -27,6 +27,7 @@ namespace SluMAN
         private readonly NumericUpDown lookSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown fovUpDown = new NumericUpDown();
         private readonly CheckBox hideHudCheckBox = new CheckBox();
+        private readonly CheckBox characterControlCheckBox = new CheckBox();
         // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
         private readonly Timer fovTimer = new Timer();
         // Set while the box is updated from the camera, so that isn't taken as an edit.
@@ -207,9 +208,21 @@ namespace SluMAN
                 "R2 / L2 zoom, R3 adds a keyframe. The player is held where\n" +
                 "they stood. The camera turns off when a level loads.\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
-            help.Location = new Point(8, 128);
-            help.Size = new Size(270, 60);
+            help.Location = new Point(8, 124);
+            help.Size = new Size(270, 58);
             group.Controls.Add(help);
+
+            characterControlCheckBox.Text = "Control character (camera stays put)";
+            characterControlCheckBox.AutoSize = true;
+            characterControlCheckBox.Location = new Point(10, 186);
+            characterControlCheckBox.Checked = freeMove.CharacterControl;
+            characterControlCheckBox.CheckedChanged += (sender, e) => freeMove.CharacterControl = characterControlCheckBox.Checked;
+            group.Controls.Add(characterControlCheckBox);
+            ToolTip controlTip = new ToolTip();
+            controlTip.SetToolTip(characterControlCheckBox,
+                "The free camera stays where it is, or keeps playing its path, and the controller\n" +
+                "moves the character as usual. Untick to fly the camera again.");
+            FormClosed += (sender, e) => controlTip.Dispose();
 
             return group;
         }
