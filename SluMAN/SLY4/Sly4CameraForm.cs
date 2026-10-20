@@ -132,7 +132,7 @@ namespace SluMAN
             hideHudCheckBox.Click += (sender, e) => SetHudHidden(hideHudCheckBox.Checked);
             group.Controls.Add(hideHudCheckBox);
             ToolTip hudTip = new ToolTip();
-            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD: health, radar and prompts. Menus still work. Needs the Interpreter PPU decoder on RPCS3.");
+            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD screen (InGame.HUD). Needs the Interpreter PPU decoder on RPCS3.");
             try
             {
                 hideHudCheckBox.Checked = game.IsHudHidden();

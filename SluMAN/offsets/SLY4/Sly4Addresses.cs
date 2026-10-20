@@ -112,13 +112,16 @@ namespace SluMAN
         public uint clockClampFreqMin { get; private set; }
         public uint cheatInvulnerable { get; private set; }
         public uint cheatUndetectable { get; private set; }
-        // The Debug.NoHUD tunable's value (a byte; the tunable is at 0x10B7AA8). Every frame the
-        // game shows the Common and InGame GUI screens unless it's set (around 0x493944)
-        public uint debugNoHud { get; private set; }
-        // Hide HUD's code patches. Common holds the menu cursors, so it's kept shown: the load of
-        // NoHUD for it becomes li r5, 0. InGame.HUD (health, radar) is shown every frame from a
-        // flag or forced on (0x46ACAC); both arguments become li r4, 0.
-        public uint hudCommonNoHudLoad { get; private set; }
+        // Hide HUD. FindInstance finds a GUI screen by name ("InGame.HUD"); the screen's vtable
+        // entry at +hudShowVtableOffset points to the function descriptor (code, TOC) of a method
+        // that shows (1) or hides (0) it. The descriptor's TOC must be the game's (gameToc), which
+        // the code hook runs with. The game also shows InGame.HUD from a flag or forced on
+        // (around 0x46ACAC); Hide HUD makes both arguments li r4, 0 so that doesn't undo it.
+        // (Debug.NoHUD, at 0x10B7AF0, only applies outside gameplay and hides the menu cursors.)
+        public uint findInstanceFunction { get; private set; }
+        public uint hudShowVtableOffset { get; private set; }
+        public uint gameToc { get; private set; }
+        public uint hudScreenName { get; private set; }
         public uint hudInGameHudFlagArgument { get; private set; }
         public uint hudInGameHudForcedArgument { get; private set; }
         public uint cutSceneEnable { get; private set; }
@@ -251,8 +254,11 @@ namespace SluMAN
                 clockClampFreqMin = 0x10B7A58,
                 cheatInvulnerable = 0x10388F0,
                 cheatUndetectable = 0xF9BC28,
-                debugNoHud = 0x10B7AF0,
-                hudCommonNoHudLoad = 0x493948,
+                findInstanceFunction = 0x4D5544,
+                hudShowVtableOffset = 88,
+                gameToc = 0xF50800,
+                // Unused end of the data segment, after the view override's data.
+                hudScreenName = 0x11F8B00,
                 hudInGameHudFlagArgument = 0x46ACCC,
                 hudInGameHudForcedArgument = 0x46AD00,
                 // Game.CutSceneEnable, 1 by default
