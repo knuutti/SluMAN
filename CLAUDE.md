@@ -56,9 +56,10 @@ Game addresses live in `offsets/<GAME>/<Game>Addresses.cs` (e.g. `Sly2Addresses.
 | `SLY1/` | Sly Cooper (NPUA80663) |
 | `SLY2/` | Sly 2: Band of Thieves (NPHA80175; NPUA80664 untested) |
 | `SLY3/` | Sly 3: Honor Among Thieves (NPEA00343) |
+| `SLY4/` | Sly Cooper: Thieves in Time (BCES01284, PAL disc; NPEA00429 assumed identical) |
 | `offsets/BH/` | Bentley's Hackpack (stub, Sly franchise spinoff) |
 
-Each supported game has two UI modes: **Practice Mode** (full trainer features) and **Speedrun Mode** (minimal UI, autosplitter, input display).
+Each supported game has two UI modes: **Practice Mode** (full trainer features) and **Speedrun Mode** (minimal UI, autosplitter, input display). Memory tools (the Memory and Memory Viewer tabs) belong to Practice Mode only; Speedrun Mode must not offer them.
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 

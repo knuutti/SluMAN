@@ -12,6 +12,21 @@ namespace SluMAN
         IEnumerable<(uint addr, uint size)> AutosplitterAddresses { get; }
     }
 
+    /// <summary>
+    /// A game whose autosplitter also needs values SluMAN works out itself rather than reads from
+    /// one address, such as Sly 4's current goal. They're written after the subscribed addresses.
+    /// </summary>
+    public interface IAutosplitterComputedValues
+    {
+        /// <summary>
+        /// Starts keeping the values up to date. <c>write</c> takes an offset from the start of the
+        /// computed values and the value's little-endian bytes, and may be called from any thread.
+        /// </summary>
+        void StartComputedValues(Action<int, byte[]> write);
+
+        void StopComputedValues();
+    }
+
     public class AutosplitterHelper
     {
         public static int mmfAddressBytes = 128;
@@ -25,6 +40,7 @@ namespace SluMAN
         List<int> subscriptionIDs = new List<int>();
 
         IGame currentGame = null;
+        IAutosplitterComputedValues computedValues = null;
 
         public bool IsRunning { get; private set; } = false;
 
@@ -43,6 +59,11 @@ namespace SluMAN
             }
 
             IsRunning = false;
+            if (computedValues != null)
+            {
+                computedValues.StopComputedValues();
+                computedValues = null;
+            }
             // Under the lock, so a subscription callback can't write to the closed view.
             lock (writeLock)
             {
@@ -97,6 +118,13 @@ namespace SluMAN
                     WriteToMemory(offset, value);
                 }));
                 pos += (int)size;
+            }
+
+            if (game is IAutosplitterComputedValues computed)
+            {
+                int start = pos;
+                computed.StartComputedValues((offset, value) => WriteToMemory(start + offset, value));
+                computedValues = computed;
             }
 
             IsRunning = true;
