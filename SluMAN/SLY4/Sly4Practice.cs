@@ -27,6 +27,9 @@ namespace SluMAN
         /// <summary>Fly mode (Player tab) and the free camera (Camera tab): one runs at a time.</summary>
         public Sly4FreeMove FreeMove;
 
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        public Sly4CameraApi CameraApi;
+
         private StatusLine statusLine;
         private GameSession session;
         private PracticeTabs practiceTabs;
@@ -122,6 +125,8 @@ namespace SluMAN
                     statusLine.Error($"Fly / free camera stopped: {message}");
                 }
             };
+            CameraApi = new Sly4CameraApi(game, FreeMove);
+            CameraApi.StartFromConfig();
 
             ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
             inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
@@ -130,7 +135,7 @@ namespace SluMAN
             // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
-            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove));
+            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             practiceTabs.AddTool(GuiTab, () => new Sly4GuiForm(game));
@@ -691,6 +696,7 @@ namespace SluMAN
         {
             // The tools' own cleanup (timers) runs when they close.
             practiceTabs.CloseAll();
+            CameraApi.Stop();
             FreeMove.Stop();
             game.GoalsChanged -= game_GoalsChanged;
             game.StopGoalWatcher();

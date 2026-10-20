@@ -31,6 +31,8 @@ namespace SluMAN
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
         private readonly NumericUpDown farUpDown = new NumericUpDown();
+        private readonly Sly4CameraApi api;
+        private readonly CheckBox apiCheckBox = new CheckBox();
         private readonly CheckBox noFogCheckBox = new CheckBox();
         // No fog is checked again every this many field-of-view refreshes (a load sets the fog).
         private const int NoFogRefreshTicks = 10;
@@ -64,10 +66,11 @@ namespace SluMAN
         private string levelName = "";
         private StatusLine statusLine;
 
-        public Sly4CameraForm(sly4 game, Sly4FreeMove freeMove)
+        public Sly4CameraForm(sly4 game, Sly4FreeMove freeMove, Sly4CameraApi api)
         {
             this.game = game;
             this.freeMove = freeMove;
+            this.api = api;
             Name = "Sly4CameraForm";
             Text = "SluMAN :: Camera";
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -79,6 +82,7 @@ namespace SluMAN
             GroupBox playbackGroupBox = BuildPlaybackGroup(savedGroupBox.Bottom + 6);
             GroupBox keyframesGroupBox = BuildKeyframesGroup(new Point(freeCameraGroupBox.Right + 8, 8));
             GroupBox cameraGroupBox = BuildCameraGroup(new Point(keyframesGroupBox.Left, keyframesGroupBox.Bottom + 6));
+            BuildApiCheckBox(playbackGroupBox.Bottom + 8);
             ClientSize = new Size(keyframesGroupBox.Right + 8, Math.Max(playbackGroupBox.Bottom, cameraGroupBox.Bottom) + 8);
             statusLine = new StatusLine(this, false);
 
@@ -582,6 +586,36 @@ namespace SluMAN
                 hideHudCheckBox.Checked = !hidden;
                 statusLine.Error($"Couldn't {(hidden ? "hide" : "show")} the HUD: {ex.Message}");
             }
+        }
+
+        private void BuildApiCheckBox(int top)
+        {
+            apiCheckBox.Text = $"Script API on 127.0.0.1:{api.Port}";
+            apiCheckBox.AutoSize = true;
+            apiCheckBox.Location = new Point(14, top);
+            apiCheckBox.Checked = api.IsRunning;
+            apiCheckBox.Click += (sender, e) =>
+            {
+                api.Enabled = apiCheckBox.Checked;
+                apiCheckBox.Checked = api.IsRunning;
+                apiCheckBox.Text = $"Script API on 127.0.0.1:{api.Port}";
+                if (api.LastError != "")
+                {
+                    statusLine.Error(api.LastError);
+                }
+                else if (api.IsRunning)
+                {
+                    statusLine.Info($"Scripts can drive the free camera at {api.Url} (see scripts/sly4_camera_api.py).");
+                }
+            };
+            Controls.Add(apiCheckBox);
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(apiCheckBox,
+                "Lets scripts on this PC read and move the free camera over HTTP, e.g.\n" +
+                "http://127.0.0.1:" + api.Port + "/camera/set?x=0&y=500&z=0&pitch=-90&fov=5\n" +
+                "See scripts/sly4_camera_api.py next to SluMAN.exe for a Python client.");
+            FormClosed += (sender, e) => tip.Dispose();
         }
 
         private void SetFogDisabled(bool disabled)
