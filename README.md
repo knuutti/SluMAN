@@ -10,6 +10,7 @@ SluMAN also provides a Speedrun Mode, that provides the runners with an input di
 - Sly Cooper and the Thievius Raccoonus (NPUA80663)
 - Sly 2: Band of Thieves (NPHA80175; NPUA80664 untested)
 - Sly 3: Honor Among Thieves (NPEA00343)
+- Sly Cooper: Thieves in Time (BCES01284; NPEA00429 untested)
 
 ## Setup
 To use SluMAN, follow these steps:
@@ -50,3 +51,7 @@ The page is only reachable from your own PC, so it needs no firewall rule. **Ser
 
 ## Acknowledgements
 This project is a fork of [racman](https://github.com/MichaelRelaxen/racman). Huge thank you for the work of the racman and [Ratchetron](https://github.com/bordplate/Ratchetron) developers, without your contributions this project would not be possible!
+
+Sly 4 support is built on [SLY4-DEBUG-MENU](https://github.com/gg3502/SLY4-DEBUG-MENU) by gg3502. Its research into the game's tunables, episodes, jobs and goals made SluMAN's Sly 4 Tunables and Jobs tabs possible, and the goal lists are generated from it. Thank you!
+
+Licenses for code and data from other projects are in [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt), which is also included in the SluMAN download.

@@ -384,6 +384,10 @@
       <Link>data/s2_job_config.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\THIRD-PARTY-NOTICES.txt">
+      <Link>THIRD-PARTY-NOTICES.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="..\data\sly3_warp_locations.txt">
       <Link>data/sly3_warp_locations.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
