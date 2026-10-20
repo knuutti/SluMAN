@@ -232,11 +232,12 @@ namespace SluMAN
             palDigital.currentCheckpointId = 0x4FEB78;
             palDigital.pauseMenuState = 0x4FFE04;
             palDigital.fmvState = 0x90667C;
+            palDigital.rajanHealth = 0x35C2E4EC;
             // The dialogue state (1 during dialogue) and its frame counter are at the Korean
             // addresses, so they're inherited.
             palDigital.episodeData = new uint[]
             {
-                // Unverified: the Korean addresses - 0x80, like the rest of the save data.
+                // The Korean addresses - 0x80, like the rest of the save data. Job loading works with them.
                 0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
                 0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB6C,
             };
