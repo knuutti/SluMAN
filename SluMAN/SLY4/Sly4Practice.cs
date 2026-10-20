@@ -20,6 +20,7 @@ namespace SluMAN
         private const string CameraTab = "Camera";
         private const string JobsTab = "Jobs";
         private const string TunablesTab = "Tunables";
+        private const string GuiTab = "GUI";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
 
@@ -132,6 +133,7 @@ namespace SluMAN
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
+            practiceTabs.AddTool(GuiTab, () => new Sly4GuiForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));

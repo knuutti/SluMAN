@@ -124,6 +124,18 @@ namespace SluMAN
         public uint hudScreenName { get; private set; }
         public uint hudInGameHudFlagArgument { get; private set; }
         public uint hudInGameHudForcedArgument { get; private set; }
+
+        // The GUI tree (the GUI tab). *guiRootList is the first top-level node; each node has its
+        // name's hash (sly4.Hash of one dotted part) at +guiNodeHashOffset, its parent, first
+        // child and next sibling at the next offsets. Names are found by hashing the strings in
+        // the read-only data from guiNamesStart to guiNamesEnd.
+        public uint guiRootList { get; private set; }
+        public uint guiNodeHashOffset { get; private set; }
+        public uint guiNodeParentOffset { get; private set; }
+        public uint guiNodeFirstChildOffset { get; private set; }
+        public uint guiNodeNextSiblingOffset { get; private set; }
+        public uint guiNamesStart { get; private set; }
+        public uint guiNamesEnd { get; private set; }
         public uint cutSceneEnable { get; private set; }
 
         // Tunable registry: an array of pointers to every tunable struct, and its length
@@ -259,6 +271,14 @@ namespace SluMAN
                 gameToc = 0xF50800,
                 // Unused end of the data segment, after the view override's data.
                 hudScreenName = 0x11F8B00,
+
+                guiRootList = 0xF66868,
+                guiNodeHashOffset = 0x80,
+                guiNodeParentOffset = 0x94,
+                guiNodeFirstChildOffset = 0x98,
+                guiNodeNextSiblingOffset = 0x9C,
+                guiNamesStart = 0xAB0000,
+                guiNamesEnd = 0xB70000,
                 hudInGameHudFlagArgument = 0x46ACCC,
                 hudInGameHudForcedArgument = 0x46AD00,
                 // Game.CutSceneEnable, 1 by default

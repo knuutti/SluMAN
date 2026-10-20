@@ -276,6 +276,9 @@
     <Compile Include="SLY4\Sly4CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="SLY4\Sly4GuiForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="SLY4\Sly4JobsForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -1239,19 +1239,135 @@ namespace SluMAN
             {
                 throw new InvalidOperationException($"The game has no {HudScreen} screen right now.");
             }
-            uint vtable = ReadUInt(screen);
-            uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
-            uint code = ReadUInt(descriptor);
-            if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
-            {
-                throw new InvalidOperationException($"The {HudScreen} screen isn't what SluMAN expects, so it wasn't touched.");
-            }
+            uint code = GuiShowFunction(screen);
 
             foreach (uint[] patch in patches)
             {
                 api.WriteMemory(pid, patch[0], BitConverter.GetBytes(hidden ? patch[2] : patch[1]).Reverse().ToArray());
             }
             CallAndWait(code, screen, hidden ? 0u : 1u);
+        }
+
+        /// <summary>
+        /// The code address of a GUI node's show method (vtable +hudShowVtableOffset, a pointer to
+        /// its function descriptor), checked to be game code run with the game's TOC.
+        /// </summary>
+        private uint GuiShowFunction(uint node)
+        {
+            uint vtable = ReadUInt(node);
+            uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
+            uint code = ReadUInt(descriptor);
+            if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
+            {
+                throw new InvalidOperationException("That GUI part isn't what SluMAN expects, so it wasn't touched.");
+            }
+            return code;
+        }
+
+        /// <summary>Shows or hides one GUI node with its show method, through the code hook.</summary>
+        public void SetGuiNodeShown(uint node, bool shown)
+        {
+            ThrowIfLoading();
+            CallAndWait(GuiShowFunction(node), node, shown ? 1u : 0u);
+        }
+
+        /// <summary>A part of the game's GUI, as read by ReadGuiTree.</summary>
+        public class GuiNode
+        {
+            public uint address;
+            public uint hash;
+            /// <summary>Its name, or null if no string in the game hashes to it.</summary>
+            public string name;
+            public List<GuiNode> children = new List<GuiNode>();
+        }
+
+        private const int MaxGuiNodes = 20000;
+
+        /// <summary>
+        /// Reads the GUI tree: every top-level node and its descendants, named from
+        /// <paramref name="names"/> (see ReadGuiNames).
+        /// </summary>
+        public List<GuiNode> ReadGuiTree(Dictionary<uint, string> names)
+        {
+            List<GuiNode> roots = new List<GuiNode>();
+            HashSet<uint> seen = new HashSet<uint>();
+            ReadGuiSiblings(ReadUInt(addr.guiRootList), roots, names, seen);
+            return roots;
+        }
+
+        private void ReadGuiSiblings(uint node, List<GuiNode> into, Dictionary<uint, string> names, HashSet<uint> seen)
+        {
+            while (IsGuiNodeAddress(node) && seen.Count < MaxGuiNodes && seen.Add(node))
+            {
+                byte[] bytes = api.ReadMemory(pid, node, addr.guiNodeNextSiblingOffset + 4);
+                GuiNode entry = new GuiNode();
+                entry.address = node;
+                entry.hash = BigEndianUInt(bytes, addr.guiNodeHashOffset);
+                string name;
+                entry.name = names.TryGetValue(entry.hash, out name) ? name : null;
+                into.Add(entry);
+
+                ReadGuiSiblings(BigEndianUInt(bytes, addr.guiNodeFirstChildOffset), entry.children, names, seen);
+                node = BigEndianUInt(bytes, addr.guiNodeNextSiblingOffset);
+            }
+        }
+
+        private static bool IsGuiNodeAddress(uint address)
+        {
+            return address >= 0x10000 && address < 0x40000000 && address % 4 == 0;
+        }
+
+        private static uint BigEndianUInt(byte[] bytes, uint offset)
+        {
+            return (uint)(bytes[offset] << 24 | bytes[offset + 1] << 16 | bytes[offset + 2] << 8 | bytes[offset + 3]);
+        }
+
+        /// <summary>
+        /// Names for GUI node hashes: every word in the game's read-only strings (dotted names
+        /// split into their parts), hashed as the GUI hashes names. Read from the game's memory.
+        /// </summary>
+        public Dictionary<uint, string> ReadGuiNames()
+        {
+            Dictionary<uint, string> names = new Dictionary<uint, string>();
+            const uint chunk = 0x10000;
+            StringBuilder word = new StringBuilder();
+            for (uint address = addr.guiNamesStart; address < addr.guiNamesEnd; address += chunk)
+            {
+                byte[] bytes = api.ReadMemory(pid, address, chunk);
+                foreach (byte b in bytes)
+                {
+                    char c = (char)b;
+                    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')
+                    {
+                        word.Append(c);
+                        continue;
+                    }
+                    AddGuiName(names, word);
+                    word.Clear();
+                }
+            }
+            AddGuiName(names, word);
+            return names;
+        }
+
+        private static void AddGuiName(Dictionary<uint, string> names, StringBuilder word)
+        {
+            if (word.Length < 2 || word.Length > 48)
+            {
+                return;
+            }
+            string name = word.ToString();
+            uint hash = Hash(name);
+            if (!names.ContainsKey(hash))
+            {
+                names[hash] = name;
+            }
+        }
+
+        /// <summary>The first bytes of a GUI node, to see what its show method changes.</summary>
+        public byte[] ReadGuiNodeBytes(uint node, uint length)
+        {
+            return api.ReadMemory(pid, node, length);
         }
 
         public bool IsHudHidden()
