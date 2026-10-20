@@ -41,9 +41,17 @@ namespace SluMAN
         private const uint NameOffset = 0x4;
         private const int NameLength = 0x40;
         private const uint ValueOffset = 0x48;
+        // A 3-float vector's value is 16-byte aligned, at +0x50 (the game's constructors store it
+        // there and its code reads it there; the debug menu's +0x48 is wrong for these).
+        private const uint Vector3ValueOffset = 0x50;
         private const int TextLength = 0x40;
         // Enough for the longest value, a 64-byte string.
         private const uint StructReadSize = ValueOffset + TextLength;
+
+        private static uint ValueOffsetOf(TunableType type)
+        {
+            return type == TunableType.vector3 ? Vector3ValueOffset : ValueOffset;
+        }
 
         // The most read at once: Ratchetron's receive buffer is about 2 KB.
         private const uint MaxReadSize = 0x800;
@@ -145,14 +153,14 @@ namespace SluMAN
             foreach (KeyValuePair<uint, byte[]> entry in ReadStructs(byAddress.Keys))
             {
                 Tunable tunable = byAddress[entry.Key];
-                values[tunable] = Format(tunable.type, entry.Value, (int)ValueOffset);
+                values[tunable] = Format(tunable.type, entry.Value, (int)ValueOffsetOf(tunable.type));
             }
             return values;
         }
 
         public string ReadValue(Tunable tunable)
         {
-            byte[] data = game.api.ReadMemory(game.pid, tunable.address + ValueOffset, (uint)ValueSize(tunable.type));
+            byte[] data = game.api.ReadMemory(game.pid, tunable.address + ValueOffsetOf(tunable.type), (uint)ValueSize(tunable.type));
             return Format(tunable.type, data, 0);
         }
 
@@ -163,7 +171,7 @@ namespace SluMAN
         public void WriteValue(Tunable tunable, string value)
         {
             byte[] bytes = Parse(tunable.type, value);
-            game.api.WriteMemory(game.pid, tunable.address + ValueOffset, bytes);
+            game.api.WriteMemory(game.pid, tunable.address + ValueOffsetOf(tunable.type), bytes);
         }
 
         public bool IsKept(Tunable tunable)
