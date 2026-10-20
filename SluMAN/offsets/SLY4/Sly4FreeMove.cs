@@ -59,6 +59,10 @@ namespace SluMAN
         private float fov;
         private float gameFov = DefaultFov;
         private float forwardSign;
+        // The forward direction last worked out from the player, for when there's none (0: not yet).
+        private static float learnedForwardSign;
+        // Further than this, the player isn't what the game camera is following.
+        private const float MaxPlayerDistance = 60f;
         private float rightSign;
         private float upSign;
         // The main view, and the 4th float of each row of its view and camera matrices, which
@@ -456,12 +460,23 @@ namespace SluMAN
             gameFov = viewFov >= MinFov && viewFov <= MaxFov ? viewFov : DefaultFov;
             fov = gameFov;
 
-            // The camera looks at the player, so the Z axis or its opposite points at them.
+            // Which way along its Z axis the camera looks. A game camera following the player looks
+            // at them, which tells it; with no player near (hideout, title screen, a character the
+            // level doesn't have), the direction learned last time is used, or -Z: the game's
+            // projection matrix is OpenGL-style (m[11] = -1), so its cameras look down -Z.
             float[] z = Normalize(Axis(m, 2));
-            forwardSign = 1;
-            if (player != null && Dot(z, Subtract(player, cameraPosition)) < 0)
+            forwardSign = learnedForwardSign != 0 ? learnedForwardSign : -1;
+            if (player != null)
             {
-                forwardSign = -1;
+                float[] toPlayer = Subtract(player, cameraPosition);
+                float distance = (float)Math.Sqrt(Dot(toPlayer, toPlayer));
+                float along = Dot(z, toPlayer);
+                // Only when the player is close and clearly in front of or behind the camera.
+                if (distance > 0.5f && distance < MaxPlayerDistance && Math.Abs(along) > distance * 0.5f)
+                {
+                    forwardSign = along < 0 ? -1 : 1;
+                    learnedForwardSign = forwardSign;
+                }
             }
             float[] forward = Scale(z, forwardSign);
             yaw = (float)Math.Atan2(forward[0], forward[2]);
