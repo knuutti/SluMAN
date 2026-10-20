@@ -129,6 +129,7 @@ namespace SluMAN
             }
 
             Sly4CameraPath copy = new Sly4CameraPath();
+            copy.Smooth = path.Smooth;
             foreach (Sly4CameraPath.Keyframe key in path.Keyframes)
             {
                 copy.Keyframes.Add(new Sly4CameraPath.Keyframe

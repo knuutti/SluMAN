@@ -7,9 +7,16 @@ namespace SluMAN
 {
     /// <summary>
     /// A free camera animation: keyframes the camera passes through, each with the time it takes
-    /// to reach the next one. Positions follow a Catmull-Rom curve through the keyframes, so the
-    /// path has no corners; yaw and pitch are blended, yaw always the short way round. Saved per
-    /// level in the user data folder's camera paths.
+    /// to reach the next one. Saved per level in the user data folder's camera paths.
+    /// <list type="bullet">
+    /// <item>Per keyframe (the default): each segment runs on its own with its keyframe's easing.
+    /// Positions follow a Catmull-Rom curve, so the path has no corners, but speed and turning
+    /// change where segments meet, so keyframes show.</item>
+    /// <item>Smooth: the whole path is one curve in time. Position, yaw and pitch keep their speed
+    /// through every keyframe (cubic Hermite with time-weighted tangents), easing only at the
+    /// start and end. Easing settings are ignored.</item>
+    /// </list>
+    /// Yaw always turns the short way round.
     /// </summary>
     public class Sly4CameraPath
     {
@@ -29,6 +36,9 @@ namespace SluMAN
         }
 
         public readonly List<Keyframe> Keyframes = new List<Keyframe>();
+
+        /// <summary>Plays as one continuous curve instead of segment by segment.</summary>
+        public bool Smooth;
 
         /// <summary>Seconds from the first keyframe to the last.</summary>
         public float TotalDuration
@@ -67,6 +77,11 @@ namespace SluMAN
                 Set(Keyframes[0], position, out yaw, out pitch);
                 return;
             }
+            if (Smooth)
+            {
+                EvaluateSmooth(time, position, out yaw, out pitch);
+                return;
+            }
 
             // Find the segment: keyframe i to i + 1, and how far along it (0 to 1).
             int segment = count - 1;
@@ -102,6 +117,86 @@ namespace SluMAN
 
             yaw = from.yaw + ShortestTurn(from.yaw, to.yaw) * t;
             pitch = from.pitch + (to.pitch - from.pitch) * t;
+        }
+
+        /// <summary>
+        /// The Smooth path: a cubic Hermite curve per value through every keyframe, with each
+        /// keyframe's rate of change the time-weighted average of the segments either side, so
+        /// nothing jumps at a keyframe. The ends have zero rate, so the path eases in and out.
+        /// </summary>
+        private void EvaluateSmooth(float time, float[] position, out float yaw, out float pitch)
+        {
+            int count = Keyframes.Count;
+            float[] times = new float[count];
+            for (int i = 1; i < count; i++)
+            {
+                times[i] = times[i - 1] + Math.Max(0, Keyframes[i - 1].duration);
+            }
+            if (time >= times[count - 1])
+            {
+                Set(Keyframes[count - 1], position, out yaw, out pitch);
+                return;
+            }
+
+            // Yaw unwrapped, so each step between keyframes is the short way round.
+            float[] yaws = new float[count];
+            yaws[0] = Keyframes[0].yaw;
+            for (int i = 1; i < count; i++)
+            {
+                yaws[i] = yaws[i - 1] + ShortestTurn(Keyframes[i - 1].yaw, Keyframes[i].yaw);
+            }
+
+            int segment = 0;
+            while (segment < count - 2 && time >= times[segment + 1])
+            {
+                segment++;
+            }
+            float duration = times[segment + 1] - times[segment];
+            float s = duration <= 0 ? 1 : (time - times[segment]) / duration;
+
+            position[0] = SmoothValue(k => Keyframes[k].x, times, segment, s);
+            position[1] = SmoothValue(k => Keyframes[k].y, times, segment, s);
+            position[2] = SmoothValue(k => Keyframes[k].z, times, segment, s);
+            yaw = SmoothValue(k => yaws[k], times, segment, s);
+            pitch = SmoothValue(k => Keyframes[k].pitch, times, segment, s);
+        }
+
+        /// <summary>One value on the Smooth curve, <paramref name="s"/> (0 to 1) into a segment.</summary>
+        private static float SmoothValue(Func<int, float> value, float[] times, int segment, float s)
+        {
+            float duration = times[segment + 1] - times[segment];
+            float from = value(segment);
+            float to = value(segment + 1);
+            float fromRate = Rate(value, times, segment);
+            float toRate = Rate(value, times, segment + 1);
+
+            float s2 = s * s;
+            float s3 = s2 * s;
+            return (2 * s3 - 3 * s2 + 1) * from
+                + (s3 - 2 * s2 + s) * duration * fromRate
+                + (-2 * s3 + 3 * s2) * to
+                + (s3 - s2) * duration * toRate;
+        }
+
+        /// <summary>
+        /// How fast a value changes as the path passes keyframe <paramref name="index"/> (per
+        /// second): the two segments' speeds, each weighted by the other's duration. Zero at the ends.
+        /// </summary>
+        private static float Rate(Func<int, float> value, float[] times, int index)
+        {
+            if (index == 0 || index == times.Length - 1)
+            {
+                return 0;
+            }
+            float before = times[index] - times[index - 1];
+            float after = times[index + 1] - times[index];
+            if (before <= 0 || after <= 0)
+            {
+                return 0;
+            }
+            float speedBefore = (value(index) - value(index - 1)) / before;
+            float speedAfter = (value(index + 1) - value(index)) / after;
+            return (speedBefore * after + speedAfter * before) / (before + after);
         }
 
         private static void Set(Keyframe key, float[] position, out float yaw, out float pitch)
@@ -153,6 +248,9 @@ namespace SluMAN
         // --- Files ---
         // camerapaths/<level>-<name>.txt, one keyframe per line:
         // x y z yaw pitch duration easing (yaw and pitch in degrees, so the file is readable).
+        // A line "smooth" plays the path as one continuous curve.
+
+        private const string SmoothLine = "smooth";
 
         private const string FileExtension = ".txt";
 
@@ -196,6 +294,10 @@ namespace SluMAN
             Directory.CreateDirectory(Folder);
             List<string> lines = new List<string>();
             lines.Add("# SluMAN Sly 4 camera path: x y z yaw pitch duration easing (degrees, seconds)");
+            if (Smooth)
+            {
+                lines.Add(SmoothLine);
+            }
             foreach (Keyframe key in Keyframes)
             {
                 lines.Add(string.Join(" ",
@@ -214,6 +316,11 @@ namespace SluMAN
                 string trimmed = line.Trim();
                 if (trimmed == "" || trimmed.StartsWith("#"))
                 {
+                    continue;
+                }
+                if (string.Equals(trimmed, SmoothLine, StringComparison.OrdinalIgnoreCase))
+                {
+                    path.Smooth = true;
                     continue;
                 }
                 string[] parts = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);

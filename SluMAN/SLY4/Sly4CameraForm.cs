@@ -32,6 +32,7 @@ namespace SluMAN
         private readonly Button playButton = new Button();
         private readonly Button stopButton = new Button();
         private readonly CheckBox loopCheckBox = new CheckBox();
+        private readonly CheckBox smoothCheckBox = new CheckBox();
         private readonly CheckBox countdownCheckBox = new CheckBox();
         private readonly TrackBar scrubTrackBar = new TrackBar();
         private readonly Label timeLabel = new Label();
@@ -171,7 +172,7 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Playback";
             group.Location = new Point(8, top);
-            group.Size = new Size(284, 132);
+            group.Size = new Size(284, 154);
             Controls.Add(group);
 
             SetButton(playButton, "Play", 10, 20, 84, (sender, e) => PlayClicked());
@@ -184,25 +185,39 @@ namespace SluMAN
             loopCheckBox.Location = new Point(192, 24);
             group.Controls.Add(loopCheckBox);
 
+            smoothCheckBox.Text = "Smooth path (no stops at keyframes)";
+            smoothCheckBox.AutoSize = true;
+            smoothCheckBox.Location = new Point(10, 52);
+            smoothCheckBox.CheckedChanged += (sender, e) =>
+            {
+                path.Smooth = smoothCheckBox.Checked;
+                // The easing column and box don't apply to a smooth path.
+                ShowKeyframes(SelectedIndex());
+            };
+            group.Controls.Add(smoothCheckBox);
+
             countdownCheckBox.Text = $"{CountdownSeconds} second countdown before playing";
             countdownCheckBox.AutoSize = true;
-            countdownCheckBox.Location = new Point(10, 52);
+            countdownCheckBox.Location = new Point(10, 74);
             group.Controls.Add(countdownCheckBox);
 
             scrubTrackBar.Minimum = 0;
             scrubTrackBar.Maximum = ScrubSteps;
             scrubTrackBar.TickStyle = TickStyle.None;
-            scrubTrackBar.Location = new Point(6, 74);
+            scrubTrackBar.Location = new Point(6, 96);
             scrubTrackBar.Size = new Size(272, 30);
             scrubTrackBar.Scroll += scrubTrackBar_Scroll;
             group.Controls.Add(scrubTrackBar);
 
             timeLabel.AutoSize = true;
-            timeLabel.Location = new Point(10, 106);
+            timeLabel.Location = new Point(10, 128);
             group.Controls.Add(timeLabel);
 
             ToolTip tip = new ToolTip();
             tip.SetToolTip(scrubTrackBar, "Drag to preview the path at any moment.");
+            tip.SetToolTip(smoothCheckBox,
+                "Plays the path as one continuous curve: the camera keeps its speed and turning\n" +
+                "through every keyframe and eases only at the start and end. Easing is ignored.");
             FormClosed += (sender, e) => tip.Dispose();
             return group;
         }
@@ -490,7 +505,7 @@ namespace SluMAN
             item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.pitch)));
             // The last keyframe ends the path, so its timing isn't used.
             item.SubItems.Add(last ? "-" : key.duration.ToString("0.##", CultureInfo.InvariantCulture));
-            item.SubItems.Add(last ? "-" : EasingText(key.easing));
+            item.SubItems.Add(last || path.Smooth ? "-" : EasingText(key.easing));
             return item;
         }
 
@@ -515,7 +530,8 @@ namespace SluMAN
                 easingComboBox.SelectedIndex = (int)key.easing;
             }
             durationUpDown.Enabled = index >= 0;
-            easingComboBox.Enabled = index >= 0;
+            // A smooth path ignores easing.
+            easingComboBox.Enabled = index >= 0 && !path.Smooth;
             updating = false;
         }
 
@@ -753,6 +769,7 @@ namespace SluMAN
                 Sly4CameraPath loaded = Sly4CameraPath.Load(levelName, name);
                 StopPlayback();
                 path = loaded;
+                smoothCheckBox.Checked = path.Smooth;
                 ShowKeyframes(path.Keyframes.Count > 0 ? 0 : -1);
                 statusLine.Info($"Loaded \"{name}\": {path.Keyframes.Count} keyframes.");
             }
