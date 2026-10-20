@@ -242,22 +242,22 @@ namespace SluMAN
                 0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB6C,
             };
 
-            // Unverified, estimated addresses. Test before release.
             palDigital.loadingState = 0x7A7180;
+            palDigital.currentMapId = 0x7B4C60;
+            palDigital.cameraFov = 0x49DFD4;
+            palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
+            // 1 once the blimp is first loaded. - 0x74, not - 0x80: somewhere before it the
+            // save data differs from the Korean version's.
+            palDigital.blimpStarted = 0x7AD0DC;
+
+            // Unverified, estimated as the Korean addresses - 0x80. Test before release.
             palDigital.parisStarted = 0x7A9D04;
             palDigital.templeStarted = 0x7AA970;
             palDigital.prisonStarted = 0x7AB30C;
             palDigital.castleStarted = 0x7ABB68;
             palDigital.trainStarted = 0x7ABEA8;
             palDigital.sawmillStarted = 0x7AC798;
-            palDigital.blimpStarted = 0x7AD0D0;
             palDigital.parisCinemaState = 0x7A9A40;
-            palDigital.currentMapId = 0x7B4C60; // -0x80
-            // palDigital.currentMapId = 0x7B4CB0; // -0x30, like spawnLocation
-            palDigital.cameraFov = 0x49DFD4; // -0x80
-            // palDigital.cameraFov = 0x49DFE8; // -0x6C, like gameSpeed
-            palDigital.cameraParameter = 0x49DFFC; // -0x80
-            // palDigital.cameraParameter = 0x49E010; // -0x6C, like gameSpeed
 
             return new Dictionary<string, Sly2Addresses>(StringComparer.OrdinalIgnoreCase)
             {
