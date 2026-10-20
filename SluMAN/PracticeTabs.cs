@@ -29,7 +29,16 @@ namespace SluMAN
             public TabPage page;
             public Func<Form> create;
             public Form form;
+            public bool visible = true;
+            // Its row in the View menu, if there is one.
+            public ToolStripMenuItem viewItem;
         }
+
+        // Written to config.txt when every tab but Practice is hidden, so the defaults don't return.
+        private const string NoTabsVisible = "none";
+
+        // The config.txt key the View menu saves the visible tabs under, or null without the menu.
+        private string viewConfigKey;
 
         private readonly Form host;
         private readonly TabControl tabs = new TabControl();
@@ -112,6 +121,8 @@ namespace SluMAN
             {
                 return null;
             }
+            // Opening a hidden tool (from a menu, or the memory tools opening each other) shows its tab.
+            SetVisible(tool, true);
             tabs.SelectedTab = tool.page;
             return EnsureCreated(tool);
         }
@@ -144,6 +155,105 @@ namespace SluMAN
             if (refreshable != null)
             {
                 refreshable.RefreshFromGame();
+            }
+        }
+
+        /// <summary>
+        /// Adds a View menu next to the Tools menu, listing every tool tab with a tick when it
+        /// shows; clicking one shows or hides it. Practice always shows. Which tabs show is saved
+        /// in config.txt under <paramref name="configKey"/>; until it has been, only
+        /// <paramref name="visibleByDefault"/> show. Call after adding the tools.
+        /// </summary>
+        public void AddViewMenu(string configKey, params string[] visibleByDefault)
+        {
+            viewConfigKey = configKey;
+            MenuStrip menu = host.Controls.OfType<MenuStrip>().FirstOrDefault();
+
+            string saved = "";
+            try
+            {
+                saved = func.GetConfigData("config.txt", configKey);
+            }
+            catch
+            {
+                // No readable config.txt: the defaults.
+            }
+            List<string> visibleTitles = saved == ""
+                ? new List<string>(visibleByDefault)
+                : saved.Split(',').Select(title => title.Trim()).ToList();
+
+            ToolStripMenuItem viewMenu = new ToolStripMenuItem("View");
+            foreach (Tool tool in tools)
+            {
+                Tool current = tool;
+                current.viewItem = new ToolStripMenuItem(current.page.Text);
+                current.viewItem.Click += (sender, e) =>
+                {
+                    SetVisible(current, !current.visible);
+                    SaveVisibleTabs();
+                };
+                viewMenu.DropDownItems.Add(current.viewItem);
+                SetVisible(current, visibleTitles.Contains(current.page.Text));
+            }
+
+            if (menu != null)
+            {
+                int toolsIndex = menu.Items.IndexOf(menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Text == "Tools"));
+                menu.Items.Insert(toolsIndex >= 0 ? toolsIndex + 1 : menu.Items.Count, viewMenu);
+            }
+        }
+
+        /// <summary>Shows or hides a tool's tab, keeping the tabs in the order they were added.</summary>
+        private void SetVisible(Tool tool, bool visible)
+        {
+            bool changed = tool.visible != visible;
+            tool.visible = visible;
+            if (tool.viewItem != null)
+            {
+                tool.viewItem.Checked = visible;
+            }
+            if (!changed)
+            {
+                return;
+            }
+
+            if (visible)
+            {
+                // After Practice and the visible tools added before it.
+                int index = 1 + tools.TakeWhile(t => t != tool).Count(t => t.visible);
+                tabs.TabPages.Insert(index, tool.page);
+            }
+            else
+            {
+                // Hand over to Practice first, so removing the tab doesn't open its neighbour.
+                if (tabs.SelectedTab == tool.page)
+                {
+                    tabs.SelectedTab = practicePage;
+                }
+                // A created tool keeps running (and keeps its state) while its tab is hidden.
+                tabs.TabPages.Remove(tool.page);
+            }
+
+            if (viewConfigKey != null && changed && visible)
+            {
+                SaveVisibleTabs();
+            }
+        }
+
+        private void SaveVisibleTabs()
+        {
+            if (viewConfigKey == null)
+            {
+                return;
+            }
+            List<string> visibleTitles = tools.Where(t => t.visible).Select(t => t.page.Text).ToList();
+            try
+            {
+                func.ChangeFileLines("config.txt", visibleTitles.Count == 0 ? NoTabsVisible : string.Join(",", visibleTitles), viewConfigKey);
+            }
+            catch
+            {
+                // Not remembered; the tabs still show as chosen.
             }
         }
 

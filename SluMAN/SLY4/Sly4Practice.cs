@@ -135,6 +135,8 @@ namespace SluMAN
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice and Player show at first.
+            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab);
         }
 
         /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
