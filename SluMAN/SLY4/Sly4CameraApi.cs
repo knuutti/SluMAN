@@ -22,7 +22,6 @@ namespace SluMAN
     /// <item><c>/camera/off</c>: turns the free camera off.</item>
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
     /// </list>
-    /// See scripts/sly4_camera_api.py for a Python client.
     /// </summary>
     public class Sly4CameraApi
     {

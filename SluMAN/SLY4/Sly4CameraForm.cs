@@ -605,7 +605,7 @@ namespace SluMAN
                 }
                 else if (api.IsRunning)
                 {
-                    statusLine.Info($"Scripts can drive the free camera at {api.Url} (see scripts/sly4_camera_api.py).");
+                    statusLine.Info($"Scripts can drive the free camera at {api.Url} (ask / for the list of requests).");
                 }
             };
             Controls.Add(apiCheckBox);
@@ -614,7 +614,7 @@ namespace SluMAN
             tip.SetToolTip(apiCheckBox,
                 "Lets scripts on this PC read and move the free camera over HTTP, e.g.\n" +
                 "http://127.0.0.1:" + api.Port + "/camera/set?x=0&y=500&z=0&pitch=-90&fov=5\n" +
-                "See scripts/sly4_camera_api.py next to SluMAN.exe for a Python client.");
+                "Ask http://127.0.0.1:" + api.Port + "/ for the list of requests.");
             FormClosed += (sender, e) => tip.Dispose();
         }
 

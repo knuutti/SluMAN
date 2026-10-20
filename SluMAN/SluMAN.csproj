@@ -372,10 +372,6 @@
     <None Include="autosplitters\sly3-autosplitter.asl" />
     <None Include="autosplitters\sly4-autosplitter.asl" />
     <Content Include="defaultSkin.txt" />
-    <Content Include="..\scripts\sly4_camera_api.py">
-      <Link>scripts/sly4_camera_api.py</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Content Include="..\data\s3_run_file_config.txt">
       <Link>data/s3_run_file_config.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
