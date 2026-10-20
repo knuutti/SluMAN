@@ -1204,17 +1204,22 @@ namespace SluMAN
             codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
         }
 
-        // HUD screens the debug menu's Toggle HUD shows and hides, 16 bytes apart in hudScreenNames.
+        // The HUD's GUI screens, as the game hides and shows them; 16 bytes apart in hudScreenNames.
         private static readonly string[] HudScreens = { "Common", "InGame" };
         private static readonly TimeSpan HudCallTimeout = TimeSpan.FromSeconds(3);
 
         /// <summary>
-        /// Shows or hides the HUD, as the debug menu's Toggle HUD does: finds the Common and
-        /// InGame GUI screens with the game's FindInstance and calls each one's toggle (its vtable
-        /// entry at hudToggleVtableOffset). Each call runs on a game frame, so this waits up to a
-        /// few frames per call. The game doesn't say whether the HUD shows, so it only toggles.
+        /// Hides or shows the HUD as the game does: finds the Common and InGame GUI screens with
+        /// FindInstance and calls each one's show method (vtable +hudShowVtableOffset) with 0 or 1.
+        /// Each call runs on a game frame, so this waits a few frames. The game may show the HUD
+        /// again by itself, for example after a load.
         /// </summary>
-        public void ToggleHud()
+        /// <remarks>
+        /// Game vtables hold pointers to function descriptors, not the descriptors themselves (see
+        /// any virtual call: lwz entry; lwz code, 0(entry); lwz r2, 4(entry)). The debug menu's
+        /// Toggle HUD called the entry as a descriptor, which jumps into data.
+        /// </remarks>
+        public void SetHudHidden(bool hidden)
         {
             ThrowIfLoading();
             for (int i = 0; i < HudScreens.Length; i++)
@@ -1232,10 +1237,14 @@ namespace SluMAN
                 {
                     continue;
                 }
-                // PS3 vtables hold function descriptors; the first word is the code address.
                 uint vtable = ReadUInt(screen);
-                uint toggle = ReadUInt(vtable + addr.hudToggleVtableOffset);
-                CallAndWait(toggle, screen);
+                uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
+                uint code = ReadUInt(descriptor);
+                if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
+                {
+                    throw new InvalidOperationException("The HUD screen isn't what SluMAN expects, so it wasn't touched.");
+                }
+                CallAndWait(code, screen, hidden ? 0u : 1u);
                 toggled++;
             }
             if (toggled == 0)

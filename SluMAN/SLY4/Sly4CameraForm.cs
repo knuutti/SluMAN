@@ -26,6 +26,7 @@ namespace SluMAN
         private readonly NumericUpDown moveSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown lookSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown fovUpDown = new NumericUpDown();
+        private readonly CheckBox hideHudCheckBox = new CheckBox();
         // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
         private readonly Timer fovTimer = new Timer();
         // Set while the box is updated from the camera, so that isn't taken as an edit.
@@ -81,6 +82,11 @@ namespace SluMAN
                 freeMove.PlaybackFinished -= freeMove_PlaybackFinished;
                 playbackTimer.Stop();
                 countdownTimer.Stop();
+                // Leave the game with its HUD.
+                if (hideHudCheckBox.Checked)
+                {
+                    try { game.SetHudHidden(false); } catch { }
+                }
             };
             FormClosed += (sender, e) =>
             {
@@ -120,11 +126,13 @@ namespace SluMAN
             freeCameraCheckBox.Click += freeCameraCheckBox_Click;
             group.Controls.Add(freeCameraCheckBox);
 
-            Button hudButton = new Button();
-            SetButton(hudButton, "Toggle HUD", 190, 16, 84, (sender, e) => ToggleHud());
-            group.Controls.Add(hudButton);
+            hideHudCheckBox.Text = "Hide HUD";
+            hideHudCheckBox.AutoSize = true;
+            hideHudCheckBox.Location = new Point(190, 20);
+            hideHudCheckBox.Click += (sender, e) => SetHudHidden(hideHudCheckBox.Checked);
+            group.Controls.Add(hideHudCheckBox);
             ToolTip hudTip = new ToolTip();
-            hudTip.SetToolTip(hudButton, "Hides the HUD, or shows it again, like the debug menu's Toggle HUD.");
+            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD as the game does. A load may show it again; tick it again then.");
             FormClosed += (sender, e) => hudTip.Dispose();
 
             Label moveLabel = new Label();
@@ -391,16 +399,17 @@ namespace SluMAN
             ShowPlaying();
         }
 
-        private void ToggleHud()
+        private void SetHudHidden(bool hidden)
         {
             try
             {
-                game.ToggleHud();
-                statusLine.Info("Toggled the HUD.");
+                game.SetHudHidden(hidden);
+                statusLine.Info(hidden ? "Hid the HUD." : "Showed the HUD.");
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't toggle the HUD: {ex.Message}");
+                hideHudCheckBox.Checked = !hidden;
+                statusLine.Error($"Couldn't {(hidden ? "hide" : "show")} the HUD: {ex.Message}");
             }
         }
 

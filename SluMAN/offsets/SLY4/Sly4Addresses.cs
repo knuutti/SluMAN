@@ -65,10 +65,13 @@ namespace SluMAN
         public uint teleportToGoalFunction { get; private set; }
         public uint loadLevelFunction { get; private set; }
         public uint abandonCurrentJobFunction { get; private set; }
-        // Finds a GUI screen by name ("Common", "InGame"); the screen's vtable entry at
-        // +hudToggleVtableOffset shows or hides it (the debug menu's Toggle HUD)
+        // Finds a GUI screen by name ("Common", "InGame"). The screen's vtable entry at
+        // +hudShowVtableOffset points to the function descriptor (code, TOC) of a method that
+        // shows (1) or hides (0) it; the game hides and shows the HUD with it (around 0x4933C4
+        // and 0x4944F8). The TOC must be the game's (gameToc), which the code hook runs with.
         public uint findInstanceFunction { get; private set; }
-        public uint hudToggleVtableOffset { get; private set; }
+        public uint hudShowVtableOffset { get; private set; }
+        public uint gameToc { get; private set; }
         // Where the screen names are written for FindInstance (unused end of the data segment)
         public uint hudScreenNames { get; private set; }
 
@@ -218,7 +221,8 @@ namespace SluMAN
                 loadLevelFunction = 0x4674C4,
                 abandonCurrentJobFunction = 0x2E5060,
                 findInstanceFunction = 0x4D5544,
-                hudToggleVtableOffset = 88,
+                hudShowVtableOffset = 88,
+                gameToc = 0xF50800,
                 hudScreenNames = 0x11F8B00,
 
                 hookCallSite = 0x5221DC,
