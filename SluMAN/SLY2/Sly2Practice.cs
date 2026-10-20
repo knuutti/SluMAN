@@ -17,8 +17,9 @@ namespace SluMAN
 
         // One window: the Practice controls on the first tab, the tools on the others.
         private PracticeTabs practiceTabs;
+        private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
-        private const string PositionTab = "Position Editor";
+        private const string RunFilesTab = "Run Files";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         public sly2 game;
@@ -64,12 +65,16 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
-            practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
+            practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -77,11 +82,6 @@ namespace SluMAN
         private void infiniteJumpCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             ApplyToggle(infiniteJumpCheckBox, () => game.SetInfiniteJump(infiniteJumpCheckBox.Checked));
-        }
-
-        private void positionEditorButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(PositionTab);
         }
 
         private void game_LoadStarted()
@@ -294,11 +294,6 @@ namespace SluMAN
             game.SkipCinematic();
         }
 
-        private void gadgetButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(GadgetsTab);
-        }
-
         private void reloadButton_Click(object sender, EventArgs e)
         {
             switch (reloadAsCharacterComboBox.SelectedIndex)
@@ -380,11 +375,6 @@ namespace SluMAN
         private void setHealthButton_Click(object sender, EventArgs e)
         {
             SetHealthFromTextBox();
-        }
-
-        private void inputDisplayButton_Click(object sender, EventArgs e)
-        {
-            OpenInputDisplay();
         }
 
         private void loadMapButton_Click(object sender, EventArgs e)

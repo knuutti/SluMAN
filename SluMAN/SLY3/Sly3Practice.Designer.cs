@@ -1,4 +1,4 @@
-namespace SluMAN
+﻿namespace SluMAN
 {
     partial class Sly3Practice
     {
@@ -30,8 +30,6 @@ namespace SluMAN
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly3Practice));
             this.coinsTextBox = new System.Windows.Forms.TextBox();
-            this.inputDisplayButton = new System.Windows.Forms.Button();
-            this.positionEditorButton = new System.Windows.Forms.Button();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.switchGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -44,7 +42,6 @@ namespace SluMAN
             this.rebootPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mapComboBox = new System.Windows.Forms.ComboBox();
             this.loadMapButton = new System.Windows.Forms.Button();
-            this.gadgetButton = new System.Windows.Forms.Button();
             this.toggleGroupBox = new System.Windows.Forms.GroupBox();
             this.gameClockCheckBox = new System.Windows.Forms.CheckBox();
             this.deathBarriersCheckBox = new System.Windows.Forms.CheckBox();
@@ -89,26 +86,6 @@ namespace SluMAN
             this.coinsTextBox.TextChanged += new System.EventHandler(this.coinsTextBox_TextChanged);
             this.coinsTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.coinsTextBox_KeyDown);
             // 
-            // inputDisplayButton
-            // 
-            this.inputDisplayButton.Location = new System.Drawing.Point(10, 325);
-            this.inputDisplayButton.Name = "inputDisplayButton";
-            this.inputDisplayButton.Size = new System.Drawing.Size(100, 54);
-            this.inputDisplayButton.TabIndex = 1;
-            this.inputDisplayButton.Text = "Input Display";
-            this.inputDisplayButton.UseVisualStyleBackColor = true;
-            this.inputDisplayButton.Click += new System.EventHandler(this.inputDisplayButton_Click);
-            // 
-            // positionEditorButton
-            // 
-            this.positionEditorButton.Location = new System.Drawing.Point(116, 325);
-            this.positionEditorButton.Name = "positionEditorButton";
-            this.positionEditorButton.Size = new System.Drawing.Size(99, 54);
-            this.positionEditorButton.TabIndex = 27;
-            this.positionEditorButton.Text = "Position Editor";
-            this.positionEditorButton.UseVisualStyleBackColor = true;
-            this.positionEditorButton.Click += new System.EventHandler(this.positionEditorButton_Click);
-            // 
             // menuStrip1
             // 
             this.menuStrip1.BackColor = System.Drawing.SystemColors.ControlDark;
@@ -118,7 +95,7 @@ namespace SluMAN
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Padding = new System.Windows.Forms.Padding(4, 2, 0, 2);
-            this.menuStrip1.Size = new System.Drawing.Size(473, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(660, 24);
             this.menuStrip1.TabIndex = 7;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -196,7 +173,7 @@ namespace SluMAN
             this.mapComboBox.FormattingEnabled = true;
             this.mapComboBox.Location = new System.Drawing.Point(15, 25);
             this.mapComboBox.Name = "mapComboBox";
-            this.mapComboBox.Size = new System.Drawing.Size(179, 21);
+            this.mapComboBox.Size = new System.Drawing.Size(282, 21);
             this.mapComboBox.TabIndex = 8;
             this.mapComboBox.Text = "Select a map...";
             // 
@@ -210,16 +187,6 @@ namespace SluMAN
             this.loadMapButton.UseVisualStyleBackColor = true;
             this.loadMapButton.Click += new System.EventHandler(this.loadMapButton_Click);
             // 
-            // gadgetButton
-            // 
-            this.gadgetButton.Location = new System.Drawing.Point(119, 113);
-            this.gadgetButton.Name = "gadgetButton";
-            this.gadgetButton.Size = new System.Drawing.Size(101, 40);
-            this.gadgetButton.TabIndex = 11;
-            this.gadgetButton.Text = "Gadgets";
-            this.gadgetButton.UseVisualStyleBackColor = true;
-            this.gadgetButton.Click += new System.EventHandler(this.gadgetsButton_Click);
-            // 
             // toggleGroupBox
             // 
             this.toggleGroupBox.Controls.Add(this.gameClockCheckBox);
@@ -232,11 +199,11 @@ namespace SluMAN
             this.toggleGroupBox.Controls.Add(this.infiniteJumpCheckBox);
             this.toggleGroupBox.Controls.Add(this.autoSkipCheckBox);
             this.toggleGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
-            this.toggleGroupBox.Location = new System.Drawing.Point(228, 204);
+            this.toggleGroupBox.Location = new System.Drawing.Point(336, 201);
             this.toggleGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.toggleGroupBox.Name = "toggleGroupBox";
             this.toggleGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.toggleGroupBox.Size = new System.Drawing.Size(234, 230);
+            this.toggleGroupBox.Size = new System.Drawing.Size(312, 230);
             this.toggleGroupBox.TabIndex = 15;
             this.toggleGroupBox.TabStop = false;
             this.toggleGroupBox.Text = "Toggles";
@@ -640,7 +607,7 @@ namespace SluMAN
             "Murray Tutorial"});
             this.jobComboBox.Location = new System.Drawing.Point(16, 25);
             this.jobComboBox.Name = "jobComboBox";
-            this.jobComboBox.Size = new System.Drawing.Size(177, 21);
+            this.jobComboBox.Size = new System.Drawing.Size(282, 21);
             this.jobComboBox.TabIndex = 16;
             this.jobComboBox.Text = "Select a job...";
             // 
@@ -680,11 +647,11 @@ namespace SluMAN
             this.reloadGroupBox.Controls.Add(this.reloadAsCharacterComboBox);
             this.reloadGroupBox.Controls.Add(this.fastReloadButton);
             this.reloadGroupBox.Controls.Add(this.fullReloadButton);
-            this.reloadGroupBox.Location = new System.Drawing.Point(10, 218);
+            this.reloadGroupBox.Location = new System.Drawing.Point(12, 217);
             this.reloadGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.reloadGroupBox.Name = "reloadGroupBox";
             this.reloadGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.reloadGroupBox.Size = new System.Drawing.Size(201, 101);
+            this.reloadGroupBox.Size = new System.Drawing.Size(312, 101);
             this.reloadGroupBox.TabIndex = 20;
             this.reloadGroupBox.TabStop = false;
             this.reloadGroupBox.Text = "Reload";
@@ -763,12 +730,11 @@ namespace SluMAN
             this.groupBox1.Controls.Add(this.skipCinematicsButton);
             this.groupBox1.Controls.Add(this.setCoinsButton);
             this.groupBox1.Controls.Add(this.healthTextBox);
-            this.groupBox1.Controls.Add(this.gadgetButton);
-            this.groupBox1.Location = new System.Drawing.Point(226, 37);
+            this.groupBox1.Location = new System.Drawing.Point(336, 32);
             this.groupBox1.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox1.Size = new System.Drawing.Size(234, 163);
+            this.groupBox1.Size = new System.Drawing.Size(312, 163);
             this.groupBox1.TabIndex = 24;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Utility";
@@ -797,11 +763,11 @@ namespace SluMAN
             // 
             this.groupBox2.Controls.Add(this.mapComboBox);
             this.groupBox2.Controls.Add(this.loadMapButton);
-            this.groupBox2.Location = new System.Drawing.Point(10, 37);
+            this.groupBox2.Location = new System.Drawing.Point(12, 32);
             this.groupBox2.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox2.Size = new System.Drawing.Size(205, 84);
+            this.groupBox2.Size = new System.Drawing.Size(312, 84);
             this.groupBox2.TabIndex = 25;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Locations";
@@ -810,11 +776,11 @@ namespace SluMAN
             // 
             this.jobGroupBox.Controls.Add(this.jobComboBox);
             this.jobGroupBox.Controls.Add(this.loadJobButton);
-            this.jobGroupBox.Location = new System.Drawing.Point(6, 125);
+            this.jobGroupBox.Location = new System.Drawing.Point(12, 122);
             this.jobGroupBox.Margin = new System.Windows.Forms.Padding(2);
             this.jobGroupBox.Name = "jobGroupBox";
             this.jobGroupBox.Padding = new System.Windows.Forms.Padding(2);
-            this.jobGroupBox.Size = new System.Drawing.Size(205, 89);
+            this.jobGroupBox.Size = new System.Drawing.Size(312, 89);
             this.jobGroupBox.TabIndex = 26;
             this.jobGroupBox.TabStop = false;
             this.jobGroupBox.Text = "Jobs";
@@ -823,14 +789,12 @@ namespace SluMAN
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(473, 442);
+            this.ClientSize = new System.Drawing.Size(660, 554);
             this.Controls.Add(this.jobGroupBox);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.reloadGroupBox);
             this.Controls.Add(this.toggleGroupBox);
-            this.Controls.Add(this.inputDisplayButton);
-            this.Controls.Add(this.positionEditorButton);
             this.Controls.Add(this.menuStrip1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip1;
@@ -857,8 +821,6 @@ namespace SluMAN
         private System.Windows.Forms.TextBox coinsTextBox;
         private System.Windows.Forms.CheckBox infiniteHealthCheckBox;
         private System.Windows.Forms.CheckBox infiniteGadgetPowerCheckBox;
-        private System.Windows.Forms.Button inputDisplayButton;
-        private System.Windows.Forms.Button positionEditorButton;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem switchGameToolStripMenuItem;
@@ -866,7 +828,6 @@ namespace SluMAN
         private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
         private System.Windows.Forms.ComboBox mapComboBox;
         private System.Windows.Forms.Button loadMapButton;
-        private System.Windows.Forms.Button gadgetButton;
         private System.Windows.Forms.GroupBox toggleGroupBox;
         private System.Windows.Forms.CheckBox alwaysOnTopCheckBox;
         private System.Windows.Forms.ComboBox jobComboBox;

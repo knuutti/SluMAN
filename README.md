@@ -4,7 +4,7 @@ You can find the old SluMAN repository from [here](https://github.com/knuutti/Sl
 
 SluMAN is speedrun tool for Sly Cooper games for PS3 and RPCS3. SluMAN is designed to help speedrunners practice the games by providing custom features that are not place in the vanilla game. 
 
-SluMAN also provides a Speedrun Mode, that provides the runners with an input display, autosplitter and run file loading (exact features might differ between games)
+SluMAN also provides a Speedrun Mode, that provides the runners with an input display and an autosplitter (exact features might differ between games)
 
 ## Supported games
 - Sly Cooper and the Thievius Raccoonus (NPUA80663)
@@ -30,6 +30,15 @@ Then all you need to do is run a game, and click Attach!
 Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` button. 
 
 Some features may unfortunately not be supported on RPCS3.
+
+## Run files
+A run file sets up the save a Sly 2 or Sly 3 run starts from. You make it once, in Practice Mode's **Run Files** tab, and keep it in an anchor file slot; during a run you load the anchor file in game, not from SluMAN.
+
+1. Start a new game.
+2. In Practice Mode, open the **Run Files** tab, pick the run file and click **Load**.
+3. Save over your anchor file slot.
+
+The gadgets a run file loads with are saved in the **Gadgets** tab, under Run file gadgets.
 
 ## Your files
 SluMAN keeps your settings, saved positions, watchlists, split routes and warp locations in `%APPDATA%\SluMAN`, so they don't depend on where you extracted SluMAN and updates never touch them. **Tools → Open User Data Folder** opens it.

@@ -229,11 +229,11 @@
     <Compile Include="SLY2\Sly2Practice.Designer.cs">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY2\Sly2Speedrun.cs">
+    <Compile Include="SLY2\Sly2RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\Sly2Speedrun.Designer.cs">
-      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
+    <Compile Include="SLY2\Sly2Speedrun.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY3\Sly3Practice.cs">
       <SubType>Form</SubType>
@@ -249,6 +249,9 @@
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
     <Compile Include="PracticeTabs.cs" />
+    <Compile Include="RunFilesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="WatchFormula.cs" />
     <Compile Include="PositionEditor.cs">
       <SubType>Form</SubType>
@@ -256,11 +259,11 @@
     <Compile Include="PositionEditor.Designer.cs">
       <DependentUpon>PositionEditor.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY3\Sly3Speedrun.cs">
+    <Compile Include="SLY3\Sly3RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3Speedrun.Designer.cs">
-      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
+    <Compile Include="SLY3\Sly3Speedrun.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY4\Sly4Practice.cs">
       <SubType>Form</SubType>
@@ -338,9 +341,6 @@
     <EmbeddedResource Include="SLY2\Sly2Practice.resx">
       <DependentUpon>Sly2Practice.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY2\Sly2Speedrun.resx">
-      <DependentUpon>Sly2Speedrun.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="SLY3\Sly3Practice.resx">
       <DependentUpon>Sly3Practice.cs</DependentUpon>
     </EmbeddedResource>
@@ -349,9 +349,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="PositionEditor.resx">
       <DependentUpon>PositionEditor.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\Sly3Speedrun.resx">
-      <DependentUpon>Sly3Speedrun.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="SLY4\Sly4Practice.resx">
       <DependentUpon>Sly4Practice.cs</DependentUpon>

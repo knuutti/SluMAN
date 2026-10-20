@@ -17,8 +17,9 @@ namespace SluMAN
 
         // One window: the Practice controls on the first tab, the tools on the others.
         private PracticeTabs practiceTabs;
+        private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
-        private const string PositionTab = "Position Editor";
+        private const string RunFilesTab = "Run Files";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
 
@@ -82,12 +83,16 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
-            practiceTabs = new PracticeTabs(this, "Practice");
-            practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
+            practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -439,16 +444,6 @@ namespace SluMAN
         private void loadMapButton_Click(object sender, EventArgs e)
         {
             game.LoadMap(mapComboBox.SelectedIndex);
-        }
-
-        private void gadgetsButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(GadgetsTab);
-        }
-
-        private void positionEditorButton_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(PositionTab);
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
