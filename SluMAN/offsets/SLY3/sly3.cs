@@ -600,7 +600,8 @@ namespace SluMAN
             }
             if (enabled)
             {
-                autoSkipper = new AutoSkipper(api, pid, sly3.addr.fmvState, sly3.addr.dialogueState, sly3.addr.dialogueFrameCounter);
+                // Sly 3's dialogue state skips every line while it's frozen to 0.
+                autoSkipper = new AutoSkipper(api, pid, sly3.addr.fmvState, sly3.addr.dialogueState, sly3.addr.dialogueFrameCounter, true);
                 autoSkipper.Start();
             }
         }

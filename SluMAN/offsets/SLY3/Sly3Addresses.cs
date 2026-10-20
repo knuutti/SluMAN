@@ -142,7 +142,9 @@ namespace SluMAN
                 healthEntityOffset = 0x168,
                 gadgetPowerEntityOffset = 0x170,
 
-                dialogueState = 0x39B13F70,
+                // Writing 0 ends the dialogue line; frozen to 0, no line plays. Behaves better
+                // than the dialogue's own state at 0x39B13F70.
+                dialogueState = 0x788CB8,
                 dialogueFrameCounter = 0x39B13F54,
                 fmvState = 0x83C8BC,
 

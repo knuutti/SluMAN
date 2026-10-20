@@ -32,6 +32,7 @@ namespace SluMAN
         private readonly uint fmvState;
         private readonly uint dialogueState;
         private readonly uint dialogueFrameCounter;
+        private readonly bool freezeDialogue;
 
         private readonly object pendingLock = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
@@ -43,13 +44,17 @@ namespace SluMAN
         // back below the threshold. Only the subscription thread uses this.
         private bool dialogueArmed = true;
 
-        public AutoSkipper(IPS3API api, int pid, uint fmvState, uint dialogueState, uint dialogueFrameCounter)
+        /// <param name="freezeDialogue">Freeze the dialogue state to 0 instead of skipping each
+        /// line as its frame counter passes 10 (Sly 3, whose dialogue state skips every line
+        /// while frozen).</param>
+        public AutoSkipper(IPS3API api, int pid, uint fmvState, uint dialogueState, uint dialogueFrameCounter, bool freezeDialogue = false)
         {
             this.api = api;
             this.pid = pid;
             this.fmvState = fmvState;
             this.dialogueState = dialogueState;
             this.dialogueFrameCounter = dialogueFrameCounter;
+            this.freezeDialogue = freezeDialogue;
         }
 
         public void Start()
@@ -80,8 +85,16 @@ namespace SluMAN
             int dialogueSubID = -1;
             try
             {
-                // Only the low byte matters, the same byte Skip Cinematic reads.
-                dialogueSubID = api.SubMemory(pid, dialogueFrameCounter + 0x3, 1, OnDialogueFrame);
+                if (freezeDialogue)
+                {
+                    // Released like the subscription when the skipper stops.
+                    dialogueSubID = api.FreezeMemory(pid, dialogueState, MemoryCondition.Any, DialogueSkipValue);
+                }
+                else
+                {
+                    // Only the low byte matters, the same byte Skip Cinematic reads.
+                    dialogueSubID = api.SubMemory(pid, dialogueFrameCounter + 0x3, 1, OnDialogueFrame);
+                }
                 Console.WriteLine("Auto-skip cinematics on.");
 
                 DateTime lastFmvSkip = DateTime.MinValue;
