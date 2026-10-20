@@ -32,6 +32,27 @@ namespace SluMAN
         public uint livesCount { get; private set; }
         public uint clockwerkHealth { get; private set; }
 
+        // Level loading. The reload block: +0 trigger, +C and +20 set with it, +10 the address of
+        // the level's entry in the reload table, +14 the entrance to arrive at. The table has one
+        // entry per level (two unused level slots have none), each holding the level's name once
+        // per language.
+        public uint reloadBlock { get; private set; }
+        public uint reloadTable { get; private set; }
+        public uint reloadEntrySize { get; private set; }
+        public uint reloadLanguageSize { get; private set; }
+        public uint language { get; private set; }
+
+        // The current level's entrances: *(*entranceListPtr + entranceListOffset) is the first;
+        // each has its ID at +8, its position at +40 and the next entrance at +24.
+        public uint entranceListPtr { get; private set; }
+        public uint entranceListOffset { get; private set; }
+
+        // Cutscenes: *dialoguePtr is the dialogue playing (0 when none), ended by writing 0 at
+        // +dialogueSkipOffset. With no dialogue, writing 1 to fmvSkip ends an FMV.
+        public uint dialoguePtr { get; private set; }
+        public uint dialogueSkipOffset { get; private set; }
+        public uint fmvSkip { get; private set; }
+
         private Sly1Addresses()
         {
         }
@@ -85,6 +106,18 @@ namespace SluMAN
                 charmsCount = 0x3E7FF0,
                 livesCount = 0x3E7FEC,
                 clockwerkHealth = 0x3630941C,
+
+                // From SlyMultiTrainer by NiV-L-A (Sly 1 NTSC PS3 PSN)
+                reloadBlock = 0xE62AC4,
+                reloadTable = 0x3B54FC,
+                reloadEntrySize = 0x6C,
+                reloadLanguageSize = 0x20,
+                language = 0x3E8010,
+                entranceListPtr = 0xE5E8D8,
+                entranceListOffset = 0x1A54,
+                dialoguePtr = 0xE418B0,
+                dialogueSkipOffset = 0x2E8,
+                fmvSkip = 0xF516CC,
             };
 
             return new Dictionary<string, Sly1Addresses>(StringComparer.OrdinalIgnoreCase)

@@ -214,11 +214,11 @@
     <Compile Include="SimpleInputDialogForm.Designer.cs">
       <DependentUpon>SimpleInputDialogForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY1\Sly1Speedrun.cs">
+    <Compile Include="SLY1\Sly1Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY1\Sly1Speedrun.Designer.cs">
-      <DependentUpon>Sly1Speedrun.cs</DependentUpon>
+    <Compile Include="SLY1\Sly1Speedrun.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY2\Sly2Gadgets.cs">
       <SubType>Form</SubType>
@@ -335,9 +335,6 @@
     <EmbeddedResource Include="SimpleInputDialogForm.resx">
       <DependentUpon>SimpleInputDialogForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY1\Sly1Speedrun.resx">
-      <DependentUpon>Sly1Speedrun.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="SLY2\Sly2Gadgets.resx">
       <DependentUpon>Sly2Gadgets.cs</DependentUpon>
     </EmbeddedResource>
@@ -387,6 +384,10 @@
     </Content>
     <Content Include="..\THIRD-PARTY-NOTICES.txt">
       <Link>THIRD-PARTY-NOTICES.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\data\s1_entrances.txt">
+      <Link>data/s1_entrances.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\data\s2_spawn_points.txt">

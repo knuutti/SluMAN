@@ -61,7 +61,7 @@ Game addresses live in `offsets/<GAME>/<Game>Addresses.cs` (e.g. `Sly2Addresses.
 
 Each supported game has two UI modes: **Practice Mode** (full trainer features) and **Speedrun Mode** (minimal UI, autosplitter, input display).
 
-Practice windows are a fixed 660×554 with tabs (`PracticeTabs` with `fixedSize`): the window's own controls on the Practice tab, in two columns of 312-wide group boxes, and tool forms docked on the others. A **View** menu (`PracticeTabs.AddViewMenu`) picks which tool tabs show and saves it in `config.txt`. Sly 2 and Sly 3 load run files from Practice Mode's Run Files tab (`RunFilesForm`); Speedrun Mode only has the autosplitter, always on top and the input display, like Sly 4's. Memory tools (the Memory and Memory Viewer tabs) belong to Practice Mode only; Speedrun Mode must not offer them.
+Practice windows are a fixed 660×554 with tabs (`PracticeTabs` with `fixedSize`): the window's own controls on the Practice tab, in two columns of 312-wide group boxes, and tool forms docked on the others. A **View** menu (`PracticeTabs.AddViewMenu`) picks which tool tabs show and saves it in `config.txt`. Sly 1 Practice Mode (`Sly1Practice`, built in code) loads levels at an entrance through the reload block. Sly 2 and Sly 3 load run files from Practice Mode's Run Files tab (`RunFilesForm`); Speedrun Mode only has the autosplitter, always on top and the input display, like Sly 4's. Memory tools (the Memory and Memory Viewer tabs) belong to Practice Mode only; Speedrun Mode must not offer them.
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 
