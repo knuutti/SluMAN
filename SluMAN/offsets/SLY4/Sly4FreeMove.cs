@@ -641,15 +641,19 @@ namespace SluMAN
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
 
+            // Everything moves along the camera's own axes, as in most free cameras: the stick
+            // along its facing and right, R1 / L1 along its up (towards the top of the screen
+            // when looking straight down).
             float[] forward = Forward();
             float[] right = Scale(RightOfYaw(), rightSign);
+            float[] up = Cross(forward, RightOfYaw());
             float move = -Stick(Inputs.ly);
             float strafe = Stick(Inputs.lx);
+            float rise = Rise();
             for (int axis = 0; axis < 3; axis++)
             {
-                cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe) * CameraSpeed * step;
+                cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe + up[axis] * rise) * CameraSpeed * step;
             }
-            cameraPosition[1] += Rise() * CameraSpeed * step;
 
             // R2 zooms in, L2 out.
             float zoom = 0;

@@ -229,7 +229,7 @@ namespace SluMAN
             FormClosed += (sender, e) => fovTip.Dispose();
 
             Label help = new Label();
-            help.Text = "Left stick moves, right stick turns, R1 / L1 go up and down,\n" +
+            help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
                 "R2 / L2 zoom, R3 adds a keyframe. The player is held where\n" +
                 "they stood. The camera turns off when a level loads.\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
