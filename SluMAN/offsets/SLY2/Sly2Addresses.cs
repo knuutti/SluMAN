@@ -240,22 +240,22 @@ namespace SluMAN
             palDigital.cameraFov = 0x49DFD4;
             palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
 
-            // The episodes' save data is the Korean address - 0x74, not - 0x80: PAL has 12 more
-            // bytes somewhere before it. Found for episode 8 (job loading), parisStarted and
-            // blimpStarted; assumed for the rest.
+            // The episodes' save data is the Korean address - 0x80, like the rest of the save
+            // data: a new game's prologue state lines up with the recorded one at 0x7A9510. The
+            // flags inside it move with it.
             palDigital.episodeData = new uint[]
             {
-                0x7A951C, 0x7A9664, 0x7A9E18, 0x7AA558, 0x7AABC0,
-                0x7AB458, 0x7ABC50, 0x7AC1F0, 0x7ACB78,
+                0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
+                0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB6C,
             };
-            palDigital.parisCinemaState = 0x7A9A4C;
-            palDigital.parisStarted = 0x7A9D10;
-            palDigital.templeStarted = 0x7AA97C;
-            palDigital.prisonStarted = 0x7AB318;
-            palDigital.castleStarted = 0x7ABB74;
-            palDigital.trainStarted = 0x7ABEB4;
-            palDigital.sawmillStarted = 0x7AC7A4;
-            palDigital.blimpStarted = 0x7AD0DC; // 1 once the blimp is first loaded
+            palDigital.parisCinemaState = 0x7A9A40;
+            palDigital.parisStarted = 0x7A9D04;
+            palDigital.templeStarted = 0x7AA970;
+            palDigital.prisonStarted = 0x7AB30C;
+            palDigital.castleStarted = 0x7ABB68;
+            palDigital.trainStarted = 0x7ABEA8;
+            palDigital.sawmillStarted = 0x7AC798;
+            palDigital.blimpStarted = 0x7AD0D0;
 
             return new Dictionary<string, Sly2Addresses>(StringComparer.OrdinalIgnoreCase)
             {
