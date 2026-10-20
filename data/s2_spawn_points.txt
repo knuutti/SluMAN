@@ -1,0 +1,289 @@
+# Sly 2 spawn points: map | spawn ID | English name
+#
+# The Map group in Practice Mode lists a map's spawn points from this file, after the map's own
+# start. The map is its internal name without "Y$KF"; the spawn ID is the value at the spawn
+# location address after going through a door. Write the English name after the second |; a
+# spawn point without one shows as its ID. Everything after a # is a comment: here, where the ID
+# came from (a job checkpoint, a run file or the map's start), to help name it.
+
+# ==== Museum ====
+jb_intro | 148457 |  # Museum map start; Cairo Museum Break-in: start
+
+# ==== Paris Hub ====
+f_nightclub_exterior | 393 |  # Episode 1 run file
+f_nightclub_exterior | 27280 |  # Paris Hub map start; OP: Thunder Beak: start, Steal the key, Climb the peacock
+f_nightclub_exterior | 122409 |  # Satellite Sabotage: start
+f_nightclub_exterior | 122451 |  # Silence the Alarms: start
+f_nightclub_exterior | 122459 |  # Bug Dimitri's Office: start
+f_nightclub_exterior | 122473 |  # Follow Dimitri: start
+f_nightclub_exterior | 122475 |  # Follow Dimitri: Follow
+f_nightclub_exterior | 122519 |  # Moonlight Rendezvous: start
+f_nightclub_exterior | 122600 |  # OP: Thunder Beak: Shoot the hook
+
+# ==== Wine Cellar ====
+f_nightclub_cellar | 397 |  # Wine Cellar map start; Breaking and Entering: start
+f_nightclub_cellar | 122447 |  # Breaking and Entering: Sneak
+f_nightclub_cellar | 122448 |  # Breaking and Entering: Guards
+
+# ==== Disco ====
+f_nightclub_disco | 398 |  # Bug Dimitri's Office: Nightclub
+f_nightclub_disco | 401 |  # Disco map start; Disco Demolitions: start
+
+# ==== Print Room ====
+f_nightclub_heist | 402 |  # Breaking and Entering: Photos
+f_nightclub_heist | 121308 |  # Print Room map start; OP: Thunder Beak: Printing room, Dimitri fight
+
+# ==== Theater ====
+f_nightclub_moulinrouge | 400 |  # Theater map start; Theater Pickpocketing: start
+
+# ==== Pump Room ====
+f_nightclub_waterpump | 399 |  # Pump Room map start; Waterpump Destruction: start
+
+# ==== Palace Hub ====
+i_palace_ext | 393 |  # Episode 2 run file
+i_palace_ext | 49223 |  # Recon the Ballroom: start
+i_palace_ext | 49304 |  # RC Bombing Run: start, Destroy the Jeep
+i_palace_ext | 76733 |  # OP: Hippo Drop: start, First floor
+i_palace_ext | 105619 |  # Elephant Rampage: start, Elephants
+i_palace_ext | 105685 |  # OP: Hippo Drop: Protect Murray
+i_palace_ext | 105705 |  # Palace Hub map start; Lower the Drawbridge: start, Lever
+i_palace_ext | 105722 |  # Battle the Chopper: start, Fight
+i_palace_ext | 105734 |  # Boardroom Brawl: start
+i_palace_ext | 105827 |  # OP: Hippo Drop: Second floor
+
+# ==== Hotel ====
+i_palace_int | 105779 |  # Hotel map start; Steal a Tuxedo: start
+
+# ==== Basement ====
+i_palace_basement | 105734 |  # Boardroom Brawl: Find the code
+i_palace_basement | 105764 |  # Basement map start; Boardroom Brawl: Protect Bentley
+
+# ==== Ballroom ====
+i_palace_ballroom | 104738 |  # Recon the Ballroom: Photos
+i_palace_ballroom | 105063 |  # Ballroom map start; Dominate the Dance Floor: start; OP: Hippo Drop: Dance
+
+# ==== Temple Hub ====
+i_temple_ext | 393 |  # Episode 3 run file
+i_temple_ext | 401 |  # Neyla's Secret: start
+i_temple_ext | 403 |  # Spice Room Recon: start
+i_temple_ext | 17505 |  # Blow the Dam: start
+i_temple_ext | 33676 |  # OP: Wet Tiger: start, Protect Murray, Deliver TNT
+i_temple_ext | 96658 |  # Rip-Off the Ruby: start
+i_temple_ext | 96660 |  # Rip-Off the Ruby: Reach the ruby
+i_temple_ext | 96665 |  # Rip-Off the Ruby: Carry 2
+i_temple_ext | 96698 |  # Water Bug Run: start
+i_temple_ext | 96699 |  # Temple Hub map start; Freeing the Elephant: start
+i_temple_ext | 96737 |  # Leading Rajan: start, Blueprints
+i_temple_ext | 96779 |  # Rip-Off the Ruby: Carry 1
+i_temple_ext | 96822 |  # OP: Wet Tiger: Follow Neyla
+i_temple_ext | 96835 |  # OP: Wet Tiger: Rajan fight
+
+# ==== Temple Interior / Spice Grinder ====
+i_temple_int | 398 |  # Temple Interior map start; Spice Room Recon: Interior
+i_temple_int | 399 |  # Neyla's Secret: Keys
+i_temple_int | 400 |  # Spice Grinder map start; Spice Grinder Destruction: start
+
+# ==== Prison Hub ====
+p_prison_ext | 393 |  # Episode 4 run file
+p_prison_ext | 17366 |  # Eavesdrop on Contessa: start
+p_prison_ext | 59889 |  # Train Hack: Hack 1, Go to hack 2
+p_prison_ext | 59896 |  # Train Hack: Hack 2, Go to hack 3
+p_prison_ext | 76660 |  # Prison Hub map start; Train Hack: start
+p_prison_ext | 76668 |  # Train Hack: Hack 3, Go to hack 4
+p_prison_ext | 76672 |  # Train Hack: Hack 4, Go to hack 5
+p_prison_ext | 76676 |  # Train Hack: Hack 5, Go to hack 6, Hack 6
+p_prison_ext | 76682 |  # Wall Bombing: start, RC Chopper
+p_prison_ext | 76691 |  # Wall Bombing: Return to hideout
+p_prison_ext | 76697 |  # Big House Brawl: start
+p_prison_ext | 76716 |  # Lightning Action: start
+p_prison_ext | 76720 |  # Lightning Action: Rod 1
+p_prison_ext | 76724 |  # Lightning Action: Rod 4
+p_prison_ext | 76726 |  # Lightning Action: Rod 3
+p_prison_ext | 76728 |  # Lightning Action: Rod 2
+p_prison_ext | 76733 |  # Disguise Bridge: start
+p_prison_ext | 76744 |  # Disguise Bridge: Protect Bentley
+p_prison_ext | 76753 |  # Code Capture: start, Picture 2
+p_prison_ext | 76764 |  # Code Capture: Picture 4
+p_prison_ext | 76775 |  # Code Capture: Picture 3
+p_prison_ext | 76776 |  # Close to Contessa: start
+p_prison_ext | 76783 |  # Close to Contessa: Key 2
+p_prison_ext | 76784 |  # Close to Contessa: Tank schedule
+p_prison_ext | 76786 |  # OP: Trojan Tank: start
+p_prison_ext | 76794 |  # OP: Trojan Tank: Crawl
+p_prison_ext | 76859 |  # OP: Trojan Tank: Chase Contessa
+
+# ==== Jail ====
+p_prison_int | 76622 |  # OP: Trojan Tank: Enter prison
+p_prison_int | 76698 |  # Big House Brawl: Prison fight
+p_prison_int | 76806 |  # Jail map start; OP: Trojan Tank: Reach the control panel
+p_prison_int | 76818 |  # OP: Trojan Tank: Return to Bentley
+p_prison_int | 76820 |  # OP: Trojan Tank: Activate hypno-boxes
+p_prison_int | 76844 |  # OP: Trojan Tank: Destroy hypno-boxes
+p_prison_int | 76853 |  # OP: Trojan Tank: Lift the gate
+
+# ==== Castle Hub ====
+p_castle_ext | 393 |  # Episode 5 run file
+p_castle_ext | 27280 |  # OP: High Road: start
+p_castle_ext | 49223 |  # Know Your Enemy: start, Photos
+p_castle_ext | 49343 |  # OP: High Road: Contessa 1, Contessa 2
+p_castle_ext | 59748 |  # Ghost Capture: start, Enter the tomb
+p_castle_ext | 59782 |  # Ghost Capture: Ghosts
+p_castle_ext | 59810 |  # Mojo Trap Action: Go to crypt 2
+p_castle_ext | 59814 |  # Mojo Trap Action: Go to crypt 3
+p_castle_ext | 59818 |  # Mojo Trap Action: Go to crypt 4
+p_castle_ext | 59820 |  # Kidnap the General: start, General
+p_castle_ext | 59827 |  # Castle Hub map start; Stealing Voices: start, Keys 1, Go to crypt 1
+p_castle_ext | 59838 |  # Stealing Voices: Keys 2, Go to crypt 2
+p_castle_ext | 59854 |  # Stealing Voices: Keys 3, Go to crypt 3
+p_castle_ext | 59868 |  # Tank Showdown: start, Tanks; OP: High Road: Tank
+p_castle_ext | 59915 |  # OP: High Road: Paraglide
+p_castle_ext | 59983 |  # OP: High Road: Chase Neyla
+p_castle_ext | 60005 |  # OP: High Road: Turret
+
+# ==== Waterrails ====
+p_castle_waterrails | 33438 |  # Waterrails map start; Stealing Voices: Crypt 3
+
+# ==== Guardbreak ====
+p_castle_guardbreak | 59836 |  # Guardbreak map start; Stealing Voices: Crypt 1
+p_castle_guardbreak | 59847 |  # Stealing Voices: Crypt 2
+
+# ==== Wolftomb ====
+p_castle_wolftomb | 105734 |  # Ghost Capture: Tomb
+
+# ==== Heist ====
+p_castle_heist | 33438 |  # Know Your Enemy: Education tower; OP: High Road: Enter tower, Hack
+p_castle_heist | 59882 |  # Crypt Hack: start, Find the computer
+p_castle_heist | 59889 |  # Heist map start; Crypt Hack: Hack 1, Go to hack 2
+p_castle_heist | 59896 |  # Crypt Hack: Hack 2, Go to hack 3, Hack 3
+
+# ==== Ewoktrainer ====
+p_castle_ewoktrainer | 393 |  # Ewoktrainer map start; Mojo Trap Action: start, Crypt 1
+
+# ==== Ewoktomb ====
+p_castle_ewoktomb | 393 |  # Ewoktomb map start
+p_castle_ewoktomb | 33438 |  # Mojo Trap Action: Crypt 3
+
+# ==== Ewokhall ====
+p_castle_ewokhall | 393 |  # Ewokhall map start
+p_castle_ewokhall | 33438 |  # Mojo Trap Action: Crypt 2
+
+# ==== Ewokwater ====
+p_castle_ewokwater | 393 |  # Ewokwater map start
+p_castle_ewokwater | 33438 |  # Mojo Trap Action: Crypt 4
+
+# ==== Canada Hub ====
+c_train_ext | 393 |  # Episode 6 run file
+c_train_ext | 27280 |  # OP: Choo-Choo: start
+c_train_ext | 49223 |  # Cabin Crimes: start, Enter cabin 1
+c_train_ext | 49231 |  # Cabin Crimes: Enter cabin 2
+c_train_ext | 49238 |  # Cabin Crimes: Enter cabin 3
+c_train_ext | 49245 |  # Cabin Crimes: Climb the mountain
+c_train_ext | 49254 |  # Spice in the Sky: start, Train 1, Train 2, Train 3
+c_train_ext | 49276 |  # Ride the Iron Horse: start, Enter the train
+c_train_ext | 49280 |  # A Friend in Need: start, Follow Carmelita
+c_train_ext | 49285 |  # A Friend in Need: Key 1, Key 2, Key 3
+c_train_ext | 49304 |  # Aerial Assault: start, Enter the train
+c_train_ext | 49310 |  # Theft on the Rails: start, Enter the train
+c_train_ext | 49324 |  # Bear Cub Kidnapping: start, Cub 1
+c_train_ext | 49327 |  # Canada Hub map start; Bear Cub Kidnapping: Cub 2
+
+# ==== Cabins ====
+c_train_cabins | 49224 |  # Cabins map start; Cabin Crimes: Cabin 1
+c_train_cabins | 49237 |  # Cabin Crimes: Cabin 2
+c_train_cabins | 49244 |  # Cabin Crimes: Cabin 3
+
+# ==== Train A ====
+c_train_a | 393 |  # Train A map start; Theft on the Rails: Train
+c_train_a | 49304 |  # Aerial Assault: RC Chopper
+
+# ==== Train B ====
+c_train_b | 393 |  # Train B map start; OP: Choo-Choo: Catch the train, Sly section 1, Neyla fight 1, Neyla fight 2
+c_train_b | 49370 |  # OP: Choo-Choo: Sly section 2
+
+# ==== Train C ====
+c_train_c | 393 |  # Train C map start; Ride the Iron Horse: Train
+
+# ==== Sawmill Hub ====
+c_sawmill_ext | 393 |  # Episode 7 run file
+c_sawmill_ext | 33407 |  # OP: Canada Games: Reach the battery
+c_sawmill_ext | 33420 |  # Recon the Sawmill: start
+c_sawmill_ext | 33437 |  # Bearcave Bugging: start
+c_sawmill_ext | 33439 |  # Bearcave Bugging: Transmitters
+c_sawmill_ext | 33479 |  # RC Combat Club: start, Enter the club
+c_sawmill_ext | 33507 |  # Laser Redirection: Crystal 1
+c_sawmill_ext | 33510 |  # Laser Redirection: Crystal 2 to 6
+c_sawmill_ext | 33551 |  # Lighthouse Break In: start, Enter the lighthouse
+c_sawmill_ext | 33583 |  # Sawmill Hub map start; Old Grizzle Face: start, Destroy the generators
+c_sawmill_ext | 33596 |  # Boat Hack: start, Go to hack 1, Hack 1
+c_sawmill_ext | 33610 |  # Boat Hack: Go to hack 2, Hack 2
+c_sawmill_ext | 33624 |  # Boat Hack: Go to hack 3, Hack 3
+c_sawmill_ext | 33645 |  # Thermal Ride: start, Paraglide
+c_sawmill_ext | 33662 |  # Thermal Ride: Egg
+c_sawmill_ext | 33664 |  # OP: Canada Games: start
+c_sawmill_ext | 33676 |  # OP: Canada Games: Cut the log
+c_sawmill_ext | 33679 |  # OP: Canada Games: Carry the egg
+c_sawmill_ext | 33692 |  # OP: Canada Games: Climb the wall
+c_sawmill_ext | 33694 |  # OP: Canada Games: Shoot the hooks
+c_sawmill_ext | 33733 |  # OP: Canada Games: Balance on the logs
+c_sawmill_ext | 33740 |  # OP: Canada Games: Lure the ducks
+
+# ==== Mulch ====
+c_sawmill_mulch | 392 |  # Mulch map start; RC Combat Club: Barrel, Moose head
+c_sawmill_mulch | 33489 |  # RC Combat Club: RC fight
+
+# ==== Burn ====
+c_sawmill_burn | 393 |  # Burn map start; Laser Redirection: start
+
+# ==== Lighthouse ====
+c_sawmill_lighthouse | 393 |  # Lighthouse Break In: Climb the lighthouse
+c_sawmill_lighthouse | 33235 |  # Lighthouse Break In: Reach the door
+c_sawmill_lighthouse | 33430 |  # Recon the Sawmill: Photos
+c_sawmill_lighthouse | 33551 |  # Lighthouse map start
+
+# ==== Bearcave ====
+c_sawmill_bearcave | 33438 |  # Bearcave map start; Bearcave Bugging: Cave
+
+# ==== Bison's Saw ====
+c_sawmill_boss | 393 |  # Bison's Saw map start; OP: Canada Games: Enter the saw, Bison fight
+
+# ==== Blimp Hub ====
+a_blimp_ext | 393 |  # Episode 8 run file
+a_blimp_ext | 17366 |  # Blimp HQ Recon: start, Enter the blimp
+a_blimp_ext | 17401 |  # Charged TNT Run: start, Enter TNT
+a_blimp_ext | 17402 |  # Charged TNT Run: Checkpoint 1
+a_blimp_ext | 17404 |  # Charged TNT Run: Checkpoint 2
+a_blimp_ext | 17407 |  # Charged TNT Run: Checkpoint 3
+a_blimp_ext | 17420 |  # Murray/Sly Tag Team: start, Alarm 1
+a_blimp_ext | 17423 |  # Murray/Sly Tag Team: Alarm 4
+a_blimp_ext | 17426 |  # Murray/Sly Tag Team: Alarm 5
+a_blimp_ext | 17429 |  # Murray/Sly Tag Team: Alarm 2
+a_blimp_ext | 17432 |  # Murray/Sly Tag Team: Alarm 3
+a_blimp_ext | 17435 |  # Murray/Sly Tag Team: Reach the engine
+a_blimp_ext | 17436 |  # Murray/Sly Tag Team: Lift the door
+a_blimp_ext | 17451 |  # Blimp Hub map start; Sly/Bentley Conspire: start, Keys, Enter the engine
+a_blimp_ext | 17466 |  # Bentley/Murray Team Up: start, Go to hack 1
+a_blimp_ext | 17470 |  # Bentley/Murray Team Up: Hack 1, Go to hack 2
+a_blimp_ext | 17473 |  # Bentley/Murray Team Up: Hack 2, Go to hack 3
+a_blimp_ext | 17485 |  # Mega-Jump Job: start, Climb; Showdown with Clock-La: start, Clock-La fight
+a_blimp_ext | 19472 |  # Bentley/Murray Team Up: Hack 3
+
+# ==== Arpeggio's Blimp ====
+a_blimp_int | 17372 |  # Arpeggio's Blimp map start; Blimp HQ Recon: Photos
+a_blimp_int | 17384 |  # Blimp HQ Recon: Keys, Magnets
+
+# ==== Engine 1 ====
+a_blimp_engine_room_murray | 393 |  # Engine 1 map start; Bentley/Murray Team Up: First floor
+a_blimp_engine_room_murray | 17446 |  # Bentley/Murray Team Up: Second floor
+
+# ==== Engine 2 ====
+a_blimp_engine_room_bentley | 393 |  # Engine 2 map start; Sly/Bentley Conspire: First floor
+a_blimp_engine_room_bentley | 17466 |  # Sly/Bentley Conspire: Second floor
+
+# ==== Engine 3 ====
+a_blimp_engine_room_jt | 393 |  # Engine 3 map start; Murray/Sly Tag Team: First floor
+a_blimp_engine_room_jt | 17446 |  # Murray/Sly Tag Team: Second floor
+
+# ==== Clock-La ====
+a_blimp_boss_final | 393 |  # Showdown with Clock-La: Paraglide
+a_blimp_boss_final | 11233 |  # Clock-La map start; Showdown with Clock-La: Get the hate chip
+a_blimp_boss_final | 13307 |  # Showdown with Clock-La: Hit the head

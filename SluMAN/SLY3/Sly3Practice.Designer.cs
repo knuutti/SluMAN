@@ -41,6 +41,7 @@
             this.powerOffPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.rebootPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mapComboBox = new System.Windows.Forms.ComboBox();
+            this.spawnComboBox = new System.Windows.Forms.ComboBox();
             this.loadMapButton = new System.Windows.Forms.Button();
             this.toggleGroupBox = new System.Windows.Forms.GroupBox();
             this.gameClockCheckBox = new System.Windows.Forms.CheckBox();
@@ -171,18 +172,27 @@
             // 
             // mapComboBox
             // 
+            this.mapComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.mapComboBox.FormattingEnabled = true;
-            this.mapComboBox.Location = new System.Drawing.Point(15, 25);
+            this.mapComboBox.Location = new System.Drawing.Point(10, 20);
             this.mapComboBox.Name = "mapComboBox";
-            this.mapComboBox.Size = new System.Drawing.Size(282, 21);
+            this.mapComboBox.Size = new System.Drawing.Size(292, 21);
             this.mapComboBox.TabIndex = 8;
-            this.mapComboBox.Text = "Select a map...";
+            //
+            // spawnComboBox
+            //
+            this.spawnComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.spawnComboBox.FormattingEnabled = true;
+            this.spawnComboBox.Location = new System.Drawing.Point(10, 49);
+            this.spawnComboBox.Name = "spawnComboBox";
+            this.spawnComboBox.Size = new System.Drawing.Size(193, 21);
+            this.spawnComboBox.TabIndex = 9;
             // 
             // loadMapButton
             // 
-            this.loadMapButton.Location = new System.Drawing.Point(15, 51);
+            this.loadMapButton.Location = new System.Drawing.Point(208, 48);
             this.loadMapButton.Name = "loadMapButton";
-            this.loadMapButton.Size = new System.Drawing.Size(85, 24);
+            this.loadMapButton.Size = new System.Drawing.Size(94, 23);
             this.loadMapButton.TabIndex = 9;
             this.loadMapButton.Text = "Load Map";
             this.loadMapButton.UseVisualStyleBackColor = true;
@@ -772,15 +782,16 @@
             // groupBox2
             // 
             this.groupBox2.Controls.Add(this.mapComboBox);
+            this.groupBox2.Controls.Add(this.spawnComboBox);
             this.groupBox2.Controls.Add(this.loadMapButton);
             this.groupBox2.Location = new System.Drawing.Point(12, 32);
             this.groupBox2.Margin = new System.Windows.Forms.Padding(2);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox2.Size = new System.Drawing.Size(312, 84);
+            this.groupBox2.Size = new System.Drawing.Size(312, 80);
             this.groupBox2.TabIndex = 25;
             this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "Locations";
+            this.groupBox2.Text = "Map";
             // 
             // jobGroupBox
             // 
@@ -838,6 +849,7 @@
         private System.Windows.Forms.ToolStripMenuItem inputDisplayToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
         private System.Windows.Forms.ComboBox mapComboBox;
+        private System.Windows.Forms.ComboBox spawnComboBox;
         private System.Windows.Forms.Button loadMapButton;
         private System.Windows.Forms.GroupBox toggleGroupBox;
         private System.Windows.Forms.CheckBox alwaysOnTopCheckBox;

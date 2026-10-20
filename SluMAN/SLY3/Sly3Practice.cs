@@ -40,6 +40,7 @@ namespace SluMAN
 
         private StatusLine statusLine;
         private JobPicker jobPicker;
+        private MapPicker mapPicker;
         private GameSession session;
 
         public Sly3Practice(sly3 game)
@@ -51,8 +52,9 @@ namespace SluMAN
             statusLine = new StatusLine(this, true);
             func.BindEnter(healthTextBox, setHealthButton);
 
-            mapComboBox.Items.AddRange(game.GetMapNames());
-            mapComboBox.SelectedIndex = 0;
+            mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
+                game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
+                new SpawnPoints("data/s3_spawn_points.txt"));
 
             gameNameId = sly3.addr.GameId;
 
@@ -446,7 +448,7 @@ namespace SluMAN
 
         private void loadMapButton_Click(object sender, EventArgs e)
         {
-            game.LoadMap(mapComboBox.SelectedIndex);
+            game.LoadMap(mapComboBox.SelectedIndex, mapPicker.SelectedSpawn);
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)

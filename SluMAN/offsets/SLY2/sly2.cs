@@ -155,6 +155,17 @@ namespace SluMAN
                 func.Status("Select a map to load first.", true);
                 return;
             }
+            LoadMap(mapIndex, maps[mapIndex].defaultWarp);
+        }
+
+        /// <summary>Loads a map at one of its spawn points (see data/s2_spawn_points.txt).</summary>
+        public void LoadMap(int mapIndex, uint spawnLocation)
+        {
+            if (mapIndex < 0 || mapIndex >= maps.Length)
+            {
+                func.Status("Select a map to load first.", true);
+                return;
+            }
 
             MapData selectedMap = maps[mapIndex];
 
@@ -166,7 +177,7 @@ namespace SluMAN
                 byte[] indicatorBytes = System.Text.Encoding.ASCII.GetBytes(selectedMap.indicator);
                 api.WriteMemory(pid, sly2.addr.mapAOB, indicatorBytes);
 
-                api.WriteMemory(pid, sly2.addr.spawnLocation, selectedMap.defaultWarp);
+                api.WriteMemory(pid, sly2.addr.spawnLocation, spawnLocation);
 
                 api.WriteMemory(pid, sly2.addr.loadTrigger, (uint)Sly2Addresses.LoadTypes.Normal);
             }
