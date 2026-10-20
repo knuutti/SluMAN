@@ -502,6 +502,27 @@ namespace SluMAN
             api.WriteMemory(pid, sly3.addr.loadTrigger, (uint)1);
         }
 
+        /// <summary>The game's language index (see <see cref="GameLanguages"/>), or -1 if it can't be read.</summary>
+        public int GetLanguage()
+        {
+            try
+            {
+                byte[] bytes = api.ReadMemory(pid, sly3.addr.language, 4);
+                return BitConverter.ToInt32(bytes.Reverse().ToArray(), 0);
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>Sets the language and reloads, which loads the game's text and voices in it.</summary>
+        public void SetLanguage(int language)
+        {
+            api.WriteMemory(pid, sly3.addr.language, ConvertIntToBytes(language));
+            TriggerGameLoad((uint)Sly3Addresses.LoadTypes.Job);
+        }
+
         public (uint startAddress, uint size) GetMemoryRegionForEpisode(string episode)
         {
             switch (episode)

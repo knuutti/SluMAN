@@ -123,7 +123,6 @@ namespace SluMAN
             string mapName = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MapName");
             string spawnLocationStr = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_SpawnLocation");
             string memoryDataHex = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MemoryData");
-            string memoryAddressStr = func.GetConfigData("data/s2_run_file_config.txt", episodeKey + "_MemoryAddress");
 
             if (string.IsNullOrEmpty(mapName) && string.IsNullOrEmpty(memoryDataHex))
             {
@@ -151,23 +150,9 @@ namespace SluMAN
                 }
             }
 
-            if (!string.IsNullOrEmpty(memoryAddressStr))
-            {
-                try
-                {
-                    runFileData.MemoryStartAddress = Convert.ToUInt32(memoryAddressStr, 16);
-                }
-                catch
-                {
-                    var (startAddress, size) = game.GetMemoryRegionForEpisode(episodeKey);
-                    runFileData.MemoryStartAddress = startAddress;
-                }
-            }
-            else
-            {
-                var (startAddress, size) = game.GetMemoryRegionForEpisode(episodeKey);
-                runFileData.MemoryStartAddress = startAddress;
-            }
+            // The episode's save data moves between game versions, so it comes from the addresses.
+            var (startAddress, size) = game.GetMemoryRegionForEpisode(episodeKey);
+            runFileData.MemoryStartAddress = startAddress;
 
             return runFileData;
         }

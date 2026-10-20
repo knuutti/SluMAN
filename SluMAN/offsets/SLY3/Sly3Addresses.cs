@@ -23,6 +23,7 @@ namespace SluMAN
 
         // Pointers
         public uint coinCount { get; private set; }
+        public uint language { get; private set; } // 0 on versions with one language
         public uint slyCharacterPtr { get; private set; }
         public uint activeCharacterPtr { get; private set; }
         public uint playerEntityPointer { get; private set; }
@@ -129,6 +130,7 @@ namespace SluMAN
                 analogOffsetRight = 0x5EC61C,
 
                 coinCount = 0x6CC808,
+                language = 0x7E28F0, // From SluMAN-EXT (utility.lua)
                 slyCharacterPtr = 0x5ED940,
                 activeCharacterPtr = 0x5EC654,
                 playerEntityPointer = 0x5EC654,

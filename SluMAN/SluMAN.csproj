@@ -127,6 +127,7 @@
       <DependentUpon>DiagnosticsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="GameReconnect.cs" />
+    <Compile Include="GameLanguages.cs" />
     <Compile Include="GameSession.cs" />
     <Compile Include="FirewallHelper.cs" />
     <Compile Include="FunctionEditorForm.cs">

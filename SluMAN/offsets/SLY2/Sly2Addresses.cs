@@ -38,7 +38,7 @@ namespace SluMAN
 
         // Utility
         public uint coinCount { get; private set; }
-        public uint language { get; private set; } = 0;
+        public uint language { get; private set; } // 0 on versions with one language
         public uint currentCharacter { get; private set; }
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
@@ -65,6 +65,10 @@ namespace SluMAN
         public uint gadgetBindsSly { get; private set; }
         public uint gadgetBindsBentley { get; private set; }
         public uint gadgetBindsMurray { get; private set; }
+
+        // Start of each episode's save data, indexed by episode (0 = prologue). Job loading and
+        // run files write their saved bytes here.
+        public uint[] episodeData { get; private set; }
 
         // Values for autosplitter
         public uint parisStarted { get; private set; }
@@ -181,6 +185,12 @@ namespace SluMAN
                 parisCinemaState = 0x7A9AC0,
                 rajanHealth = 0x35C2AE2C,
 
+                episodeData = new uint[]
+                {
+                    0x7A9590, 0x7A96D8, 0x7A9E8C, 0x7AA5CC, 0x7AAC34,
+                    0x7AB4CC, 0x7ABCC4, 0x7AC264, 0x7ACBEC,
+                },
+
                 // From SluMAN-EXT (utility.lua)
                 healthSly = 0x7A8360,
                 healthBentley = 0x7A8378,
@@ -213,6 +223,12 @@ namespace SluMAN
             palDigital.mapAOB = 0x7B4BD8;
             palDigital.spawnLocation = 0x7B4C68;
             palDigital.loadType = 0x7B4BD4;
+            palDigital.episodeData = new uint[]
+            {
+                // Unverified: the Korean addresses - 0x80, like the rest of the save data.
+                0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
+                0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB6C,
+            };
 
             // Unverified, estimated addresses. Test before release.
             palDigital.loadingState = 0x7A7180;
