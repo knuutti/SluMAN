@@ -64,7 +64,7 @@ namespace SluMAN
             // Only the PAL versions have more than one language.
             if (sly3.addr.language != 0)
             {
-                GameLanguages.AddMenu(menuToolStripMenuItem, statusLine, game.GetLanguage, game.SetLanguage);
+                GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly3, statusLine, game.GetLanguage, game.SetLanguage);
             }
 
             session = new GameSession(this, game, gameNameId, "Sly 3", false);

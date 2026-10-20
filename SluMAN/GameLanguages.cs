@@ -11,8 +11,25 @@ namespace SluMAN
     /// </summary>
     public static class GameLanguages
     {
-        // The indexes Sly 3 uses (from SluMAN-EXT). Sly 2 is assumed to use the same ones.
-        private static readonly KeyValuePair<int, string>[] languages = new KeyValuePair<int, string>[]
+        // Sly 2 (PAL) language indexes.
+        public static readonly KeyValuePair<int, string>[] Sly2 = new KeyValuePair<int, string>[]
+        {
+            new KeyValuePair<int, string>(0, "English"),
+            new KeyValuePair<int, string>(1, "French"),
+            new KeyValuePair<int, string>(2, "Italian"),
+            new KeyValuePair<int, string>(3, "German"),
+            new KeyValuePair<int, string>(4, "Spanish"),
+            new KeyValuePair<int, string>(5, "Dutch"),
+            new KeyValuePair<int, string>(6, "Portuguese"),
+            new KeyValuePair<int, string>(7, "Danish"),
+            new KeyValuePair<int, string>(8, "Finnish"),
+            new KeyValuePair<int, string>(9, "Norwegian"),
+            new KeyValuePair<int, string>(10, "Swedish"),
+        };
+
+        // Sly 3 (PAL) language indexes, from SluMAN-EXT. They start at 1, and Portuguese, Finnish
+        // and the others are in a different order than on Sly 2.
+        public static readonly KeyValuePair<int, string>[] Sly3 = new KeyValuePair<int, string>[]
         {
             new KeyValuePair<int, string>(1, "English"),
             new KeyValuePair<int, string>(2, "French"),
@@ -28,10 +45,10 @@ namespace SluMAN
         };
 
         /// <summary>
-        /// Adds a Language submenu to the given menu. Opening it ticks the game's current language;
-        /// picking one calls setLanguage, which writes it and reloads.
+        /// Adds a Language submenu with the game's languages to the given menu. Opening it ticks
+        /// the game's current language; picking one calls setLanguage, which writes it and reloads.
         /// </summary>
-        public static void AddMenu(ToolStripMenuItem menu, StatusLine statusLine, Func<int> getLanguage, Action<int> setLanguage)
+        public static void AddMenu(ToolStripMenuItem menu, KeyValuePair<int, string>[] languages, StatusLine statusLine, Func<int> getLanguage, Action<int> setLanguage)
         {
             ToolStripMenuItem languageMenu = new ToolStripMenuItem("Language");
 

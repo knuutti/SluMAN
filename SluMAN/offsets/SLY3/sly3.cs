@@ -502,7 +502,7 @@ namespace SluMAN
             api.WriteMemory(pid, sly3.addr.loadTrigger, (uint)1);
         }
 
-        /// <summary>The game's language index (see <see cref="GameLanguages"/>), or -1 if it can't be read.</summary>
+        /// <summary>The game's language index (see <see cref="GameLanguages.Sly3"/>), or -1 if it can't be read.</summary>
         public int GetLanguage()
         {
             try
