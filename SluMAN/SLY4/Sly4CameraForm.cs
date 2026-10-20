@@ -30,6 +30,8 @@ namespace SluMAN
         private readonly CheckBox characterControlCheckBox = new CheckBox();
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
+        private readonly NumericUpDown farUpDown = new NumericUpDown();
+        private bool updatingFar;
         // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
         private readonly Timer fovTimer = new Timer();
         // Set while the box is updated from the camera, so that isn't taken as an edit.
@@ -99,7 +101,14 @@ namespace SluMAN
             };
 
             fovTimer.Interval = 100;
-            fovTimer.Tick += (sender, e) => ShowFov();
+            fovTimer.Tick += (sender, e) =>
+            {
+                ShowFov();
+                if (freeMove.Current == Sly4FreeMove.Mode.FreeCamera)
+                {
+                    ShowFar();
+                }
+            };
             fovTimer.Start();
             FormClosing += (sender, e) => fovTimer.Stop();
             FormClosed += (sender, e) => fovTimer.Dispose();
@@ -307,7 +316,7 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Keyframes";
             group.Location = location;
-            group.Size = new Size(352, 372);
+            group.Size = new Size(352, 352);
             Controls.Add(group);
 
             keyframeListView.View = View.Details;
@@ -316,7 +325,7 @@ namespace SluMAN
             keyframeListView.HideSelection = false;
             keyframeListView.MultiSelect = false;
             keyframeListView.Location = new Point(10, 20);
-            keyframeListView.Size = new Size(332, 196);
+            keyframeListView.Size = new Size(332, 176);
             keyframeListView.Columns.Add("#", 24);
             keyframeListView.Columns.Add("Position", 122);
             keyframeListView.Columns.Add("Yaw", 36);
@@ -329,24 +338,24 @@ namespace SluMAN
             keyframeListView.KeyDown += keyframeListView_KeyDown;
             group.Controls.Add(keyframeListView);
 
-            AddButton(group, "Add View", 10, 222, 100, (sender, e) => AddView());
-            AddButton(group, "Update", 114, 222, 72, (sender, e) => UpdateSelected());
-            AddButton(group, "Delete", 190, 222, 72, (sender, e) => DeleteSelected());
-            AddButton(group, "Go To", 266, 222, 76, (sender, e) => GoToSelected());
-            AddButton(group, "Move Up", 10, 251, 100, (sender, e) => MoveSelected(-1));
-            AddButton(group, "Move Down", 114, 251, 100, (sender, e) => MoveSelected(1));
+            AddButton(group, "Add View", 10, 202, 100, (sender, e) => AddView());
+            AddButton(group, "Update", 114, 202, 72, (sender, e) => UpdateSelected());
+            AddButton(group, "Delete", 190, 202, 72, (sender, e) => DeleteSelected());
+            AddButton(group, "Go To", 266, 202, 76, (sender, e) => GoToSelected());
+            AddButton(group, "Move Up", 10, 231, 100, (sender, e) => MoveSelected(-1));
+            AddButton(group, "Move Down", 114, 231, 100, (sender, e) => MoveSelected(1));
 
             Label durationLabel = new Label();
             durationLabel.Text = "Time to next keyframe (s):";
             durationLabel.AutoSize = true;
-            durationLabel.Location = new Point(8, 289);
+            durationLabel.Location = new Point(8, 269);
             group.Controls.Add(durationLabel);
 
             durationUpDown.DecimalPlaces = 2;
             durationUpDown.Increment = 0.5m;
             durationUpDown.Minimum = 0;
             durationUpDown.Maximum = 600;
-            durationUpDown.Location = new Point(150, 286);
+            durationUpDown.Location = new Point(150, 266);
             durationUpDown.Size = new Size(64, 20);
             durationUpDown.ValueChanged += (sender, e) => EditSelected();
             group.Controls.Add(durationUpDown);
@@ -354,12 +363,12 @@ namespace SluMAN
             Label easingLabel = new Label();
             easingLabel.Text = "Easing:";
             easingLabel.AutoSize = true;
-            easingLabel.Location = new Point(222, 289);
+            easingLabel.Location = new Point(222, 269);
             group.Controls.Add(easingLabel);
 
             easingComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             easingComboBox.Items.AddRange(new object[] { "Linear", "Ease in/out", "Hold" });
-            easingComboBox.Location = new Point(266, 286);
+            easingComboBox.Location = new Point(266, 266);
             easingComboBox.Size = new Size(76, 21);
             easingComboBox.SelectedIndexChanged += (sender, e) => EditSelected();
             group.Controls.Add(easingComboBox);
@@ -368,7 +377,7 @@ namespace SluMAN
             help.Text = "Fly the free camera to a view and press Add View (or R3) to add\n" +
                 "it after the selected keyframe. Double-click a keyframe to go\n" +
                 "to it. Hold stays on a keyframe for its time, then cuts.";
-            help.Location = new Point(8, 316);
+            help.Location = new Point(8, 296);
             help.Size = new Size(336, 46);
             group.Controls.Add(help);
 
@@ -381,7 +390,7 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Camera";
             group.Location = location;
-            group.Size = new Size(352, 104);
+            group.Size = new Size(352, 130);
             Controls.Add(group);
 
             string[] labels = { "X", "Y", "Z", "Yaw", "Pitch", "FOV" };
@@ -410,8 +419,39 @@ namespace SluMAN
                 func.BindEnter(box, setButton);
             }
 
+            Label farLabel = new Label();
+            farLabel.Text = "Far distance:";
+            farLabel.AutoSize = true;
+            farLabel.Location = new Point(8, 106);
+            group.Controls.Add(farLabel);
+
+            farUpDown.Minimum = 1;
+            farUpDown.Maximum = 100000000;
+            farUpDown.Increment = 1000;
+            farUpDown.ThousandsSeparator = true;
+            farUpDown.Location = new Point(84, 103);
+            farUpDown.Size = new Size(100, 20);
+            farUpDown.ValueChanged += (sender, e) =>
+            {
+                if (!updatingFar)
+                {
+                    freeMove.FarDistance = (float)farUpDown.Value;
+                }
+            };
+            group.Controls.Add(farUpDown);
+
+            Button gameFarButton = new Button();
+            SetButton(gameFarButton, "Game's", 190, 101, 64, (sender, e) =>
+            {
+                freeMove.FarDistance = 0;
+                ShowFar();
+            });
+            group.Controls.Add(gameFarButton);
+
             ToolTip tip = new ToolTip();
             tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees.");
+            tip.SetToolTip(farUpDown, "How far the free camera draws. Distance fog may follow it.");
+            tip.SetToolTip(gameFarButton, "Back to the game's own far distance.");
             FormClosed += (sender, e) => tip.Dispose();
             return group;
         }
@@ -521,6 +561,27 @@ namespace SluMAN
             {
                 hideHudCheckBox.Checked = !hidden;
                 statusLine.Error($"Couldn't {(hidden ? "hide" : "show")} the HUD: {ex.Message}");
+            }
+        }
+
+        /// <summary>Shows the far distance in use: the one set, or the game's.</summary>
+        private void ShowFar()
+        {
+            if (farUpDown.Focused)
+            {
+                return;
+            }
+            float far = freeMove.FarDistance > 0 ? freeMove.FarDistance : freeMove.GameFar;
+            if (far <= 0)
+            {
+                return;
+            }
+            decimal value = Math.Max(farUpDown.Minimum, Math.Min(farUpDown.Maximum, (decimal)Math.Round(far)));
+            if (farUpDown.Value != value)
+            {
+                updatingFar = true;
+                farUpDown.Value = value;
+                updatingFar = false;
             }
         }
 

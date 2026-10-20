@@ -595,7 +595,7 @@ namespace SluMAN
         /// in and rebuilds the render matrices from them. That's after the game's camera has
         /// written the view, so it can't overwrite them, and before anything is drawn.
         /// </summary>
-        public void StartViewOverride(uint view, byte[] matrices, float fov)
+        public void StartViewOverride(uint view, byte[] matrices, float fov, float far)
         {
             uint call = addr.viewUpdateCopyCall;
             uint original = Branch(call, addr.viewCopyFunction, true);
@@ -610,7 +610,7 @@ namespace SluMAN
             byte[] header = new byte[0x10];
             Array.Copy(BitConverter.GetBytes(view).Reverse().ToArray(), 0, header, 4, 4);
             api.WriteMemory(pid, addr.viewOverrideData, header);
-            SetViewOverride(matrices, fov);
+            SetViewOverride(matrices, fov, far);
 
             byte[] stub = ViewOverrideStub();
             api.WriteMemory(pid, addr.viewOverrideStub, stub);
@@ -627,12 +627,19 @@ namespace SluMAN
         /// game's) the main view is drawn with, from the next frame. One write, so a frame never
         /// mixes old and new.
         /// </summary>
-        public void SetViewOverride(byte[] matrices, float fov)
+        public void SetViewOverride(byte[] matrices, float fov, float far)
         {
-            byte[] data = new byte[0x84];
+            byte[] data = new byte[0x88];
             Array.Copy(matrices, 0, data, 0, 0x80);
             Array.Copy(ConvertFloatToBytes(fov), 0, data, 0x80, 4);
+            Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
+        }
+
+        /// <summary>A view's far clipping distance.</summary>
+        public float ReadViewFar(uint view)
+        {
+            return ToFloat(api.ReadMemory(pid, view + addr.viewFarOffset, 4), 0);
         }
 
         /// <summary>A view's vertical field of view, in radians.</summary>
@@ -655,7 +662,8 @@ namespace SluMAN
         /// <summary>
         /// The view override's stub, called instead of the view copy with the view in r3. Data:
         /// +0x0 on, +0x4 the main view, +0x10 its view matrix then its camera matrix (0x80 bytes,
-        /// the view's +0x2F0 to +0x36F), +0x90 its field of view (0 keeps the game's).
+        /// the view's +0x2F0 to +0x36F), +0x90 its field of view and +0x94 its far distance (0
+        /// keeps the game's).
         /// </summary>
         private byte[] ViewOverrideStub()
         {
@@ -674,10 +682,10 @@ namespace SluMAN
                 0x396B0000 | low,       //  5 addi r11, r11, data@l
                 0x818B0000,             //  6 lwz r12, 0(r11)
                 0x2C0C0000,             //  7 cmpwi r12, 0
-                0x41820044,             //  8 beq +0x44 (to 25: off)
+                0x41820054,             //  8 beq +0x54 (to 29: off)
                 0x818B0004,             //  9 lwz r12, 4(r11)
                 0x7C036000,             // 10 cmpw r3, r12
-                0x40820038,             // 11 bne +0x38 (to 25: another view)
+                0x40820048,             // 11 bne +0x48 (to 29: another view)
                 0x38C00020,             // 12 li r6, 32 (words)
                 0x7CC903A6,             // 13 mtctr r6
                 0x38A302EC,             // 14 addi r5, r3, view matrix - 4
@@ -689,13 +697,17 @@ namespace SluMAN
                 0x2C070000,             // 20 cmpwi r7, 0
                 0x41820008,             // 21 beq +8 (0: keep the game's)
                 0x90E30000 | addr.viewFovOffset, // 22 stw r7, fov(r3)
-                0x38800001,             // 23 li r4, 1 (rebuild even if not marked)
-                Branch(stub + 24 * 4, addr.calcRenderMatricesFunction, true),
-                0xE8610070,             // 25 ld r3, 0x70(r1)
-                0xE8010090,             // 26 ld r0, 0x90(r1)
-                0x7C0803A6,             // 27 mtlr r0
-                0x38210080,             // 28 addi r1, r1, 0x80
-                Branch(stub + 29 * 4, addr.viewCopyFunction, false),
+                0x80EB0094,             // 23 lwz r7, 0x94(r11) (far distance)
+                0x2C070000,             // 24 cmpwi r7, 0
+                0x41820008,             // 25 beq +8 (0: keep the game's)
+                0x90E30000 | addr.viewFarOffset, // 26 stw r7, far(r3)
+                0x38800001,             // 27 li r4, 1 (rebuild even if not marked)
+                Branch(stub + 28 * 4, addr.calcRenderMatricesFunction, true),
+                0xE8610070,             // 29 ld r3, 0x70(r1)
+                0xE8010090,             // 30 ld r0, 0x90(r1)
+                0x7C0803A6,             // 31 mtlr r0
+                0x38210080,             // 32 addi r1, r1, 0x80
+                Branch(stub + 33 * 4, addr.viewCopyFunction, false),
             };
             byte[] code = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)

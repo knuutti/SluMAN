@@ -83,6 +83,8 @@ namespace SluMAN
         // The view's vertical field of view in radians; CalcRenderMatrices builds the projection
         // from it (with tan(fov / 2)), the aspect ratio at +0x70 and near / far at +0x3C / +0x40
         public uint viewFovOffset { get; private set; }
+        // The view's far clipping distance (near is just before it, at +0x3C)
+        public uint viewFarOffset { get; private set; }
 
         // View override (free camera): each frame the game rebuilds each view's render matrices
         // and then copies the view for drawing; that copy call is pointed at a stub (after the
@@ -244,6 +246,7 @@ namespace SluMAN
                 viewCameraMatrixOffset = 0x330,
                 viewMatrixOffset = 0x2F0,
                 viewFovOffset = 0x38,
+                viewFarOffset = 0x40,
                 viewUpdateCopyCall = 0x512078,
                 viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,

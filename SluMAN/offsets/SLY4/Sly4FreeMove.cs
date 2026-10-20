@@ -58,6 +58,9 @@ namespace SluMAN
         // Vertical field of view in radians, and the game's own when the free camera started.
         private float fov;
         private float gameFov = DefaultFov;
+        // Far clipping distance; 0 keeps the game's. And the game's when the camera started.
+        private float farDistance;
+        private float gameFar;
         private float forwardSign;
         // The forward direction last worked out from the player, for when there's none (0: not yet).
         private static float learnedForwardSign;
@@ -150,6 +153,44 @@ namespace SluMAN
                             playerPosition = null;
                         }
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The free camera's far clipping distance, or 0 for the game's own. Applies at once
+        /// while the camera is on, and stays set when it's turned off and on.
+        /// </summary>
+        public float FarDistance
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return farDistance;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    farDistance = Math.Max(0, value);
+                    if (mode == Mode.FreeCamera && playingPath == null)
+                    {
+                        WriteCamera();
+                    }
+                }
+            }
+        }
+
+        /// <summary>The game's far clipping distance when the free camera started.</summary>
+        public float GameFar
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return gameFar;
                 }
             }
         }
@@ -498,6 +539,7 @@ namespace SluMAN
             float viewFov = game.ReadViewFov(view);
             gameFov = viewFov >= MinFov && viewFov <= MaxFov ? viewFov : DefaultFov;
             fov = gameFov;
+            gameFar = game.ReadViewFar(view);
 
             // Which way along its Z axis the camera looks. A game camera following the player looks
             // at them, which tells it; with no player near (hideout, title screen, a character the
@@ -647,11 +689,11 @@ namespace SluMAN
             byte[] matrices = sly4.ViewMatrices(axes, cameraPosition, viewW, cameraW);
             if (start)
             {
-                game.StartViewOverride(view, matrices, fov);
+                game.StartViewOverride(view, matrices, fov, farDistance);
             }
             else
             {
-                game.SetViewOverride(matrices, fov);
+                game.SetViewOverride(matrices, fov, farDistance);
             }
         }
 
