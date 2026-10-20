@@ -112,18 +112,17 @@ namespace SluMAN
         public uint clockClampFreqMin { get; private set; }
         public uint cheatInvulnerable { get; private set; }
         public uint cheatUndetectable { get; private set; }
-        // Hide HUD. FindInstance finds a GUI screen by name ("InGame.HUD"); the screen's vtable
-        // entry at +hudShowVtableOffset points to the function descriptor (code, TOC) of a method
-        // that shows (1) or hides (0) it. The descriptor's TOC must be the game's (gameToc), which
-        // the code hook runs with. The game also shows InGame.HUD from a flag or forced on
-        // (around 0x46ACAC); Hide HUD makes both arguments li r4, 0 so that doesn't undo it.
-        // (Debug.NoHUD, at 0x10B7AF0, only applies outside gameplay and hides the menu cursors.)
-        public uint findInstanceFunction { get; private set; }
+        // Hide HUD: the UI.3D.FOV tunable's value (a float, 65 by default; the tunable is at
+        // 0x10B96C4). The HUD is drawn in 3D with this field of view, so at 0 it's off screen.
+        // (Debug.NoHUD only applies outside gameplay and hides the menu cursors; hiding the
+        // InGame.HUD screen doesn't hide the health bar or radar.)
+        public uint uiFov { get; private set; }
+
+        // A GUI node's vtable entry at +hudShowVtableOffset points to the function descriptor
+        // (code, TOC) of a method that shows (1) or hides (0) it. The descriptor's TOC must be the
+        // game's (gameToc), which the code hook runs with.
         public uint hudShowVtableOffset { get; private set; }
         public uint gameToc { get; private set; }
-        public uint hudScreenName { get; private set; }
-        public uint hudInGameHudFlagArgument { get; private set; }
-        public uint hudInGameHudForcedArgument { get; private set; }
 
         // The GUI tree (the GUI tab). *guiRootList is the first top-level node; each node has its
         // name's hash (sly4.Hash of one dotted part) at +guiNodeHashOffset, its parent, first
@@ -266,11 +265,9 @@ namespace SluMAN
                 clockClampFreqMin = 0x10B7A58,
                 cheatInvulnerable = 0x10388F0,
                 cheatUndetectable = 0xF9BC28,
-                findInstanceFunction = 0x4D5544,
+                uiFov = 0x10B970C,
                 hudShowVtableOffset = 88,
                 gameToc = 0xF50800,
-                // Unused end of the data segment, after the view override's data.
-                hudScreenName = 0x11F8B00,
 
                 guiRootList = 0xF66868,
                 guiNodeHashOffset = 0x80,
@@ -279,8 +276,6 @@ namespace SluMAN
                 guiNodeNextSiblingOffset = 0x9C,
                 guiNamesStart = 0xAB0000,
                 guiNamesEnd = 0xB70000,
-                hudInGameHudFlagArgument = 0x46ACCC,
-                hudInGameHudForcedArgument = 0x46AD00,
                 // Game.CutSceneEnable, 1 by default
                 cutSceneEnable = 0x10B8B48,
 

@@ -1204,48 +1204,53 @@ namespace SluMAN
             codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
         }
 
-        private const string HudScreen = "InGame.HUD";
-        private static readonly TimeSpan HudCallTimeout = TimeSpan.FromSeconds(3);
-        private const uint LiR4Zero = 0x38800000;
+        // UI.3D.FOV's default, put back if the value before hiding isn't known.
+        private const float DefaultUiFov = 65f;
+        private static readonly TimeSpan GuiCallTimeout = TimeSpan.FromSeconds(3);
+        private float uiFovBeforeHiding = DefaultUiFov;
 
         /// <summary>
-        /// Hides or shows the HUD screen (InGame.HUD): finds it with the game's FindInstance and
-        /// calls its show method (vtable +hudShowVtableOffset) with 0 or 1, through the code hook,
-        /// and patches the game's own code that shows it so that passes 0 too. Each call runs on a
-        /// game frame, so this waits a few frames. Needs RPCS3's Interpreter PPU decoder.
+        /// Hides or shows the HUD with the UI.3D.FOV tunable: the HUD is drawn in 3D with that
+        /// field of view, so at 0 it's off screen. Menus are drawn the same way, so they're hidden
+        /// too while it's on. Showing puts back the value it had.
         /// </summary>
-        /// <remarks>
-        /// Game vtables hold pointers to function descriptors, not the descriptors themselves (see
-        /// any virtual call: lwz entry; lwz code, 0(entry); lwz r2, 4(entry)).
-        /// </remarks>
         public void SetHudHidden(bool hidden)
         {
-            ThrowIfLoading();
-            uint[][] patches = HudPatches();
-            foreach (uint[] patch in patches)
+            float current = ToFloat(api.ReadMemory(pid, addr.uiFov, 4), 0);
+            if (hidden)
             {
-                uint current = ReadUInt(patch[0]);
-                if (current != patch[1] && current != patch[2])
+                if (current != 0)
                 {
-                    throw new InvalidOperationException("The game's HUD code isn't what SluMAN expects, so it wasn't changed.");
+                    uiFovBeforeHiding = current;
                 }
+                api.WriteMemory(pid, addr.uiFov, ConvertFloatToBytes(0f));
             }
-
-            byte[] name = new byte[16];
-            Encoding.ASCII.GetBytes(HudScreen, 0, HudScreen.Length, name, 0);
-            api.WriteMemory(pid, addr.hudScreenName, name);
-            uint screen = CallAndWait(addr.findInstanceFunction, addr.hudScreenName, 0);
-            if (screen == 0)
+            else if (current == 0)
             {
-                throw new InvalidOperationException($"The game has no {HudScreen} screen right now.");
+                api.WriteMemory(pid, addr.uiFov, ConvertFloatToBytes(uiFovBeforeHiding));
             }
-            uint code = GuiShowFunction(screen);
+        }
 
-            foreach (uint[] patch in patches)
+        public bool IsHudHidden()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.uiFov, 4), 0) == 0;
+        }
+
+        /// <summary>Runs a game function through the code hook and waits for what it returns.</summary>
+        private uint CallAndWait(uint function, params uint[] arguments)
+        {
+            codeHook.Call(function, arguments);
+            DateTime deadline = DateTime.Now + GuiCallTimeout;
+            while (codeHook.IsCallPending())
             {
-                api.WriteMemory(pid, patch[0], BitConverter.GetBytes(hidden ? patch[2] : patch[1]).Reverse().ToArray());
+                if (DateTime.Now > deadline)
+                {
+                    codeHook.CancelCall();
+                    throw new InvalidOperationException("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
+                }
+                System.Threading.Thread.Sleep(5);
             }
-            CallAndWait(code, screen, hidden ? 0u : 1u);
+            return codeHook.ReturnValue();
         }
 
         /// <summary>
@@ -1370,38 +1375,6 @@ namespace SluMAN
             return api.ReadMemory(pid, node, length);
         }
 
-        public bool IsHudHidden()
-        {
-            return ReadUInt(addr.hudInGameHudForcedArgument) == LiR4Zero;
-        }
-
-        /// <summary>Hide HUD's patches: address, original instruction, patched instruction.</summary>
-        private static uint[][] HudPatches()
-        {
-            return new uint[][]
-            {
-                new uint[] { addr.hudInGameHudFlagArgument, 0x63C40000, LiR4Zero },     // mr r4, r30 -> li r4, 0
-                new uint[] { addr.hudInGameHudForcedArgument, 0x38800001, LiR4Zero },   // li r4, 1 -> li r4, 0
-            };
-        }
-
-        /// <summary>Runs a game function through the code hook and waits for what it returns.</summary>
-        private uint CallAndWait(uint function, params uint[] arguments)
-        {
-            codeHook.Call(function, arguments);
-            DateTime deadline = DateTime.Now + HudCallTimeout;
-            while (codeHook.IsCallPending())
-            {
-                if (DateTime.Now > deadline)
-                {
-                    codeHook.CancelCall();
-                    throw new InvalidOperationException("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
-                }
-                System.Threading.Thread.Sleep(5);
-            }
-            return codeHook.ReturnValue();
-        }
-
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>
         private void ThrowIfLoading()
         {
@@ -1424,11 +1397,6 @@ namespace SluMAN
         /// <summary>Puts the game's code back as it was. Call before disconnecting.</summary>
         public void RemoveCodeHook()
         {
-            // Before the hook goes: showing the HUD again calls the game through it.
-            if (IsHudHidden())
-            {
-                try { SetHudHidden(false); } catch { }
-            }
             codeHook.Uninstall();
             StopViewOverride();
         }
