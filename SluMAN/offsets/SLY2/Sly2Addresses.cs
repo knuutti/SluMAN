@@ -237,9 +237,10 @@ namespace SluMAN
             // addresses, so they're inherited.
             palDigital.episodeData = new uint[]
             {
-                // The Korean addresses - 0x80, like the rest of the save data. Job loading works with them.
+                // The Korean addresses - 0x80, like the rest of the save data, up to episode 7.
+                // Episode 8 is - 0x74, like blimpStarted: at - 0x80 its jobs load in the hideout.
                 0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
-                0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB6C,
+                0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB78,
             };
 
             palDigital.loadingState = 0x7A7180;
