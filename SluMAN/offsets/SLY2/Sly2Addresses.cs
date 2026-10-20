@@ -10,9 +10,7 @@ namespace SluMAN
     {
         public const string GameIdKorDigital = "NPHA80175";
         public const string GameIdNtscDigital = "NPUA80664";
-        public const string GameIdNtscDisc = "BCUS98246";
         public const string GameIdPalDigital = "NPEA00342";
-        public const string GameIdPalDisc = "BCES00968";
 
         public const string DefaultGameId = GameIdKorDigital;
 
@@ -202,8 +200,6 @@ namespace SluMAN
 
             Sly2Addresses ntscDigital = korDigital.CopyAs(GameIdNtscDigital, "SLY 2 (NTSC, PSN)");
             Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
-            Sly2Addresses ntscDisc = korDigital.CopyAs(GameIdNtscDisc, "SLY 2 (NTSC, Disc)");
-            Sly2Addresses palDisc = korDigital.CopyAs(GameIdPalDisc, "SLY 2 (PAL, Disc)");
 
             palDigital.coinCount = 0x7A8330;
             palDigital.currentCharacter = 0x7A828C;
@@ -262,8 +258,6 @@ namespace SluMAN
                 { korDigital.GameId, korDigital },
                 { ntscDigital.GameId, ntscDigital },
                 { palDigital.GameId, palDigital },
-                { ntscDisc.GameId, ntscDisc },
-                { palDisc.GameId, palDisc },
             };
         }
     }

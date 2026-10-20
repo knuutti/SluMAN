@@ -8,7 +8,7 @@ SluMAN also provides a Speedrun Mode, that provides the runners with an input di
 
 ## Supported games
 - Sly Cooper and the Thievius Raccoonus (NPUA80663)
-- Sly 2: Band of Thieves (NPHA80175; NPUA80664 untested)
+- Sly 2: Band of Thieves (NPHA80175, NPEA00342; NPUA80664 untested)
 - Sly 3: Honor Among Thieves (NPEA00343)
 - Sly Cooper: Thieves in Time (BCES01284; NPEA00429 untested)
 

@@ -22,6 +22,11 @@ namespace SluMAN
         // keeps bouncing back to the cutscene state.
         private const int MinSkipIntervalMs = 250;
 
+        // The game can enter the FMV state before the FMV plays and ignore a skip written then
+        // (PAL Sly 2 does). While the state stays at 0, the skip is written again this many
+        // times, MinSkipIntervalMs apart.
+        private const int FmvSkipRetries = 20;
+
         private readonly IPS3API api;
         private readonly int pid;
         private readonly uint fmvState;
@@ -108,6 +113,7 @@ namespace SluMAN
                         if (skipFmv && WaitForInterval(lastFmvSkip))
                         {
                             api.WriteMemory(pid, fmvState, FmvSkipValue);
+                            RetryFmvSkip();
                             lastFmvSkip = DateTime.Now;
                         }
                         if (skipDialogue && WaitForInterval(lastDialogueSkip))
@@ -157,6 +163,26 @@ namespace SluMAN
             lock (pendingLock)
             {
                 return !stopping;
+            }
+        }
+
+        /// <summary>
+        /// Writes the FMV skip again while the state stays in the FMV state, for a skip the game
+        /// ignored. The state only reports changes, so it's read here.
+        /// </summary>
+        private void RetryFmvSkip()
+        {
+            for (int attempt = 0; attempt < FmvSkipRetries; attempt++)
+            {
+                if (!WaitForInterval(DateTime.Now))
+                {
+                    return;
+                }
+                if (api.ReadMemory(pid, fmvState + 0x3, 1)[0] != 0)
+                {
+                    return;
+                }
+                api.WriteMemory(pid, fmvState, FmvSkipValue);
             }
         }
 
