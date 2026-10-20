@@ -221,7 +221,7 @@ namespace SluMAN
             palDigital.gameSpeed = 0x49DF14;
             palDigital.loadTrigger = 0x7B4BD0;
             palDigital.mapAOB = 0x7B4BD8;
-            palDigital.spawnLocation = 0x7B4C68;
+            palDigital.spawnLocation = 0x7B4C18;
             palDigital.loadType = 0x7B4BD4;
             palDigital.inputOffset = 0x500EF6;
             palDigital.analogOffsetLeft = 0x500E7C;
