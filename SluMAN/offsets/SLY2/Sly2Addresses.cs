@@ -223,6 +223,17 @@ namespace SluMAN
             palDigital.mapAOB = 0x7B4BD8;
             palDigital.spawnLocation = 0x7B4C68;
             palDigital.loadType = 0x7B4BD4;
+            palDigital.inputOffset = 0x500EF6;
+            palDigital.analogOffsetLeft = 0x500E7C;
+            palDigital.analogOffsetRight = 0x500EB0;
+            palDigital.activeCharacterPtr = 0x49E210;
+            palDigital.slyCharacterPtr = 0x502080;
+            palDigital.currentJobId = 0x4FEB74;
+            palDigital.currentCheckpointId = 0x4FEB78;
+            palDigital.pauseMenuState = 0x4FFE04;
+            palDigital.fmvState = 0x90667C;
+            // The dialogue state (1 during dialogue) and its frame counter are at the Korean
+            // addresses, so they're inherited.
             palDigital.episodeData = new uint[]
             {
                 // Unverified: the Korean addresses - 0x80, like the rest of the save data.
@@ -246,8 +257,6 @@ namespace SluMAN
             // palDigital.cameraFov = 0x49DFE8; // -0x6C, like gameSpeed
             palDigital.cameraParameter = 0x49DFFC; // -0x80
             // palDigital.cameraParameter = 0x49E010; // -0x6C, like gameSpeed
-            palDigital.activeCharacterPtr = 0x49E210; // -0x80
-            // palDigital.activeCharacterPtr = 0x49E224; // -0x6C, like gameSpeed
 
             return new Dictionary<string, Sly2Addresses>(StringComparer.OrdinalIgnoreCase)
             {
