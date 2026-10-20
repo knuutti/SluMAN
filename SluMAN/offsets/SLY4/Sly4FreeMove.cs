@@ -33,7 +33,8 @@ namespace SluMAN
         public const float MinFov = 0.1745f;
         public const float MaxFov = 2.618f;
         private const float DefaultFov = 0.9338f;
-        private const float MaxPitch = 1.5f;
+        // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
+        private const float MaxPitch = (float)(Math.PI / 2);
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
 
@@ -543,7 +544,7 @@ namespace SluMAN
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
 
             float[] forward = Forward();
-            float[] right = Scale(RightOf(forward), rightSign);
+            float[] right = Scale(RightOfYaw(), rightSign);
             float move = -Stick(Inputs.ly);
             float strafe = Stick(Inputs.lx);
             for (int axis = 0; axis < 3; axis++)
@@ -579,7 +580,7 @@ namespace SluMAN
         private void WriteCamera(bool start = false)
         {
             float[] forward = Forward();
-            float[] right = RightOf(forward);
+            float[] right = RightOfYaw();
             float[] up = Cross(forward, right);
             float[][] axes =
             {
@@ -633,6 +634,15 @@ namespace SluMAN
         }
 
         /// <summary>Horizontal, perpendicular to the facing (Y is up).</summary>
+        /// <summary>
+        /// Horizontal and perpendicular to the facing, from the yaw alone: the same as RightOf the
+        /// facing, but still defined when the camera looks straight up or down.
+        /// </summary>
+        private float[] RightOfYaw()
+        {
+            return new float[] { (float)Math.Cos(yaw), 0, (float)-Math.Sin(yaw) };
+        }
+
         private static float[] RightOf(float[] forward)
         {
             return Normalize(new float[] { forward[2], 0, -forward[0] });

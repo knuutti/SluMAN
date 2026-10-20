@@ -1205,17 +1205,45 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Hides or shows the HUD with the game's Debug.NoHUD tunable: every frame the game shows
-        /// its HUD screens unless it's set.
+        /// Hides or shows the HUD. Every frame the game shows its GUI screens from flags, so this
+        /// sets Debug.NoHUD (hides the InGame screen) and patches the code that shows the screens:
+        /// Common (the menu cursors) stays shown despite NoHUD, and InGame.HUD (health, radar) is
+        /// shown with 0. Patching code needs RPCS3's Interpreter PPU decoder.
         /// </summary>
         public void SetHudHidden(bool hidden)
         {
+            uint[][] patches = HudPatches();
+            foreach (uint[] patch in patches)
+            {
+                uint current = ReadUInt(patch[0]);
+                if (current != patch[1] && current != patch[2])
+                {
+                    throw new InvalidOperationException("The game's HUD code isn't what SluMAN expects, so it wasn't changed.");
+                }
+            }
+            foreach (uint[] patch in patches)
+            {
+                api.WriteMemory(pid, patch[0], BitConverter.GetBytes(hidden ? patch[2] : patch[1]).Reverse().ToArray());
+            }
             api.WriteMemory(pid, addr.debugNoHud, new byte[] { (byte)(hidden ? 1 : 0) });
         }
 
         public bool IsHudHidden()
         {
-            return ReadByte(addr.debugNoHud) != 0;
+            return ReadUInt(addr.hudInGameHudForcedArgument) == LiR4Zero;
+        }
+
+        private const uint LiR4Zero = 0x38800000;
+
+        /// <summary>Hide HUD's patches: address, original instruction, patched instruction.</summary>
+        private static uint[][] HudPatches()
+        {
+            return new uint[][]
+            {
+                new uint[] { addr.hudCommonNoHudLoad, 0x88BE0048, 0x38A00000 },          // lbz r5, 0x48(r30) -> li r5, 0
+                new uint[] { addr.hudInGameHudFlagArgument, 0x63C40000, LiR4Zero },     // mr r4, r30 -> li r4, 0
+                new uint[] { addr.hudInGameHudForcedArgument, 0x38800001, LiR4Zero },   // li r4, 1 -> li r4, 0
+            };
         }
 
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>
@@ -1242,6 +1270,10 @@ namespace SluMAN
         {
             codeHook.Uninstall();
             StopViewOverride();
+            if (IsHudHidden())
+            {
+                SetHudHidden(false);
+            }
         }
 
         public bool IsJobFailed()

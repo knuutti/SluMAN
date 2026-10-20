@@ -112,9 +112,15 @@ namespace SluMAN
         public uint clockClampFreqMin { get; private set; }
         public uint cheatInvulnerable { get; private set; }
         public uint cheatUndetectable { get; private set; }
-        // The Debug.NoHUD tunable's value (a byte; the tunable is at 0x10B7AA8). The game shows
-        // or hides the Common and InGame HUD screens from it every frame (around 0x493944)
+        // The Debug.NoHUD tunable's value (a byte; the tunable is at 0x10B7AA8). Every frame the
+        // game shows the Common and InGame GUI screens unless it's set (around 0x493944)
         public uint debugNoHud { get; private set; }
+        // Hide HUD's code patches. Common holds the menu cursors, so it's kept shown: the load of
+        // NoHUD for it becomes li r5, 0. InGame.HUD (health, radar) is shown every frame from a
+        // flag or forced on (0x46ACAC); both arguments become li r4, 0.
+        public uint hudCommonNoHudLoad { get; private set; }
+        public uint hudInGameHudFlagArgument { get; private set; }
+        public uint hudInGameHudForcedArgument { get; private set; }
         public uint cutSceneEnable { get; private set; }
 
         // Tunable registry: an array of pointers to every tunable struct, and its length
@@ -246,6 +252,9 @@ namespace SluMAN
                 cheatInvulnerable = 0x10388F0,
                 cheatUndetectable = 0xF9BC28,
                 debugNoHud = 0x10B7AF0,
+                hudCommonNoHudLoad = 0x493948,
+                hudInGameHudFlagArgument = 0x46ACCC,
+                hudInGameHudForcedArgument = 0x46AD00,
                 // Game.CutSceneEnable, 1 by default
                 cutSceneEnable = 0x10B8B48,
 
