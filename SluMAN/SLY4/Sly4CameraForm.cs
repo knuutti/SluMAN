@@ -132,7 +132,15 @@ namespace SluMAN
             hideHudCheckBox.Click += (sender, e) => SetHudHidden(hideHudCheckBox.Checked);
             group.Controls.Add(hideHudCheckBox);
             ToolTip hudTip = new ToolTip();
-            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD as the game does. A load may show it again; tick it again then.");
+            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD (the game's Debug.NoHUD tunable).");
+            try
+            {
+                hideHudCheckBox.Checked = game.IsHudHidden();
+            }
+            catch
+            {
+                // Left unticked; ticking it writes the value anyway.
+            }
             FormClosed += (sender, e) => hudTip.Dispose();
 
             Label moveLabel = new Label();

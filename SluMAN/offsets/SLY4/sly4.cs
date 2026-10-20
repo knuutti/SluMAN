@@ -1204,70 +1204,18 @@ namespace SluMAN
             codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
         }
 
-        // The HUD's GUI screens, as the game hides and shows them; 16 bytes apart in hudScreenNames.
-        private static readonly string[] HudScreens = { "Common", "InGame" };
-        private static readonly TimeSpan HudCallTimeout = TimeSpan.FromSeconds(3);
-
         /// <summary>
-        /// Hides or shows the HUD as the game does: finds the Common and InGame GUI screens with
-        /// FindInstance and calls each one's show method (vtable +hudShowVtableOffset) with 0 or 1.
-        /// Each call runs on a game frame, so this waits a few frames. The game may show the HUD
-        /// again by itself, for example after a load.
+        /// Hides or shows the HUD with the game's Debug.NoHUD tunable: every frame the game shows
+        /// its HUD screens unless it's set.
         /// </summary>
-        /// <remarks>
-        /// Game vtables hold pointers to function descriptors, not the descriptors themselves (see
-        /// any virtual call: lwz entry; lwz code, 0(entry); lwz r2, 4(entry)). The debug menu's
-        /// Toggle HUD called the entry as a descriptor, which jumps into data.
-        /// </remarks>
         public void SetHudHidden(bool hidden)
         {
-            ThrowIfLoading();
-            for (int i = 0; i < HudScreens.Length; i++)
-            {
-                byte[] name = new byte[16];
-                Encoding.ASCII.GetBytes(HudScreens[i], 0, HudScreens[i].Length, name, 0);
-                api.WriteMemory(pid, addr.hudScreenNames + (uint)i * 16, name);
-            }
-
-            int toggled = 0;
-            for (int i = 0; i < HudScreens.Length; i++)
-            {
-                uint screen = CallAndWait(addr.findInstanceFunction, addr.hudScreenNames + (uint)i * 16, 0);
-                if (screen == 0)
-                {
-                    continue;
-                }
-                uint vtable = ReadUInt(screen);
-                uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
-                uint code = ReadUInt(descriptor);
-                if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
-                {
-                    throw new InvalidOperationException("The HUD screen isn't what SluMAN expects, so it wasn't touched.");
-                }
-                CallAndWait(code, screen, hidden ? 0u : 1u);
-                toggled++;
-            }
-            if (toggled == 0)
-            {
-                throw new InvalidOperationException("The game has no HUD screens right now.");
-            }
+            api.WriteMemory(pid, addr.debugNoHud, new byte[] { (byte)(hidden ? 1 : 0) });
         }
 
-        /// <summary>Runs a game function through the code hook and waits for what it returns.</summary>
-        private uint CallAndWait(uint function, params uint[] arguments)
+        public bool IsHudHidden()
         {
-            codeHook.Call(function, arguments);
-            DateTime deadline = DateTime.Now + HudCallTimeout;
-            while (codeHook.IsCallPending())
-            {
-                if (DateTime.Now > deadline)
-                {
-                    codeHook.CancelCall();
-                    throw new InvalidOperationException("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
-                }
-                System.Threading.Thread.Sleep(5);
-            }
-            return codeHook.ReturnValue();
+            return ReadByte(addr.debugNoHud) != 0;
         }
 
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>

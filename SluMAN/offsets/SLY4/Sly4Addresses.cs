@@ -65,15 +65,6 @@ namespace SluMAN
         public uint teleportToGoalFunction { get; private set; }
         public uint loadLevelFunction { get; private set; }
         public uint abandonCurrentJobFunction { get; private set; }
-        // Finds a GUI screen by name ("Common", "InGame"). The screen's vtable entry at
-        // +hudShowVtableOffset points to the function descriptor (code, TOC) of a method that
-        // shows (1) or hides (0) it; the game hides and shows the HUD with it (around 0x4933C4
-        // and 0x4944F8). The TOC must be the game's (gameToc), which the code hook runs with.
-        public uint findInstanceFunction { get; private set; }
-        public uint hudShowVtableOffset { get; private set; }
-        public uint gameToc { get; private set; }
-        // Where the screen names are written for FindInstance (unused end of the data segment)
-        public uint hudScreenNames { get; private set; }
 
         // Code hook: a call made once per frame is pointed at a stub in the unused end of the code
         // segment, which runs the call queued in the mailbox (unused end of the data segment)
@@ -121,6 +112,9 @@ namespace SluMAN
         public uint clockClampFreqMin { get; private set; }
         public uint cheatInvulnerable { get; private set; }
         public uint cheatUndetectable { get; private set; }
+        // The Debug.NoHUD tunable's value (a byte; the tunable is at 0x10B7AA8). The game shows
+        // or hides the Common and InGame HUD screens from it every frame (around 0x493944)
+        public uint debugNoHud { get; private set; }
         public uint cutSceneEnable { get; private set; }
 
         // Tunable registry: an array of pointers to every tunable struct, and its length
@@ -220,10 +214,6 @@ namespace SluMAN
                 teleportToGoalFunction = 0x2E0498,
                 loadLevelFunction = 0x4674C4,
                 abandonCurrentJobFunction = 0x2E5060,
-                findInstanceFunction = 0x4D5544,
-                hudShowVtableOffset = 88,
-                gameToc = 0xF50800,
-                hudScreenNames = 0x11F8B00,
 
                 hookCallSite = 0x5221DC,
                 hookCallTarget = 0x56AEFC,
@@ -255,6 +245,7 @@ namespace SluMAN
                 clockClampFreqMin = 0x10B7A58,
                 cheatInvulnerable = 0x10388F0,
                 cheatUndetectable = 0xF9BC28,
+                debugNoHud = 0x10B7AF0,
                 // Game.CutSceneEnable, 1 by default
                 cutSceneEnable = 0x10B8B48,
 
