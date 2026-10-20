@@ -25,6 +25,11 @@ namespace SluMAN
         private readonly CheckBox freeCameraCheckBox = new CheckBox();
         private readonly NumericUpDown moveSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown lookSpeedUpDown = new NumericUpDown();
+        private readonly NumericUpDown fovUpDown = new NumericUpDown();
+        // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
+        private readonly Timer fovTimer = new Timer();
+        // Set while the box is updated from the camera, so that isn't taken as an edit.
+        private bool updatingFov;
 
         private readonly GroupBox savedGroupBox = new GroupBox();
         private readonly ComboBox pathNameComboBox = new ComboBox();
@@ -83,6 +88,12 @@ namespace SluMAN
                 countdownTimer.Dispose();
             };
 
+            fovTimer.Interval = 100;
+            fovTimer.Tick += (sender, e) => ShowFov();
+            fovTimer.Start();
+            FormClosing += (sender, e) => fovTimer.Stop();
+            FormClosed += (sender, e) => fovTimer.Dispose();
+
             playbackTimer.Interval = PlaybackRefreshMs;
             playbackTimer.Tick += (sender, e) => ShowPlaybackTime();
             countdownTimer.Interval = 1000;
@@ -100,7 +111,7 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Free Camera";
             group.Location = new Point(8, 8);
-            group.Size = new Size(284, 170);
+            group.Size = new Size(284, 210);
             Controls.Add(group);
 
             freeCameraCheckBox.Text = "Free camera";
@@ -145,12 +156,42 @@ namespace SluMAN
             lookSpeedUpDown.ValueChanged += (sender, e) => freeMove.LookSpeed = Sly4CameraPath.Radians((float)lookSpeedUpDown.Value);
             group.Controls.Add(lookSpeedUpDown);
 
+            Label fovLabel = new Label();
+            fovLabel.Text = "Field of view (degrees):";
+            fovLabel.AutoSize = true;
+            fovLabel.Location = new Point(8, 101);
+            group.Controls.Add(fovLabel);
+
+            Button gameFovButton = new Button();
+            SetButton(gameFovButton, "Game's", 150, 96, 58, (sender, e) => freeMove.Fov = freeMove.GameFov);
+            group.Controls.Add(gameFovButton);
+
+            fovUpDown.DecimalPlaces = 1;
+            fovUpDown.Minimum = (decimal)Math.Round(Sly4CameraPath.Degrees(Sly4FreeMove.MinFov));
+            fovUpDown.Maximum = (decimal)Math.Round(Sly4CameraPath.Degrees(Sly4FreeMove.MaxFov));
+            fovUpDown.Value = 53.5m;
+            fovUpDown.Location = new Point(214, 98);
+            fovUpDown.Size = new Size(60, 20);
+            fovUpDown.ValueChanged += (sender, e) =>
+            {
+                if (!updatingFov)
+                {
+                    freeMove.Fov = Sly4CameraPath.Radians((float)fovUpDown.Value);
+                }
+            };
+            group.Controls.Add(fovUpDown);
+
+            ToolTip fovTip = new ToolTip();
+            fovTip.SetToolTip(fovUpDown, "The free camera's vertical field of view. R2 zooms in, L2 out.");
+            fovTip.SetToolTip(gameFovButton, "Back to the field of view the game had when the free camera started.");
+            FormClosed += (sender, e) => fovTip.Dispose();
+
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 go up and down,\n" +
-                "R3 adds a keyframe. The player is held where they stood.\n" +
-                "The camera turns off when a level loads.\n" +
+                "R2 / L2 zoom, R3 adds a keyframe. The player is held where\n" +
+                "they stood. The camera turns off when a level loads.\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
-            help.Location = new Point(8, 102);
+            help.Location = new Point(8, 128);
             help.Size = new Size(270, 60);
             group.Controls.Add(help);
 
@@ -244,12 +285,13 @@ namespace SluMAN
             keyframeListView.MultiSelect = false;
             keyframeListView.Location = new Point(10, 20);
             keyframeListView.Size = new Size(332, 300);
-            keyframeListView.Columns.Add("#", 28);
-            keyframeListView.Columns.Add("Position", 132);
-            keyframeListView.Columns.Add("Yaw", 40);
-            keyframeListView.Columns.Add("Pitch", 40);
-            keyframeListView.Columns.Add("Time", 40);
-            keyframeListView.Columns.Add("Easing", 48);
+            keyframeListView.Columns.Add("#", 24);
+            keyframeListView.Columns.Add("Position", 122);
+            keyframeListView.Columns.Add("Yaw", 36);
+            keyframeListView.Columns.Add("Pitch", 36);
+            keyframeListView.Columns.Add("FOV", 34);
+            keyframeListView.Columns.Add("Time", 36);
+            keyframeListView.Columns.Add("Easing", 42);
             keyframeListView.SelectedIndexChanged += (sender, e) => ShowSelectedKeyframe();
             keyframeListView.DoubleClick += (sender, e) => GoToSelected();
             keyframeListView.KeyDown += keyframeListView_KeyDown;
@@ -362,6 +404,22 @@ namespace SluMAN
             }
         }
 
+        private void ShowFov()
+        {
+            if (freeMove.Current != Sly4FreeMove.Mode.FreeCamera || fovUpDown.Focused)
+            {
+                return;
+            }
+            decimal degrees = (decimal)Math.Round(Sly4CameraPath.Degrees(freeMove.Fov), 1);
+            degrees = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, degrees));
+            if (fovUpDown.Value != degrees)
+            {
+                updatingFov = true;
+                fovUpDown.Value = degrees;
+                updatingFov = false;
+            }
+        }
+
         /// <summary>Turns the free camera on if it isn't. False (with the reason shown) if it can't be.</summary>
         private bool EnsureFreeCamera()
         {
@@ -416,7 +474,8 @@ namespace SluMAN
             float[] position;
             float yaw;
             float pitch;
-            if (!freeMove.GetCamera(out position, out yaw, out pitch))
+            float fov;
+            if (!freeMove.GetCamera(out position, out yaw, out pitch, out fov))
             {
                 statusLine.Error("Turn on the free camera and fly to the view first.");
                 return false;
@@ -426,6 +485,7 @@ namespace SluMAN
             key.z = position[2];
             key.yaw = yaw;
             key.pitch = pitch;
+            key.fov = fov;
             return true;
         }
 
@@ -477,7 +537,7 @@ namespace SluMAN
                 return;
             }
             Sly4CameraPath.Keyframe key = path.Keyframes[index];
-            freeMove.SetCamera(new float[] { key.x, key.y, key.z }, key.yaw, key.pitch);
+            freeMove.SetCamera(new float[] { key.x, key.y, key.z }, key.yaw, key.pitch, key.fov);
             ShowScrubPosition(path.TimeOf(index));
         }
 
@@ -523,6 +583,7 @@ namespace SluMAN
             item.SubItems.Add($"{Format(key.x)}, {Format(key.y)}, {Format(key.z)}");
             item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.yaw)));
             item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.pitch)));
+            item.SubItems.Add(key.fov > 0 ? Format(Sly4CameraPath.Degrees(key.fov)) : "game");
             // The last keyframe ends the path, so its timing isn't used.
             item.SubItems.Add(last ? "-" : key.duration.ToString("0.##", CultureInfo.InvariantCulture));
             item.SubItems.Add(last || path.Smooth ? "-" : EasingText(key.easing));
@@ -594,7 +655,7 @@ namespace SluMAN
                     return;
                 }
                 Sly4CameraPath.Keyframe first = path.Keyframes[0];
-                freeMove.SetCamera(new float[] { first.x, first.y, first.z }, first.yaw, first.pitch);
+                freeMove.SetCamera(new float[] { first.x, first.y, first.z }, first.yaw, first.pitch, first.fov);
                 countdownLeft = CountdownSeconds;
                 statusLine.Info($"Playing in {countdownLeft}...");
                 countdownTimer.Start();
@@ -692,8 +753,9 @@ namespace SluMAN
             float[] position = new float[3];
             float yaw;
             float pitch;
-            path.Evaluate(time, position, out yaw, out pitch);
-            freeMove.SetCamera(position, yaw, pitch);
+            float fov;
+            path.Evaluate(time, freeMove.GameFov, position, out yaw, out pitch, out fov);
+            freeMove.SetCamera(position, yaw, pitch, fov);
             timeLabel.Text = $"{time.ToString("0.0", CultureInfo.InvariantCulture)} / {path.TotalDuration.ToString("0.0", CultureInfo.InvariantCulture)} s";
             ShowPlaying();
         }

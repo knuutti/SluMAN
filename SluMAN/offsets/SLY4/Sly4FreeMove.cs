@@ -14,7 +14,7 @@ namespace SluMAN
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
     /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
     /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down,
-    /// R3 asks for a keyframe (KeyframeRequested). The player is held where they stood. It can
+    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood. It can
     /// also play a camera path instead of following the sticks.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
@@ -28,6 +28,11 @@ namespace SluMAN
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 50;
         private const float DeadZone = 0.2f;
+        // Field of view limits, in radians (10 and 150 degrees), and the game's usual one
+        // (Camera.Default.FOV, 53.5 degrees) for when the view's can't be read.
+        public const float MinFov = 0.1745f;
+        public const float MaxFov = 2.618f;
+        private const float DefaultFov = 0.9338f;
         private const float MaxPitch = 1.5f;
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
@@ -49,6 +54,9 @@ namespace SluMAN
         private float[] cameraPosition;
         private float yaw;
         private float pitch;
+        // Vertical field of view in radians, and the game's own when the free camera started.
+        private float fov;
+        private float gameFov = DefaultFov;
         private float forwardSign;
         private float rightSign;
         private float upSign;
@@ -72,6 +80,52 @@ namespace SluMAN
 
         /// <summary>How fast the free camera turns: radians per second at full stick.</summary>
         public float LookSpeed = 2f;
+
+        /// <summary>How fast R2 / L2 zoom: radians of field of view per second at full press.</summary>
+        public float ZoomSpeed = 0.5f;
+
+        /// <summary>
+        /// The free camera's vertical field of view in radians. Setting it while the camera is
+        /// on applies it at once.
+        /// </summary>
+        public float Fov
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return fov;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    fov = ClampFov(value);
+                    if (mode == Mode.FreeCamera && playingPath == null)
+                    {
+                        WriteCamera();
+                    }
+                }
+            }
+        }
+
+        /// <summary>The game's field of view when the free camera started, in radians.</summary>
+        public float GameFov
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return gameFov;
+                }
+            }
+        }
+
+        private static float ClampFov(float value)
+        {
+            return Math.Max(MinFov, Math.Min(MaxFov, value));
+        }
 
         /// <summary>
         /// Raised on the UI thread when a mode stops by itself: an error, or a load turning the
@@ -134,7 +188,7 @@ namespace SluMAN
             {
                 copy.Keyframes.Add(new Sly4CameraPath.Keyframe
                 {
-                    x = key.x, y = key.y, z = key.z, yaw = key.yaw, pitch = key.pitch,
+                    x = key.x, y = key.y, z = key.z, yaw = key.yaw, pitch = key.pitch, fov = key.fov,
                     duration = key.duration, easing = key.easing
                 });
             }
@@ -155,8 +209,8 @@ namespace SluMAN
             }
         }
 
-        /// <summary>The free camera's position and facing, or false when it's off.</summary>
-        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch)
+        /// <summary>The free camera's position, facing and field of view, or false when it's off.</summary>
+        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch, out float cameraFov)
         {
             lock (stateLock)
             {
@@ -165,17 +219,22 @@ namespace SluMAN
                     position = null;
                     cameraYaw = 0;
                     cameraPitch = 0;
+                    cameraFov = 0;
                     return false;
                 }
                 position = (float[])cameraPosition.Clone();
                 cameraYaw = yaw;
                 cameraPitch = pitch;
+                cameraFov = fov;
                 return true;
             }
         }
 
-        /// <summary>Puts the free camera somewhere (stopping any playback), or false when it's off.</summary>
-        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch)
+        /// <summary>
+        /// Puts the free camera somewhere (stopping any playback), or false when it's off. A field
+        /// of view of 0 is the game's.
+        /// </summary>
+        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch, float cameraFov)
         {
             lock (stateLock)
             {
@@ -187,6 +246,7 @@ namespace SluMAN
                 cameraPosition = (float[])position.Clone();
                 yaw = cameraYaw;
                 pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, cameraPitch));
+                fov = ClampFov(cameraFov > 0 ? cameraFov : gameFov);
                 WriteCamera();
                 return true;
             }
@@ -390,6 +450,11 @@ namespace SluMAN
             viewW = new float[] { viewMatrix[3], viewMatrix[7], viewMatrix[11], viewMatrix[15] };
             cameraW = new float[] { m[3], m[7], m[11], m[15] };
 
+            // Starts at the game's own field of view.
+            float viewFov = game.ReadViewFov(view);
+            gameFov = viewFov >= MinFov && viewFov <= MaxFov ? viewFov : DefaultFov;
+            fov = gameFov;
+
             // The camera looks at the player, so the Z axis or its opposite points at them.
             float[] z = Normalize(Axis(m, 2));
             forwardSign = 1;
@@ -454,10 +519,12 @@ namespace SluMAN
             float[] position = new float[3];
             float pathYaw;
             float pathPitch;
-            playingPath.Evaluate(time, position, out pathYaw, out pathPitch);
+            float pathFov;
+            playingPath.Evaluate(time, gameFov, position, out pathYaw, out pathPitch, out pathFov);
             cameraPosition = position;
             yaw = pathYaw;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pathPitch));
+            fov = ClampFov(pathFov);
             WriteCamera();
         }
 
@@ -484,6 +551,18 @@ namespace SluMAN
                 cameraPosition[axis] += (forward[axis] * move + right[axis] * strafe) * CameraSpeed * step;
             }
             cameraPosition[1] += Rise() * CameraSpeed * step;
+
+            // R2 zooms in, L2 out.
+            float zoom = 0;
+            if (Inputs.IsPressed(Inputs.Buttons.l2))
+            {
+                zoom += 1;
+            }
+            if (Inputs.IsPressed(Inputs.Buttons.r2))
+            {
+                zoom -= 1;
+            }
+            fov = ClampFov(fov + zoom * ZoomSpeed * step);
             WriteCamera();
         }
 
@@ -511,11 +590,11 @@ namespace SluMAN
             byte[] matrices = sly4.ViewMatrices(axes, cameraPosition, viewW, cameraW);
             if (start)
             {
-                game.StartViewOverride(view, matrices);
+                game.StartViewOverride(view, matrices, fov);
             }
             else
             {
-                game.SetViewOverride(matrices);
+                game.SetViewOverride(matrices, fov);
             }
         }
 

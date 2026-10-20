@@ -30,6 +30,8 @@ namespace SluMAN
             /// <summary>Radians, as the free camera uses them.</summary>
             public float yaw;
             public float pitch;
+            /// <summary>Vertical field of view in radians; 0 (paths saved before it) is the game's.</summary>
+            public float fov;
             /// <summary>Seconds from this keyframe to the next. The last keyframe's isn't used.</summary>
             public float duration = 2f;
             public Easing easing = Easing.EaseInOut;
@@ -68,18 +70,25 @@ namespace SluMAN
         /// <summary>
         /// Where the camera is <paramref name="time"/> seconds into the animation. Before the start
         /// it's at the first keyframe, after the end at the last. Needs at least one keyframe.
+        /// Keyframes without a field of view use <paramref name="defaultFov"/>.
         /// </summary>
-        public void Evaluate(float time, float[] position, out float yaw, out float pitch)
+        public void Evaluate(float time, float defaultFov, float[] position, out float yaw, out float pitch, out float fov)
         {
             int count = Keyframes.Count;
+            float[] fovs = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                fovs[i] = Keyframes[i].fov > 0 ? Keyframes[i].fov : defaultFov;
+            }
             if (count == 1 || time <= 0)
             {
                 Set(Keyframes[0], position, out yaw, out pitch);
+                fov = fovs[0];
                 return;
             }
             if (Smooth)
             {
-                EvaluateSmooth(time, position, out yaw, out pitch);
+                EvaluateSmooth(time, fovs, position, out yaw, out pitch, out fov);
                 return;
             }
 
@@ -101,6 +110,7 @@ namespace SluMAN
             if (segment == count - 1)
             {
                 Set(Keyframes[count - 1], position, out yaw, out pitch);
+                fov = fovs[count - 1];
                 return;
             }
 
@@ -117,6 +127,7 @@ namespace SluMAN
 
             yaw = from.yaw + ShortestTurn(from.yaw, to.yaw) * t;
             pitch = from.pitch + (to.pitch - from.pitch) * t;
+            fov = fovs[segment] + (fovs[segment + 1] - fovs[segment]) * t;
         }
 
         /// <summary>
@@ -124,7 +135,7 @@ namespace SluMAN
         /// keyframe's rate of change the time-weighted average of the segments either side, so
         /// nothing jumps at a keyframe. The ends have zero rate, so the path eases in and out.
         /// </summary>
-        private void EvaluateSmooth(float time, float[] position, out float yaw, out float pitch)
+        private void EvaluateSmooth(float time, float[] fovs, float[] position, out float yaw, out float pitch, out float fov)
         {
             int count = Keyframes.Count;
             float[] times = new float[count];
@@ -135,6 +146,7 @@ namespace SluMAN
             if (time >= times[count - 1])
             {
                 Set(Keyframes[count - 1], position, out yaw, out pitch);
+                fov = fovs[count - 1];
                 return;
             }
 
@@ -159,6 +171,7 @@ namespace SluMAN
             position[2] = SmoothValue(k => Keyframes[k].z, times, segment, s);
             yaw = SmoothValue(k => yaws[k], times, segment, s);
             pitch = SmoothValue(k => Keyframes[k].pitch, times, segment, s);
+            fov = SmoothValue(k => fovs[k], times, segment, s);
         }
 
         /// <summary>One value on the Smooth curve, <paramref name="s"/> (0 to 1) into a segment.</summary>
@@ -247,7 +260,8 @@ namespace SluMAN
 
         // --- Files ---
         // camerapaths/<level>-<name>.txt, one keyframe per line:
-        // x y z yaw pitch duration easing (yaw and pitch in degrees, so the file is readable).
+        // x y z yaw pitch duration easing fov (angles in degrees, so the file is readable; fov 0
+        // or missing is the game's).
         // A line "smooth" plays the path as one continuous curve.
 
         private const string SmoothLine = "smooth";
@@ -293,7 +307,7 @@ namespace SluMAN
         {
             Directory.CreateDirectory(Folder);
             List<string> lines = new List<string>();
-            lines.Add("# SluMAN Sly 4 camera path: x y z yaw pitch duration easing (degrees, seconds)");
+            lines.Add("# SluMAN Sly 4 camera path: x y z yaw pitch duration easing fov (degrees, seconds)");
             if (Smooth)
             {
                 lines.Add(SmoothLine);
@@ -303,7 +317,7 @@ namespace SluMAN
                 lines.Add(string.Join(" ",
                     Format(key.x), Format(key.y), Format(key.z),
                     Format(Degrees(key.yaw)), Format(Degrees(key.pitch)),
-                    Format(key.duration), key.easing.ToString()));
+                    Format(key.duration), key.easing.ToString(), Format(Degrees(key.fov))));
             }
             File.WriteAllLines(FilePath(levelName, pathName), lines);
         }
@@ -339,6 +353,10 @@ namespace SluMAN
                 if (parts.Length > 6 && Enum.TryParse(parts[6], true, out easing))
                 {
                     key.easing = easing;
+                }
+                if (parts.Length > 7)
+                {
+                    key.fov = Radians(Parse(parts[7]));
                 }
                 path.Keyframes.Add(key);
             }
