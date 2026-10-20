@@ -30,7 +30,7 @@ namespace SluMAN
         private const float DeadZone = 0.2f;
         // Field of view limits, in radians (10 and 150 degrees), and the game's usual one
         // (Camera.Default.FOV, 53.5 degrees) for when the view's can't be read.
-        public const float MinFov = 0.1745f;
+        public const float MinFov = 1.745e-6f;
         public const float MaxFov = 2.618f;
         private const float DefaultFov = 0.9338f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
@@ -86,8 +86,11 @@ namespace SluMAN
         /// <summary>How fast the free camera turns: radians per second at full stick.</summary>
         public float LookSpeed = 2f;
 
-        /// <summary>How fast R2 / L2 zoom: radians of field of view per second at full press.</summary>
-        public float ZoomSpeed = 0.5f;
+        /// <summary>
+        /// How fast R2 / L2 zoom: the field of view changes by this factor of e per second at full
+        /// press, so zooming is as smooth at 1 degree as at 60.
+        /// </summary>
+        public float ZoomSpeed = 0.7f;
 
         /// <summary>
         /// The free camera's vertical field of view in radians. Setting it while the camera is
@@ -616,7 +619,7 @@ namespace SluMAN
             {
                 zoom -= 1;
             }
-            fov = ClampFov(fov + zoom * ZoomSpeed * step);
+            fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
             WriteCamera();
         }
 

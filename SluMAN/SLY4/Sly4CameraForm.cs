@@ -28,6 +28,8 @@ namespace SluMAN
         private readonly NumericUpDown fovUpDown = new NumericUpDown();
         private readonly CheckBox hideHudCheckBox = new CheckBox();
         private readonly CheckBox characterControlCheckBox = new CheckBox();
+        // X, Y, Z, yaw, pitch, field of view (Camera group).
+        private readonly TextBox[] cameraBoxes = new TextBox[6];
         // Keeps the field of view box showing the camera's (R2 / L2 and paths change it).
         private readonly Timer fovTimer = new Timer();
         // Set while the box is updated from the camera, so that isn't taken as an edit.
@@ -70,7 +72,8 @@ namespace SluMAN
             BuildSavedGroup(freeCameraGroupBox.Bottom + 6);
             GroupBox playbackGroupBox = BuildPlaybackGroup(savedGroupBox.Bottom + 6);
             GroupBox keyframesGroupBox = BuildKeyframesGroup(new Point(freeCameraGroupBox.Right + 8, 8));
-            ClientSize = new Size(keyframesGroupBox.Right + 8, Math.Max(playbackGroupBox.Bottom, keyframesGroupBox.Bottom) + 8);
+            GroupBox cameraGroupBox = BuildCameraGroup(new Point(keyframesGroupBox.Left, keyframesGroupBox.Bottom + 6));
+            ClientSize = new Size(keyframesGroupBox.Right + 8, Math.Max(playbackGroupBox.Bottom, cameraGroupBox.Bottom) + 8);
             statusLine = new StatusLine(this, false);
 
             freeMove.ModeChanged += freeMove_ModeChanged;
@@ -183,8 +186,8 @@ namespace SluMAN
             SetButton(gameFovButton, "Game's", 150, 96, 58, (sender, e) => freeMove.Fov = freeMove.GameFov);
             group.Controls.Add(gameFovButton);
 
-            fovUpDown.DecimalPlaces = 1;
-            fovUpDown.Minimum = (decimal)Math.Round(Sly4CameraPath.Degrees(Sly4FreeMove.MinFov));
+            fovUpDown.DecimalPlaces = 4;
+            fovUpDown.Minimum = 0.0001m;
             fovUpDown.Maximum = (decimal)Math.Round(Sly4CameraPath.Degrees(Sly4FreeMove.MaxFov));
             fovUpDown.Value = 53.5m;
             fovUpDown.Location = new Point(214, 98);
@@ -304,7 +307,7 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Keyframes";
             group.Location = location;
-            group.Size = new Size(352, 476);
+            group.Size = new Size(352, 372);
             Controls.Add(group);
 
             keyframeListView.View = View.Details;
@@ -313,7 +316,7 @@ namespace SluMAN
             keyframeListView.HideSelection = false;
             keyframeListView.MultiSelect = false;
             keyframeListView.Location = new Point(10, 20);
-            keyframeListView.Size = new Size(332, 300);
+            keyframeListView.Size = new Size(332, 196);
             keyframeListView.Columns.Add("#", 24);
             keyframeListView.Columns.Add("Position", 122);
             keyframeListView.Columns.Add("Yaw", 36);
@@ -326,24 +329,24 @@ namespace SluMAN
             keyframeListView.KeyDown += keyframeListView_KeyDown;
             group.Controls.Add(keyframeListView);
 
-            AddButton(group, "Add View", 10, 326, 100, (sender, e) => AddView());
-            AddButton(group, "Update", 114, 326, 72, (sender, e) => UpdateSelected());
-            AddButton(group, "Delete", 190, 326, 72, (sender, e) => DeleteSelected());
-            AddButton(group, "Go To", 266, 326, 76, (sender, e) => GoToSelected());
-            AddButton(group, "Move Up", 10, 355, 100, (sender, e) => MoveSelected(-1));
-            AddButton(group, "Move Down", 114, 355, 100, (sender, e) => MoveSelected(1));
+            AddButton(group, "Add View", 10, 222, 100, (sender, e) => AddView());
+            AddButton(group, "Update", 114, 222, 72, (sender, e) => UpdateSelected());
+            AddButton(group, "Delete", 190, 222, 72, (sender, e) => DeleteSelected());
+            AddButton(group, "Go To", 266, 222, 76, (sender, e) => GoToSelected());
+            AddButton(group, "Move Up", 10, 251, 100, (sender, e) => MoveSelected(-1));
+            AddButton(group, "Move Down", 114, 251, 100, (sender, e) => MoveSelected(1));
 
             Label durationLabel = new Label();
             durationLabel.Text = "Time to next keyframe (s):";
             durationLabel.AutoSize = true;
-            durationLabel.Location = new Point(8, 393);
+            durationLabel.Location = new Point(8, 289);
             group.Controls.Add(durationLabel);
 
             durationUpDown.DecimalPlaces = 2;
             durationUpDown.Increment = 0.5m;
             durationUpDown.Minimum = 0;
             durationUpDown.Maximum = 600;
-            durationUpDown.Location = new Point(150, 390);
+            durationUpDown.Location = new Point(150, 286);
             durationUpDown.Size = new Size(64, 20);
             durationUpDown.ValueChanged += (sender, e) => EditSelected();
             group.Controls.Add(durationUpDown);
@@ -351,12 +354,12 @@ namespace SluMAN
             Label easingLabel = new Label();
             easingLabel.Text = "Easing:";
             easingLabel.AutoSize = true;
-            easingLabel.Location = new Point(222, 393);
+            easingLabel.Location = new Point(222, 289);
             group.Controls.Add(easingLabel);
 
             easingComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             easingComboBox.Items.AddRange(new object[] { "Linear", "Ease in/out", "Hold" });
-            easingComboBox.Location = new Point(266, 390);
+            easingComboBox.Location = new Point(266, 286);
             easingComboBox.Size = new Size(76, 21);
             easingComboBox.SelectedIndexChanged += (sender, e) => EditSelected();
             group.Controls.Add(easingComboBox);
@@ -365,11 +368,98 @@ namespace SluMAN
             help.Text = "Fly the free camera to a view and press Add View (or R3) to add\n" +
                 "it after the selected keyframe. Double-click a keyframe to go\n" +
                 "to it. Hold stays on a keyframe for its time, then cuts.";
-            help.Location = new Point(8, 420);
+            help.Location = new Point(8, 316);
             help.Size = new Size(336, 46);
             group.Controls.Add(help);
 
             return group;
+        }
+
+        /// <summary>The free camera's exact position, facing and field of view, to read and type in.</summary>
+        private GroupBox BuildCameraGroup(Point location)
+        {
+            GroupBox group = new GroupBox();
+            group.Text = "Camera";
+            group.Location = location;
+            group.Size = new Size(352, 104);
+            Controls.Add(group);
+
+            string[] labels = { "X", "Y", "Z", "Yaw", "Pitch", "FOV" };
+            for (int i = 0; i < cameraBoxes.Length; i++)
+            {
+                int x = 8 + (i % 3) * 112;
+                int y = 20 + (i / 3) * 27;
+                Label label = new Label();
+                label.Text = labels[i] + ":";
+                label.AutoSize = true;
+                label.Location = new Point(x, y + 3);
+                group.Controls.Add(label);
+
+                cameraBoxes[i] = new TextBox();
+                cameraBoxes[i].Location = new Point(x + 36, y);
+                cameraBoxes[i].Size = new Size(68, 20);
+                group.Controls.Add(cameraBoxes[i]);
+            }
+
+            AddButton(group, "Current", 8, 74, 100, (sender, e) => ReadCameraBoxes());
+            Button setButton = new Button();
+            SetButton(setButton, "Set Camera", 114, 74, 100, (sender, e) => WriteCameraBoxes());
+            group.Controls.Add(setButton);
+            foreach (TextBox box in cameraBoxes)
+            {
+                func.BindEnter(box, setButton);
+            }
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees.");
+            FormClosed += (sender, e) => tip.Dispose();
+            return group;
+        }
+
+        private void ReadCameraBoxes()
+        {
+            float[] position;
+            float yaw;
+            float pitch;
+            float fov;
+            if (!freeMove.GetCamera(out position, out yaw, out pitch, out fov))
+            {
+                statusLine.Error("Turn on the free camera first.");
+                return;
+            }
+            float[] values =
+            {
+                position[0], position[1], position[2],
+                Sly4CameraPath.Degrees(yaw), Sly4CameraPath.Degrees(pitch), Sly4CameraPath.Degrees(fov),
+            };
+            for (int i = 0; i < values.Length; i++)
+            {
+                cameraBoxes[i].Text = values[i].ToString(i == 5 ? "0.#####" : "0.###", CultureInfo.InvariantCulture);
+            }
+        }
+
+        private void WriteCameraBoxes()
+        {
+            float[] values = new float[cameraBoxes.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (!float.TryParse(cameraBoxes[i].Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]))
+                {
+                    statusLine.Error("X, Y, Z, yaw, pitch and FOV must all be numbers.");
+                    return;
+                }
+            }
+            if (values[5] <= 0)
+            {
+                statusLine.Error("The field of view must be above 0.");
+                return;
+            }
+            if (!EnsureFreeCamera())
+            {
+                return;
+            }
+            freeMove.SetCamera(new float[] { values[0], values[1], values[2] },
+                Sly4CameraPath.Radians(values[3]), Sly4CameraPath.Radians(values[4]), Sly4CameraPath.Radians(values[5]));
         }
 
         private static void AddButton(Control parent, string text, int x, int y, int width, EventHandler click)
@@ -440,7 +530,7 @@ namespace SluMAN
             {
                 return;
             }
-            decimal degrees = (decimal)Math.Round(Sly4CameraPath.Degrees(freeMove.Fov), 1);
+            decimal degrees = (decimal)Math.Round(Sly4CameraPath.Degrees(freeMove.Fov), 4);
             degrees = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, degrees));
             if (fovUpDown.Value != degrees)
             {
@@ -613,11 +703,17 @@ namespace SluMAN
             item.SubItems.Add($"{Format(key.x)}, {Format(key.y)}, {Format(key.z)}");
             item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.yaw)));
             item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.pitch)));
-            item.SubItems.Add(key.fov > 0 ? Format(Sly4CameraPath.Degrees(key.fov)) : "game");
+            item.SubItems.Add(key.fov > 0 ? FormatFov(Sly4CameraPath.Degrees(key.fov)) : "game");
             // The last keyframe ends the path, so its timing isn't used.
             item.SubItems.Add(last ? "-" : key.duration.ToString("0.##", CultureInfo.InvariantCulture));
             item.SubItems.Add(last || path.Smooth ? "-" : EasingText(key.easing));
             return item;
+        }
+
+        /// <summary>A field of view in degrees, with the digits a small one needs.</summary>
+        private static string FormatFov(float degrees)
+        {
+            return degrees.ToString(degrees < 1 ? "0.####" : "0.0", CultureInfo.InvariantCulture);
         }
 
         private static string Format(float value)

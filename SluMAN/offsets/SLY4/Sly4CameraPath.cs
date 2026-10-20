@@ -380,7 +380,8 @@ namespace SluMAN
 
         private static string Format(float value)
         {
-            return value.ToString("0.###", CultureInfo.InvariantCulture);
+            // Enough digits for a field of view of a ten-thousandth of a degree.
+            return value.ToString("0.#######", CultureInfo.InvariantCulture);
         }
 
         private static float Parse(string text)
