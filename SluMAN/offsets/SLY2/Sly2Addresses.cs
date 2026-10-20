@@ -235,30 +235,27 @@ namespace SluMAN
             palDigital.rajanHealth = 0x35C2E4EC;
             // The dialogue state (1 during dialogue) and its frame counter are at the Korean
             // addresses, so they're inherited.
-            palDigital.episodeData = new uint[]
-            {
-                // The Korean addresses - 0x80, like the rest of the save data, up to episode 7.
-                // Episode 8 is - 0x74, like blimpStarted: at - 0x80 its jobs load in the hideout.
-                0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
-                0x7AB44C, 0x7ABC44, 0x7AC1E4, 0x7ACB78,
-            };
-
             palDigital.loadingState = 0x7A7180;
             palDigital.currentMapId = 0x7B4C60;
             palDigital.cameraFov = 0x49DFD4;
             palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
-            // 1 once the blimp is first loaded. - 0x74, not - 0x80: somewhere before it the
-            // save data differs from the Korean version's.
-            palDigital.blimpStarted = 0x7AD0DC;
 
-            // Unverified, estimated as the Korean addresses - 0x80. Test before release.
-            palDigital.parisStarted = 0x7A9D04;
-            palDigital.templeStarted = 0x7AA970;
-            palDigital.prisonStarted = 0x7AB30C;
-            palDigital.castleStarted = 0x7ABB68;
-            palDigital.trainStarted = 0x7ABEA8;
-            palDigital.sawmillStarted = 0x7AC798;
-            palDigital.parisCinemaState = 0x7A9A40;
+            // The episodes' save data is the Korean address - 0x74, not - 0x80: PAL has 12 more
+            // bytes somewhere before it. Found for episode 8 (job loading), parisStarted and
+            // blimpStarted; assumed for the rest.
+            palDigital.episodeData = new uint[]
+            {
+                0x7A951C, 0x7A9664, 0x7A9E18, 0x7AA558, 0x7AABC0,
+                0x7AB458, 0x7ABC50, 0x7AC1F0, 0x7ACB78,
+            };
+            palDigital.parisCinemaState = 0x7A9A4C;
+            palDigital.parisStarted = 0x7A9D10;
+            palDigital.templeStarted = 0x7AA97C;
+            palDigital.prisonStarted = 0x7AB318;
+            palDigital.castleStarted = 0x7ABB74;
+            palDigital.trainStarted = 0x7ABEB4;
+            palDigital.sawmillStarted = 0x7AC7A4;
+            palDigital.blimpStarted = 0x7AD0DC; // 1 once the blimp is first loaded
 
             return new Dictionary<string, Sly2Addresses>(StringComparer.OrdinalIgnoreCase)
             {
