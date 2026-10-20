@@ -19,7 +19,9 @@ namespace SluMAN
     {
         public const int MaxArguments = 9;
 
-        private const uint MailboxSize = 0x2C;
+        // Cleared on install. Includes +0x2C to +0x37, where an earlier version kept a call to
+        // repeat every frame, so a stub of that version left in a running game stops calling it.
+        private const uint MailboxSize = 0x38;
 
         // The stub's first instructions (stack frame setup), to recognise an older version of it.
         private static readonly byte[] StubPrologue = { 0xF8, 0x21, 0xFF, 0x81, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0x90 };
@@ -57,6 +59,12 @@ namespace SluMAN
             // The arguments first: the stub starts as soon as it sees the function address.
             game.api.WriteMemory(game.pid, sly4.addr.hookMailbox + 8, args);
             game.api.WriteMemory(game.pid, sly4.addr.hookMailbox, ToBytes(function));
+        }
+
+        /// <summary>What the last call returned (r3), once IsCallPending is false.</summary>
+        public uint ReturnValue()
+        {
+            return ReadUInt(sly4.addr.hookMailbox + 4);
         }
 
         public bool IsCallPending()

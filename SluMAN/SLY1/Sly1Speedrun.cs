@@ -58,11 +58,6 @@ namespace SluMAN
             session.SwitchGameOrMode();
         }
 
-        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            MemoryForm.ShowFor(this);
-        }
-
         private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
         {
             UserData.OpenInExplorer();

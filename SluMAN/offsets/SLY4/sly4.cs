@@ -2,20 +2,168 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SluMAN
 {
-    public class sly4 : IGame
+    public class sly4 : IGame, IAutosplitterAvailable, IAutosplitterComputedValues
     {
         public static Sly4Addresses addr = Sly4Addresses.ForGame(Sly4Addresses.DefaultGameId);
+
+        private const uint MainMenuLevelHash = 0xE4927E12;
 
         // Display names for level hashes (gm + currentLevelHashOffset). Hashes not listed show in hex.
         private static readonly Dictionary<uint, string> levelNames = new Dictionary<uint, string>
         {
+            // The names are from Scripts/Sly4Levels.xmb in Sly4.psarc; the hash is of the name as
+            // written there (e.g. "IceAge HuntingGrounds").
             { 0xE4927E12, "Main Menu" },
+            // "System Cracker01" in the level list, but it's where the Paris Prologue's sewers play.
+            { 0x3B677F57, "Paris Sewers" },
             { 0x46C660F7, "Paris Hideout" },
             { 0xA0355EFB, "Paris Streets" },
-            { 0x3B677F57, "Paris Sewers" },
+            { 0x0C44F02D, "Paris Blimp" },
+            { 0xBC676503, "Japan Bridge" },
+            { 0xACAA7E76, "Japan Fishing Caves" },
+            { 0x1D17219B, "Japan Geisha House" },
+            { 0xFE492072, "Japan Hideout" },
+            { 0xD44B7705, "Japan Prison" },
+            { 0x29E1A78C, "Japan Rooftops" },
+            { 0xA3907718, "Japan Sushi House" },
+            { 0xE3541252, "Japan Village" },
+            { 0xF69E553B, "West Hideout" },
+            { 0x3FEEDCAF, "West Mines" },
+            { 0xFAC4F502, "West Presidio" },
+            { 0xC7B84D81, "West Saloon" },
+            { 0x4192876D, "West Stagecoach" },
+            { 0x1AD96E63, "West Town" },
+            { 0x40556837, "West Train" },
+            { 0xC9A34D20, "Ice Age Hideout" },
+            { 0xF285665B, "Ice Age Arena" },
+            { 0xC25ED889, "Ice Age Hunting Grounds" },
+            { 0xF4596EEC, "Ice Age Ice Cave" },
+            { 0xFCA16EEF, "Ice Age Rock Cliff" },
+            { 0x4A2AD4EA, "Ice Age Mountain Base" },
+            { 0xAEAE3F00, "Ice Age Village" },
+            { 0x59CC1B15, "England Village" },
+            { 0x74C12935, "England Hideout" },
+            { 0xBF4B1637, "England Bakery" },
+            { 0x350D543B, "England Blacksmith" },
+            { 0x63910843, "England Circus Tent" },
+            { 0x716016C8, "England Dragon Lair" },
+            { 0x85EA7462, "England Shoemaker" },
+            { 0xDE07516F, "England Tavern" },
+            { 0x2986D493, "England Ward" },
+            { 0xA70C9716, "Arabia Village" },
+            { 0xE3DEF6B5, "Arabia Carpet Shop" },
+            { 0x467B8C48, "Arabia Lamp Shop" },
+            { 0x2E01E5EB, "Arabia Harem" },
+            { 0x95841725, "Arabia Library" },
+            { 0x2291A3C2, "Arabia Taxi Shop" },
+            { 0xC201A536, "Arabia Hideout" },
+            { 0xE3607734, "Spark Runner 01" },
+            { 0xE3607735, "Spark Runner 02" },
+            { 0xE3607736, "Spark Runner 03" },
+            { 0xE3607737, "Spark Runner 04" },
+            { 0xE3607738, "Spark Runner 05" },
+            { 0xE3607739, "Spark Runner 06" },
+            { 0xE360773A, "Spark Runner 07" },
+            { 0x264C5604, "Alter Ego 01" },
+            { 0x264C5605, "Alter Ego 02" },
+            { 0x264C5606, "Alter Ego 03" },
+            { 0x264C5607, "Alter Ego 04" },
+            { 0x264C5608, "Alter Ego 05" },
+            { 0x264C5609, "Alter Ego 06" },
+            { 0xA33E6B59, "Alter Ego 06b" },
+            { 0xA33E6B5A, "Alter Ego 06c" },
+            { 0xA33E6B5B, "Alter Ego 06d" },
+            { 0xA33E6B6F, "Alter Ego 06x" },
+            { 0xBDB9E4B0, "Alter Ego 06 Multi" },
+            { 0xE650A160, "Alter Ego 06b Multi" },
+            { 0xE80579FF, "Alter Ego 06c Multi" },
+            { 0xE9BA529E, "Alter Ego 06d Multi" },
+            { 0x0BDB3F0A, "Alter Ego 06x Multi" },
+            { 0x264C560A, "Alter Ego 07" },
+            { 0xA33E6B78, "Alter Ego 07b" },
+            { 0xA33E6B79, "Alter Ego 07c" },
+            { 0xA33E6B7A, "Alter Ego 07d" },
+            { 0xA33E6B8E, "Alter Ego 07x" },
+            { 0xBF6EBD4F, "Alter Ego 07 Multi" },
+            { 0x1B36DCA1, "Alter Ego 07b Multi" },
+            { 0x1CEBB540, "Alter Ego 07c Multi" },
+            { 0x1EA08DDF, "Alter Ego 07d Multi" },
+            { 0x40C17A4B, "Alter Ego 07x Multi" },
+            { 0x264C560B, "Alter Ego 08" },
+            { 0x3B677F58, "System Cracker 02" },
+            { 0x3B677F59, "System Cracker 03" },
+            { 0x3B677F5A, "System Cracker 04" },
+            { 0x3B677F5B, "System Cracker 05" },
+            { 0x3B677F5D, "System Cracker 07" },
+            { 0x3B677F5E, "System Cracker 08" },
+            { 0x31886CA4, "System Cracker 08b" },
+            { 0x31886CA5, "System Cracker 08c" },
+            { 0x31886CA6, "System Cracker 08d" },
+            { 0x3B677F5F, "System Cracker 09" },
+            { 0x2AF1211A, "System Cracker 09 Multi" },
+        };
+
+        // Episode and job titles by their name key without "$" and "TitleName", from the English
+        // text in GUI/Strings_English.str in Sly4.psarc. The minigames' keys (AlterEgo01 and so on)
+        // read fine as they are, so Title spaces them out instead.
+        private static readonly Dictionary<string, string> titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Episodes
+            { "ParisPrologue", "Paris Prologue" },
+            { "Japan", "Turning Japanese" },
+            { "West", "Go West Young Raccoon" },
+            { "IceAge", "Clan of the Cave Raccoon" },
+            { "England", "Of Mice and Mechs" },
+            { "Arabia", "Forty Thieves" },
+            { "ParisEpilogue", "Paris Epilogue" },
+            { "Minigame", "Minigames" },
+            // Jobs
+            { "Prologue", "I Smell A Rat" },
+            { "PhotoOp", "Photo Op" },
+            { "Breakout", "Breakout!" },
+            { "SushiStartup", "Sushi House Startup" },
+            { "Fishy", "Something's Fishy" },
+            { "PrettyPink", "Pretty in Pinker" },
+            { "MadameGeisha", "Tiger Tail" },
+            { "SpikedSushi", "Spiked Sushi" },
+            { "OpAltSick", "Altitude Sickness" },
+            { "UnderArrest", "Under Arrest" },
+            { "JailhouseBlues", "Jailhouse Blues" },
+            { "ToothpicksVault", "Cooper for Hire" },
+            { "SaloonBug", "Saloon Bug" },
+            { "BlindDate", "Blind Date" },
+            { "JailBreak", "Jail Break" },
+            { "GrandKeyLarceny", "Grand Key Larceny" },
+            { "OperationGoldDigger", "Operation: Gold Digger" },
+            { "StoneAgeReconnaissance", "Stone Age Reconnaissance" },
+            { "CavemanCoopersRescue", "Unexpected Ties" },
+            { "GettingStronger", "Getting Stronger" },
+            { "GoingUp", "Going Up" },
+            { "HungryHungryHippo", "Starving Starving Hippo" },
+            { "IceIceBentley", "Ice Ice Bentley" },
+            { "DutyCalls", "Duty Calls" },
+            { "OperationJurassicThievery", "Operation: Jurassic Thievery" },
+            { "ShoppingSpree", "Shopping Spree" },
+            { "JugglingAct", "Juggling Act" },
+            { "CaneSwipe", "Cane Swipe" },
+            { "RobbinHoods", "Eye in the Sky" },
+            { "MechanicalMenace", "Mechanical Menace" },
+            { "ShortSupply", "Short Supply" },
+            { "ShellShocked", "Shell Shocked Heart" },
+            { "HardTarget", "Hard Target" },
+            { "OperationMousetrap", "Operation: Mousetrap" },
+            { "LostAndFound", "Lost and Found" },
+            { "SpecialDelivery", "Open Sesame" },
+            { "CrazyClimber", "Rug Rats" },
+            { "TaxiDriver", "Copy Cats" },
+            { "UpInSmoke", "Up In Smoke" },
+            { "RockAndRoll", "Heavy Metal Meltdown" },
+            { "AllRolledUp", "All Rolled Up!" },
+            { "Epilogue", "Deja Vu All Over Again!" },
         };
 
         private const int NormalClampFreqMax = 60;
@@ -25,23 +173,114 @@ namespace SluMAN
 
         private readonly Sly4CodeHook codeHook;
 
+        // The debug menu's Tuning settings, read from the game when first needed.
+        public readonly Sly4Tunables tunables;
+
+        // Follows the current goal through memory subscriptions while it runs (see StartGoalWatcher).
+        private Sly4GoalWatcher goalWatcher;
+
+        // The autosplitter's values while it runs, and whether it started the goal watcher.
+        private Sly4AutosplitterValues autosplitterValues;
+        private bool autosplitterStartedGoalWatcher;
+
+        /// <summary>
+        /// Raised on a background thread when the current goal or the goal list changes, while the
+        /// goal watcher runs.
+        /// </summary>
+        public event Action GoalsChanged;
+
+        // Without the goal watcher (the old webMAN API has no subscriptions), each goal's state is
+        // its own read, so the Practice panel and the Jobs tab share one reading of them, taken at
+        // most this often. On a PS3 every read is a network round trip.
+        private static readonly TimeSpan GoalSnapshotMaxAge = TimeSpan.FromSeconds(2);
+        private List<uint> snapshotGoals = new List<uint>();
+        private List<int> snapshotStates = new List<int>();
+        private DateTime snapshotTakenAt = DateTime.MinValue;
+        // The current goal's name, read again only when the current goal changes.
+        private uint snapshotNameGoal;
+        private string snapshotName;
+
+        // The most read at once: Ratchetron's receive buffer is about 2 KB.
+        private const uint MaxReadSize = 0x800;
+
         /// <summary>A job in the game's job array.</summary>
         public class JobEntry
         {
             public int index;
+            // Name keys, e.g. "PhotoOp" and "Japan", as Sly4Goals knows them.
             public string name;
             public string episode;
 
+            public string Title => sly4.Title(name);
+            public string EpisodeTitle => sly4.Title(episode);
+
             public override string ToString()
             {
-                return $"{episode}: {name}";
+                return $"{EpisodeTitle}: {Title}";
             }
         }
+
+        /// <summary>A level for the level warp list.</summary>
+        public class LevelEntry
+        {
+            public uint hash;
+            public string name;
+
+            public override string ToString()
+            {
+                return name;
+            }
+        }
+
+        /// <summary>A named object in a level the player can be spawned at.</summary>
+        public class SpawnPointEntry
+        {
+            public string name;
+            public string title;
+
+            public override string ToString()
+            {
+                return title;
+            }
+        }
+
+        /// <summary>A playable character, by the name the game spawns it with.</summary>
+        public class CharacterEntry
+        {
+            public string name;
+            public string title;
+
+            public override string ToString()
+            {
+                return title;
+            }
+        }
+
+        // The characters a level can be loaded as. Each era's ancestor is only in their own
+        // era's levels.
+        public static readonly CharacterEntry[] Characters =
+        {
+            new CharacterEntry { name = "Sly", title = "Sly" },
+            new CharacterEntry { name = "Bentley", title = "Bentley" },
+            new CharacterEntry { name = "Murray", title = "Murray" },
+            new CharacterEntry { name = "CarmelitaFox", title = "Carmelita" },
+            new CharacterEntry { name = "Rioichi", title = "Rioichi" },
+            new CharacterEntry { name = "KidCooper", title = "Tennessee Kid" },
+            new CharacterEntry { name = "CavemanCooper", title = "Bob" },
+            new CharacterEntry { name = "SirGalleth", title = "Sir Galleth" },
+            new CharacterEntry { name = "Salim", title = "Salim al Kupar" },
+        };
+
+        private const int SpawnCharacterLength = 64;
+
+        // Spawn point names start with one of these; the titles leave it out.
+        private static readonly string[] SpawnPointPrefixes = { "Spawn_Player_", "Spawn_" };
 
         public sly4(IPS3API api, string gameNameId) : base(api)
         {
             addr = Sly4Addresses.ForGame(gameNameId);
             codeHook = new Sly4CodeHook(this);
+            tunables = new Sly4Tunables(this);
         }
 
         public override void SavePosition()
@@ -71,9 +310,87 @@ namespace SluMAN
         }
 
         // TODO: The pad address isn't known yet, so there is no input display and combos never fire.
+        /// <summary>
+        /// None: every Sly 4 value hangs off the game or episode manager, which only exist once the
+        /// game has booted, so they're all computed values (see Sly4AutosplitterValues).
+        /// </summary>
+        public IEnumerable<(uint addr, uint size)> AutosplitterAddresses => new (uint, uint)[0];
+
+        public void StartComputedValues(Action<int, byte[]> write)
+        {
+            StopComputedValues();
+            autosplitterValues = new Sly4AutosplitterValues(this, write);
+            autosplitterValues.Start();
+            GoalsChanged += WriteAutosplitterGoal;
+            if (goalWatcher == null)
+            {
+                StartGoalWatcher();
+                autosplitterStartedGoalWatcher = true;
+            }
+            WriteAutosplitterGoal();
+        }
+
+        public void StopComputedValues()
+        {
+            GoalsChanged -= WriteAutosplitterGoal;
+            if (autosplitterValues != null)
+            {
+                autosplitterValues.Stop();
+                autosplitterValues = null;
+            }
+            if (autosplitterStartedGoalWatcher)
+            {
+                StopGoalWatcher();
+                autosplitterStartedGoalWatcher = false;
+            }
+        }
+
+        /// <summary>Copies the goal watcher's current goal to the autosplitter. Runs on the watcher's threads.</summary>
+        private void WriteAutosplitterGoal()
+        {
+            Sly4AutosplitterValues values = autosplitterValues;
+            Sly4GoalWatcher watcher = goalWatcher;
+            if (values == null || watcher == null)
+            {
+                return;
+            }
+            List<uint> goals;
+            List<int> states;
+            int current;
+            watcher.GetState(out goals, out states, out current);
+            values.WriteGoal(current, goals.Count);
+        }
+
         public override void CheckInputs(object sender, EventArgs e)
         {
             RunCombos();
+        }
+
+        protected override void SetupInputDisplayMemorySubsButtons()
+        {
+            api.SubMemory(pid, addr.inputButtons, 4, (value) =>
+            {
+                // The word is 00, Select..Left, 00, L2..Square, which is the standard layout's two
+                // bytes with a gap between them.
+                int buttons = BitConverter.ToInt32(value, 0);
+                Inputs.RawInputs = (buttons & 0xFF) | ((buttons >> 8) & 0xFF00);
+            });
+        }
+
+        protected override void SetupInputDisplayMemorySubsAnalogs()
+        {
+            // Each stick is X then Y as big-endian floats. The callback gets the 8 bytes reversed,
+            // so Y comes first.
+            api.SubMemory(pid, addr.analogLeft, 8, (value) =>
+            {
+                Inputs.ly = BitConverter.ToSingle(value, 0);
+                Inputs.lx = BitConverter.ToSingle(value, 4);
+            });
+            api.SubMemory(pid, addr.analogRight, 8, (value) =>
+            {
+                Inputs.ry = BitConverter.ToSingle(value, 0);
+                Inputs.rx = BitConverter.ToSingle(value, 4);
+            });
         }
 
         public bool IsPlayerLoaded()
@@ -119,17 +436,31 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The player's velocity on X, Y and Z, or null when the player isn't loaded.
+        /// The player's position and velocity together, following the pointer chain once rather
+        /// than once for each. False when the player isn't loaded.
         /// </summary>
-        public float[] GetVelocity()
+        public bool ReadMotion(out float[] position, out float[] velocity)
         {
+            position = null;
+            velocity = null;
+
             uint controller = GetCharacterController();
             if (controller == 0)
             {
-                return null;
+                return false;
             }
-            byte[] bytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
-            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+            uint characterBody = ReadUInt(controller + addr.characterBodyOffset);
+            uint body = characterBody == 0 ? 0 : ReadUInt(characterBody + addr.rigidBodyOffset);
+            if (body == 0)
+            {
+                return false;
+            }
+
+            byte[] positionBytes = api.ReadMemory(pid, body + addr.bodyPositionOffset, 12);
+            byte[] velocityBytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
+            position = new float[] { ToFloat(positionBytes, 0), ToFloat(positionBytes, 4), ToFloat(positionBytes, 8) };
+            velocity = new float[] { ToFloat(velocityBytes, 0), ToFloat(velocityBytes, 4), ToFloat(velocityBytes, 8) };
+            return true;
         }
 
         /// <summary>
@@ -167,6 +498,292 @@ namespace SluMAN
             }
 
             api.WriteMemory(pid, address, state);
+        }
+
+        /// <summary>
+        /// Puts the player at a position and stops them, for fly mode: the body is moved like
+        /// Teleport does and the controller's velocity is zeroed, so gravity hasn't built up by the
+        /// next frame. False when the player isn't loaded.
+        /// </summary>
+        public bool HoldPlayer(float x, float y, float z)
+        {
+            uint controller = GetCharacterController();
+            if (controller == 0)
+            {
+                return false;
+            }
+            uint characterBody = ReadUInt(controller + addr.characterBodyOffset);
+            uint body = characterBody == 0 ? 0 : ReadUInt(characterBody + addr.rigidBodyOffset);
+            if (body == 0)
+            {
+                return false;
+            }
+
+            uint address = body + addr.bodyPositionOffset;
+            byte[] state = api.ReadMemory(pid, address, 0x30);
+            float[] delta = new float[] { x - ToFloat(state, 0), y - ToFloat(state, 4), z - ToFloat(state, 8) };
+            for (int vector = 0; vector < 3; vector++)
+            {
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    int offset = vector * 16 + axis * 4;
+                    Array.Copy(ConvertFloatToBytes(ToFloat(state, offset) + delta[axis]), 0, state, offset, 4);
+                }
+            }
+            api.WriteMemory(pid, address, state);
+            api.WriteMemory(pid, controller + addr.controllerVelocityOffset, new byte[12]);
+            return true;
+        }
+
+        /// <summary>The main gameplay view, or 0 before the game has one.</summary>
+        public uint GetMainView()
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            return gameManager == 0 ? 0 : ReadUInt(gameManager + addr.mainViewOffset);
+        }
+
+        /// <summary>
+        /// A view's camera matrix as 16 floats: the camera's X, Y and Z axes, then its position,
+        /// each with a W value.
+        /// </summary>
+        public float[] ReadCameraMatrix(uint view)
+        {
+            return ReadMatrix(view + addr.viewCameraMatrixOffset);
+        }
+
+        /// <summary>
+        /// The view and camera matrices for a camera, as the view override takes them: the view
+        /// matrix (the camera's inverse), then the camera matrix (its X, Y and Z axes, then its
+        /// position), 4 floats a row. The 4th float of each row holds something else in the
+        /// game's views, so it's taken from <paramref name="viewW"/> and
+        /// <paramref name="cameraW"/>.
+        /// </summary>
+        public static byte[] ViewMatrices(float[][] axes, float[] position, float[] viewW, float[] cameraW)
+        {
+            byte[] bytes = new byte[0x80];
+            for (int row = 0; row < 4; row++)
+            {
+                for (int column = 0; column < 3; column++)
+                {
+                    float view;
+                    float camera;
+                    if (row < 3)
+                    {
+                        // The rotation's inverse is its transpose.
+                        view = axes[column][row];
+                        camera = axes[row][column];
+                    }
+                    else
+                    {
+                        // The inverse moves the camera's position back to the origin.
+                        view = -(position[0] * axes[column][0] + position[1] * axes[column][1] + position[2] * axes[column][2]);
+                        camera = position[column];
+                    }
+                    Array.Copy(ConvertFloatToBytes(view), 0, bytes, row * 16 + column * 4, 4);
+                    Array.Copy(ConvertFloatToBytes(camera), 0, bytes, 0x40 + row * 16 + column * 4, 4);
+                }
+                Array.Copy(ConvertFloatToBytes(viewW[row]), 0, bytes, row * 16 + 12, 4);
+                Array.Copy(ConvertFloatToBytes(cameraW[row]), 0, bytes, 0x40 + row * 16 + 12, 4);
+            }
+            return bytes;
+        }
+
+        /// <summary>
+        /// Starts drawing the main view from the given matrices (see ViewMatrices) every frame.
+        /// The game rebuilds each view's render matrices and then copies the view for drawing;
+        /// that copy call is pointed at a stub which, for the main view, first copies the matrices
+        /// in and rebuilds the render matrices from them. That's after the game's camera has
+        /// written the view, so it can't overwrite them, and before anything is drawn.
+        /// </summary>
+        public void StartViewOverride(uint view, byte[] matrices, float fov, float far)
+        {
+            uint call = addr.viewUpdateCopyCall;
+            uint original = Branch(call, addr.viewCopyFunction, true);
+            uint hooked = Branch(call, addr.viewOverrideStub, true);
+            uint instruction = ReadUInt(call);
+            if (instruction != original && instruction != hooked)
+            {
+                throw new InvalidOperationException("The game's camera code isn't what SluMAN expects, so the free camera isn't available on this version.");
+            }
+
+            // Off while the stub is written, then on once the matrices are in.
+            byte[] header = new byte[0x10];
+            Array.Copy(BitConverter.GetBytes(view).Reverse().ToArray(), 0, header, 4, 4);
+            api.WriteMemory(pid, addr.viewOverrideData, header);
+            SetViewOverride(matrices, fov, far);
+
+            byte[] stub = ViewOverrideStub();
+            api.WriteMemory(pid, addr.viewOverrideStub, stub);
+            if (!api.ReadMemory(pid, addr.viewOverrideStub, (uint)stub.Length).SequenceEqual(stub))
+            {
+                throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
+            }
+            api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
+            api.WriteMemory(pid, addr.viewOverrideData, BitConverter.GetBytes(1u).Reverse().ToArray());
+        }
+
+        /// <summary>
+        /// The matrices (see ViewMatrices) and vertical field of view (radians; 0 keeps the
+        /// game's) the main view is drawn with, from the next frame. One write, so a frame never
+        /// mixes old and new.
+        /// </summary>
+        public void SetViewOverride(byte[] matrices, float fov, float far)
+        {
+            byte[] data = new byte[0x88];
+            Array.Copy(matrices, 0, data, 0, 0x80);
+            Array.Copy(ConvertFloatToBytes(fov), 0, data, 0x80, 4);
+            Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
+            api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
+        }
+
+        // No fog pushes the fog's start and end this far away.
+        private const float NoFogDistance = 2147483648f;
+        // The fog distances No fog replaced, by view and block, to put back.
+        private readonly Dictionary<uint, float[]> fogBeforeNoFog = new Dictionary<uint, float[]>();
+
+        /// <summary>
+        /// Turns the main view's fog off by moving both fog blocks' start and end distances far
+        /// away, or puts back what they were. A level load sets them again, so call it again
+        /// after one; it only writes when a block isn't already moved. Returns whether the view
+        /// was there.
+        /// </summary>
+        public bool SetFogDisabled(bool disabled)
+        {
+            uint view = GetMainView();
+            if (view == 0)
+            {
+                return false;
+            }
+            foreach (uint offset in addr.viewFogDistanceOffsets)
+            {
+                uint address = view + offset;
+                byte[] bytes = api.ReadMemory(pid, address, 8);
+                float start = ToFloat(bytes, 0);
+                float end = ToFloat(bytes, 4);
+                bool moved = end == NoFogDistance;
+                if (disabled && !moved)
+                {
+                    fogBeforeNoFog[address] = new float[] { start, end };
+                    byte[] far = new byte[8];
+                    Array.Copy(ConvertFloatToBytes(NoFogDistance), 0, far, 0, 4);
+                    Array.Copy(ConvertFloatToBytes(NoFogDistance), 0, far, 4, 4);
+                    api.WriteMemory(pid, address, far);
+                }
+                else if (!disabled && moved)
+                {
+                    float[] before;
+                    if (fogBeforeNoFog.TryGetValue(address, out before))
+                    {
+                        byte[] original = new byte[8];
+                        Array.Copy(ConvertFloatToBytes(before[0]), 0, original, 0, 4);
+                        Array.Copy(ConvertFloatToBytes(before[1]), 0, original, 4, 4);
+                        api.WriteMemory(pid, address, original);
+                    }
+                }
+            }
+            if (!disabled)
+            {
+                fogBeforeNoFog.Clear();
+            }
+            return true;
+        }
+
+        /// <summary>A view's far clipping distance.</summary>
+        public float ReadViewFar(uint view)
+        {
+            return ToFloat(api.ReadMemory(pid, view + addr.viewFarOffset, 4), 0);
+        }
+
+        /// <summary>A view's vertical field of view, in radians.</summary>
+        public float ReadViewFov(uint view)
+        {
+            return ToFloat(api.ReadMemory(pid, view + addr.viewFovOffset, 4), 0);
+        }
+
+        /// <summary>Lets the game draw its own camera again, from the next frame.</summary>
+        public void StopViewOverride()
+        {
+            api.WriteMemory(pid, addr.viewOverrideData, new byte[4]);
+            uint call = addr.viewUpdateCopyCall;
+            if (ReadUInt(call) == Branch(call, addr.viewOverrideStub, true))
+            {
+                api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
+            }
+        }
+
+        /// <summary>
+        /// The view override's stub, called instead of the view copy with the view in r3. Data:
+        /// +0x0 on, +0x4 the main view, +0x10 its view matrix then its camera matrix (0x80 bytes,
+        /// the view's +0x2F0 to +0x36F), +0x90 its field of view and +0x94 its far distance (0
+        /// keeps the game's).
+        /// </summary>
+        private byte[] ViewOverrideStub()
+        {
+            uint stub = addr.viewOverrideStub;
+            uint data = addr.viewOverrideData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
+            uint[] words =
+            {
+                0xF821FF81,             //  0 stdu r1, -0x80(r1)
+                0x7C0802A6,             //  1 mflr r0
+                0xF8010090,             //  2 std r0, 0x90(r1)
+                0xF8610070,             //  3 std r3, 0x70(r1)
+                0x3D600000 | high,      //  4 lis r11, data@ha
+                0x396B0000 | low,       //  5 addi r11, r11, data@l
+                0x818B0000,             //  6 lwz r12, 0(r11)
+                0x2C0C0000,             //  7 cmpwi r12, 0
+                0x41820054,             //  8 beq +0x54 (to 29: off)
+                0x818B0004,             //  9 lwz r12, 4(r11)
+                0x7C036000,             // 10 cmpw r3, r12
+                0x40820048,             // 11 bne +0x48 (to 29: another view)
+                0x38C00020,             // 12 li r6, 32 (words)
+                0x7CC903A6,             // 13 mtctr r6
+                0x38A302EC,             // 14 addi r5, r3, view matrix - 4
+                0x388B000C,             // 15 addi r4, r11, matrices - 4
+                0x84E40004,             // 16 lwzu r7, 4(r4)
+                0x94E50004,             // 17 stwu r7, 4(r5)
+                0x4200FFF8,             // 18 bdnz -8
+                0x80EB0090,             // 19 lwz r7, 0x90(r11) (field of view)
+                0x2C070000,             // 20 cmpwi r7, 0
+                0x41820008,             // 21 beq +8 (0: keep the game's)
+                0x90E30000 | addr.viewFovOffset, // 22 stw r7, fov(r3)
+                0x80EB0094,             // 23 lwz r7, 0x94(r11) (far distance)
+                0x2C070000,             // 24 cmpwi r7, 0
+                0x41820008,             // 25 beq +8 (0: keep the game's)
+                0x90E30000 | addr.viewFarOffset, // 26 stw r7, far(r3)
+                0x38800001,             // 27 li r4, 1 (rebuild even if not marked)
+                Branch(stub + 28 * 4, addr.calcRenderMatricesFunction, true),
+                0xE8610070,             // 29 ld r3, 0x70(r1)
+                0xE8010090,             // 30 ld r0, 0x90(r1)
+                0x7C0803A6,             // 31 mtlr r0
+                0x38210080,             // 32 addi r1, r1, 0x80
+                Branch(stub + 33 * 4, addr.viewCopyFunction, false),
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        private static uint Branch(uint from, uint to, bool link)
+        {
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
+        }
+
+        /// <summary>A camera matrix at an address, laid out as ReadCameraMatrix's.</summary>
+        public float[] ReadMatrix(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 0x40);
+            float[] matrix = new float[16];
+            for (int i = 0; i < 16; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
         }
 
         public void SetSlowMotion(bool enabled)
@@ -266,16 +883,101 @@ namespace SluMAN
             return levelHash.ToString("X8");
         }
 
-        /// <summary>The current episode's name, or null when there is none.</summary>
-        public string GetEpisodeName()
+        /// <summary>Every named level but the main menu, in the order of the level table.</summary>
+        public static List<LevelEntry> GetWarpLevels()
         {
-            return ReadEntryName(addr.currentEpisodeOffset);
+            List<LevelEntry> levels = new List<LevelEntry>();
+            foreach (KeyValuePair<uint, string> level in levelNames)
+            {
+                if (level.Key != MainMenuLevelHash)
+                {
+                    levels.Add(new LevelEntry { hash = level.Key, name = level.Value });
+                }
+            }
+            return levels;
         }
 
-        /// <summary>The current job's name, or null outside jobs.</summary>
+        /// <summary>
+        /// The spawn points known for a level, with readable titles. Empty for levels without any.
+        /// </summary>
+        public static List<SpawnPointEntry> GetSpawnPoints(uint levelHash)
+        {
+            List<SpawnPointEntry> spawnPoints = new List<SpawnPointEntry>();
+            string[] names;
+            if (Sly4SpawnPoints.ByLevel.TryGetValue(levelHash, out names))
+            {
+                foreach (string name in names)
+                {
+                    spawnPoints.Add(new SpawnPointEntry { name = name, title = SpawnPointTitle(name) });
+                }
+            }
+            return spawnPoints;
+        }
+
+        /// <summary>
+        /// A spawn point's name without its prefix, as words: "Spawn_Player_5LairDoor1" is
+        /// "5 Lair Door 1" and "Spawn_GeishaTower01" is "Geisha Tower 1". The game has no
+        /// display names for them.
+        /// </summary>
+        private static string SpawnPointTitle(string name)
+        {
+            string title = name;
+            foreach (string prefix in SpawnPointPrefixes)
+            {
+                if (title.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    title = title.Substring(prefix.Length);
+                    break;
+                }
+            }
+            title = Regex.Replace(title.Replace('_', ' '), @"(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Za-z])", " ");
+            // "01" reads as "1".
+            title = Regex.Replace(title, @"\b0+(?=[0-9])", "");
+            return title;
+        }
+
+        /// <summary>The current episode's title, or null when there is none.</summary>
+        public string GetEpisodeName()
+        {
+            string key = ReadEntryName(addr.currentEpisodeOffset);
+            return key == null ? null : Title(key);
+        }
+
+        /// <summary>The current job's title, or null outside jobs.</summary>
         public string GetJobName()
         {
-            return ReadEntryName(addr.currentJobOffset);
+            string key = ReadEntryName(addr.currentJobOffset);
+            return key == null ? null : Title(key);
+        }
+
+        /// <summary>
+        /// The English title for an episode or job name key ("Japan" is "Turning Japanese"), or
+        /// the key with spaces ("AlterEgo01" as "Alter Ego 01") when there isn't one.
+        /// </summary>
+        public static string Title(string key)
+        {
+            string title;
+            if (titles.TryGetValue(key, out title))
+            {
+                return title;
+            }
+            StringBuilder spaced = new StringBuilder(key.Length + 8);
+            for (int i = 0; i < key.Length; i++)
+            {
+                char c = key[i];
+                if (i > 0)
+                {
+                    char previous = key[i - 1];
+                    bool wordStart = char.IsUpper(c) && (char.IsLower(previous) || char.IsDigit(previous));
+                    bool numberStart = char.IsDigit(c) && char.IsLetter(previous);
+                    if (wordStart || numberStart)
+                    {
+                        spaced.Append(' ');
+                    }
+                }
+                spaced.Append(c);
+            }
+            return spaced.ToString();
         }
 
         /// <summary>
@@ -287,19 +989,18 @@ namespace SluMAN
             checkpoint = 0;
             goalName = null;
 
-            List<uint> goals = GetGoals();
-            goalCount = goals.Count;
+            TakeGoalSnapshot();
+            goalCount = snapshotGoals.Count;
             uint current = 0;
-            for (int i = 0; i < goals.Count; i++)
+            for (int i = 0; i < snapshotGoals.Count; i++)
             {
-                uint goal = goals[i];
-                if (goal == 0)
+                if (snapshotGoals[i] == 0)
                 {
                     continue;
                 }
                 checkpoint = i + 1;
-                current = goal;
-                if (ReadByte(goal + addr.goalStateOffset) != Sly4Addresses.GoalStateDone)
+                current = snapshotGoals[i];
+                if (snapshotStates[i] != Sly4Addresses.GoalStateDone)
                 {
                     break;
                 }
@@ -307,11 +1008,53 @@ namespace SluMAN
 
             if (current != 0)
             {
-                goalName = ReadString(current + addr.goalNameOffset);
+                if (current != snapshotNameGoal)
+                {
+                    snapshotName = ReadString(current + addr.goalNameOffset);
+                    snapshotNameGoal = current;
+                }
+                goalName = snapshotName;
             }
         }
 
-        /// <summary>Every job in the game, in the job array's order.</summary>
+        /// <summary>
+        /// The running job's goals and their states: from the goal watcher while it runs, otherwise
+        /// read at most every GoalSnapshotMaxAge. For display only: warps read the goals fresh.
+        /// </summary>
+        private void TakeGoalSnapshot()
+        {
+            Sly4GoalWatcher watcher = goalWatcher;
+            if (watcher != null)
+            {
+                List<uint> watchedGoals;
+                List<int> watchedStates;
+                int current;
+                watcher.GetState(out watchedGoals, out watchedStates, out current);
+                snapshotGoals = watchedGoals;
+                snapshotStates = watchedStates;
+                return;
+            }
+
+            if (DateTime.Now - snapshotTakenAt < GoalSnapshotMaxAge)
+            {
+                return;
+            }
+
+            List<uint> goals = GetGoals();
+            List<int> states = new List<int>();
+            foreach (uint goal in goals)
+            {
+                states.Add(goal == 0 ? -1 : ReadByte(goal + addr.goalStateOffset));
+            }
+            snapshotGoals = goals;
+            snapshotStates = states;
+            snapshotTakenAt = DateTime.Now;
+        }
+
+        /// <summary>
+        /// Every job in the game, in the job array's order. The episode and job arrays are read in
+        /// a few large reads rather than a couple of reads per entry.
+        /// </summary>
         public List<JobEntry> GetJobs()
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
@@ -321,27 +1064,29 @@ namespace SluMAN
             }
 
             uint episodeArray = ReadUInt(episodeManager + addr.episodeArrayOffset);
-            int episodeCount = (int)ReadUInt(episodeManager + addr.episodeCountOffset);
+            int episodeCount = (int)Math.Min(ReadUInt(episodeManager + addr.episodeCountOffset), 32u);
+            byte[] episodeBytes = ReadLarge(episodeArray, (uint)episodeCount * Sly4Addresses.EpisodeStride);
             List<string> episodes = new List<string>();
-            for (int i = 0; i < episodeCount && i < 32; i++)
+            for (int i = 0; i < episodeCount; i++)
             {
-                episodes.Add(TrimKey(ReadString(episodeArray + (uint)i * Sly4Addresses.EpisodeStride)));
+                episodes.Add(TrimKey(ReadString(episodeBytes, i * (int)Sly4Addresses.EpisodeStride)));
             }
 
             uint jobArray = ReadUInt(episodeManager + addr.jobArrayOffset);
-            int jobCount = (int)ReadUInt(episodeManager + addr.jobCountOffset);
+            int jobCount = (int)Math.Min(ReadUInt(episodeManager + addr.jobCountOffset), 256u);
+            byte[] jobBytes = ReadLarge(jobArray, (uint)jobCount * Sly4Addresses.JobStride);
             List<JobEntry> jobs = new List<JobEntry>();
-            for (int i = 0; i < jobCount && i < 256; i++)
+            for (int i = 0; i < jobCount; i++)
             {
-                uint job = jobArray + (uint)i * Sly4Addresses.JobStride;
+                int job = i * (int)Sly4Addresses.JobStride;
                 // Unused slots have no name.
-                string name = TrimKey(ReadString(job));
+                string name = TrimKey(ReadString(jobBytes, job));
                 if (name == "")
                 {
                     continue;
                 }
 
-                int episode = ReadByte(job + addr.jobEpisodeIndexOffset);
+                int episode = jobBytes[job + (int)addr.jobEpisodeIndexOffset];
                 jobs.Add(new JobEntry
                 {
                     index = i,
@@ -376,6 +1121,33 @@ namespace SluMAN
 
             string[] names = Sly4Goals.ForJob(job.name);
             return names == null ? new List<string>() : new List<string>(names);
+        }
+
+        /// <summary>The running job's index in the job array, or -1 outside jobs.</summary>
+        public int GetRunningJobIndex()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                return -1;
+            }
+            uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
+            uint jobArray = ReadUInt(episodeManager + addr.jobArrayOffset);
+            if (currentJob == 0 || currentJob < jobArray || (currentJob - jobArray) % Sly4Addresses.JobStride != 0)
+            {
+                return -1;
+            }
+            return (int)((currentJob - jobArray) / Sly4Addresses.JobStride);
+        }
+
+        /// <summary>
+        /// The state of each of the running job's goals (GoalStateDone once done), -1 for an empty
+        /// slot. Empty outside jobs. Up to GoalSnapshotMaxAge old.
+        /// </summary>
+        public List<int> GetGoalStates()
+        {
+            TakeGoalSnapshot();
+            return new List<int>(snapshotStates);
         }
 
         public bool IsJobRunning(int jobIndex)
@@ -439,6 +1211,234 @@ namespace SluMAN
             codeHook.Call(addr.teleportToGoalFunction, episodeManager, goals[goalIndex], 1, 0);
         }
 
+        /// <summary>
+        /// Loads a level by its hash, outside any job flow: the player lands at the level's
+        /// default start. The game's own calls pass (game manager, hash, 0); LoadLevel only sets
+        /// the level to load and the load flags, and the game loads it on a later frame. A running
+        /// job sends the load back to its own level, so end it first with AbandonJob.
+        /// </summary>
+        /// <param name="character">
+        /// The character to spawn as, or null for the level's own. Set the way door transitions
+        /// keep the current character; the load reads it once and clears it.
+        /// </param>
+        /// <param name="spawnPoint">
+        /// Where to spawn, or null for the level's default start. Set the way doors set their
+        /// arrival point; a name the level doesn't have falls back to the default start.
+        /// </param>
+        public void LoadLevel(uint levelHash, CharacterEntry character, SpawnPointEntry spawnPoint)
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            ThrowIfLoading();
+
+            // Always written, so an earlier choice that never got loaded can't carry over.
+            byte[] name = new byte[SpawnCharacterLength];
+            if (character != null)
+            {
+                Encoding.ASCII.GetBytes(character.name, 0, character.name.Length, name, 0);
+            }
+            api.WriteMemory(pid, gameManager + addr.spawnCharacterOffset, name);
+            uint spawnHash = spawnPoint == null ? 0 : Hash(spawnPoint.name);
+            api.WriteMemory(pid, gameManager + addr.spawnPointOffset, ConvertIntToBytes((int)spawnHash));
+            codeHook.Call(addr.loadLevelFunction, gameManager, levelHash, 0);
+        }
+
+        /// <summary>True while a job runs (the episode manager's current job is set).</summary>
+        public bool IsInJob()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            return episodeManager != 0 && ReadUInt(episodeManager + addr.currentJobOffset) != 0;
+        }
+
+        /// <summary>
+        /// Ends the running job with the game's AbandonCurrentJob, which loads nothing: the game
+        /// clears the current job and resets its goals. Does nothing outside jobs.
+        /// </summary>
+        public void AbandonJob()
+        {
+            uint episodeManager = ReadUInt(addr.episodeManagerPtr);
+            if (episodeManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            ThrowIfLoading();
+            codeHook.Call(addr.abandonCurrentJobFunction, episodeManager);
+        }
+
+        // UI.3D.FOV's default, put back if the value before hiding isn't known.
+        private const float DefaultUiFov = 65f;
+        private static readonly TimeSpan GuiCallTimeout = TimeSpan.FromSeconds(3);
+        private float uiFovBeforeHiding = DefaultUiFov;
+
+        /// <summary>
+        /// Hides or shows the HUD with the UI.3D.FOV tunable: the HUD is drawn in 3D with that
+        /// field of view, so at 0 it's off screen. Menus are drawn the same way, so they're hidden
+        /// too while it's on. Showing puts back the value it had.
+        /// </summary>
+        public void SetHudHidden(bool hidden)
+        {
+            float current = ToFloat(api.ReadMemory(pid, addr.uiFov, 4), 0);
+            if (hidden)
+            {
+                if (current != 0)
+                {
+                    uiFovBeforeHiding = current;
+                }
+                api.WriteMemory(pid, addr.uiFov, ConvertFloatToBytes(0f));
+            }
+            else if (current == 0)
+            {
+                api.WriteMemory(pid, addr.uiFov, ConvertFloatToBytes(uiFovBeforeHiding));
+            }
+        }
+
+        public bool IsHudHidden()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.uiFov, 4), 0) == 0;
+        }
+
+        /// <summary>Runs a game function through the code hook and waits for what it returns.</summary>
+        private uint CallAndWait(uint function, params uint[] arguments)
+        {
+            codeHook.Call(function, arguments);
+            DateTime deadline = DateTime.Now + GuiCallTimeout;
+            while (codeHook.IsCallPending())
+            {
+                if (DateTime.Now > deadline)
+                {
+                    codeHook.CancelCall();
+                    throw new InvalidOperationException("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
+                }
+                System.Threading.Thread.Sleep(5);
+            }
+            return codeHook.ReturnValue();
+        }
+
+        /// <summary>
+        /// The code address of a GUI node's show method (vtable +hudShowVtableOffset, a pointer to
+        /// its function descriptor), checked to be game code run with the game's TOC.
+        /// </summary>
+        private uint GuiShowFunction(uint node)
+        {
+            uint vtable = ReadUInt(node);
+            uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
+            uint code = ReadUInt(descriptor);
+            if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
+            {
+                throw new InvalidOperationException("That GUI part isn't what SluMAN expects, so it wasn't touched.");
+            }
+            return code;
+        }
+
+        /// <summary>Shows or hides one GUI node with its show method, through the code hook.</summary>
+        public void SetGuiNodeShown(uint node, bool shown)
+        {
+            ThrowIfLoading();
+            CallAndWait(GuiShowFunction(node), node, shown ? 1u : 0u);
+        }
+
+        /// <summary>A part of the game's GUI, as read by ReadGuiTree.</summary>
+        public class GuiNode
+        {
+            public uint address;
+            public uint hash;
+            /// <summary>Its name, or null if no string in the game hashes to it.</summary>
+            public string name;
+            public List<GuiNode> children = new List<GuiNode>();
+        }
+
+        private const int MaxGuiNodes = 20000;
+
+        /// <summary>
+        /// Reads the GUI tree: every top-level node and its descendants, named from
+        /// <paramref name="names"/> (see ReadGuiNames).
+        /// </summary>
+        public List<GuiNode> ReadGuiTree(Dictionary<uint, string> names)
+        {
+            List<GuiNode> roots = new List<GuiNode>();
+            HashSet<uint> seen = new HashSet<uint>();
+            ReadGuiSiblings(ReadUInt(addr.guiRootList), roots, names, seen);
+            return roots;
+        }
+
+        private void ReadGuiSiblings(uint node, List<GuiNode> into, Dictionary<uint, string> names, HashSet<uint> seen)
+        {
+            while (IsGuiNodeAddress(node) && seen.Count < MaxGuiNodes && seen.Add(node))
+            {
+                byte[] bytes = api.ReadMemory(pid, node, addr.guiNodeNextSiblingOffset + 4);
+                GuiNode entry = new GuiNode();
+                entry.address = node;
+                entry.hash = BigEndianUInt(bytes, addr.guiNodeHashOffset);
+                string name;
+                entry.name = names.TryGetValue(entry.hash, out name) ? name : null;
+                into.Add(entry);
+
+                ReadGuiSiblings(BigEndianUInt(bytes, addr.guiNodeFirstChildOffset), entry.children, names, seen);
+                node = BigEndianUInt(bytes, addr.guiNodeNextSiblingOffset);
+            }
+        }
+
+        private static bool IsGuiNodeAddress(uint address)
+        {
+            return address >= 0x10000 && address < 0x40000000 && address % 4 == 0;
+        }
+
+        private static uint BigEndianUInt(byte[] bytes, uint offset)
+        {
+            return (uint)(bytes[offset] << 24 | bytes[offset + 1] << 16 | bytes[offset + 2] << 8 | bytes[offset + 3]);
+        }
+
+        /// <summary>
+        /// Names for GUI node hashes: every word in the game's read-only strings (dotted names
+        /// split into their parts), hashed as the GUI hashes names. Read from the game's memory.
+        /// </summary>
+        public Dictionary<uint, string> ReadGuiNames()
+        {
+            Dictionary<uint, string> names = new Dictionary<uint, string>();
+            const uint chunk = 0x10000;
+            StringBuilder word = new StringBuilder();
+            for (uint address = addr.guiNamesStart; address < addr.guiNamesEnd; address += chunk)
+            {
+                byte[] bytes = api.ReadMemory(pid, address, chunk);
+                foreach (byte b in bytes)
+                {
+                    char c = (char)b;
+                    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')
+                    {
+                        word.Append(c);
+                        continue;
+                    }
+                    AddGuiName(names, word);
+                    word.Clear();
+                }
+            }
+            AddGuiName(names, word);
+            return names;
+        }
+
+        private static void AddGuiName(Dictionary<uint, string> names, StringBuilder word)
+        {
+            if (word.Length < 2 || word.Length > 48)
+            {
+                return;
+            }
+            string name = word.ToString();
+            uint hash = Hash(name);
+            if (!names.ContainsKey(hash))
+            {
+                names[hash] = name;
+            }
+        }
+
+        /// <summary>The first bytes of a GUI node, to see what its show method changes.</summary>
+        public byte[] ReadGuiNodeBytes(uint node, uint length)
+        {
+            return api.ReadMemory(pid, node, length);
+        }
+
         /// <summary>A warp during a load would start a second load inside it, which the game can't take.</summary>
         private void ThrowIfLoading()
         {
@@ -462,6 +1462,7 @@ namespace SluMAN
         public void RemoveCodeHook()
         {
             codeHook.Uninstall();
+            StopViewOverride();
         }
 
         public bool IsJobFailed()
@@ -507,6 +1508,53 @@ namespace SluMAN
             }
 
             return TrimKey(ReadString(entry));
+        }
+
+        /// <summary>
+        /// Starts following the current goal through memory subscriptions, so the checkpoint and
+        /// the autosplitter see goal changes as they happen. Call again after a reconnect: the
+        /// console drops subscriptions when the game resets. Does nothing on the old webMAN API,
+        /// which has no subscriptions; the goals are polled there instead.
+        /// </summary>
+        public void StartGoalWatcher(bool afterReset = false)
+        {
+            StopGoalWatcher(!afterReset);
+            if (api is WebMAN)
+            {
+                return;
+            }
+            Sly4GoalWatcher watcher = new Sly4GoalWatcher(this);
+            watcher.Changed += () =>
+            {
+                Action handler = GoalsChanged;
+                if (handler != null)
+                {
+                    handler();
+                }
+            };
+            goalWatcher = watcher;
+            watcher.Start();
+        }
+
+        public void StopGoalWatcher(bool releaseSubscriptions = true)
+        {
+            Sly4GoalWatcher watcher = goalWatcher;
+            goalWatcher = null;
+            if (watcher != null)
+            {
+                watcher.Stop(releaseSubscriptions);
+            }
+        }
+
+        /// <summary>The running job's goal pointers (0 for empty slots), read now. For the goal watcher.</summary>
+        public List<uint> ReadGoals()
+        {
+            return GetGoals();
+        }
+
+        public int ReadGoalState(uint goal)
+        {
+            return ReadByte(goal + addr.goalStateOffset);
         }
 
         /// <summary>The current job's goal pointers (0 for empty slots), or none outside jobs.</summary>
@@ -556,6 +1604,33 @@ namespace SluMAN
             byte[] bytes = api.ReadMemory(pid, address, 64);
             int length = Array.IndexOf(bytes, (byte)0);
             return Encoding.ASCII.GetString(bytes, 0, length < 0 ? bytes.Length : length);
+        }
+
+        /// <summary>A string of up to 64 characters at <paramref name="offset"/> in bytes already read.</summary>
+        private static string ReadString(byte[] bytes, int offset)
+        {
+            int maxLength = Math.Min(64, bytes.Length - offset);
+            int length = 0;
+            while (length < maxLength && bytes[offset + length] != 0)
+            {
+                length++;
+            }
+            return Encoding.ASCII.GetString(bytes, offset, length);
+        }
+
+        /// <summary>Reads more than one request can carry, in MaxReadSize pieces.</summary>
+        private byte[] ReadLarge(uint address, uint size)
+        {
+            byte[] result = new byte[size];
+            uint done = 0;
+            while (done < size)
+            {
+                uint chunk = Math.Min(MaxReadSize, size - done);
+                byte[] part = api.ReadMemory(pid, address + done, chunk);
+                Array.Copy(part, 0, result, done, chunk);
+                done += chunk;
+            }
+            return result;
         }
 
         /// <summary>The player ref, or 0 while the player doesn't exist.</summary>

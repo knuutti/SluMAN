@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Windows.Forms;
 
 namespace SluMAN
@@ -10,14 +9,30 @@ namespace SluMAN
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
-        // The game state is refreshed every few ticks: it takes a dozen reads, which is slow on a PS3.
-        private const int GameStateRefreshTicks = 3;
+        // The game state is refreshed every few ticks: it takes a dozen reads, and on a PS3 every
+        // read is a network round trip.
+        private const int GameStateRefreshTicks = 5;
 
         // How long a queued warp may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
+        private const string PlayerTab = "Player";
+        private const string CameraTab = "Camera";
+        private const string JobsTab = "Jobs";
+        private const string TunablesTab = "Tunables";
+        private const string GuiTab = "GUI";
+        private const string MemoryTab = "Memory";
+        private const string ViewerTab = "Memory Viewer";
+
+        /// <summary>Fly mode (Player tab) and the free camera (Camera tab): one runs at a time.</summary>
+        public Sly4FreeMove FreeMove;
+
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        public Sly4CameraApi CameraApi;
+
         private StatusLine statusLine;
         private GameSession session;
+        private PracticeTabs practiceTabs;
         private int refreshTick = 0;
         private bool gameCallPending = false;
         private DateTime gameCallDeadline;
@@ -31,19 +46,40 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
+        // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
+        private sly4.LevelEntry queuedLevel = null;
+        private sly4.CharacterEntry queuedCharacter = null;
+
+        private sly4.SpawnPointEntry queuedSpawnPoint = null;
+
+        private const string LevelCharacter = "Level's own character";
+        private const string LevelStart = "Level start";
+
         public Sly4Practice(sly4 game)
         {
             this.game = game;
             InitializeComponent();
             statusLine = new StatusLine(this, true);
-            func.BindEnter(coinsTextBox, setCoinsButton);
-            func.BindEnter(zTextBox, teleportButton);
 
             for (int slot = 1; slot <= IGame.PositionSlotCount; slot++)
             {
                 slotComboBox.Items.Add($"Slot {slot}");
             }
             slotComboBox.SelectedIndex = game.selectedPositionIndex;
+
+            foreach (sly4.LevelEntry level in sly4.GetWarpLevels())
+            {
+                levelComboBox.Items.Add(level);
+            }
+            // The first entry loads as the level's own character.
+            characterComboBox.Items.Add(LevelCharacter);
+            characterComboBox.Items.AddRange(sly4.Characters);
+            characterComboBox.SelectedIndex = 0;
+            levelComboBox.SelectedIndexChanged += (sender, e) => FillSpawnPoints();
+            FillSpawnPoints();
+
+            // Before the toggles below read the game, so they show any kept cheat tunables.
+            ApplyKeptTunables();
 
             try
             {
@@ -65,6 +101,9 @@ namespace SluMAN
                 // Left unchecked; ticking them writes the values anyway.
             }
 
+            // The controller feeds the combos and the input display.
+            game.SetupInputDisplayMemorySubs();
+
             // Controller combos run on the inputs timer, so it runs for as long as the form is open.
             game.combosActive = true;
             game.InputsTimer.Start();
@@ -73,32 +112,87 @@ namespace SluMAN
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
 
+            game.GoalsChanged += game_GoalsChanged;
+            game.StartGoalWatcher();
+
             refreshTimer.Start();
+
+            FreeMove = new Sly4FreeMove(game);
+            FreeMove.Stopped += (message) =>
+            {
+                if (!IsDisposed)
+                {
+                    statusLine.Error($"Fly / free camera stopped: {message}");
+                }
+            };
+            CameraApi = new Sly4CameraApi(game, FreeMove);
+            CameraApi.StartFromConfig();
+
+            ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
+            inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
+            toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
+
+            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            practiceTabs = new PracticeTabs(this, "Practice", true);
+            practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
+            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
+            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
+            practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
+            practiceTabs.AddTool(GuiTab, () => new Sly4GuiForm(game));
+            // The watch list and the hex viewer open each other's tabs.
+            practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
+            practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
+            // View menu: which tabs show, saved per user. Practice and Player show at first.
+            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab);
+        }
+
+        /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
+        private void ApplyKeptTunables()
+        {
+            if (game.tunables.KeptCount == 0)
+            {
+                return;
+            }
+            try
+            {
+                int applied = game.tunables.ApplyKept();
+                statusLine.Info($"Applied {applied} kept tunables.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't apply the kept tunables: {ex.Message}");
+            }
+        }
+
+        private void game_GoalsChanged()
+        {
+            // Raised on the goal watcher's thread when a goal is finished or a job starts or ends,
+            // so the checkpoint shows it at once rather than on the next refresh.
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (!IsDisposed && gameGroupBox.Visible)
+                    {
+                        RefreshGameState();
+                    }
+                }));
+            }
+            catch
+            {
+                // The form closed in between.
+            }
         }
 
         private void refreshTimer_Tick(object sender, EventArgs e)
         {
-            try
-            {
-                coinsValueLabel.Text = game.GetCoinCount().ToString();
-            }
-            catch
-            {
-                coinsValueLabel.Text = "-";
-            }
-
-            try
-            {
-                positionValueLabel.Text = FormatVector(game.GetPosition());
-                velocityValueLabel.Text = FormatVector(game.GetVelocity());
-            }
-            catch
-            {
-                positionValueLabel.Text = "-";
-                velocityValueLabel.Text = "-";
-            }
-
-            if (refreshTick++ % GameStateRefreshTicks == 0)
+            // The labels are only read while the Practice tab shows. The timer keeps running for
+            // the warps it tracks.
+            if (refreshTick++ % GameStateRefreshTicks == 0 && gameGroupBox.Visible)
             {
                 RefreshGameState();
             }
@@ -106,6 +200,10 @@ namespace SluMAN
             if (gameCallPending)
             {
                 CheckGameCall();
+            }
+            else if (queuedLevel != null)
+            {
+                LoadQueuedLevel();
             }
             else if (queuedGoalJob != null)
             {
@@ -121,7 +219,7 @@ namespace SluMAN
         {
             if (DateTime.Now > queuedGoalDeadline)
             {
-                statusLine.Error($"{queuedGoalJob.name} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
+                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
                 queuedGoalJob = null;
                 return;
             }
@@ -167,6 +265,7 @@ namespace SluMAN
                 else if (DateTime.Now > gameCallDeadline)
                 {
                     gameCallPending = false;
+                    queuedLevel = null;
                     game.CancelGameCall();
                     statusLine.Error("The game didn't run the warp. On RPCS3, set the PPU decoder to Interpreter (static).");
                 }
@@ -240,7 +339,7 @@ namespace SluMAN
                 }
                 if (goals.Count == 0 && reportEmpty)
                 {
-                    statusLine.Error(job == null ? "Pick a job, or start one to list its goals." : $"{job.name}'s goals aren't known.");
+                    statusLine.Error(job == null ? "Pick a job, or start one to list its goals." : $"{job.Title}'s goals aren't known.");
                 }
             }
             catch (Exception ex)
@@ -272,12 +371,21 @@ namespace SluMAN
                 statusLine.Error("Pick a job first.");
                 return;
             }
+            StartJob(job, toHub, toHideout);
+        }
 
+        /// <summary>
+        /// Starts a job, or goes to its episode's hub or hideout. Used by the Warp controls and
+        /// the Jobs tab; the result shows on the status bar.
+        /// </summary>
+        public void StartJob(sly4.JobEntry job, bool toHub, bool toHideout)
+        {
             queuedGoalJob = null;
+            queuedLevel = null;
             try
             {
                 game.StartJob(job.index, toHub, toHideout);
-                string where = toHub ? $"{job.episode}'s hub" : (toHideout ? $"{job.episode}'s hideout" : job.name);
+                string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
                 TrackGameCall($"Going to {where}.");
             }
             catch (Exception ex)
@@ -293,10 +401,17 @@ namespace SluMAN
                 statusLine.Error("Pick a goal first.");
                 return;
             }
+            WarpToGoal(jobComboBox.SelectedItem as sly4.JobEntry, goalComboBox.SelectedIndex);
+        }
 
-            int goal = goalComboBox.SelectedIndex;
-            sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+        /// <summary>
+        /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
+        /// given), otherwise by starting the job and warping once it has loaded.
+        /// </summary>
+        public void WarpToGoal(sly4.JobEntry job, int goal)
+        {
             queuedGoalJob = null;
+            queuedLevel = null;
             try
             {
                 // A running job warps in place; any other job is started at the goal.
@@ -317,14 +432,115 @@ namespace SluMAN
                         queuedGoalReadySince = DateTime.MaxValue;
                     }
                     TrackGameCall(goal > 0
-                        ? $"Starting {job.name}; it warps to goal {goal + 1} once loaded."
-                        : $"Starting {job.name}.");
+                        ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
+                        : $"Starting {job.Title}.");
                 }
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't warp: {ex.Message}");
             }
+        }
+
+        private void retryCheckpointButton_Click(object sender, EventArgs e)
+        {
+            int checkpoint;
+            try
+            {
+                game.GetCheckpoint(out checkpoint, out int goalCount, out string goalName);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't read the checkpoint: {ex.Message}");
+                return;
+            }
+            if (checkpoint == 0)
+            {
+                statusLine.Error("Not in a job, so there's no checkpoint to retry.");
+                return;
+            }
+            WarpToGoal(null, checkpoint - 1);
+        }
+
+        private void loadLevelButton_Click(object sender, EventArgs e)
+        {
+            sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
+            if (level == null)
+            {
+                statusLine.Error("Pick a level first.");
+                return;
+            }
+
+            sly4.CharacterEntry character = characterComboBox.SelectedItem as sly4.CharacterEntry;
+            sly4.SpawnPointEntry spawnPoint = spawnPointComboBox.SelectedItem as sly4.SpawnPointEntry;
+            queuedGoalJob = null;
+            queuedLevel = null;
+            try
+            {
+                // A running job would load its own level instead, so end it first and load the
+                // level once the game has run that call.
+                if (game.IsInJob())
+                {
+                    game.AbandonJob();
+                    queuedLevel = level;
+                    queuedCharacter = character;
+                    queuedSpawnPoint = spawnPoint;
+                    TrackGameCall($"Left the job; loading {level.name}.");
+                    return;
+                }
+                game.LoadLevel(level.hash, character, spawnPoint);
+                TrackGameCall(LoadingMessage(level, character, spawnPoint));
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't load the level: {ex.Message}");
+            }
+        }
+
+        private void LoadQueuedLevel()
+        {
+            sly4.LevelEntry level = queuedLevel;
+            queuedLevel = null;
+            try
+            {
+                game.LoadLevel(level.hash, queuedCharacter, queuedSpawnPoint);
+                TrackGameCall(LoadingMessage(level, queuedCharacter, queuedSpawnPoint));
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't load the level: {ex.Message}");
+            }
+        }
+
+        private static string LoadingMessage(sly4.LevelEntry level, sly4.CharacterEntry character, sly4.SpawnPointEntry spawnPoint)
+        {
+            string message = $"Loading {level.name}";
+            if (spawnPoint != null)
+            {
+                message += $" at {spawnPoint.title}";
+            }
+            if (character != null)
+            {
+                message += $" as {character.title}";
+            }
+            return message + ".";
+        }
+
+        /// <summary>Lists the selected level's spawn points, after its default start.</summary>
+        private void FillSpawnPoints()
+        {
+            spawnPointComboBox.Items.Clear();
+            spawnPointComboBox.Items.Add(LevelStart);
+            sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
+            if (level != null)
+            {
+                foreach (sly4.SpawnPointEntry spawnPoint in sly4.GetSpawnPoints(level.hash))
+                {
+                    spawnPointComboBox.Items.Add(spawnPoint);
+                }
+            }
+            spawnPointComboBox.SelectedIndex = 0;
+            spawnPointComboBox.Enabled = spawnPointComboBox.Items.Count > 1;
         }
 
         private void RefreshGameState()
@@ -363,83 +579,6 @@ namespace SluMAN
                 checkpointValueLabel.Text = "-";
                 goalValueLabel.Text = "-";
             }
-        }
-
-        private static string FormatVector(float[] vector)
-        {
-            if (vector == null)
-            {
-                return "-";
-            }
-            return string.Join(", ", Array.ConvertAll(vector, v => v.ToString("F2", CultureInfo.InvariantCulture)));
-        }
-
-        private void setCoinsButton_Click(object sender, EventArgs e)
-        {
-            if (!int.TryParse(coinsTextBox.Text, out int coins))
-            {
-                statusLine.Error("Coins must be a whole number.");
-                return;
-            }
-
-            try
-            {
-                game.SetCoinCount(coins);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't set coins: {ex.Message}");
-            }
-        }
-
-        private void currentPositionButton_Click(object sender, EventArgs e)
-        {
-            float[] position;
-            try
-            {
-                position = game.GetPosition();
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't read the position: {ex.Message}");
-                return;
-            }
-
-            if (position == null)
-            {
-                statusLine.Error("The player isn't loaded.");
-                return;
-            }
-
-            xTextBox.Text = position[0].ToString("F3", CultureInfo.InvariantCulture);
-            yTextBox.Text = position[1].ToString("F3", CultureInfo.InvariantCulture);
-            zTextBox.Text = position[2].ToString("F3", CultureInfo.InvariantCulture);
-        }
-
-        private void teleportButton_Click(object sender, EventArgs e)
-        {
-            if (!TryParseCoordinate(xTextBox.Text, out float x)
-                || !TryParseCoordinate(yTextBox.Text, out float y)
-                || !TryParseCoordinate(zTextBox.Text, out float z))
-            {
-                statusLine.Error("X, Y and Z must be numbers.");
-                return;
-            }
-
-            try
-            {
-                game.Teleport(x, y, z);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't teleport: {ex.Message}");
-            }
-        }
-
-        /// <summary>Accepts both "1.5" and "1,5", since Windows may use either.</summary>
-        private static bool TryParseCoordinate(string text, out float value)
-        {
-            return float.TryParse(text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
         private void slotComboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -546,10 +685,21 @@ namespace SluMAN
             {
                 statusLine.Error($"Couldn't turn the cheats back on: {ex.Message}");
             }
+
+            ApplyKeptTunables();
+            // The console dropped the watcher's subscriptions with the reset.
+            game.StartGoalWatcher(true);
+            practiceTabs.RefreshShownTool();
         }
 
         private void Sly4Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // The tools' own cleanup (timers) runs when they close.
+            practiceTabs.CloseAll();
+            CameraApi.Stop();
+            FreeMove.Stop();
+            game.GoalsChanged -= game_GoalsChanged;
+            game.StopGoalWatcher();
             refreshTimer.Stop();
 
             // Leave the game unmodified. This runs before the session disconnects.
@@ -581,7 +731,7 @@ namespace SluMAN
 
         private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MemoryForm.ShowFor(this);
+            practiceTabs.Show(MemoryTab);
         }
 
         private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
