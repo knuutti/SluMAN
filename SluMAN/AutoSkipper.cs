@@ -88,7 +88,7 @@ namespace SluMAN
                 if (freezeDialogue)
                 {
                     // Released like the subscription when the skipper stops.
-                    dialogueSubID = api.FreezeMemory(pid, dialogueState, MemoryCondition.Any, DialogueSkipValue);
+                    dialogueSubID = api.FreezeMemory(pid, dialogueState, IPS3API.MemoryCondition.Any, DialogueSkipValue);
                 }
                 else
                 {
