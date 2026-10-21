@@ -63,11 +63,10 @@ namespace SluMAN
             builtinWarpFile = $"data/{layout.warpFilePrefix}_warp_locations.txt";
 
             InitializeComponent();
-            if (!layout.HasCharacterInfo)
+            if (layout.hideEntityFields)
             {
-                // None of the entity fields (ID, health, gadget power, opacity, rotation) is known
-                // for this game: hide their column and move the position and velocity readouts
-                // into its place.
+                // Hide the entity fields' column and move the position and velocity readouts into
+                // its place.
                 int shift = lblPosX.Left - lblEntityId.Left;
                 foreach (Control control in charInfoGroupBox.Controls)
                 {

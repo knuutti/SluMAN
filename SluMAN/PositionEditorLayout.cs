@@ -70,15 +70,11 @@ namespace SluMAN
         /// </summary>
         public Action<uint> applyInfiniteJump;
 
-        /// <summary>True if any Character Info entity field is known; their column is hidden otherwise.</summary>
-        public bool HasCharacterInfo
-        {
-            get
-            {
-                return entityIdOffset != 0 || healthOffset != 0 || gadgetPowerOffset != 0
-                    || opacityOffset != 0 || rotationOffset != 0;
-            }
-        }
+        /// <summary>
+        /// Hide Character Info's entity fields (ID, health, gadget power, opacity, rotation), for
+        /// a game whose entities don't have them, rather than showing N/A.
+        /// </summary>
+        public bool hideEntityFields;
     }
 
     /// <summary>

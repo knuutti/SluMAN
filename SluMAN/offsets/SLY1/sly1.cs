@@ -72,6 +72,7 @@ namespace SluMAN
                 positionOffset = sly1.addr.positionOffset,
                 velocityOffset = sly1.addr.velocityOffset,
                 applyInfiniteJump = ApplyInfiniteJump,
+                hideEntityFields = true,
             };
         }
 
