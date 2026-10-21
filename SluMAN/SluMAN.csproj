@@ -217,9 +217,6 @@
     <Compile Include="SLY1\Sly1Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY1\Sly1MoviesForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="SLY1\Sly1WorldStatesForm.cs">
       <SubType>Form</SubType>
     </Compile>

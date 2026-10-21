@@ -9,7 +9,7 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 1 Practice Mode: load a level at an entrance, reload, set or hold coins, lives and charms,
-    /// and skip cutscenes, with the world states, movies and the memory tools on tabs. The controls are built in code, in the
+    /// and skip cutscenes, with the world states and the memory tools on tabs. The controls are built in code, in the
     /// other games' two-column layout.
     /// </summary>
     public class Sly1Practice : Form
@@ -18,7 +18,6 @@ namespace SluMAN
         public string gameNameId = sly1.addr.GameId;
 
         private const string WorldStatesTab = "World States";
-        private const string MoviesTab = "Movies";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         private const string LevelStart = "Level start";
@@ -111,12 +110,11 @@ namespace SluMAN
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
-            practiceTabs.AddTool(MoviesTab, () => new Sly1MoviesForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly1_visible_tabs", WorldStatesTab, MoviesTab);
+            practiceTabs.AddViewMenu("sly1_visible_tabs", WorldStatesTab);
         }
 
         private void BuildMenu()
