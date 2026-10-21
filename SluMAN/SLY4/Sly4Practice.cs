@@ -47,6 +47,9 @@ namespace SluMAN
         private int queuedGoal;
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
+        // A job started on another map settles first; a restart in place loads nothing, so it
+        // warps at once, before the restarted job shows the player in an odd state for long.
+        private TimeSpan queuedGoalSettleTime;
 
         // The running job, to start again at a goal once the game has abandoned it (see RestartJob).
         private sly4.JobEntry queuedJobStart = null;
@@ -277,7 +280,7 @@ namespace SluMAN
                 {
                     queuedGoalReadySince = DateTime.Now;
                 }
-                if (DateTime.Now - queuedGoalReadySince < QueuedGoalWarpSettleTime)
+                if (DateTime.Now - queuedGoalReadySince < queuedGoalSettleTime)
                 {
                     return;
                 }
@@ -494,7 +497,7 @@ namespace SluMAN
         /// Starts a job that isn't running and queues the warp to the goal (0-based): the game
         /// can't start a job at a later goal, so it warps once the job runs.
         /// </summary>
-        private void StartJobAtGoal(sly4.JobEntry job, int goal, uint goalId = 0)
+        private void StartJobAtGoal(sly4.JobEntry job, int goal, uint goalId = 0, bool inPlace = false)
         {
             game.StartJob(job.index, false, false, goalId);
             if (goal > 0)
@@ -503,6 +506,7 @@ namespace SluMAN
                 queuedGoal = goal;
                 queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
                 queuedGoalReadySince = DateTime.MaxValue;
+                queuedGoalSettleTime = inPlace ? TimeSpan.Zero : QueuedGoalWarpSettleTime;
             }
             TrackGameCall(goal > 0
                 ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
@@ -533,7 +537,7 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                StartJobAtGoal(job, queuedJobStartGoal, queuedJobStartGoalId);
+                StartJobAtGoal(job, queuedJobStartGoal, queuedJobStartGoalId, true);
             }
             catch (Exception ex)
             {
