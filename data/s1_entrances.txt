@@ -3,6 +3,451 @@
 # The Level group in Practice Mode lists the entrances read from the game, by ID: the loaded
 # level's, and those of every level visited before (kept in s1_seen_entrances.txt in the user
 # data folder). Lines here name them, and list entrances of levels that haven't been visited, so
-# they can be loaded straight away. The level is as the Level dropdown shows it, e.g. "Tide of Terror: A Stealthy
-# Approach" or "Paris". The entrance ID is the number the dropdown shows. Everything after a #
-# is a comment.
+# they can be loaded straight away. The level is as the Level dropdown shows it, e.g. "Tide of
+# Terror: A Stealthy Approach" or "Paris". The entrance ID is the number the dropdown shows; a
+# name goes after the last |, and an entrance without one shows as "Entrance <ID>". Everything
+# after a # is a comment.
+#
+# Entrance IDs from NPUA80663. Not listed yet: Splash, Hideout, At the Dog Track, A Desperate
+# Race and Bentley Comes Through.
+
+Paris | 2641 |
+Paris | 2648 |
+Paris | 2667 |
+Paris | 2808 |
+Paris | 2809 |
+Paris | 2810 |
+Paris | 2811 |
+Paris | 2812 |
+Paris | 2813 |
+Paris | 2814 |
+Paris | 2815 |
+Paris | 2816 |
+Paris | 2817 |
+Paris | 2818 |
+Paris | 2822 |
+Paris | 3241 |
+Paris | 3244 |
+
+Tide of Terror: A Stealthy Approach | 2627 |
+Tide of Terror: A Stealthy Approach | 2637 |
+Tide of Terror: A Stealthy Approach | 2695 |
+Tide of Terror: A Stealthy Approach | 2697 |
+Tide of Terror: A Stealthy Approach | 2734 |
+Tide of Terror: A Stealthy Approach | 2735 |
+Tide of Terror: A Stealthy Approach | 2736 |
+Tide of Terror: A Stealthy Approach | 2737 |
+Tide of Terror: A Stealthy Approach | 2738 |
+Tide of Terror: A Stealthy Approach | 2739 |
+Tide of Terror: A Stealthy Approach | 2740 |
+Tide of Terror: A Stealthy Approach | 2741 |
+Tide of Terror: A Stealthy Approach | 2742 |
+
+Tide of Terror: Prowling the Grounds | 444 |
+Tide of Terror: Prowling the Grounds | 445 |
+Tide of Terror: Prowling the Grounds | 2660 |
+Tide of Terror: Prowling the Grounds | 2661 |
+Tide of Terror: Prowling the Grounds | 2662 |
+Tide of Terror: Prowling the Grounds | 2663 |
+Tide of Terror: Prowling the Grounds | 2664 |
+Tide of Terror: Prowling the Grounds | 2666 |
+Tide of Terror: Prowling the Grounds | 2667 |
+Tide of Terror: Prowling the Grounds | 2668 |
+Tide of Terror: Prowling the Grounds | 2669 |
+Tide of Terror: Prowling the Grounds | 2670 |
+Tide of Terror: Prowling the Grounds | 2671 |
+Tide of Terror: Prowling the Grounds | 2672 |
+Tide of Terror: Prowling the Grounds | 2673 |
+Tide of Terror: Prowling the Grounds | 2674 |
+
+Tide of Terror: High Class Heist | 2622 |
+Tide of Terror: High Class Heist | 2624 |
+Tide of Terror: High Class Heist | 2687 |
+Tide of Terror: High Class Heist | 2688 |
+Tide of Terror: High Class Heist | 2689 |
+Tide of Terror: High Class Heist | 2690 |
+Tide of Terror: High Class Heist | 2691 |
+Tide of Terror: High Class Heist | 2692 |
+Tide of Terror: High Class Heist | 2693 |
+Tide of Terror: High Class Heist | 2694 |
+
+Tide of Terror: Into the Machine | 2779 |
+Tide of Terror: Into the Machine | 2780 |
+Tide of Terror: Into the Machine | 2781 |
+Tide of Terror: Into the Machine | 2782 |
+Tide of Terror: Into the Machine | 2783 |
+Tide of Terror: Into the Machine | 2784 |
+Tide of Terror: Into the Machine | 2785 |
+Tide of Terror: Into the Machine | 2786 |
+Tide of Terror: Into the Machine | 2787 |
+Tide of Terror: Into the Machine | 2788 |
+Tide of Terror: Into the Machine | 3106 |
+Tide of Terror: Into the Machine | 3108 |
+Tide of Terror: Into the Machine | 3110 |
+
+Tide of Terror: A Cunning Disguise | 2583 |
+Tide of Terror: A Cunning Disguise | 2619 |
+Tide of Terror: A Cunning Disguise | 2620 |
+Tide of Terror: A Cunning Disguise | 2621 |
+Tide of Terror: A Cunning Disguise | 2622 |
+Tide of Terror: A Cunning Disguise | 2623 |
+
+Tide of Terror: The Fire Down Below | 2730 |
+Tide of Terror: The Fire Down Below | 2732 |
+Tide of Terror: The Fire Down Below | 2745 |
+Tide of Terror: The Fire Down Below | 2746 |
+Tide of Terror: The Fire Down Below | 2747 |
+Tide of Terror: The Fire Down Below | 2748 |
+Tide of Terror: The Fire Down Below | 2749 |
+Tide of Terror: The Fire Down Below | 2750 |
+Tide of Terror: The Fire Down Below | 2751 |
+Tide of Terror: The Fire Down Below | 2752 |
+
+Tide of Terror: Treasure in the Depths | 2293 |
+
+Tide of Terror: The Gunboat Graveyard | 2468 |
+Tide of Terror: The Gunboat Graveyard | 2558 |
+Tide of Terror: The Gunboat Graveyard | 2559 |
+Tide of Terror: The Gunboat Graveyard | 2560 |
+Tide of Terror: The Gunboat Graveyard | 2561 |
+Tide of Terror: The Gunboat Graveyard | 2562 |
+Tide of Terror: The Gunboat Graveyard | 2563 |
+
+Tide of Terror: The Eye of the Storm | 2192 |
+Tide of Terror: The Eye of the Storm | 2238 |
+
+Sunset Snake Eyes: A Rocky Start | 2561 |
+Sunset Snake Eyes: A Rocky Start | 2571 |
+Sunset Snake Eyes: A Rocky Start | 2608 |
+Sunset Snake Eyes: A Rocky Start | 2610 |
+Sunset Snake Eyes: A Rocky Start | 2668 |
+Sunset Snake Eyes: A Rocky Start | 2669 |
+Sunset Snake Eyes: A Rocky Start | 2670 |
+Sunset Snake Eyes: A Rocky Start | 2671 |
+Sunset Snake Eyes: A Rocky Start | 2672 |
+Sunset Snake Eyes: A Rocky Start | 2673 |
+Sunset Snake Eyes: A Rocky Start | 2674 |
+Sunset Snake Eyes: A Rocky Start | 2675 |
+Sunset Snake Eyes: A Rocky Start | 2676 |
+Sunset Snake Eyes: A Rocky Start | 2677 |
+Sunset Snake Eyes: A Rocky Start | 2678 |
+Sunset Snake Eyes: A Rocky Start | 2679 |
+
+Sunset Snake Eyes: Muggshot's Turf | 444 |
+Sunset Snake Eyes: Muggshot's Turf | 445 |
+Sunset Snake Eyes: Muggshot's Turf | 2817 |
+Sunset Snake Eyes: Muggshot's Turf | 2818 |
+Sunset Snake Eyes: Muggshot's Turf | 2819 |
+Sunset Snake Eyes: Muggshot's Turf | 2820 |
+Sunset Snake Eyes: Muggshot's Turf | 2821 |
+Sunset Snake Eyes: Muggshot's Turf | 2822 |
+Sunset Snake Eyes: Muggshot's Turf | 2823 |
+Sunset Snake Eyes: Muggshot's Turf | 2824 |
+Sunset Snake Eyes: Muggshot's Turf | 2825 |
+Sunset Snake Eyes: Muggshot's Turf | 2826 |
+Sunset Snake Eyes: Muggshot's Turf | 2827 |
+Sunset Snake Eyes: Muggshot's Turf | 2828 |
+Sunset Snake Eyes: Muggshot's Turf | 2829 |
+Sunset Snake Eyes: Muggshot's Turf | 2830 |
+Sunset Snake Eyes: Muggshot's Turf | 2831 |
+Sunset Snake Eyes: Muggshot's Turf | 2832 |
+Sunset Snake Eyes: Muggshot's Turf | 2833 |
+Sunset Snake Eyes: Muggshot's Turf | 2834 |
+Sunset Snake Eyes: Muggshot's Turf | 2835 |
+
+Sunset Snake Eyes: Boneyard Casino | 2688 |
+Sunset Snake Eyes: Boneyard Casino | 2734 |
+Sunset Snake Eyes: Boneyard Casino | 2736 |
+Sunset Snake Eyes: Boneyard Casino | 2795 |
+Sunset Snake Eyes: Boneyard Casino | 2796 |
+Sunset Snake Eyes: Boneyard Casino | 2797 |
+Sunset Snake Eyes: Boneyard Casino | 2798 |
+Sunset Snake Eyes: Boneyard Casino | 2799 |
+Sunset Snake Eyes: Boneyard Casino | 2800 |
+Sunset Snake Eyes: Boneyard Casino | 2801 |
+Sunset Snake Eyes: Boneyard Casino | 2802 |
+Sunset Snake Eyes: Boneyard Casino | 2803 |
+Sunset Snake Eyes: Boneyard Casino | 2804 |
+Sunset Snake Eyes: Boneyard Casino | 2805 |
+
+Sunset Snake Eyes: Murray's Big Gamble | 2830 |
+Sunset Snake Eyes: Murray's Big Gamble | 2832 |
+Sunset Snake Eyes: Murray's Big Gamble | 2833 |
+Sunset Snake Eyes: Murray's Big Gamble | 2835 |
+Sunset Snake Eyes: Murray's Big Gamble | 2837 |
+Sunset Snake Eyes: Murray's Big Gamble | 2839 |
+Sunset Snake Eyes: Murray's Big Gamble | 2841 |
+Sunset Snake Eyes: Murray's Big Gamble | 2843 |
+Sunset Snake Eyes: Murray's Big Gamble | 2845 |
+Sunset Snake Eyes: Murray's Big Gamble | 2847 |
+
+Sunset Snake Eyes: Two to Tango | 3064 |
+Sunset Snake Eyes: Two to Tango | 3100 |
+Sunset Snake Eyes: Two to Tango | 3166 |
+Sunset Snake Eyes: Two to Tango | 3167 |
+Sunset Snake Eyes: Two to Tango | 3168 |
+Sunset Snake Eyes: Two to Tango | 3169 |
+Sunset Snake Eyes: Two to Tango | 3170 |
+Sunset Snake Eyes: Two to Tango | 3171 |
+Sunset Snake Eyes: Two to Tango | 3172 |
+Sunset Snake Eyes: Two to Tango | 3173 |
+Sunset Snake Eyes: Two to Tango | 3174 |
+Sunset Snake Eyes: Two to Tango | 3175 |
+
+Sunset Snake Eyes: Straight to the Top | 2569 |
+Sunset Snake Eyes: Straight to the Top | 2572 |
+Sunset Snake Eyes: Straight to the Top | 2685 |
+Sunset Snake Eyes: Straight to the Top | 2686 |
+Sunset Snake Eyes: Straight to the Top | 2687 |
+Sunset Snake Eyes: Straight to the Top | 2688 |
+Sunset Snake Eyes: Straight to the Top | 2689 |
+Sunset Snake Eyes: Straight to the Top | 2690 |
+Sunset Snake Eyes: Straight to the Top | 2691 |
+Sunset Snake Eyes: Straight to the Top | 2692 |
+Sunset Snake Eyes: Straight to the Top | 2693 |
+Sunset Snake Eyes: Straight to the Top | 2694 |
+Sunset Snake Eyes: Straight to the Top | 2695 |
+Sunset Snake Eyes: Straight to the Top | 2696 |
+
+Sunset Snake Eyes: Back Alley Heist | 2525 |
+Sunset Snake Eyes: Back Alley Heist | 2526 |
+Sunset Snake Eyes: Back Alley Heist | 2545 |
+Sunset Snake Eyes: Back Alley Heist | 2610 |
+Sunset Snake Eyes: Back Alley Heist | 2611 |
+Sunset Snake Eyes: Back Alley Heist | 2612 |
+Sunset Snake Eyes: Back Alley Heist | 2613 |
+Sunset Snake Eyes: Back Alley Heist | 2614 |
+Sunset Snake Eyes: Back Alley Heist | 2615 |
+Sunset Snake Eyes: Back Alley Heist | 2616 |
+Sunset Snake Eyes: Back Alley Heist | 2617 |
+Sunset Snake Eyes: Back Alley Heist | 2618 |
+Sunset Snake Eyes: Back Alley Heist | 2619 |
+Sunset Snake Eyes: Back Alley Heist | 2620 |
+Sunset Snake Eyes: Back Alley Heist | 2621 |
+Sunset Snake Eyes: Back Alley Heist | 2622 |
+Sunset Snake Eyes: Back Alley Heist | 2623 |
+Sunset Snake Eyes: Back Alley Heist | 2624 |
+Sunset Snake Eyes: Back Alley Heist | 2625 |
+Sunset Snake Eyes: Back Alley Heist | 2626 |
+
+Sunset Snake Eyes: Last Call | 2181 |
+Sunset Snake Eyes: Last Call | 2182 |
+Sunset Snake Eyes: Last Call | 2259 |
+Sunset Snake Eyes: Last Call | 2323 |
+Sunset Snake Eyes: Last Call | 2353 |
+
+Vicious Voodoo: The Dread Swamp Path | 2698 |
+Vicious Voodoo: The Dread Swamp Path | 2708 |
+Vicious Voodoo: The Dread Swamp Path | 2763 |
+Vicious Voodoo: The Dread Swamp Path | 2764 |
+Vicious Voodoo: The Dread Swamp Path | 2765 |
+Vicious Voodoo: The Dread Swamp Path | 2766 |
+Vicious Voodoo: The Dread Swamp Path | 2767 |
+Vicious Voodoo: The Dread Swamp Path | 2768 |
+Vicious Voodoo: The Dread Swamp Path | 2769 |
+Vicious Voodoo: The Dread Swamp Path | 2770 |
+Vicious Voodoo: The Dread Swamp Path | 2775 |
+Vicious Voodoo: The Dread Swamp Path | 2776 |
+Vicious Voodoo: The Dread Swamp Path | 2999 |
+Vicious Voodoo: The Dread Swamp Path | 3016 |
+
+Vicious Voodoo: The Swamp's Dark Centre | 445 |
+Vicious Voodoo: The Swamp's Dark Centre | 2506 |
+Vicious Voodoo: The Swamp's Dark Centre | 2508 |
+Vicious Voodoo: The Swamp's Dark Centre | 2509 |
+Vicious Voodoo: The Swamp's Dark Centre | 2511 |
+Vicious Voodoo: The Swamp's Dark Centre | 2512 |
+Vicious Voodoo: The Swamp's Dark Centre | 2514 |
+Vicious Voodoo: The Swamp's Dark Centre | 2516 |
+Vicious Voodoo: The Swamp's Dark Centre | 2517 |
+
+Vicious Voodoo: The Lair of the Beast | 2690 |
+Vicious Voodoo: The Lair of the Beast | 2739 |
+Vicious Voodoo: The Lair of the Beast | 2740 |
+Vicious Voodoo: The Lair of the Beast | 2741 |
+Vicious Voodoo: The Lair of the Beast | 2742 |
+Vicious Voodoo: The Lair of the Beast | 2743 |
+Vicious Voodoo: The Lair of the Beast | 2744 |
+Vicious Voodoo: The Lair of the Beast | 2745 |
+Vicious Voodoo: The Lair of the Beast | 2746 |
+Vicious Voodoo: The Lair of the Beast | 2747 |
+Vicious Voodoo: The Lair of the Beast | 2748 |
+
+Vicious Voodoo: A Grave Undertaking | 2728 |
+Vicious Voodoo: A Grave Undertaking | 2730 |
+Vicious Voodoo: A Grave Undertaking | 2762 |
+Vicious Voodoo: A Grave Undertaking | 2763 |
+Vicious Voodoo: A Grave Undertaking | 2764 |
+Vicious Voodoo: A Grave Undertaking | 2765 |
+Vicious Voodoo: A Grave Undertaking | 2766 |
+Vicious Voodoo: A Grave Undertaking | 2767 |
+Vicious Voodoo: A Grave Undertaking | 2768 |
+Vicious Voodoo: A Grave Undertaking | 2769 |
+Vicious Voodoo: A Grave Undertaking | 2770 |
+Vicious Voodoo: A Grave Undertaking | 2771 |
+Vicious Voodoo: A Grave Undertaking | 2772 |
+Vicious Voodoo: A Grave Undertaking | 2773 |
+Vicious Voodoo: A Grave Undertaking | 2774 |
+Vicious Voodoo: A Grave Undertaking | 2775 |
+Vicious Voodoo: A Grave Undertaking | 2776 |
+Vicious Voodoo: A Grave Undertaking | 2777 |
+
+Vicious Voodoo: Piranha Lake | 2155 |
+Vicious Voodoo: Piranha Lake | 2400 |
+
+Vicious Voodoo: Descent into Danger | 2669 |
+Vicious Voodoo: Descent into Danger | 2671 |
+Vicious Voodoo: Descent into Danger | 2713 |
+Vicious Voodoo: Descent into Danger | 2714 |
+Vicious Voodoo: Descent into Danger | 2715 |
+Vicious Voodoo: Descent into Danger | 2716 |
+Vicious Voodoo: Descent into Danger | 2717 |
+Vicious Voodoo: Descent into Danger | 2718 |
+Vicious Voodoo: Descent into Danger | 2719 |
+Vicious Voodoo: Descent into Danger | 2720 |
+Vicious Voodoo: Descent into Danger | 2721 |
+Vicious Voodoo: Descent into Danger | 2722 |
+Vicious Voodoo: Descent into Danger | 2723 |
+
+Vicious Voodoo: A Ghastly Voyage | 2748 |
+Vicious Voodoo: A Ghastly Voyage | 2750 |
+Vicious Voodoo: A Ghastly Voyage | 2788 |
+Vicious Voodoo: A Ghastly Voyage | 2789 |
+Vicious Voodoo: A Ghastly Voyage | 2790 |
+Vicious Voodoo: A Ghastly Voyage | 2791 |
+Vicious Voodoo: A Ghastly Voyage | 2792 |
+
+Vicious Voodoo: Down Home Cooking | 2427 |
+Vicious Voodoo: Down Home Cooking | 2429 |
+
+Vicious Voodoo: A Deadly Dance | 2256 |
+Vicious Voodoo: A Deadly Dance | 2258 |
+
+Fire in the Sky: A Perilous Ascent | 2567 |
+Fire in the Sky: A Perilous Ascent | 2577 |
+Fire in the Sky: A Perilous Ascent | 2669 |
+Fire in the Sky: A Perilous Ascent | 2671 |
+Fire in the Sky: A Perilous Ascent | 2672 |
+Fire in the Sky: A Perilous Ascent | 2673 |
+Fire in the Sky: A Perilous Ascent | 2674 |
+Fire in the Sky: A Perilous Ascent | 2675 |
+Fire in the Sky: A Perilous Ascent | 2676 |
+Fire in the Sky: A Perilous Ascent | 2677 |
+Fire in the Sky: A Perilous Ascent | 2678 |
+Fire in the Sky: A Perilous Ascent | 2679 |
+Fire in the Sky: A Perilous Ascent | 2680 |
+Fire in the Sky: A Perilous Ascent | 2681 |
+Fire in the Sky: A Perilous Ascent | 2682 |
+Fire in the Sky: A Perilous Ascent | 2683 |
+Fire in the Sky: A Perilous Ascent | 2684 |
+Fire in the Sky: A Perilous Ascent | 3121 |
+Fire in the Sky: A Perilous Ascent | 3123 |
+Fire in the Sky: A Perilous Ascent | 3125 |
+Fire in the Sky: A Perilous Ascent | 3127 |
+Fire in the Sky: A Perilous Ascent | 3129 |
+
+Fire in the Sky: Inside the Stronghold | 444 |
+Fire in the Sky: Inside the Stronghold | 445 |
+Fire in the Sky: Inside the Stronghold | 2485 |
+Fire in the Sky: Inside the Stronghold | 2486 |
+Fire in the Sky: Inside the Stronghold | 2487 |
+Fire in the Sky: Inside the Stronghold | 2488 |
+Fire in the Sky: Inside the Stronghold | 2490 |
+Fire in the Sky: Inside the Stronghold | 2492 |
+Fire in the Sky: Inside the Stronghold | 2493 |
+Fire in the Sky: Inside the Stronghold | 2495 |
+Fire in the Sky: Inside the Stronghold | 2497 |
+
+Fire in the Sky: Flaming Temple of Flame | 2651 |
+Fire in the Sky: Flaming Temple of Flame | 2652 |
+Fire in the Sky: Flaming Temple of Flame | 2653 |
+Fire in the Sky: Flaming Temple of Flame | 2654 |
+Fire in the Sky: Flaming Temple of Flame | 2655 |
+Fire in the Sky: Flaming Temple of Flame | 2656 |
+Fire in the Sky: Flaming Temple of Flame | 2657 |
+Fire in the Sky: Flaming Temple of Flame | 2658 |
+Fire in the Sky: Flaming Temple of Flame | 2659 |
+Fire in the Sky: Flaming Temple of Flame | 2660 |
+Fire in the Sky: Flaming Temple of Flame | 2661 |
+Fire in the Sky: Flaming Temple of Flame | 2662 |
+Fire in the Sky: Flaming Temple of Flame | 2663 |
+Fire in the Sky: Flaming Temple of Flame | 2664 |
+Fire in the Sky: Flaming Temple of Flame | 3000 |
+Fire in the Sky: Flaming Temple of Flame | 3018 |
+Fire in the Sky: Flaming Temple of Flame | 3020 |
+Fire in the Sky: Flaming Temple of Flame | 3022 |
+
+Fire in the Sky: The Unseen Foe | 2601 |
+Fire in the Sky: The Unseen Foe | 2603 |
+Fire in the Sky: The Unseen Foe | 2658 |
+Fire in the Sky: The Unseen Foe | 2659 |
+Fire in the Sky: The Unseen Foe | 2660 |
+Fire in the Sky: The Unseen Foe | 2661 |
+Fire in the Sky: The Unseen Foe | 2662 |
+Fire in the Sky: The Unseen Foe | 2663 |
+Fire in the Sky: The Unseen Foe | 2664 |
+Fire in the Sky: The Unseen Foe | 2665 |
+Fire in the Sky: The Unseen Foe | 2666 |
+Fire in the Sky: The Unseen Foe | 2667 |
+Fire in the Sky: The Unseen Foe | 2668 |
+
+Fire in the Sky: The King of the Hill | 2183 |
+Fire in the Sky: The King of the Hill | 2186 |
+Fire in the Sky: The King of the Hill | 2188 |
+
+Fire in the Sky: Rapid Fire Assault | 2578 |
+Fire in the Sky: Rapid Fire Assault | 2622 |
+Fire in the Sky: Rapid Fire Assault | 2623 |
+Fire in the Sky: Rapid Fire Assault | 2624 |
+Fire in the Sky: Rapid Fire Assault | 2625 |
+Fire in the Sky: Rapid Fire Assault | 2626 |
+Fire in the Sky: Rapid Fire Assault | 2627 |
+
+Fire in the Sky: Duel by the Dragon | 2731 |
+Fire in the Sky: Duel by the Dragon | 2736 |
+Fire in the Sky: Duel by the Dragon | 2797 |
+Fire in the Sky: Duel by the Dragon | 2798 |
+Fire in the Sky: Duel by the Dragon | 2799 |
+Fire in the Sky: Duel by the Dragon | 2800 |
+Fire in the Sky: Duel by the Dragon | 2801 |
+Fire in the Sky: Duel by the Dragon | 2802 |
+Fire in the Sky: Duel by the Dragon | 2803 |
+Fire in the Sky: Duel by the Dragon | 2804 |
+Fire in the Sky: Duel by the Dragon | 2805 |
+Fire in the Sky: Duel by the Dragon | 2806 |
+Fire in the Sky: Duel by the Dragon | 2807 |
+Fire in the Sky: Duel by the Dragon | 2808 |
+
+Fire in the Sky: Flame Fu! | 2388 |
+Fire in the Sky: Flame Fu! | 2490 |
+Fire in the Sky: Flame Fu! | 2771 |
+
+A Cold Heart of Hate: A Hazardous Path | 2778 |
+A Cold Heart of Hate: A Hazardous Path | 2779 |
+A Cold Heart of Hate: A Hazardous Path | 2780 |
+
+A Cold Heart of Hate: Burning Rubber | 2185 |
+A Cold Heart of Hate: Burning Rubber | 2187 |
+
+A Cold Heart of Hate: A Daring Rescue | 2802 |
+A Cold Heart of Hate: A Daring Rescue | 2806 |
+A Cold Heart of Hate: A Daring Rescue | 2807 |
+A Cold Heart of Hate: A Daring Rescue | 2808 |
+
+A Cold Heart of Hate: A Temporary Truce | 2210 |
+A Cold Heart of Hate: A Temporary Truce | 2431 |
+
+A Cold Heart of Hate: Sinking Peril | 2316 |
+A Cold Heart of Hate: Sinking Peril | 2318 |
+A Cold Heart of Hate: Sinking Peril | 2553 |
+A Cold Heart of Hate: Sinking Peril | 2554 |
+A Cold Heart of Hate: Sinking Peril | 2555 |
+A Cold Heart of Hate: Sinking Peril | 2556 |
+A Cold Heart of Hate: Sinking Peril | 2557 |
+A Cold Heart of Hate: Sinking Peril | 2558 |
+
+A Cold Heart of Hate: A Strange Reunion | 2830 |
+A Cold Heart of Hate: A Strange Reunion | 2833 |
+A Cold Heart of Hate: A Strange Reunion | 2834 |
+A Cold Heart of Hate: A Strange Reunion | 2835 |
+A Cold Heart of Hate: A Strange Reunion | 2836 |
