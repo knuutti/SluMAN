@@ -494,9 +494,9 @@ namespace SluMAN
         /// Starts a job that isn't running and queues the warp to the goal (0-based): the game
         /// can't start a job at a later goal, so it warps once the job runs.
         /// </summary>
-        private void StartJobAtGoal(sly4.JobEntry job, int goal)
+        private void StartJobAtGoal(sly4.JobEntry job, int goal, uint goalId = 0)
         {
-            game.StartJob(job.index, false, false);
+            game.StartJob(job.index, false, false, goalId);
             if (goal > 0)
             {
                 queuedGoalJob = job;
@@ -513,7 +513,9 @@ namespace SluMAN
         /// Starts the running job again at a goal (0-based), as if coming from another job: the
         /// game won't start the running job, so it's abandoned first and started once that has
         /// run. The goal's ID is read before abandoning, while the job's goals are loaded, and
-        /// passed to the start, so the game starts the job at that goal itself.
+        /// passed to the start, which resets the job's state to that goal but doesn't move the
+        /// player or set the goal up; the warp to the goal once the job runs does that, like the
+        /// game's own job start does (it teleports to the goal after StartJobByInst).
         /// </summary>
         private void RestartJob(sly4.JobEntry job, int goal)
         {
@@ -531,10 +533,7 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                game.StartJob(job.index, false, false, queuedJobStartGoalId);
-                TrackGameCall(queuedJobStartGoal > 0
-                    ? $"Restarting {job.Title} at goal {queuedJobStartGoal + 1}."
-                    : $"Restarting {job.Title}.");
+                StartJobAtGoal(job, queuedJobStartGoal, queuedJobStartGoalId);
             }
             catch (Exception ex)
             {
