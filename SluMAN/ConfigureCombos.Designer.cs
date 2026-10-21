@@ -40,9 +40,6 @@ namespace SluMAN
             this.loadGameLabel = new System.Windows.Forms.Label();
             this.loadGameTextBox = new System.Windows.Forms.TextBox();
             this.loadGameClearButton = new System.Windows.Forms.Button();
-            this.runScriptLabel = new System.Windows.Forms.Label();
-            this.runScriptTextBox = new System.Windows.Forms.TextBox();
-            this.runScriptClearButton = new System.Windows.Forms.Button();
             this.combosEnabledCheckBox = new System.Windows.Forms.CheckBox();
             this.statusLabel = new System.Windows.Forms.Label();
             this.closeButton = new System.Windows.Forms.Button();
@@ -147,40 +144,10 @@ namespace SluMAN
             this.loadGameClearButton.UseVisualStyleBackColor = true;
             this.loadGameClearButton.Click += new System.EventHandler(this.clearButton_Click);
             //
-            // runScriptLabel
-            //
-            this.runScriptLabel.AutoSize = true;
-            this.runScriptLabel.Location = new System.Drawing.Point(12, 152);
-            this.runScriptLabel.Name = "runScriptLabel";
-            this.runScriptLabel.Size = new System.Drawing.Size(61, 13);
-            this.runScriptLabel.TabIndex = 10;
-            this.runScriptLabel.Text = "Run Script:";
-            //
-            // runScriptTextBox
-            //
-            this.runScriptTextBox.BackColor = System.Drawing.SystemColors.Window;
-            this.runScriptTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.runScriptTextBox.Location = new System.Drawing.Point(110, 149);
-            this.runScriptTextBox.Name = "runScriptTextBox";
-            this.runScriptTextBox.ReadOnly = true;
-            this.runScriptTextBox.Size = new System.Drawing.Size(140, 20);
-            this.runScriptTextBox.TabIndex = 11;
-            this.runScriptTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
-            //
-            // runScriptClearButton
-            //
-            this.runScriptClearButton.Location = new System.Drawing.Point(256, 147);
-            this.runScriptClearButton.Name = "runScriptClearButton";
-            this.runScriptClearButton.Size = new System.Drawing.Size(56, 23);
-            this.runScriptClearButton.TabIndex = 12;
-            this.runScriptClearButton.Text = "Clear";
-            this.runScriptClearButton.UseVisualStyleBackColor = true;
-            this.runScriptClearButton.Click += new System.EventHandler(this.clearButton_Click);
-            //
             // combosEnabledCheckBox
             //
             this.combosEnabledCheckBox.AutoSize = true;
-            this.combosEnabledCheckBox.Location = new System.Drawing.Point(15, 184);
+            this.combosEnabledCheckBox.Location = new System.Drawing.Point(15, 154);
             this.combosEnabledCheckBox.Name = "combosEnabledCheckBox";
             this.combosEnabledCheckBox.Size = new System.Drawing.Size(103, 17);
             this.combosEnabledCheckBox.TabIndex = 13;
@@ -190,7 +157,7 @@ namespace SluMAN
             //
             // statusLabel
             //
-            this.statusLabel.Location = new System.Drawing.Point(12, 210);
+            this.statusLabel.Location = new System.Drawing.Point(12, 180);
             this.statusLabel.Name = "statusLabel";
             this.statusLabel.Size = new System.Drawing.Size(300, 30);
             this.statusLabel.TabIndex = 14;
@@ -198,7 +165,7 @@ namespace SluMAN
             // closeButton
             //
             this.closeButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.closeButton.Location = new System.Drawing.Point(237, 245);
+            this.closeButton.Location = new System.Drawing.Point(237, 215);
             this.closeButton.Name = "closeButton";
             this.closeButton.Size = new System.Drawing.Size(75, 23);
             this.closeButton.TabIndex = 15;
@@ -210,13 +177,10 @@ namespace SluMAN
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.closeButton;
-            this.ClientSize = new System.Drawing.Size(324, 280);
+            this.ClientSize = new System.Drawing.Size(324, 250);
             this.Controls.Add(this.closeButton);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.combosEnabledCheckBox);
-            this.Controls.Add(this.runScriptClearButton);
-            this.Controls.Add(this.runScriptTextBox);
-            this.Controls.Add(this.runScriptLabel);
             this.Controls.Add(this.loadGameClearButton);
             this.Controls.Add(this.loadGameTextBox);
             this.Controls.Add(this.loadGameLabel);
@@ -252,9 +216,6 @@ namespace SluMAN
         private System.Windows.Forms.Label loadGameLabel;
         private System.Windows.Forms.TextBox loadGameTextBox;
         private System.Windows.Forms.Button loadGameClearButton;
-        private System.Windows.Forms.Label runScriptLabel;
-        private System.Windows.Forms.TextBox runScriptTextBox;
-        private System.Windows.Forms.Button runScriptClearButton;
         private System.Windows.Forms.CheckBox combosEnabledCheckBox;
         private System.Windows.Forms.Label statusLabel;
         private System.Windows.Forms.Button closeButton;

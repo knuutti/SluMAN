@@ -211,16 +211,26 @@ namespace SluMAN
             int world = SelectedWorld;
             try
             {
+                // Unused level slots (two in A Cold Heart of Hate) are hidden, and the rows below
+                // move up to close the gap.
+                int row = 0;
                 for (int level = 0; level < sly1.LevelsPerWorld; level++)
                 {
                     bool used = IsUsed(world, level);
-                    levelLabels[level].Text = used ? sly1.WorldLevelName(world, level) : "(unused)";
-                    levelLabels[level].ForeColor = used ? SystemColors.ControlText : SystemColors.GrayText;
+                    int y = RowsY + row * RowHeight;
+                    levelLabels[level].Visible = used;
+                    levelLabels[level].Top = y + 3;
+                    levelLabels[level].Text = used ? sly1.WorldLevelName(world, level) : "";
                     int flags = used ? game.GetLevelFlags(world, level) : 0;
                     for (int column = 0; column < ColumnFlags.Length; column++)
                     {
-                        levelCheckBoxes[level, column].Enabled = used;
+                        levelCheckBoxes[level, column].Visible = used;
+                        levelCheckBoxes[level, column].Top = y + 2;
                         levelCheckBoxes[level, column].Checked = (flags & ColumnFlags[column]) != 0;
+                    }
+                    if (used)
+                    {
+                        row++;
                     }
                 }
 
