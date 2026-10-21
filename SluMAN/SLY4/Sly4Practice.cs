@@ -47,6 +47,14 @@ namespace SluMAN
         private int queuedGoal;
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
+        // A job started on another map settles first; a restart in place loads nothing, so it
+        // warps at once, before the restarted job shows the player in an odd state for long.
+        private TimeSpan queuedGoalSettleTime;
+
+        // The running job, to start again at a goal once the game has abandoned it (see RestartJob).
+        private sly4.JobEntry queuedJobStart = null;
+        private int queuedJobStartGoal;
+        private uint queuedJobStartGoalId;
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
@@ -208,6 +216,10 @@ namespace SluMAN
             {
                 LoadQueuedLevel();
             }
+            else if (queuedJobStart != null)
+            {
+                StartQueuedJob();
+            }
             else if (queuedGoalJob != null)
             {
                 CheckQueuedGoalWarp();
@@ -268,7 +280,7 @@ namespace SluMAN
                 {
                     queuedGoalReadySince = DateTime.Now;
                 }
-                if (DateTime.Now - queuedGoalReadySince < QueuedGoalWarpSettleTime)
+                if (DateTime.Now - queuedGoalReadySince < queuedGoalSettleTime)
                 {
                     return;
                 }
@@ -298,6 +310,7 @@ namespace SluMAN
                 {
                     gameCallPending = false;
                     queuedLevel = null;
+                    queuedJobStart = null;
                     game.CancelGameCall();
                     statusLine.Error("The game didn't run the warp. On RPCS3, set the PPU decoder to Interpreter (static).");
                 }
@@ -414,8 +427,14 @@ namespace SluMAN
         {
             queuedGoalJob = null;
             queuedLevel = null;
+            queuedJobStart = null;
             try
             {
+                if (!toHub && !toHideout && game.IsJobRunning(job.index))
+                {
+                    RestartJob(job, 0);
+                    return;
+                }
                 game.StartJob(job.index, toHub, toHideout);
                 string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
                 TrackGameCall($"Going to {where}.");
@@ -438,40 +457,110 @@ namespace SluMAN
 
         /// <summary>
         /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
-        /// given), otherwise by starting the job and warping once it has loaded.
+        /// given), otherwise by starting the job and warping once it has loaded. With Reload Job
+        /// on Warp, a running job is started again instead, as if coming from another job, for
+        /// goals whose setup (such as a cutscene) a warp in place skips.
         /// </summary>
         public void WarpToGoal(sly4.JobEntry job, int goal)
         {
             queuedGoalJob = null;
             queuedLevel = null;
+            queuedJobStart = null;
             try
             {
-                // A running job warps in place; any other job is started at the goal.
-                if (job == null || game.IsJobRunning(job.index))
+                if (job == null && reloadJobCheckBox.Checked)
+                {
+                    job = RunningJob();
+                }
+
+                if (job == null || (game.IsJobRunning(job.index) && !reloadJobCheckBox.Checked))
                 {
                     game.WarpToGoal(goal);
                     TrackGameCall($"Warping to goal {goal + 1}.");
                 }
+                else if (game.IsJobRunning(job.index))
+                {
+                    RestartJob(job, goal);
+                }
                 else
                 {
-                    // The game can't start a job at a later goal, so start it and warp once it runs.
-                    game.StartJob(job.index, false, false);
-                    if (goal > 0)
-                    {
-                        queuedGoalJob = job;
-                        queuedGoal = goal;
-                        queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
-                        queuedGoalReadySince = DateTime.MaxValue;
-                    }
-                    TrackGameCall(goal > 0
-                        ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
-                        : $"Starting {job.Title}.");
+                    StartJobAtGoal(job, goal);
                 }
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't warp: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Starts a job that isn't running and queues the warp to the goal (0-based): the game
+        /// can't start a job at a later goal, so it warps once the job runs.
+        /// </summary>
+        private void StartJobAtGoal(sly4.JobEntry job, int goal, uint goalId = 0, bool inPlace = false)
+        {
+            game.StartJob(job.index, false, false, goalId);
+            if (goal > 0)
+            {
+                queuedGoalJob = job;
+                queuedGoal = goal;
+                queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+                queuedGoalReadySince = DateTime.MaxValue;
+                queuedGoalSettleTime = inPlace ? TimeSpan.Zero : QueuedGoalWarpSettleTime;
+            }
+            TrackGameCall(goal > 0
+                ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
+                : $"Starting {job.Title}.");
+        }
+
+        /// <summary>
+        /// Starts the running job again at a goal (0-based), as if coming from another job: the
+        /// game won't start the running job, so it's abandoned first and started once that has
+        /// run. The goal's ID is read before abandoning, while the job's goals are loaded, and
+        /// passed to the start, which resets the job's state to that goal but doesn't move the
+        /// player or set the goal up; the warp to the goal once the job runs does that, like the
+        /// game's own job start does (it teleports to the goal after StartJobByInst).
+        /// </summary>
+        private void RestartJob(sly4.JobEntry job, int goal)
+        {
+            uint goalId = goal > 0 ? game.GetGoalId(goal) : 0;
+            game.AbandonJob();
+            queuedJobStart = job;
+            queuedJobStartGoal = goal;
+            queuedJobStartGoalId = goalId;
+            TrackGameCall($"Left {job.Title}; starting it again.");
+        }
+
+        private void StartQueuedJob()
+        {
+            sly4.JobEntry job = queuedJobStart;
+            queuedJobStart = null;
+            try
+            {
+                StartJobAtGoal(job, queuedJobStartGoal, queuedJobStartGoalId, true);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't restart the job: {ex.Message}");
+            }
+        }
+
+        /// <summary>The running job's entry, or null outside jobs.</summary>
+        private sly4.JobEntry RunningJob()
+        {
+            int index = game.GetRunningJobIndex();
+            if (index < 0)
+            {
+                return null;
+            }
+            foreach (sly4.JobEntry job in game.GetJobs())
+            {
+                if (job.index == index)
+                {
+                    return job;
+                }
+            }
+            return null;
         }
 
         private void retryCheckpointButton_Click(object sender, EventArgs e)
@@ -507,6 +596,7 @@ namespace SluMAN
             sly4.SpawnPointEntry spawnPoint = spawnPointComboBox.SelectedItem as sly4.SpawnPointEntry;
             queuedGoalJob = null;
             queuedLevel = null;
+            queuedJobStart = null;
             try
             {
                 // A running job would load its own level instead, so end it first and load the

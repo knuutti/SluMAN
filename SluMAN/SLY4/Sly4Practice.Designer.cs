@@ -72,6 +72,7 @@ namespace SluMAN
             this.undetectableCheckBox = new System.Windows.Forms.CheckBox();
             this.skipCutscenesCheckBox = new System.Windows.Forms.CheckBox();
             this.alwaysOnTopCheckBox = new System.Windows.Forms.CheckBox();
+            this.reloadJobCheckBox = new System.Windows.Forms.CheckBox();
             this.refreshTimer = new System.Windows.Forms.Timer(this.components);
             this.menuStrip1.SuspendLayout();
             this.gameGroupBox.SuspendLayout();
@@ -448,6 +449,7 @@ namespace SluMAN
             this.optionsGroupBox.Controls.Add(this.invulnerableCheckBox);
             this.optionsGroupBox.Controls.Add(this.undetectableCheckBox);
             this.optionsGroupBox.Controls.Add(this.skipCutscenesCheckBox);
+            this.optionsGroupBox.Controls.Add(this.reloadJobCheckBox);
             this.optionsGroupBox.Location = new System.Drawing.Point(12, 220);
             this.optionsGroupBox.Name = "optionsGroupBox";
             this.optionsGroupBox.Size = new System.Drawing.Size(312, 88);
@@ -508,6 +510,16 @@ namespace SluMAN
             this.alwaysOnTopCheckBox.TabIndex = 1;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
+            //
+            // reloadJobCheckBox
+            //
+            this.reloadJobCheckBox.AutoSize = true;
+            this.reloadJobCheckBox.Location = new System.Drawing.Point(160, 65);
+            this.reloadJobCheckBox.Name = "reloadJobCheckBox";
+            this.reloadJobCheckBox.Size = new System.Drawing.Size(125, 17);
+            this.reloadJobCheckBox.TabIndex = 5;
+            this.reloadJobCheckBox.Text = "Reload Job on Warp";
+            this.reloadJobCheckBox.UseVisualStyleBackColor = true;
             //
             // refreshTimer
             //
@@ -590,6 +602,7 @@ namespace SluMAN
         private System.Windows.Forms.CheckBox undetectableCheckBox;
         private System.Windows.Forms.CheckBox skipCutscenesCheckBox;
         private System.Windows.Forms.CheckBox alwaysOnTopCheckBox;
+        private System.Windows.Forms.CheckBox reloadJobCheckBox;
         private System.Windows.Forms.Timer refreshTimer;
     }
 }

@@ -59,6 +59,8 @@ namespace SluMAN
         // Goal offsets
         public uint goalStateOffset { get; private set; }
         public uint goalNameOffset { get; private set; }
+        // The ID StartJobByInst's third argument is matched against
+        public uint goalIdOffset { get; private set; }
 
         // Game functions, called through the code hook
         public uint startJobByInstFunction { get; private set; }
@@ -67,9 +69,18 @@ namespace SluMAN
         public uint abandonCurrentJobFunction { get; private set; }
 
         // Code hook: a call made once per frame is pointed at a stub in the unused end of the code
-        // segment, which runs the call queued in the mailbox (unused end of the data segment)
+        // segment, which runs the call queued in the mailbox (unused end of the data segment).
+        // The call is the main loop's call to the frame's game update, on the main thread, where
+        // the game makes these calls itself (StartJobByInst runs inside that update).
         public uint hookCallSite { get; private set; }
         public uint hookCallTarget { get; private set; }
+        // The call SluMAN 1.1.1 and earlier hooked instead, and the stub it ran (the start of
+        // SluMAN's code in the cave). The call is made on AglRenderThread, and game logic run
+        // there races the render thread: starting a job in the current episode crashes the game.
+        // Put back on install, in case a game is still hooked there.
+        public uint legacyHookCallSite { get; private set; }
+        public uint legacyHookCallTarget { get; private set; }
+        public uint legacyHookCodeCave { get; private set; }
         public uint hookCodeCave { get; private set; }
         public uint hookMailbox { get; private set; }
 
@@ -235,15 +246,22 @@ namespace SluMAN
 
                 goalStateOffset = 0x12,
                 goalNameOffset = 0x1C,
+                goalIdOffset = 0xA00,
 
                 startJobByInstFunction = 0x2E0930,
                 teleportToGoalFunction = 0x2E0498,
                 loadLevelFunction = 0x4674C4,
                 abandonCurrentJobFunction = 0x2E5060,
 
-                hookCallSite = 0x5221DC,
-                hookCallTarget = 0x56AEFC,
-                hookCodeCave = 0xF05200,
+                hookCallSite = 0x463D20,
+                hookCallTarget = 0x45B858,
+                legacyHookCallSite = 0x5221DC,
+                legacyHookCallTarget = 0x56AEFC,
+                legacyHookCodeCave = 0xF05200,
+                // Not 0xF05200, where the old stub was: RPCS3 keeps running code it has already
+                // run as it was decoded then, so a stub rewritten in place in a game the old one
+                // ran in mixes the two and crashes.
+                hookCodeCave = 0xF05500,
                 hookMailbox = 0x11F8A00,
 
                 mainViewOffset = 0x128168,

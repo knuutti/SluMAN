@@ -95,6 +95,8 @@ namespace SluMAN
             try
             {
                 bool retry = false;
+                // The subscribed goals changed while subscribing: read the goals again at once.
+                bool recheck = false;
                 while (true)
                 {
                     lock (stateLock)
@@ -104,6 +106,7 @@ namespace SluMAN
                             break;
                         }
                     }
+                    recheck = false;
 
                     try
                     {
@@ -140,11 +143,16 @@ namespace SluMAN
                                 if (currentIndex < goalList.Count)
                                 {
                                     currentSubID = SubscribeState(goalList, currentIndex, true);
+                                    // A subscription only reports changes after it's made, and a
+                                    // warp marks goals done in quick succession, so a goal finished
+                                    // since it was read would never be reported: read it again.
+                                    recheck = game.ReadGoalState(goalList[currentIndex]) == Sly4Addresses.GoalStateDone;
                                 }
                                 int previous = PreviousGoal(goalList, currentIndex);
                                 if (previous >= 0)
                                 {
                                     previousSubID = SubscribeState(goalList, previous, false);
+                                    recheck = recheck || game.ReadGoalState(goalList[previous]) != Sly4Addresses.GoalStateDone;
                                 }
                             }
                             retry = false;
@@ -156,7 +164,10 @@ namespace SluMAN
                         retry = true;
                     }
 
-                    wake.WaitOne(retry ? RetryMs : Timeout.Infinite);
+                    if (!recheck)
+                    {
+                        wake.WaitOne(retry ? RetryMs : Timeout.Infinite);
+                    }
                 }
             }
             finally
