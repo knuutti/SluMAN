@@ -1169,9 +1169,10 @@ namespace SluMAN
         /// <remarks>
         /// StartJobByInst's third argument isn't a goal index: the game looks for the goal whose
         /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
-        /// another level doesn't have yet. To start later, warp to the goal once the job runs.
+        /// another level doesn't have yet. To start later, warp to the goal once the job runs,
+        /// or pass the ID of one of the running job's goals (GetGoalId) to restart it there.
         /// </remarks>
-        public void StartJob(int jobIndex, bool toHub, bool toHideout)
+        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0)
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
             if (episodeManager == 0)
@@ -1187,8 +1188,19 @@ namespace SluMAN
                 throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
             }
 
-            codeHook.Call(addr.startJobByInstFunction, episodeManager, job, 0,
+            codeHook.Call(addr.startJobByInstFunction, episodeManager, job, goalId,
                 toHub ? 1u : 0u, toHideout ? 1u : 0u, 0, 0, 0, 1);
+        }
+
+        /// <summary>The ID of one of the running job's goals (0-based), for StartJob.</summary>
+        public uint GetGoalId(int goalIndex)
+        {
+            List<uint> goals = GetGoals();
+            if (goalIndex < 0 || goalIndex >= goals.Count || goals[goalIndex] == 0)
+            {
+                throw new InvalidOperationException("That goal isn't in the current job.");
+            }
+            return ReadUInt(goals[goalIndex] + addr.goalIdOffset);
         }
 
         /// <summary>The number of goals the running job has loaded, 0 outside jobs.</summary>

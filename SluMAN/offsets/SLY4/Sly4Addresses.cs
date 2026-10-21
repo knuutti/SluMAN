@@ -59,6 +59,8 @@ namespace SluMAN
         // Goal offsets
         public uint goalStateOffset { get; private set; }
         public uint goalNameOffset { get; private set; }
+        // The ID StartJobByInst's third argument is matched against
+        public uint goalIdOffset { get; private set; }
 
         // Game functions, called through the code hook
         public uint startJobByInstFunction { get; private set; }
@@ -244,6 +246,7 @@ namespace SluMAN
 
                 goalStateOffset = 0x12,
                 goalNameOffset = 0x1C,
+                goalIdOffset = 0xA00,
 
                 startJobByInstFunction = 0x2E0930,
                 teleportToGoalFunction = 0x2E0498,

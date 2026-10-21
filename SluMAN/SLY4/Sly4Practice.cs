@@ -48,12 +48,10 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
-        // A job to start again once the trip to its hideout that ended it has loaded (see
-        // RestartJob).
+        // The running job, to start again at a goal once the game has abandoned it (see RestartJob).
         private sly4.JobEntry queuedJobStart = null;
         private int queuedJobStartGoal;
-        private DateTime queuedJobStartDeadline;
-        private DateTime queuedJobStartReadySince = DateTime.MaxValue;
+        private uint queuedJobStartGoalId;
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
@@ -217,7 +215,7 @@ namespace SluMAN
             }
             else if (queuedJobStart != null)
             {
-                CheckQueuedJobStart();
+                StartQueuedJob();
             }
             else if (queuedGoalJob != null)
             {
@@ -512,58 +510,34 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Starts the running job again and warps to the goal (0-based), as if coming from another
-        /// job. The game won't start the running job, and starting it right after
-        /// AbandonCurrentJob crashes the game, so this goes to the job's hideout (which ends the
-        /// job the way switching jobs does) and starts the job once that has loaded.
+        /// Starts the running job again at a goal (0-based), as if coming from another job: the
+        /// game won't start the running job, so it's abandoned first and started once that has
+        /// run. The goal's ID is read before abandoning, while the job's goals are loaded, and
+        /// passed to the start, so the game starts the job at that goal itself.
         /// </summary>
         private void RestartJob(sly4.JobEntry job, int goal)
         {
-            game.StartJob(job.index, false, true);
+            uint goalId = goal > 0 ? game.GetGoalId(goal) : 0;
+            game.AbandonJob();
             queuedJobStart = job;
             queuedJobStartGoal = goal;
-            queuedJobStartDeadline = DateTime.Now + QueuedGoalWarpTimeout;
-            queuedJobStartReadySince = DateTime.MaxValue;
-            TrackGameCall($"Going to {job.EpisodeTitle}'s hideout to restart {job.Title}.");
+            queuedJobStartGoalId = goalId;
+            TrackGameCall($"Left {job.Title}; starting it again.");
         }
 
-        /// <summary>
-        /// Starts the queued job once the hideout trip has ended the old one and finished loading,
-        /// and has stayed that way for a moment, so the start doesn't land in the load.
-        /// </summary>
-        private void CheckQueuedJobStart()
+        private void StartQueuedJob()
         {
-            if (DateTime.Now > queuedJobStartDeadline)
-            {
-                statusLine.Error($"The hideout didn't load in time, so {queuedJobStart.Title} wasn't restarted.");
-                queuedJobStart = null;
-                return;
-            }
-
+            sly4.JobEntry job = queuedJobStart;
+            queuedJobStart = null;
             try
             {
-                bool ready = !game.IsLoading() && !game.IsJobRunning(queuedJobStart.index);
-                if (!ready)
-                {
-                    queuedJobStartReadySince = DateTime.MaxValue;
-                    return;
-                }
-                if (queuedJobStartReadySince == DateTime.MaxValue)
-                {
-                    queuedJobStartReadySince = DateTime.Now;
-                }
-                if (DateTime.Now - queuedJobStartReadySince < QueuedGoalWarpSettleTime)
-                {
-                    return;
-                }
-
-                sly4.JobEntry job = queuedJobStart;
-                queuedJobStart = null;
-                StartJobAtGoal(job, queuedJobStartGoal);
+                game.StartJob(job.index, false, false, queuedJobStartGoalId);
+                TrackGameCall(queuedJobStartGoal > 0
+                    ? $"Restarting {job.Title} at goal {queuedJobStartGoal + 1}."
+                    : $"Restarting {job.Title}.");
             }
             catch (Exception ex)
             {
-                queuedJobStart = null;
                 statusLine.Error($"Couldn't restart the job: {ex.Message}");
             }
         }
