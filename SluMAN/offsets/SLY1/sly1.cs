@@ -315,6 +315,125 @@ namespace SluMAN
             }
         }
 
+        // World states. Worlds 1 to 5 are the five gangs' worlds, in LevelNames' order; each has
+        // LevelsPerWorld level saves, in the order of its levels there.
+        public const int WorldCount = 5;
+
+        // A level save's flags
+        public const int LevelUnlocked = 0x1;
+        public const int LevelKey = 0x2;
+        public const int LevelVault = 0x4;
+        public const int LevelSprint = 0x8;
+
+        // A world save's flags
+        public const int WorldStarted = 0x1;
+        public const int WorldKey1 = 0x2;
+        public const int WorldKey3 = 0x4;
+        public const int WorldKey7 = 0x8;
+        public const int WorldBossDefeated = 0x20;
+
+        // Tide of Terror stores its key flags in another order: Key 1 at 0x8, Key 3 at 0x2 and
+        // Key 7 at 0x4. GetWorldFlags and SetWorldFlags use the other worlds' order for it too.
+        private const int TideOfTerror = 1;
+        private const int WorldKeyFlags = WorldKey1 | WorldKey3 | WorldKey7;
+
+        /// <summary>A world's counts of keys collected, vaults opened and sprints completed.</summary>
+        public enum WorldCounter
+        {
+            Keys,
+            Vaults,
+            Sprints,
+        }
+
+        public static string WorldName(int world)
+        {
+            return world >= 1 && world <= WorldCount ? WorldNames[world] : "-";
+        }
+
+        /// <summary>The level's name, or null for the two unused level slots.</summary>
+        public static string WorldLevelName(int world, int level)
+        {
+            return LevelNames[(world - 1) * LevelsPerWorld + level + FirstWorldLevelIndex];
+        }
+
+        private static uint WorldSave(int world)
+        {
+            if (world < 1 || world > WorldCount)
+            {
+                throw new ArgumentException("Not a world.");
+            }
+            return sly1.addr.gameState + sly1.addr.worldSaveStart + (uint)world * sly1.addr.worldSaveSize;
+        }
+
+        private static uint LevelSave(int world, int level)
+        {
+            if (level < 0 || level >= LevelsPerWorld)
+            {
+                throw new ArgumentException("Not a level.");
+            }
+            return WorldSave(world) + (uint)level * sly1.addr.levelSaveSize;
+        }
+
+        private static uint WorldCounterAddress(int world, WorldCounter counter)
+        {
+            switch (counter)
+            {
+                case WorldCounter.Keys:
+                    return WorldSave(world) + sly1.addr.worldKeysOffset;
+                case WorldCounter.Vaults:
+                    return WorldSave(world) + sly1.addr.worldVaultsOffset;
+                default:
+                    return WorldSave(world) + sly1.addr.worldSprintsOffset;
+            }
+        }
+
+        /// <summary>The level's LevelUnlocked, LevelKey, LevelVault and LevelSprint flags.</summary>
+        public int GetLevelFlags(int world, int level)
+        {
+            return ReadInt(LevelSave(world, level));
+        }
+
+        public void SetLevelFlags(int world, int level, int flags)
+        {
+            api.WriteMemory(pid, LevelSave(world, level), ConvertIntToBytes(flags));
+        }
+
+        public int GetWorldCounter(int world, WorldCounter counter)
+        {
+            return ReadInt(WorldCounterAddress(world, counter));
+        }
+
+        public void SetWorldCounter(int world, WorldCounter counter, int value)
+        {
+            api.WriteMemory(pid, WorldCounterAddress(world, counter), ConvertIntToBytes(value));
+        }
+
+        /// <summary>The world's WorldStarted, WorldKey1/3/7 and WorldBossDefeated flags.</summary>
+        public int GetWorldFlags(int world)
+        {
+            int flags = ReadInt(WorldSave(world) + sly1.addr.worldFlagsOffset);
+            if (world == TideOfTerror)
+            {
+                int keys = ((flags & 0x8) != 0 ? WorldKey1 : 0)
+                    | ((flags & 0x2) != 0 ? WorldKey3 : 0)
+                    | ((flags & 0x4) != 0 ? WorldKey7 : 0);
+                flags = (flags & ~WorldKeyFlags) | keys;
+            }
+            return flags;
+        }
+
+        public void SetWorldFlags(int world, int flags)
+        {
+            if (world == TideOfTerror)
+            {
+                int keys = ((flags & WorldKey1) != 0 ? 0x8 : 0)
+                    | ((flags & WorldKey3) != 0 ? 0x2 : 0)
+                    | ((flags & WorldKey7) != 0 ? 0x4 : 0);
+                flags = (flags & ~WorldKeyFlags) | keys;
+            }
+            api.WriteMemory(pid, WorldSave(world) + sly1.addr.worldFlagsOffset, ConvertIntToBytes(flags));
+        }
+
         private int ReadInt(uint address)
         {
             byte[] bytes = api.ReadMemory(pid, address, 4);

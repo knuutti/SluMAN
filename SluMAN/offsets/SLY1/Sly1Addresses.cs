@@ -53,6 +53,19 @@ namespace SluMAN
         public uint dialogueSkipOffset { get; private set; }
         public uint fmvSkip { get; private set; }
 
+        // Save data. One world save per world (0 is Paris and the intro) from gameState +
+        // worldSaveStart, each worldSaveSize long: first a level save per level, levelSaveSize
+        // long with the level's flags at +0, then the world's key, vault and sprint counts and its
+        // flags at the offsets below.
+        public uint gameState { get; private set; }
+        public uint worldSaveStart { get; private set; }
+        public uint worldSaveSize { get; private set; }
+        public uint levelSaveSize { get; private set; }
+        public uint worldKeysOffset { get; private set; }
+        public uint worldVaultsOffset { get; private set; }
+        public uint worldSprintsOffset { get; private set; }
+        public uint worldFlagsOffset { get; private set; }
+
         private Sly1Addresses()
         {
         }
@@ -118,6 +131,15 @@ namespace SluMAN
                 dialoguePtr = 0xE418B0,
                 dialogueSkipOffset = 0x2E8,
                 fmvSkip = 0xF516CC,
+                // *0x3A4FC0; w3Keys above is world 3's key count in it
+                gameState = 0x3E660C,
+                worldSaveStart = 0x10,
+                worldSaveSize = 0x44C,
+                levelSaveSize = 0x78,
+                worldKeysOffset = 0x438,
+                worldVaultsOffset = 0x43C,
+                worldSprintsOffset = 0x440,
+                worldFlagsOffset = 0x448,
             };
 
             return new Dictionary<string, Sly1Addresses>(StringComparer.OrdinalIgnoreCase)
