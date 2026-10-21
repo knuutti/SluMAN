@@ -170,10 +170,12 @@ namespace SluMAN
             return index >= 0 && index < LevelNames.Length && LevelNames[index] != null ? index : -1;
         }
 
-        /// <summary>
-        /// Loads a level, at one of its entrances or (entrance null) at the entrance the game has
-        /// set, which is the level's start unless an earlier load chose another.
-        /// </summary>
+        // The reload block's entrance for the level's own start. Any other entrance ID left there
+        // from an earlier load belongs to another level, which can spawn Sly out of bounds or not
+        // at all (a black screen).
+        private const int LevelStartEntrance = -1;
+
+        /// <summary>Loads a level, at one of its entrances or (entrance null) at its start.</summary>
         public void LoadLevel(int index, int? entrance)
         {
             if (index < 0 || index >= LevelNames.Length || LevelNames[index] == null)
@@ -195,10 +197,8 @@ namespace SluMAN
             uint entry = sly1.addr.reloadTable + (uint)tableIndex * sly1.addr.reloadEntrySize
                 + language * sly1.addr.reloadLanguageSize;
 
-            if (entrance.HasValue)
-            {
-                api.WriteMemory(pid, sly1.addr.reloadBlock + 0x14, ConvertIntToBytes(entrance.Value));
-            }
+            api.WriteMemory(pid, sly1.addr.reloadBlock + 0x14,
+                ConvertIntToBytes(entrance.HasValue ? entrance.Value : LevelStartEntrance));
             api.WriteMemory(pid, sly1.addr.reloadBlock + 0x10, ConvertIntToBytes((int)entry));
             ReloadLevel();
         }
