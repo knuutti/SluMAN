@@ -48,12 +48,19 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
-        // A job to start again once the trip to its hideout that ended it has loaded (see
-        // RestartJob).
+        // A job (or its hub or hideout) to start once the job in another episode started before
+        // it is running (see StartFromOtherEpisode).
         private sly4.JobEntry queuedJobStart = null;
         private int queuedJobStartGoal;
+        private bool queuedJobStartToHub;
+        private bool queuedJobStartToHideout;
+        private sly4.JobEntry otherEpisodeJob;
         private DateTime queuedJobStartDeadline;
         private DateTime queuedJobStartReadySince = DateTime.MaxValue;
+
+        // Episodes to start a job in before one in the current episode, in order of preference:
+        // starting jobs in these is known to work.
+        private static readonly string[] OtherEpisodes = { "Japan", "West" };
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
@@ -429,9 +436,9 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                if (!toHub && !toHideout && game.IsJobRunning(job.index))
+                if (InCurrentEpisode(job))
                 {
-                    RestartJob(job, 0);
+                    StartFromOtherEpisode(job, 0, toHub, toHideout);
                     return;
                 }
                 game.StartJob(job.index, toHub, toHideout);
@@ -477,9 +484,9 @@ namespace SluMAN
                     game.WarpToGoal(goal);
                     TrackGameCall($"Warping to goal {goal + 1}.");
                 }
-                else if (game.IsJobRunning(job.index))
+                else if (InCurrentEpisode(job))
                 {
-                    RestartJob(job, goal);
+                    StartFromOtherEpisode(job, goal, false, false);
                 }
                 else
                 {
@@ -511,38 +518,75 @@ namespace SluMAN
                 : $"Starting {job.Title}.");
         }
 
-        /// <summary>
-        /// Starts the running job again and warps to the goal (0-based), as if coming from another
-        /// job. The game won't start the running job, and starting it right after
-        /// AbandonCurrentJob crashes the game, so this goes to the job's hideout (which ends the
-        /// job the way switching jobs does) and starts the job once that has loaded.
-        /// </summary>
-        private void RestartJob(sly4.JobEntry job, int goal)
+        /// <summary>True if the job is in the episode the game is in now.</summary>
+        private bool InCurrentEpisode(sly4.JobEntry job)
         {
-            game.StartJob(job.index, false, true);
-            queuedJobStart = job;
-            queuedJobStartGoal = goal;
-            queuedJobStartDeadline = DateTime.Now + QueuedGoalWarpTimeout;
-            queuedJobStartReadySince = DateTime.MaxValue;
-            TrackGameCall($"Going to {job.EpisodeTitle}'s hideout to restart {job.Title}.");
+            string episode = game.GetEpisodeKey();
+            return episode != null && string.Equals(episode, job.episode, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// Starts the queued job once the hideout trip has ended the old one and finished loading,
+        /// Starts a job of the current episode (or goes to its hub or hideout), warping to the
+        /// goal (0-based) once it runs. Starting anything in the current episode crashes the game,
+        /// so this starts a job in another episode first, as if coming from another job, and
+        /// starts this one once that is running. This also restarts the running job.
+        /// </summary>
+        private void StartFromOtherEpisode(sly4.JobEntry job, int goal, bool toHub, bool toHideout)
+        {
+            sly4.JobEntry other = FindOtherEpisodeJob(job.episode);
+            if (other == null)
+            {
+                throw new InvalidOperationException("Couldn't find a job in another episode to go through.");
+            }
+
+            game.StartJob(other.index, false, false);
+            queuedJobStart = job;
+            queuedJobStartGoal = goal;
+            queuedJobStartToHub = toHub;
+            queuedJobStartToHideout = toHideout;
+            otherEpisodeJob = other;
+            queuedJobStartDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+            queuedJobStartReadySince = DateTime.MaxValue;
+            TrackGameCall($"Going through {other.Title} first; starting a job in this episode directly crashes the game.");
+        }
+
+        /// <summary>The first job of a preferred episode other than the given one, or null.</summary>
+        private sly4.JobEntry FindOtherEpisodeJob(string episode)
+        {
+            List<sly4.JobEntry> jobs = game.GetJobs();
+            foreach (string preferred in OtherEpisodes)
+            {
+                if (string.Equals(preferred, episode, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                foreach (sly4.JobEntry job in jobs)
+                {
+                    if (string.Equals(job.episode, preferred, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return job;
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Starts the queued job once the job in another episode is running and done loading,
         /// and has stayed that way for a moment, so the start doesn't land in the load.
         /// </summary>
         private void CheckQueuedJobStart()
         {
             if (DateTime.Now > queuedJobStartDeadline)
             {
-                statusLine.Error($"The hideout didn't load in time, so {queuedJobStart.Title} wasn't restarted.");
+                statusLine.Error($"{otherEpisodeJob.Title} didn't load in time, so {queuedJobStart.Title} wasn't started.");
                 queuedJobStart = null;
                 return;
             }
 
             try
             {
-                bool ready = !game.IsLoading() && !game.IsJobRunning(queuedJobStart.index);
+                bool ready = !game.IsLoading() && game.IsJobRunning(otherEpisodeJob.index);
                 if (!ready)
                 {
                     queuedJobStartReadySince = DateTime.MaxValue;
@@ -559,12 +603,20 @@ namespace SluMAN
 
                 sly4.JobEntry job = queuedJobStart;
                 queuedJobStart = null;
-                StartJobAtGoal(job, queuedJobStartGoal);
+                if (queuedJobStartToHub || queuedJobStartToHideout)
+                {
+                    game.StartJob(job.index, queuedJobStartToHub, queuedJobStartToHideout);
+                    TrackGameCall($"Going to {job.EpisodeTitle}'s {(queuedJobStartToHub ? "hub" : "hideout")}.");
+                }
+                else
+                {
+                    StartJobAtGoal(job, queuedJobStartGoal);
+                }
             }
             catch (Exception ex)
             {
                 queuedJobStart = null;
-                statusLine.Error($"Couldn't restart the job: {ex.Message}");
+                statusLine.Error($"Couldn't start the job: {ex.Message}");
             }
         }
 
