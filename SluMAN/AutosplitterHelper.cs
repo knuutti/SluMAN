@@ -44,11 +44,6 @@ namespace SluMAN
 
         public bool IsRunning { get; private set; } = false;
 
-        /// <summary>
-        /// Set before starting to log every value the autosplitter shares. Closed when it stops.
-        /// </summary>
-        public AutosplitterLog Log { get; set; }
-
         public AutosplitterHelper()
         {
             mmfFile = MemoryMappedFile.CreateOrOpen("SluMAN-autosplitter", mmfSize);
@@ -64,10 +59,6 @@ namespace SluMAN
             }
 
             IsRunning = false;
-            if (Log != null)
-            {
-                Log.Dispose();
-            }
             if (computedValues != null)
             {
                 computedValues.StopComputedValues();
@@ -112,38 +103,21 @@ namespace SluMAN
             // round trip to the PS3 for every address.
             int pid = game.pid;
             int pos = 0;
-            int index = 0;
-            AutosplitterLog log = Log;
 
             foreach (var (addr, size) in autosplitter.AutosplitterAddresses)
             {
                 int offset = pos;
-                int field = index;
-                uint address = addr;
-                if (log != null)
-                {
-                    log.Field(field, offset, address, size);
-                }
 
                 // Write the initial value to the memory. This is necessary because the autosplitter will only
                 // trigger when the value changes. So at the start of the game all values will be 0;
                 var initialValue = game.api.ReadMemory(pid, addr, size).Reverse().ToArray();
                 WriteToMemory(offset, initialValue);
-                if (log != null)
-                {
-                    log.Value(field, address, initialValue, true);
-                }
 
                 subscriptionIDs.Add(game.api.SubMemory(pid, addr, size, (value) =>
                 {
                     WriteToMemory(offset, value);
-                    if (log != null)
-                    {
-                        log.Value(field, address, value, false);
-                    }
                 }));
                 pos += (int)size;
-                index++;
             }
 
             if (game is IAutosplitterComputedValues computed)

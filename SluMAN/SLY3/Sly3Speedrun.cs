@@ -42,7 +42,6 @@ namespace SluMAN
             session = new GameSession(this, game, gameNameId, "Sly 3", true);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.BindAutosplitter(autosplitterCheckBox);
-            session.AddAutosplitterLogMenu(menuStrip);
         }
 
         private void BuildMenu()
