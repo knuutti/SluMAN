@@ -48,9 +48,12 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
-        // A job to start again once it has been abandoned, for Reload Job on Warp (see WarpToGoal).
+        // A job (or its hub or hideout) to start once the current job has been abandoned for it
+        // (see QueueJobStart).
         private sly4.JobEntry queuedJobStart = null;
         private int queuedJobStartGoal;
+        private bool queuedJobStartToHub;
+        private bool queuedJobStartToHideout;
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
@@ -426,9 +429,7 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                game.StartJob(job.index, toHub, toHideout);
-                string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
-                TrackGameCall($"Going to {where}.");
+                QueueJobStart(job, 0, toHub, toHideout);
             }
             catch (Exception ex)
             {
@@ -449,8 +450,8 @@ namespace SluMAN
         /// <summary>
         /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
         /// given), otherwise by starting the job and warping once it has loaded. With Reload Job
-        /// on Warp, a running job is abandoned and started again instead, as if coming from
-        /// another job, for goals whose setup (such as a cutscene) a warp in place skips.
+        /// on Warp, a running job is started again instead, as if coming from another job, for
+        /// goals whose setup (such as a cutscene) a warp in place skips.
         /// </summary>
         public void WarpToGoal(sly4.JobEntry job, int goal)
         {
@@ -469,17 +470,9 @@ namespace SluMAN
                     game.WarpToGoal(goal);
                     TrackGameCall($"Warping to goal {goal + 1}.");
                 }
-                else if (game.IsJobRunning(job.index))
-                {
-                    // The game won't start the running job, so end it and start it once that has run.
-                    game.AbandonJob();
-                    queuedJobStart = job;
-                    queuedJobStartGoal = goal;
-                    TrackGameCall($"Left {job.Title}; starting it again.");
-                }
                 else
                 {
-                    StartJobAtGoal(job, goal);
+                    QueueJobStart(job, goal, false, false);
                 }
             }
             catch (Exception ex)
@@ -507,17 +500,40 @@ namespace SluMAN
                 : $"Starting {job.Title}.");
         }
 
+        /// <summary>
+        /// Ends the current job, if any, and starts the job (or goes to its hub or hideout) once
+        /// the game has run that. Always ended first, so nothing of the old job carries over,
+        /// and the running job can be started again.
+        /// </summary>
+        private void QueueJobStart(sly4.JobEntry job, int goal, bool toHub, bool toHideout)
+        {
+            game.AbandonJob();
+            queuedJobStart = job;
+            queuedJobStartGoal = goal;
+            queuedJobStartToHub = toHub;
+            queuedJobStartToHideout = toHideout;
+            TrackGameCall("Left any running job.");
+        }
+
         private void StartQueuedJob()
         {
             sly4.JobEntry job = queuedJobStart;
             queuedJobStart = null;
             try
             {
-                StartJobAtGoal(job, queuedJobStartGoal);
+                if (queuedJobStartToHub || queuedJobStartToHideout)
+                {
+                    game.StartJob(job.index, queuedJobStartToHub, queuedJobStartToHideout);
+                    TrackGameCall($"Going to {job.EpisodeTitle}'s {(queuedJobStartToHub ? "hub" : "hideout")}.");
+                }
+                else
+                {
+                    StartJobAtGoal(job, queuedJobStartGoal);
+                }
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't start the job again: {ex.Message}");
+                statusLine.Error($"Couldn't start the job: {ex.Message}");
             }
         }
 
@@ -575,19 +591,13 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                // A running job would load its own level instead, so end it first and load the
-                // level once the game has run that call.
-                if (game.IsInJob())
-                {
-                    game.AbandonJob();
-                    queuedLevel = level;
-                    queuedCharacter = character;
-                    queuedSpawnPoint = spawnPoint;
-                    TrackGameCall($"Left the job; loading {level.name}.");
-                    return;
-                }
-                game.LoadLevel(level.hash, character, spawnPoint);
-                TrackGameCall(LoadingMessage(level, character, spawnPoint));
+                // A running job would load its own level instead, so end it first (always, in
+                // case the job isn't read right) and load the level once the game has run that.
+                game.AbandonJob();
+                queuedLevel = level;
+                queuedCharacter = character;
+                queuedSpawnPoint = spawnPoint;
+                TrackGameCall("Left any running job.");
             }
             catch (Exception ex)
             {
