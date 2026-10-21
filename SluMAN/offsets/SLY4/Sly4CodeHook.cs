@@ -1,13 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SluMAN
 {
     /// <summary>
-    /// Lets SluMAN call Sly 4's own functions without an SPRX. A call the game makes once per
-    /// frame is redirected to a small stub written into unused code memory. The stub runs the call
-    /// queued in a mailbox in unused data memory, clears it, then continues into the original
-    /// function, so game functions run on the game's own thread like the debug menu's do.
+    /// Lets SluMAN call Sly 4's own functions without an SPRX. The main loop's per-frame call to
+    /// the game update is redirected to a small stub written into unused code memory. The stub
+    /// runs the call queued in a mailbox in unused data memory, clears it, then continues into the
+    /// update with its registers as they were, so game functions run on the main thread just
+    /// before the update, where the game makes the same calls itself.
     ///
     /// Mailbox layout: +0x0 function address (0 = nothing queued), +0x4 return value,
     /// +0x8..+0x24 arguments r3 to r10, +0x28 the 9th argument, which goes on the stack.
@@ -23,8 +25,19 @@ namespace SluMAN
         // repeat every frame, so a stub of that version left in a running game stops calling it.
         private const uint MailboxSize = 0x38;
 
-        // The stub's first instructions (stack frame setup), to recognise an older version of it.
-        private static readonly byte[] StubPrologue = { 0xF8, 0x21, 0xFF, 0x81, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0x90 };
+        // The stub's frame: the 9th argument at 0x70 (the parameter area), r3 to r10 saved from
+        // 0x80, and the return address in the caller's frame, at FrameSize + 0x10.
+        private const uint FrameSize = 0xC0;
+        private const uint SavedRegisters = 0x80;
+
+        // The first instructions (stack frame setup) of each stub version, to recognise an older one.
+        private static readonly byte[][] StubPrologues =
+        {
+            // SluMAN 1.1.1 and earlier: a 0x80 frame, hooked on the render thread.
+            new byte[] { 0xF8, 0x21, 0xFF, 0x81, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0x90 },
+            // Now: a 0xC0 frame that keeps r3 to r10.
+            new byte[] { 0xF8, 0x21, 0xFF, 0x41, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0xD0 },
+        };
 
         private readonly IGame game;
 
@@ -96,6 +109,14 @@ namespace SluMAN
         /// </summary>
         private void Install()
         {
+            // An older SluMAN hooked another call, whose stub this one replaces: unhook it first,
+            // so it never runs this stub, which continues into a different function.
+            if (ReadUInt(sly4.addr.legacyHookCallSite) == Branch(sly4.addr.legacyHookCallSite, sly4.addr.hookCodeCave, true))
+            {
+                game.api.WriteMemory(game.pid, sly4.addr.legacyHookCallSite,
+                    ToBytes(Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCallTarget, true)));
+            }
+
             uint callSite = ReadUInt(sly4.addr.hookCallSite);
             byte[] stub = BuildStub();
             byte[] cave = game.api.ReadMemory(game.pid, sly4.addr.hookCodeCave, (uint)stub.Length);
@@ -110,7 +131,7 @@ namespace SluMAN
                 throw new InvalidOperationException("The game's code isn't what SluMAN expects, so warps aren't available on this version.");
             }
 
-            bool caveHasOldStub = cave.Take(StubPrologue.Length).SequenceEqual(StubPrologue);
+            bool caveHasOldStub = StubPrologues.Any(prologue => cave.Take(prologue.Length).SequenceEqual(prologue));
             if (!caveHasStub && !caveHasOldStub && cave.Any(b => b != 0))
             {
                 throw new InvalidOperationException("The memory for the warp code is already in use.");
@@ -150,8 +171,9 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The stub's PowerPC code. Game functions share the module's TOC, so r2 needs no change,
-        /// and the hooked function takes no arguments, so r3 to r10 are free to use.
+        /// The stub's PowerPC code. Game functions share the module's TOC, so r2 needs no change.
+        /// The update takes arguments (r3 at least), so r3 to r10 are saved first and put back
+        /// before continuing into it; r0, r11 and r12 are free at a call.
         /// </summary>
         private byte[] BuildStub()
         {
@@ -159,41 +181,57 @@ namespace SluMAN
             uint high = ((mailbox + 0x8000) >> 16) & 0xFFFF;
             uint low = mailbox & 0xFFFF;
 
-            uint[] words = new uint[29];
-            words[0] = 0xF821FF81;           // stdu r1, -0x80(r1)
-            words[1] = 0x7C0802A6;           // mflr r0
-            words[2] = 0xF8010090;           // std r0, 0x90(r1)
-            words[3] = 0x3D600000 | high;    // lis r11, mailbox@ha
-            words[4] = 0x396B0000 | low;     // addi r11, r11, mailbox@l
-            words[5] = 0x818B0000;           // lwz r12, 0(r11)
-            words[6] = 0x2C0C0000;           // cmpwi r12, 0
-            words[7] = 0x41820048;           // beq +0x48 (to the epilogue)
+            List<uint> words = new List<uint>();
+            words.Add(0xF8210001 | (0x10000 - FrameSize));     // stdu r1, -FrameSize(r1)
+            words.Add(0x7C0802A6);                             // mflr r0
+            words.Add(0xF8010000 | (FrameSize + 0x10));        // std r0, FrameSize + 0x10(r1)
+            for (uint reg = 3; reg <= 10; reg++)
+            {
+                words.Add(Ds(62, reg, SavedRegisters + (reg - 3) * 8));  // std rN, saved(r1)
+            }
+            words.Add(0x3D600000 | high);                      // lis r11, mailbox@ha
+            words.Add(0x396B0000 | low);                       // addi r11, r11, mailbox@l
+            words.Add(0x818B0000);                             // lwz r12, 0(r11)
+            words.Add(0x2C0C0000);                             // cmpwi r12, 0
+            int skip = words.Count;
+            words.Add(0);                                      // beq epilogue, set below
             for (uint reg = 3; reg <= 10; reg++)
             {
                 // lwz rN, 8 + (N - 3) * 4(r11)
-                words[5 + reg] = (32u << 26) | (reg << 21) | (11u << 16) | (8 + (reg - 3) * 4);
+                words.Add((32u << 26) | (reg << 21) | (11u << 16) | (8 + (reg - 3) * 4));
             }
             // The 9th argument goes in the caller's parameter area, at 0x70 in this frame.
-            words[16] = 0x800B0028;          // lwz r0, 0x28(r11)
-            words[17] = 0xF8010070;          // std r0, 0x70(r1)
-            words[18] = 0x7D8903A6;          // mtctr r12
-            words[19] = 0x4E800421;          // bctrl
-            words[20] = 0x3D600000 | high;   // lis r11, mailbox@ha
-            words[21] = 0x396B0000 | low;    // addi r11, r11, mailbox@l
-            words[22] = 0x906B0004;          // stw r3, 4(r11)
-            words[23] = 0x38000000;          // li r0, 0
-            words[24] = 0x900B0000;          // stw r0, 0(r11)
-            words[25] = 0xE8010090;          // ld r0, 0x90(r1)
-            words[26] = 0x7C0803A6;          // mtlr r0
-            words[27] = 0x38210080;          // addi r1, r1, 0x80
-            words[28] = Branch(sly4.addr.hookCodeCave + 28 * 4, sly4.addr.hookCallTarget, false);
+            words.Add(0x800B0028);                             // lwz r0, 0x28(r11)
+            words.Add(0xF8010070);                             // std r0, 0x70(r1)
+            words.Add(0x7D8903A6);                             // mtctr r12
+            words.Add(0x4E800421);                             // bctrl
+            words.Add(0x3D600000 | high);                      // lis r11, mailbox@ha
+            words.Add(0x396B0000 | low);                       // addi r11, r11, mailbox@l
+            words.Add(0x906B0004);                             // stw r3, 4(r11)
+            words.Add(0x38000000);                             // li r0, 0
+            words.Add(0x900B0000);                             // stw r0, 0(r11)
+            words[skip] = 0x41820000 | (uint)((words.Count - skip) * 4);  // beq epilogue
+            for (uint reg = 3; reg <= 10; reg++)
+            {
+                words.Add(Ds(58, reg, SavedRegisters + (reg - 3) * 8));  // ld rN, saved(r1)
+            }
+            words.Add(0xE8010000 | (FrameSize + 0x10));        // ld r0, FrameSize + 0x10(r1)
+            words.Add(0x7C0803A6);                             // mtlr r0
+            words.Add(0x38210000 | FrameSize);                 // addi r1, r1, FrameSize
+            words.Add(Branch(sly4.addr.hookCodeCave + (uint)words.Count * 4, sly4.addr.hookCallTarget, false));
 
-            byte[] stub = new byte[words.Length * 4];
-            for (int i = 0; i < words.Length; i++)
+            byte[] stub = new byte[words.Count * 4];
+            for (int i = 0; i < words.Count; i++)
             {
                 Array.Copy(ToBytes(words[i]), 0, stub, i * 4, 4);
             }
             return stub;
+        }
+
+        /// <summary>A std (opcode 62) or ld (58) of a register at an offset from r1.</summary>
+        private static uint Ds(uint opcode, uint reg, uint offset)
+        {
+            return (opcode << 26) | (reg << 21) | (1u << 16) | (offset & 0xFFFC);
         }
 
         /// <summary>A relative b (or bl) instruction from one address to another.</summary>

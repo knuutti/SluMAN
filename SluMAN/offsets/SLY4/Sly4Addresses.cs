@@ -67,9 +67,16 @@ namespace SluMAN
         public uint abandonCurrentJobFunction { get; private set; }
 
         // Code hook: a call made once per frame is pointed at a stub in the unused end of the code
-        // segment, which runs the call queued in the mailbox (unused end of the data segment)
+        // segment, which runs the call queued in the mailbox (unused end of the data segment).
+        // The call is the main loop's call to the frame's game update, on the main thread, where
+        // the game makes these calls itself (StartJobByInst runs inside that update).
         public uint hookCallSite { get; private set; }
         public uint hookCallTarget { get; private set; }
+        // The call SluMAN 1.1.1 and earlier hooked instead. It's made on AglRenderThread, and game
+        // logic run there races the render thread: starting a job in the current episode crashes
+        // the game. Put back on install, in case a game is still hooked there.
+        public uint legacyHookCallSite { get; private set; }
+        public uint legacyHookCallTarget { get; private set; }
         public uint hookCodeCave { get; private set; }
         public uint hookMailbox { get; private set; }
 
@@ -241,8 +248,10 @@ namespace SluMAN
                 loadLevelFunction = 0x4674C4,
                 abandonCurrentJobFunction = 0x2E5060,
 
-                hookCallSite = 0x5221DC,
-                hookCallTarget = 0x56AEFC,
+                hookCallSite = 0x463D20,
+                hookCallTarget = 0x45B858,
+                legacyHookCallSite = 0x5221DC,
+                legacyHookCallTarget = 0x56AEFC,
                 hookCodeCave = 0xF05200,
                 hookMailbox = 0x11F8A00,
 
