@@ -34,6 +34,8 @@ namespace SluMAN
         private GameSession session;
         private PracticeTabs practiceTabs;
         private int refreshTick = 0;
+        // Whether the last tick saw a load, for the Practice Mode popup after it.
+        private bool wasLoading;
         private bool gameCallPending = false;
         private DateTime gameCallDeadline;
         private string gameCallDoneMessage;
@@ -196,6 +198,7 @@ namespace SluMAN
             {
                 RefreshGameState();
             }
+            ShowPopUpAfterLoad();
 
             if (gameCallPending)
             {
@@ -209,6 +212,35 @@ namespace SluMAN
             {
                 CheckQueuedGoalWarp();
             }
+        }
+
+        /// <summary>
+        /// Shows webMAN's "SluMAN (Practice Mode)" popup on the PS3 when a load finishes, like the
+        /// other games, so a run's video shows Practice Mode was on. Ratchetron only.
+        /// </summary>
+        private void ShowPopUpAfterLoad()
+        {
+            if (!(game.api is Ratchetron))
+            {
+                return;
+            }
+            bool loading;
+            try
+            {
+                loading = game.IsLoading();
+            }
+            catch
+            {
+                // Not connected right now.
+                return;
+            }
+            if (wasLoading && !loading)
+            {
+                // A web request: off the UI thread.
+                string ip = game.api.GetIP();
+                System.Threading.ThreadPool.QueueUserWorkItem(_ => WebMAN.DisplayVersionPopUp(ip));
+            }
+            wasLoading = loading;
         }
 
         /// <summary>
