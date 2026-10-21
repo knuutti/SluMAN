@@ -6,6 +6,56 @@
     <title>SluMAN Changelog</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <h2>SluMAN v1.1.0</h2>
+    <h3>New features</h3>
+    <ul>
+        <li><strong>Sly Cooper: Thieves in Time support</strong>, in Practice Mode and Speedrun Mode (BCES01284 disc and NPEA00429 PSN).</li>
+        <li>Sly 4 Practice Mode:</li>
+        <li>Invulnerable, Undetectable, Slow Motion and Skip Cutscenes toggles.</li>
+        <li>Shows the current episode, job and checkpoint.</li>
+        <li>Start Job, To Hub, To Hideout, Warp to Goal and Retry.</li>
+        <li>Saved positions.</li>
+        <li>Sly 4 tabs:</li>
+        <li><strong>Tunables:</strong> all of the game's ~2,650 tunables, live, searchable and editable. Keep values you change, or import a SLY4-DEBUG-MENU <code>debugmenu.cfg</code>.</li>
+        <li><strong>Jobs:</strong> every episode, job and goal, with the running job's progress.</li>
+        <li><strong>Position:</strong> teleport, a speedometer, Fly Mode and a freecam.</li>
+        <li>Sly 4 Load Level: any level, as any character, at any of ~3,000 named spawn points.</li>
+        <li><strong>Sly 1 Practice Mode:</strong></li>
+        <li>Load any level at its start or any entrance.</li>
+        <li>Reload Level and Skip Cinematic.</li>
+        <li>Set coins, lives and charms.</li>
+        <li>Freeze Lives, Freeze Gold Charm, Fly Mode and Infinite Jump.</li>
+        <li>A Player tab with position slots and warps.</li>
+        <li>A World States tab for each world's keys, vaults, sprints and progress.</li>
+        <li><strong>Sly 2 PAL PSN (NPEA00342)</strong> is supported.</li>
+        <li>Language menu for PAL Sly 2 and Sly 3 (Tools → Language).</li>
+        <li>Sly 2 and Sly 3 Practice Mode reworked like Sly 4's:</li>
+        <li>One window with Practice, Player, Gadgets, Run Files, Memory and Memory Viewer tabs.</li>
+        <li>A View menu to pick which tabs show.</li>
+        <li>Run files now load from Practice Mode's Run Files tab. Speedrun Mode has only the autosplitter, Always On Top and the input display.</li>
+        <li>Sly 2 and Sly 3 jobs load by job and checkpoint, and maps load at a chosen spawn point.</li>
+        <li>Sly 2: Tools → Copy Episode State, for recording job states.</li>
+        <li>Memory Viewer: Ctrl+C copies the bytes on screen.</li>
+        <li>Sly 1 autosplitter removes loads from Game Time (Real Time is unchanged).</li>
+    </ul>
+    <h3>Bugfixes</h3>
+    <ul>
+        <li>Sly 2 autosplitter:</li>
+        <li>Any% now splits jobs in every episode, not just Episode 1.</li>
+        <li>A job no longer splits twice, and split timing is more reliable.</li>
+        <li>Sly 1 autosplitter no longer misses the Hideout split after a boss.</li>
+        <li>Sly 3 Fly Mode no longer crashes the game in and around hideouts.</li>
+        <li>Auto-skip Cinematics now skips FMVs in Sly 2 and Sly 3.</li>
+        <li>Sly 3 Skip Cinematic and Auto-skip handle dialogue better.</li>
+        <li>Practice windows fit each tab instead of leaving empty space at the bottom.</li>
+        <li>The Controller Combos, Autosplitter, Memory and Mod Loader windows now show the SluMAN icon.</li>
+    </ul>
+    <h3>Maintenance</h3>
+    <ul>
+        <li>Removed the Run Script controller combo; it did nothing in supported games.</li>
+        <li>Sly 1 Speedrun Mode is rebuilt like the other games'.</li>
+        <li>Sly 4 support builds on <a href="https://github.com/gg3502/SLY4-DEBUG-MENU">SLY4-DEBUG-MENU</a> by gg3502, and Sly 1 Practice Mode uses addresses from <a href="https://github.com/NiV-L-A/SlyMultiTrainer">SlyMultiTrainer</a> by NiV-L-A. Thank you!</li>
+    </ul>
     <h2>SluMAN v1.0.10</h2>
     <h3>New features</h3>
     <ul>
