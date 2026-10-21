@@ -107,7 +107,7 @@ namespace SluMAN
 
             FormClosing += Sly1Practice_FormClosing;
 
-            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.

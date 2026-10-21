@@ -20,7 +20,8 @@ namespace SluMAN
     /// Turns a Practice window into one window with tabs: the window's own controls on the first
     /// tab, and tool windows (gadgets, position editor, memory) embedded on the others. A tool is
     /// created the first time its tab is opened, and the window resizes to fit the selected tab;
-    /// or, with a fixed size, every tab is the size of the Practice tab and the tools fill it.
+    /// or, with a fixed width, every tab is the Practice tab's width, the tools fill it, and the
+    /// window's height follows the selected tab's content.
     /// </summary>
     public class PracticeTabs
     {
@@ -29,10 +30,15 @@ namespace SluMAN
             public TabPage page;
             public Func<Form> create;
             public Form form;
+            // The form's size before it was docked: its content's size.
+            public Size naturalSize;
             public bool visible = true;
             // Its row in the View menu, if there is one.
             public ToolStripMenuItem viewItem;
         }
+
+        // Space below the Practice tab's lowest control, with a fixed width.
+        private const int PracticeBottomMargin = 8;
 
         // Written to config.txt when every tab but Practice is hidden, so the defaults don't return.
         private const string NoTabsVisible = "none";
@@ -44,7 +50,7 @@ namespace SluMAN
         private readonly TabControl tabs = new TabControl();
         private readonly TabPage practicePage;
         private readonly Size practiceSize;
-        private readonly bool fixedSize;
+        private readonly bool fixedWidth;
         private readonly List<Tool> tools = new List<Tool>();
 
         /// <summary>Raised when a tool's form has been created, so the host can keep a reference.</summary>
@@ -57,18 +63,19 @@ namespace SluMAN
         /// Moves every control of <paramref name="host"/> except its menu and status bar onto a
         /// "Practice" tab. Call at the end of the constructor, after the status line exists.
         /// </summary>
-        /// <param name="fixedSize">Keep the window at the Practice tab's size on every tab, with
-        /// each tool docked to fill its tab (its controls anchored to grow with it).</param>
-        public PracticeTabs(Form host, string practiceTitle, bool fixedSize = false)
+        /// <param name="fixedWidth">Keep the window at the host's width on every tab, with each
+        /// tool docked to fill its tab's width (its controls anchored to grow with it). The height
+        /// is each tab's content height: the Practice tab's lowest control, or a tool's own height.</param>
+        public PracticeTabs(Form host, string practiceTitle, bool fixedWidth = false)
         {
             this.host = host;
-            this.fixedSize = fixedSize;
+            this.fixedWidth = fixedWidth;
 
             MenuStrip menu = host.Controls.OfType<MenuStrip>().FirstOrDefault();
             StatusStrip status = host.Controls.OfType<StatusStrip>().FirstOrDefault();
             int top = menu != null ? menu.Height : 0;
             int bottom = status != null ? status.Height : 0;
-            practiceSize = new Size(host.ClientSize.Width, host.ClientSize.Height - top - bottom);
+            int practiceHeight = host.ClientSize.Height - top - bottom;
 
             host.SuspendLayout();
 
@@ -87,6 +94,11 @@ namespace SluMAN
                 control.Location = new Point(location.X, location.Y - top);
                 practicePage.Controls.Add(control);
             }
+            if (fixedWidth && content.Count > 0)
+            {
+                practiceHeight = content.Max(c => c.Bottom) + PracticeBottomMargin;
+            }
+            practiceSize = new Size(host.ClientSize.Width, practiceHeight);
 
             tabs.TabPages.Add(practicePage);
             tabs.Dock = DockStyle.Fill;
@@ -278,10 +290,11 @@ namespace SluMAN
             }
 
             Form form = tool.create();
+            tool.naturalSize = form.ClientSize;
             form.TopLevel = false;
             form.FormBorderStyle = FormBorderStyle.None;
             form.Location = Point.Empty;
-            if (fixedSize)
+            if (fixedWidth)
             {
                 form.Dock = DockStyle.Fill;
             }
@@ -298,7 +311,7 @@ namespace SluMAN
 
             if (tabs.SelectedTab == tool.page)
             {
-                FitTo(ToolSize(form));
+                FitTo(ToolSize(tool));
             }
             return form;
         }
@@ -338,13 +351,13 @@ namespace SluMAN
                 {
                     refreshable.RefreshFromGame();
                 }
-                FitTo(ToolSize(form));
+                FitTo(ToolSize(tool));
             }
         }
 
-        private Size ToolSize(Form form)
+        private Size ToolSize(Tool tool)
         {
-            return fixedSize ? practiceSize : form.ClientSize;
+            return fixedWidth ? new Size(practiceSize.Width, tool.naturalSize.Height) : tool.form.ClientSize;
         }
 
         /// <summary>Resizes the window so a tab's content of <paramref name="contentSize"/> fits exactly.</summary>
