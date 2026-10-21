@@ -38,7 +38,6 @@ namespace SluMAN
         private readonly TextBox keysTextBox = new TextBox();
         private readonly TextBox vaultsTextBox = new TextBox();
         private readonly TextBox sprintsTextBox = new TextBox();
-        private readonly TextBox moviesTextBox = new TextBox();
         private Label noteLabel;
 
         public Sly1WorldStatesForm(sly1 game, StatusLine statusLine)
@@ -141,17 +140,7 @@ namespace SluMAN
 
             noteLabel = new Label();
             noteLabel.AutoSize = true;
-            GroupBox gameGroupBox = AddGroup("Every world", 8, flagsGroupBox.Bottom + 6, 636, 50);
-            AddLabel(gameGroupBox, "Movies unlocked (hex):", 10, 22);
-            moviesTextBox.Location = new Point(135, 19);
-            moviesTextBox.Size = new Size(90, 20);
-            gameGroupBox.Controls.Add(moviesTextBox);
-            AddButton(gameGroupBox, "Set", 231, 18, 60, (sender, e) => SetMoviesFromTextBox());
-            AddButton(gameGroupBox, "All", 297, 18, 60, (sender, e) => SetMovies(0xFFFFFFFF));
-            AddButton(gameGroupBox, "None", 363, 18, 60, (sender, e) => SetMovies(0));
-            tip.SetToolTip(moviesTextBox, "One bit per movie (FMV). An unlocked movie may be skippable when it plays again.");
-
-            noteLabel.Location = new Point(8, gameGroupBox.Bottom + 8);
+            noteLabel.Location = new Point(8, flagsGroupBox.Bottom + 8);
             noteLabel.ForeColor = SystemColors.GrayText;
             noteLabel.Text = "Changes are written to the game straight away. Reload the level (Practice tab) to see them.";
             Controls.Add(noteLabel);
@@ -255,7 +244,6 @@ namespace SluMAN
                 keysTextBox.Text = game.GetWorldCounter(world, sly1.WorldCounter.Keys).ToString();
                 vaultsTextBox.Text = game.GetWorldCounter(world, sly1.WorldCounter.Vaults).ToString();
                 sprintsTextBox.Text = game.GetWorldCounter(world, sly1.WorldCounter.Sprints).ToString();
-                moviesTextBox.Text = game.GetMovies().ToString("X8");
             }
             catch (Exception ex)
             {
@@ -338,35 +326,6 @@ namespace SluMAN
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't set the count: {ex.Message}");
-            }
-        }
-
-        private void SetMoviesFromTextBox()
-        {
-            uint movies;
-            string text = moviesTextBox.Text.Trim();
-            if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            {
-                text = text.Substring(2);
-            }
-            if (!uint.TryParse(text, System.Globalization.NumberStyles.HexNumber, null, out movies))
-            {
-                statusLine.Error("Enter the movies as a hex number, e.g. FFFFFFFF.");
-                return;
-            }
-            SetMovies(movies);
-        }
-
-        private void SetMovies(uint movies)
-        {
-            try
-            {
-                game.SetMovies(movies);
-                moviesTextBox.Text = movies.ToString("X8");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't set the movies: {ex.Message}");
             }
         }
 

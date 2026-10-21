@@ -65,8 +65,8 @@ namespace SluMAN
         public uint worldVaultsOffset { get; private set; }
         public uint worldSprintsOffset { get; private set; }
         public uint worldFlagsOffset { get; private set; }
-        // gameState + moviesOffset: one bit per movie (FMV) unlocked, which may be what lets a
-        // movie be skipped.
+        // gameState + moviesOffset: one bit per movie (FMV) watched, which unlocks it in the movie
+        // list and lets it be skipped when it plays.
         public uint moviesOffset { get; private set; }
 
         private Sly1Addresses()

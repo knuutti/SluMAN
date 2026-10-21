@@ -434,7 +434,37 @@ namespace SluMAN
             api.WriteMemory(pid, WorldSave(world) + sly1.addr.worldFlagsOffset, ConvertIntToBytes(flags));
         }
 
-        /// <summary>The unlocked movies: one bit per movie.</summary>
+        /// <summary>A movie of the in-game movie list: its name there and its file on the disc.</summary>
+        public class MovieEntry
+        {
+            public string name;
+            public string file;
+        }
+
+        // The in-game movie list, in its order. Each movie's watched bit is assumed to be its
+        // position in the list (bit 0 = the first): change the order here if a bit turns out to
+        // belong to another movie.
+        public static readonly MovieEntry[] Movies = new MovieEntry[]
+        {
+            new MovieEntry { name = "The Secret Police File", file = "secret_origin.bik" },
+            new MovieEntry { name = "The Tokyo Police File", file = "secret_origin_alt.bik" },
+            new MovieEntry { name = "The Making of Sly Cooper", file = "making_of.bik" },
+            new MovieEntry { name = "Commercials & Outtakes", file = "outtakes.bik" },
+            new MovieEntry { name = "Tide of Terror", file = "underwater_intro.bik" },
+            new MovieEntry { name = "Raleigh Hung Out to Dry", file = "underwater_outro.bik" },
+            new MovieEntry { name = "Sunset Snake Eyes", file = "muggshot_intro.bik" },
+            new MovieEntry { name = "Muggshot Busted", file = "muggshot_outro.bik" },
+            new MovieEntry { name = "Vicious Voodoo", file = "voodoo_intro.bik" },
+            new MovieEntry { name = "Mz. Ruby Vexed", file = "voodoo_outro.bik" },
+            new MovieEntry { name = "Fire in the Sky", file = "snow_intro.bik" },
+            new MovieEntry { name = "The Panda King on Ice", file = "snow_outro.bik" },
+            new MovieEntry { name = "The Cold Heart of Hate", file = "clockwerk_intro.bik" },
+            new MovieEntry { name = "Ten Seconds", file = "ending_1.bik" },
+            new MovieEntry { name = "The Thievius Raccoonus", file = "ending_2.bik" },
+            new MovieEntry { name = "Credits", file = "credits.bik" },
+        };
+
+        /// <summary>The watched (unlocked) movies: bit i is Movies[i].</summary>
         public uint GetMovies()
         {
             return (uint)ReadInt(sly1.addr.gameState + sly1.addr.moviesOffset);
