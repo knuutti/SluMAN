@@ -510,14 +510,192 @@ namespace SluMAN
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);
             uint ptr = BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
-            api.WriteMemory(pid, ptr + 0x11C, ConvertFloatToBytes(value));
+            api.WriteMemory(pid, ptr + sly3.addr.cameraFovTargetOffset, ConvertFloatToBytes(value));
         }
 
         public void SetDrawDistance(float value)
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);
             uint ptr = BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
-            api.WriteMemory(pid, ptr + 0x114, ConvertFloatToBytes(value));
+            api.WriteMemory(pid, ptr + sly3.addr.cameraFarClipOffset, ConvertFloatToBytes(value));
+        }
+
+        // More than this many cameras means the count isn't one.
+        private const uint MaxCameras = 32;
+
+        /// <summary>The main camera (the CM struct), or 0 before the game has one.</summary>
+        public uint GetMainCamera()
+        {
+            return ReadUInt(addr.cameraPointer);
+        }
+
+        /// <summary>Every camera in the game's camera array, in its order. Empty during a load.</summary>
+        public uint[] GetCameras()
+        {
+            uint count = ReadUInt(addr.cameraCount);
+            if (count == 0 || count > MaxCameras)
+            {
+                return new uint[0];
+            }
+            byte[] bytes = api.ReadMemory(pid, addr.cameraArray, count * 4);
+            uint[] cameras = new uint[count];
+            for (int i = 0; i < count; i++)
+            {
+                byte[] value = new byte[4];
+                Array.Copy(bytes, i * 4, value, 0, 4);
+                cameras[i] = BitConverter.ToUInt32(value.Reverse().ToArray(), 0);
+            }
+            return cameras;
+        }
+
+        // How far into the camera struct FindCameraMatrix looks, and how far an axis may be from
+        // length 1, or two axes from square, in a camera matrix.
+        private const uint CameraSearchLength = 0x300;
+        private const float CameraMatrixTolerance = 0.02f;
+
+        /// <summary>
+        /// Where in a camera struct its matrix is: cameraMatrixOffset when that holds one (three
+        /// unit axes at right angles), else the one nearest it, or -1 when there's none. The
+        /// offset is the PS2 version's, so this finds it if the PS3 one is a little different.
+        /// </summary>
+        public int FindCameraMatrix(uint camera)
+        {
+            byte[] bytes = api.ReadMemory(pid, camera, CameraSearchLength);
+            int expected = (int)addr.cameraMatrixOffset;
+            int best = -1;
+            for (int offset = 0; offset + 0x40 <= bytes.Length; offset += 0x10)
+            {
+                if (IsCameraMatrix(bytes, offset) && (best == -1 || Math.Abs(offset - expected) < Math.Abs(best - expected)))
+                {
+                    best = offset;
+                }
+            }
+            return best;
+        }
+
+        private static bool IsCameraMatrix(byte[] bytes, int offset)
+        {
+            float[][] axes = new float[3][];
+            for (int row = 0; row < 3; row++)
+            {
+                axes[row] = new float[] { ToFloat(bytes, offset + row * 16), ToFloat(bytes, offset + row * 16 + 4), ToFloat(bytes, offset + row * 16 + 8) };
+                float length = axes[row][0] * axes[row][0] + axes[row][1] * axes[row][1] + axes[row][2] * axes[row][2];
+                if (float.IsNaN(length) || Math.Abs(length - 1) > CameraMatrixTolerance)
+                {
+                    return false;
+                }
+            }
+            for (int a = 0; a < 3; a++)
+            {
+                float[] u = axes[a];
+                float[] v = axes[(a + 1) % 3];
+                if (Math.Abs(u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) > CameraMatrixTolerance)
+                {
+                    return false;
+                }
+            }
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float position = ToFloat(bytes, offset + 0x30 + axis * 4);
+                if (float.IsNaN(position) || float.IsInfinity(position))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// A camera's matrix at an offset in it (see FindCameraMatrix) as 16 floats: its X
+        /// (forward), Y (left) and Z (up) axes, then its position, each with a W value. Z is up in
+        /// the Sly games.
+        /// </summary>
+        public float[] ReadCameraMatrix(uint camera, int matrixOffset)
+        {
+            byte[] bytes = api.ReadMemory(pid, camera + (uint)matrixOffset, 0x40);
+            float[] matrix = new float[16];
+            for (int i = 0; i < 16; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
+        }
+
+        /// <summary>Writes a camera's matrix (laid out as ReadCameraMatrix's) in one write, so a frame never mixes old and new.</summary>
+        public void WriteCameraMatrix(uint camera, int matrixOffset, float[] matrix)
+        {
+            byte[] bytes = new byte[0x40];
+            for (int i = 0; i < 16; i++)
+            {
+                Array.Copy(ConvertFloatToBytes(matrix[i]), 0, bytes, i * 4, 4);
+            }
+            api.WriteMemory(pid, camera + (uint)matrixOffset, bytes);
+        }
+
+        /// <summary>The field of view a camera is easing to, in radians.</summary>
+        public float ReadCameraFov(uint camera)
+        {
+            return ToFloat(api.ReadMemory(pid, camera + addr.cameraFovTargetOffset, 4), 0);
+        }
+
+        /// <summary>Sets the field of view (radians) a camera eases to.</summary>
+        public void WriteCameraFov(uint camera, float fov)
+        {
+            api.WriteMemory(pid, camera + addr.cameraFovTargetOffset, ConvertFloatToBytes(fov));
+        }
+
+        /// <summary>The active character's position, or null when there's no character (a load).</summary>
+        public float[] GetPlayerPosition()
+        {
+            uint address = GetLoadedPlayerCoordsAddress();
+            if (address == 0)
+            {
+                return null;
+            }
+            byte[] bytes = api.ReadMemory(pid, address, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        /// <summary>Puts the active character at a position. False when there's no character.</summary>
+        public bool SetPlayerPosition(float[] position)
+        {
+            uint address = GetLoadedPlayerCoordsAddress();
+            if (address == 0)
+            {
+                return false;
+            }
+            byte[] bytes = new byte[12];
+            for (int axis = 0; axis < 3; axis++)
+            {
+                Array.Copy(ConvertFloatToBytes(position[axis]), 0, bytes, axis * 4, 4);
+            }
+            api.WriteMemory(pid, address, bytes);
+            return true;
+        }
+
+        /// <summary>Where the player's coordinates are, or 0 when the character or its transform isn't there.</summary>
+        private uint GetLoadedPlayerCoordsAddress()
+        {
+            uint entity = ReadUInt(addr.playerEntityPointer);
+            if (entity == 0)
+            {
+                return 0;
+            }
+            uint transform = ReadUInt(entity + addr.transformOffset);
+            return transform == 0 ? 0 : transform + addr.coordsOffsetX;
+        }
+
+        private uint ReadUInt(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 4);
+            return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
+        private static float ToFloat(byte[] bytes, int offset)
+        {
+            byte[] value = new byte[4];
+            Array.Copy(bytes, offset, value, 0, 4);
+            return BitConverter.ToSingle(value.Reverse().ToArray(), 0);
         }
 
         public void TriggerGameLoad(uint loadType = (uint)Sly3Addresses.LoadTypes.Normal)

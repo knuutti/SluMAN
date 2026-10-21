@@ -70,6 +70,16 @@ namespace SluMAN
         public uint deathBarriersPointer { get; private set; }
         public uint cameraPointer { get; private set; }
 
+        // Cameras (the CM struct). cameraPointer is the main one; the game also keeps a count and
+        // an array of pointers to all of them.
+        public uint cameraCount { get; private set; }
+        public uint cameraArray { get; private set; }
+        // 4x4: X, Y, Z axes, then position. Where the PS2 version has it; the free camera checks
+        // it holds a camera matrix and searches the struct when it doesn't (sly3.FindCameraMatrix).
+        public uint cameraMatrixOffset { get; private set; }
+        public uint cameraFarClipOffset { get; private set; }
+        public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
+
         // Episode 1 specific addresses
         public uint veniceStarted { get; private set; }
         public uint outbackStarted { get; private set; }
@@ -172,6 +182,12 @@ namespace SluMAN
                 guardAIAddress = 0x5EC6CC,
                 deathBarriersPointer = 0x78C6E4,
                 cameraPointer = 0x78CE2C,
+
+                cameraCount = 0x7DA530,
+                cameraArray = 0x7DA534,
+                cameraMatrixOffset = 0x50, // PS2 offset, not confirmed on PS3
+                cameraFarClipOffset = 0x114,
+                cameraFovTargetOffset = 0x11C,
 
                 veniceStarted = 0x6CE0B4,
                 outbackStarted = 0x6CEA80,
