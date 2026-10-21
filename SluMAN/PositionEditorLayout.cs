@@ -1,3 +1,5 @@
+using System;
+
 namespace SluMAN
 {
     /// <summary>
@@ -19,11 +21,29 @@ namespace SluMAN
         /// <summary>Address holding the pointer to the active character's entity.</summary>
         public uint activeCharacterPtr;
 
+        /// <summary>
+        /// Reads the active character's entity (0 if there's none), for games where it isn't
+        /// behind one pointer. Used instead of activeCharacterPtr when set.
+        /// </summary>
+        public Func<uint> readEntity;
+
         /// <summary>Address of the current map's name, such as "Y$KFv_ext".</summary>
         public uint mapNameAddress;
 
+        /// <summary>
+        /// Reads the name the current map's warps and position slots are kept under, for games
+        /// without a map name in memory. Used instead of mapNameAddress when set.
+        /// </summary>
+        public Func<string> readMapIndicator;
+
         /// <summary>Entity offset of the pointer to the transform.</summary>
         public uint transformOffset;
+
+        /// <summary>
+        /// The transform is part of the entity, at transformOffset, rather than pointed to from
+        /// there.
+        /// </summary>
+        public bool transformInEntity;
 
         /// <summary>Transform offset of X; Y and Z follow at +4 and +8.</summary>
         public uint positionOffset;

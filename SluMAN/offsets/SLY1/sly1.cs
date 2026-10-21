@@ -31,9 +31,87 @@ namespace SluMAN
             (addr.clockwerkHealth, 4),
         };
 
-        // TODO: Sly 1 position saving is not implemented yet.
-        public override void SavePosition() { }
-        public override void LoadPosition() { }
+        /// <summary>The entity being played: Sly's, or the vehicle's when he's in one. 0 if none.</summary>
+        public uint GetActiveEntity()
+        {
+            uint sly = (uint)ReadInt(sly1.addr.slyEntityPtr);
+            if (sly != 0 && ReadInt(sly + sly1.addr.slyActiveOffset) != 0)
+            {
+                return sly;
+            }
+            return (uint)ReadInt(sly1.addr.vehicleEntityPtr);
+        }
+
+        /// <summary>
+        /// The name the current level's warps and position slots are kept under: its title, as
+        /// the Level dropdown shows it. Empty when the level isn't known.
+        /// </summary>
+        public string GetCurrentMapIndicator()
+        {
+            int index = GetCurrentLevelIndex();
+            return index >= 0 ? LevelTitle(index) : "";
+        }
+
+        public PositionEditorLayout GetPositionEditorLayout()
+        {
+            return new PositionEditorLayout
+            {
+                gameName = "Sly 1",
+                warpFilePrefix = "sly1",
+                readEntity = GetActiveEntity,
+                readMapIndicator = GetCurrentMapIndicator,
+                transformOffset = sly1.addr.transformOffset,
+                transformInEntity = true,
+                positionOffset = sly1.addr.positionOffset,
+                velocityOffset = sly1.addr.velocityOffset,
+            };
+        }
+
+        private uint GetPlayerCoordsAddress()
+        {
+            uint entity = GetActiveEntity();
+            if (entity == 0)
+            {
+                throw new InvalidOperationException("No player to move.");
+            }
+            return entity + sly1.addr.transformOffset + sly1.addr.positionOffset;
+        }
+
+        /// <summary>The config key a position slot is stored under, per level.</summary>
+        private string SavedPositionKey()
+        {
+            string mapIndicator = GetCurrentMapIndicator();
+            if (mapIndicator == "")
+            {
+                throw new InvalidOperationException("Couldn't read the current level.");
+            }
+            return SavedPositionKey(mapIndicator, selectedPositionIndex);
+        }
+
+        public override void SavePosition()
+        {
+            string key = SavedPositionKey();
+            string position = api.ReadMemoryStr(pid, GetPlayerCoordsAddress(), 12);
+            func.ChangeFileLines("config.txt", position, key);
+            OnPositionSaved();
+        }
+
+        public override void LoadPosition()
+        {
+            string key = SavedPositionKey();
+            string position = func.GetConfigData("config.txt", key);
+            if (position == "")
+            {
+                Console.WriteLine($"No saved position for {key}");
+                return;
+            }
+
+            uint coords = GetPlayerCoordsAddress();
+            api.WriteMemory(pid, coords, 12, position);
+            // Arrive standing still rather than carrying the old speed.
+            uint velocity = coords - sly1.addr.positionOffset + sly1.addr.velocityOffset;
+            api.WriteMemory(pid, velocity, new byte[12]);
+        }
 
         /// <summary>The Load Game combo: reloads the current level.</summary>
         public override void LoadGame()

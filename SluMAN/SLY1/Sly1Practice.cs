@@ -9,7 +9,7 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 1 Practice Mode: load a level at an entrance, reload, set or hold coins, lives and charms,
-    /// and skip cutscenes, with the world states and the memory tools on tabs. The controls are built in code, in the
+    /// and skip cutscenes, with the player (position editor), world states and the memory tools on tabs. The controls are built in code, in the
     /// other games' two-column layout.
     /// </summary>
     public class Sly1Practice : Form
@@ -17,6 +17,7 @@ namespace SluMAN
         public sly1 game;
         public string gameNameId = sly1.addr.GameId;
 
+        private const string PlayerTab = "Player";
         private const string WorldStatesTab = "World States";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
@@ -109,12 +110,13 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
+            practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly1_visible_tabs", WorldStatesTab);
+            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab);
         }
 
         private void BuildMenu()
@@ -152,7 +154,11 @@ namespace SluMAN
             AddButton(levelGroupBox, "Load", 208, 48, 94, (sender, e) => LoadSelectedLevel());
 
             GroupBox reloadGroupBox = AddGroup("Reload", 12, 118, 54);
-            AddButton(reloadGroupBox, "Reload Level", 10, 19, 143, (sender, e) => Run("Reloading.", game.ReloadLevel));
+            AddButton(reloadGroupBox, "Reload Level", 10, 19, 143, (sender, e) => Run("Reloading.", () =>
+            {
+                ClearPositionFreezes();
+                game.ReloadLevel();
+            }));
             AddButton(reloadGroupBox, "Skip Cinematic", 159, 19, 143, (sender, e) => Run(null, game.SkipCinematic));
 
             GroupBox utilityGroupBox = AddGroup("Utility", 12, 178, 110);
@@ -301,7 +307,24 @@ namespace SluMAN
                 return;
             }
             EntranceEntry entrance = entranceComboBox.SelectedItem as EntranceEntry;
-            Run($"Loading {level.name}.", () => game.LoadLevel(level.index, entrance == null ? (int?)null : entrance.id));
+            Run($"Loading {level.name}.", () =>
+            {
+                ClearPositionFreezes();
+                game.LoadLevel(level.index, entrance == null ? (int?)null : entrance.id);
+            });
+        }
+
+        /// <summary>
+        /// Drops the Player tab's position freezes before a load: they hold coordinates from the
+        /// old level, and writing them to the player while the level loads can crash the game.
+        /// </summary>
+        private void ClearPositionFreezes()
+        {
+            PositionEditor positionEditor = practiceTabs.Get(PlayerTab) as PositionEditor;
+            if (positionEditor != null)
+            {
+                positionEditor.ClearPositionFreezes();
+            }
         }
 
         /// <summary>

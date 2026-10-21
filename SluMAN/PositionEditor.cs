@@ -103,9 +103,22 @@ namespace SluMAN
             transformPtr = 0;
             try
             {
-                byte[] epBytes = game.api.ReadMemory(game.pid, layout.activeCharacterPtr, 4);
-                entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
+                if (layout.readEntity != null)
+                {
+                    entityPtr = layout.readEntity();
+                }
+                else
+                {
+                    byte[] epBytes = game.api.ReadMemory(game.pid, layout.activeCharacterPtr, 4);
+                    entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
+                }
                 if (entityPtr == 0) return false;
+
+                if (layout.transformInEntity)
+                {
+                    transformPtr = entityPtr + layout.transformOffset;
+                    return true;
+                }
 
                 byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + layout.transformOffset, 4);
                 transformPtr = BitConverter.ToUInt32(tpBytes.Reverse().ToArray(), 0);
@@ -635,6 +648,10 @@ namespace SluMAN
         {
             try
             {
+                if (layout.readMapIndicator != null)
+                {
+                    return layout.readMapIndicator() ?? "";
+                }
                 byte[] b = game.api.ReadMemory(game.pid, layout.mapNameAddress, 32);
                 int nullIdx = Array.IndexOf(b, (byte)0);
                 if (nullIdx < 0) nullIdx = b.Length;

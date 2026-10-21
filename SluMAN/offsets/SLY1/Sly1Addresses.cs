@@ -53,6 +53,17 @@ namespace SluMAN
         public uint dialogueSkipOffset { get; private set; }
         public uint fmvSkip { get; private set; }
 
+        // The player. *slyEntityPtr is Sly's entity; when it's 0, or the int at +slyActiveOffset is 0
+        // (Sly is in a vehicle), *vehicleEntityPtr is the one being played. An entity's transform
+        // (a 4x4 matrix) is part of it at +transformOffset: the position at +positionOffset in it,
+        // the velocity at +velocityOffset.
+        public uint slyEntityPtr { get; private set; }
+        public uint vehicleEntityPtr { get; private set; }
+        public uint slyActiveOffset { get; private set; }
+        public uint transformOffset { get; private set; }
+        public uint positionOffset { get; private set; }
+        public uint velocityOffset { get; private set; }
+
         // Save data. One world save per world (0 is Paris and the intro) from gameState +
         // worldSaveStart, each worldSaveSize long: first a level save per level, levelSaveSize
         // long with the level's flags at +0, then the world's key, vault and sprint counts and its
@@ -131,6 +142,12 @@ namespace SluMAN
                 dialoguePtr = 0xE418B0,
                 dialogueSkipOffset = 0x2E8,
                 fmvSkip = 0xF516CC,
+                slyEntityPtr = 0x428D04,
+                vehicleEntityPtr = 0xE3F790,
+                slyActiveOffset = 0x1C,
+                transformOffset = 0xD0,
+                positionOffset = 0x30,
+                velocityOffset = 0x80,
                 // *0x3A4FC0; w3Keys above is world 3's key count in it
                 gameState = 0x3E660C,
                 worldSaveStart = 0x10,
