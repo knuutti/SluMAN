@@ -70,7 +70,7 @@ namespace SluMAN
         /// </summary>
         public Action<uint> applyInfiniteJump;
 
-        /// <summary>True if any Character Info field is known; the panel is hidden otherwise.</summary>
+        /// <summary>True if any Character Info entity field is known; their column is hidden otherwise.</summary>
         public bool HasCharacterInfo
         {
             get

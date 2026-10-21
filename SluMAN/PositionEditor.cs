@@ -65,11 +65,21 @@ namespace SluMAN
             InitializeComponent();
             if (!layout.HasCharacterInfo)
             {
-                // Nothing to show there for this game: move the left column up into its place.
-                int shift = positionGroupBox.Top - charInfoGroupBox.Top;
-                charInfoGroupBox.Visible = false;
-                positionGroupBox.Top -= shift;
-                warpGroupBox.Top -= shift;
+                // None of the entity fields (ID, health, gadget power, opacity, rotation) is known
+                // for this game: hide their column and move the position and velocity readouts
+                // into its place.
+                int shift = lblPosX.Left - lblEntityId.Left;
+                foreach (Control control in charInfoGroupBox.Controls)
+                {
+                    if (control.Left < lblPosX.Left)
+                    {
+                        control.Visible = false;
+                    }
+                    else
+                    {
+                        control.Left -= shift;
+                    }
+                }
             }
             Text = $"SluMAN :: Position Editor ({layout.gameName})";
             statusLine = new StatusLine(this, false);
