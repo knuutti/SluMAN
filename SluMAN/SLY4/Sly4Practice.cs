@@ -48,12 +48,12 @@ namespace SluMAN
         private DateTime queuedGoalDeadline;
         private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
-        // A job (or its hub or hideout) to start once the current job has been abandoned for it
-        // (see QueueJobStart).
+        // A job to start again once the trip to its hideout that ended it has loaded (see
+        // RestartJob).
         private sly4.JobEntry queuedJobStart = null;
         private int queuedJobStartGoal;
-        private bool queuedJobStartToHub;
-        private bool queuedJobStartToHideout;
+        private DateTime queuedJobStartDeadline;
+        private DateTime queuedJobStartReadySince = DateTime.MaxValue;
 
         // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
         private sly4.LevelEntry queuedLevel = null;
@@ -217,7 +217,7 @@ namespace SluMAN
             }
             else if (queuedJobStart != null)
             {
-                StartQueuedJob();
+                CheckQueuedJobStart();
             }
             else if (queuedGoalJob != null)
             {
@@ -429,7 +429,14 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                QueueJobStart(job, 0, toHub, toHideout);
+                if (!toHub && !toHideout && game.IsJobRunning(job.index))
+                {
+                    RestartJob(job, 0);
+                    return;
+                }
+                game.StartJob(job.index, toHub, toHideout);
+                string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
+                TrackGameCall($"Going to {where}.");
             }
             catch (Exception ex)
             {
@@ -470,9 +477,13 @@ namespace SluMAN
                     game.WarpToGoal(goal);
                     TrackGameCall($"Warping to goal {goal + 1}.");
                 }
+                else if (game.IsJobRunning(job.index))
+                {
+                    RestartJob(job, goal);
+                }
                 else
                 {
-                    QueueJobStart(job, goal, false, false);
+                    StartJobAtGoal(job, goal);
                 }
             }
             catch (Exception ex)
@@ -501,39 +512,59 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Ends the current job, if any, and starts the job (or goes to its hub or hideout) once
-        /// the game has run that. Always ended first, so nothing of the old job carries over,
-        /// and the running job can be started again.
+        /// Starts the running job again and warps to the goal (0-based), as if coming from another
+        /// job. The game won't start the running job, and starting it right after
+        /// AbandonCurrentJob crashes the game, so this goes to the job's hideout (which ends the
+        /// job the way switching jobs does) and starts the job once that has loaded.
         /// </summary>
-        private void QueueJobStart(sly4.JobEntry job, int goal, bool toHub, bool toHideout)
+        private void RestartJob(sly4.JobEntry job, int goal)
         {
-            game.AbandonJob();
+            game.StartJob(job.index, false, true);
             queuedJobStart = job;
             queuedJobStartGoal = goal;
-            queuedJobStartToHub = toHub;
-            queuedJobStartToHideout = toHideout;
-            TrackGameCall("Left any running job.");
+            queuedJobStartDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+            queuedJobStartReadySince = DateTime.MaxValue;
+            TrackGameCall($"Going to {job.EpisodeTitle}'s hideout to restart {job.Title}.");
         }
 
-        private void StartQueuedJob()
+        /// <summary>
+        /// Starts the queued job once the hideout trip has ended the old one and finished loading,
+        /// and has stayed that way for a moment, so the start doesn't land in the load.
+        /// </summary>
+        private void CheckQueuedJobStart()
         {
-            sly4.JobEntry job = queuedJobStart;
-            queuedJobStart = null;
+            if (DateTime.Now > queuedJobStartDeadline)
+            {
+                statusLine.Error($"The hideout didn't load in time, so {queuedJobStart.Title} wasn't restarted.");
+                queuedJobStart = null;
+                return;
+            }
+
             try
             {
-                if (queuedJobStartToHub || queuedJobStartToHideout)
+                bool ready = !game.IsLoading() && !game.IsJobRunning(queuedJobStart.index);
+                if (!ready)
                 {
-                    game.StartJob(job.index, queuedJobStartToHub, queuedJobStartToHideout);
-                    TrackGameCall($"Going to {job.EpisodeTitle}'s {(queuedJobStartToHub ? "hub" : "hideout")}.");
+                    queuedJobStartReadySince = DateTime.MaxValue;
+                    return;
                 }
-                else
+                if (queuedJobStartReadySince == DateTime.MaxValue)
                 {
-                    StartJobAtGoal(job, queuedJobStartGoal);
+                    queuedJobStartReadySince = DateTime.Now;
                 }
+                if (DateTime.Now - queuedJobStartReadySince < QueuedGoalWarpSettleTime)
+                {
+                    return;
+                }
+
+                sly4.JobEntry job = queuedJobStart;
+                queuedJobStart = null;
+                StartJobAtGoal(job, queuedJobStartGoal);
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't start the job: {ex.Message}");
+                queuedJobStart = null;
+                statusLine.Error($"Couldn't restart the job: {ex.Message}");
             }
         }
 
@@ -591,13 +622,19 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                // A running job would load its own level instead, so end it first (always, in
-                // case the job isn't read right) and load the level once the game has run that.
-                game.AbandonJob();
-                queuedLevel = level;
-                queuedCharacter = character;
-                queuedSpawnPoint = spawnPoint;
-                TrackGameCall("Left any running job.");
+                // A running job would load its own level instead, so end it first and load the
+                // level once the game has run that call.
+                if (game.IsInJob())
+                {
+                    game.AbandonJob();
+                    queuedLevel = level;
+                    queuedCharacter = character;
+                    queuedSpawnPoint = spawnPoint;
+                    TrackGameCall($"Left the job; loading {level.name}.");
+                    return;
+                }
+                game.LoadLevel(level.hash, character, spawnPoint);
+                TrackGameCall(LoadingMessage(level, character, spawnPoint));
             }
             catch (Exception ex)
             {
