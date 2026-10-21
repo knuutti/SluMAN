@@ -56,12 +56,12 @@ Game addresses live in `offsets/<GAME>/<Game>Addresses.cs` (e.g. `Sly2Addresses.
 | `SLY1/` | Sly Cooper (NPUA80663) |
 | `SLY2/` | Sly 2: Band of Thieves (NPHA80175, NPEA00342; NPUA80664 untested) |
 | `SLY3/` | Sly 3: Honor Among Thieves (NPEA00343) |
-| `SLY4/` | Sly Cooper: Thieves in Time (BCES01284, PAL disc; NPEA00429 assumed identical) |
+| `SLY4/` | Sly Cooper: Thieves in Time (BCES01284 PAL disc, NPEA00429 PAL PSN; same addresses) |
 | `offsets/BH/` | Bentley's Hackpack (stub, Sly franchise spinoff) |
 
 Each supported game has two UI modes: **Practice Mode** (full trainer features) and **Speedrun Mode** (minimal UI, autosplitter, input display).
 
-Practice windows are a fixed 660×554 with tabs (`PracticeTabs` with `fixedSize`): the window's own controls on the Practice tab, in two columns of 312-wide group boxes, and tool forms docked on the others. A **View** menu (`PracticeTabs.AddViewMenu`) picks which tool tabs show and saves it in `config.txt`. Sly 2 and Sly 3 load run files from Practice Mode's Run Files tab (`RunFilesForm`); Speedrun Mode only has the autosplitter, always on top and the input display, like Sly 4's. Memory tools (the Memory and Memory Viewer tabs) belong to Practice Mode only; Speedrun Mode must not offer them.
+Practice windows are a fixed 660 wide with tabs (`PracticeTabs` with `fixedWidth`): the window's own controls on the Practice tab, in two columns of 312-wide group boxes, and tool forms docked on the others. The window's height follows the selected tab: the Practice tab's lowest control, or the tool form's own `ClientSize` height, so lay tools out to their content's height rather than padding them. A **View** menu (`PracticeTabs.AddViewMenu`) picks which tool tabs show and saves it in `config.txt`. Sly 1 Practice Mode (`Sly1Practice`, built in code) loads levels at an entrance through the reload block, has the shared `PositionEditor` on its Player tab (the transform is inside the entity, and the level title stands in for a map name: `PositionEditorLayout.transformInEntity` / `readEntity` / `readMapIndicator`), and edits each world's save data (levels' key/vault/sprint flags, counts, world flags) on its World States tab (`Sly1WorldStatesForm`). Sly 2 and Sly 3 load run files from Practice Mode's Run Files tab (`RunFilesForm`); Speedrun Mode only has the autosplitter, always on top and the input display, like Sly 4's. Memory tools (the Memory and Memory Viewer tabs) belong to Practice Mode only; Speedrun Mode must not offer them.
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 

@@ -166,11 +166,6 @@ namespace SluMAN
                 action = LoadGame;
                 actionName = "Load game";
             }
-            else if (input == ConfigureCombos.runScriptCombo)
-            {
-                action = RunCurrentScript;
-                actionName = "Run script";
-            }
 
             if (action == null)
             {
@@ -189,14 +184,6 @@ namespace SluMAN
             catch (Exception ex)
             {
                 Console.WriteLine($"Combo {actionName} failed: {ex.Message}");
-            }
-        }
-
-        private static void RunCurrentScript()
-        {
-            if (AttachPS3Form.scripting != null)
-            {
-                AttachPS3Form.scripting.RunCurrentCode();
             }
         }
 

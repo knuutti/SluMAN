@@ -1,3 +1,5 @@
+using System;
+
 namespace SluMAN
 {
     /// <summary>
@@ -19,11 +21,29 @@ namespace SluMAN
         /// <summary>Address holding the pointer to the active character's entity.</summary>
         public uint activeCharacterPtr;
 
+        /// <summary>
+        /// Reads the active character's entity (0 if there's none), for games where it isn't
+        /// behind one pointer. Used instead of activeCharacterPtr when set.
+        /// </summary>
+        public Func<uint> readEntity;
+
         /// <summary>Address of the current map's name, such as "Y$KFv_ext".</summary>
         public uint mapNameAddress;
 
+        /// <summary>
+        /// Reads the name the current map's warps and position slots are kept under, for games
+        /// without a map name in memory. Used instead of mapNameAddress when set.
+        /// </summary>
+        public Func<string> readMapIndicator;
+
         /// <summary>Entity offset of the pointer to the transform.</summary>
         public uint transformOffset;
+
+        /// <summary>
+        /// The transform is part of the entity, at transformOffset, rather than pointed to from
+        /// there.
+        /// </summary>
+        public bool transformInEntity;
 
         /// <summary>Transform offset of X; Y and Z follow at +4 and +8.</summary>
         public uint positionOffset;
@@ -43,6 +63,18 @@ namespace SluMAN
         /// 0 if the game handles Infinite Jump elsewhere.
         /// </summary>
         public uint infiniteJumpOffset;
+
+        /// <summary>
+        /// Applies Infinite Jump to the player entity, for games that need more than one write.
+        /// Called each tick instead of using infiniteJumpOffset when set.
+        /// </summary>
+        public Action<uint> applyInfiniteJump;
+
+        /// <summary>
+        /// Hide Character Info's entity fields (ID, health, gadget power, opacity, rotation), for
+        /// a game whose entities don't have them, rather than showing N/A.
+        /// </summary>
+        public bool hideEntityFields;
     }
 
     /// <summary>

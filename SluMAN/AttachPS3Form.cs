@@ -487,11 +487,22 @@ namespace SluMAN
             }
             else if (Sly1Addresses.IsSupportedGameId(game))
             {
-                Hide();
-                func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
-                Sly1Speedrun sly1Speedrun = new Sly1Speedrun(new sly1(func.api, game));
-                gameName = sly1.addr.DisplayName;
-                sly1Speedrun.ShowDialog();
+                if (speedrunMode)
+                {
+                    Hide();
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
+                    Sly1Speedrun sly1Speedrun = new Sly1Speedrun(new sly1(func.api, game));
+                    gameName = sly1.addr.DisplayName;
+                    sly1Speedrun.ShowDialog();
+                }
+                else
+                {
+                    Hide();
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
+                    Sly1Practice sly1Practice = new Sly1Practice(new sly1(func.api, game));
+                    gameName = sly1.addr.DisplayName;
+                    sly1Practice.ShowDialog();
+                }
             }
             else if (Sly2Addresses.IsSupportedGameId(game))
             {

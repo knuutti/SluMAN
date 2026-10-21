@@ -71,7 +71,7 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
-            // Every tab is the Practice tab's size, so the window doesn't jump between tabs.
+            // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
