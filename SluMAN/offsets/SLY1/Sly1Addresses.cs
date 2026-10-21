@@ -63,6 +63,10 @@ namespace SluMAN
         public uint transformOffset { get; private set; }
         public uint positionOffset { get; private set; }
         public uint velocityOffset { get; private set; }
+        // Infinite double jump: Sly's entity holds -1 at +infiniteJumpOffset1 and 1 at
+        // +infiniteJumpOffset2 (the values SlyMultiTrainer freezes).
+        public uint infiniteJumpOffset1 { get; private set; }
+        public uint infiniteJumpOffset2 { get; private set; }
 
         // Save data. One world save per world (0 is Paris and the intro) from gameState +
         // worldSaveStart, each worldSaveSize long: first a level save per level, levelSaveSize
@@ -148,6 +152,8 @@ namespace SluMAN
                 transformOffset = 0xD0,
                 positionOffset = 0x30,
                 velocityOffset = 0x80,
+                infiniteJumpOffset1 = 0x2218,
+                infiniteJumpOffset2 = 0x2488,
                 // *0x3A4FC0; w3Keys above is world 3's key count in it
                 gameState = 0x3E660C,
                 worldSaveStart = 0x10,

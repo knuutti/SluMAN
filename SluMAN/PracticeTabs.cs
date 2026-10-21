@@ -282,6 +282,16 @@ namespace SluMAN
             }
         }
 
+        /// <summary>
+        /// Creates a tool's form without selecting its tab, for a tool that has to run in the
+        /// background (e.g. the Position Editor driving Fly Mode), and returns it.
+        /// </summary>
+        public Form Create(string title)
+        {
+            Tool tool = tools.FirstOrDefault(t => t.page.Text == title);
+            return tool == null ? null : EnsureCreated(tool);
+        }
+
         private Form EnsureCreated(Tool tool)
         {
             if (tool.form != null && !tool.form.IsDisposed)

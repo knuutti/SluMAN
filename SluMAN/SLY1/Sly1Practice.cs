@@ -12,7 +12,7 @@ namespace SluMAN
     /// and skip cutscenes, with the player (position editor), world states and the memory tools on tabs. The controls are built in code, in the
     /// other games' two-column layout.
     /// </summary>
-    public class Sly1Practice : Form
+    public class Sly1Practice : Form, IPositionEditorHost
     {
         public sly1 game;
         public string gameNameId = sly1.addr.GameId;
@@ -39,6 +39,8 @@ namespace SluMAN
         private readonly CheckBox freezeLivesCheckBox = new CheckBox();
         private readonly CheckBox freezeCharmsCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
+        private readonly CheckBox flyModeCheckBox = new CheckBox();
+        private readonly CheckBox infiniteJumpCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
         private readonly Label livesValueLabel = new Label();
         private readonly Label charmsValueLabel = new Label();
@@ -110,7 +112,7 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
-            practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null));
+            practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
@@ -183,14 +185,16 @@ namespace SluMAN
                 (sender, e) => Run(null, () => game.SetCharms(charmsComboBox.SelectedIndex)));
 
             // Right column
-            GroupBox togglesGroupBox = AddGroup("Toggles", 336, 32, 92);
+            GroupBox togglesGroupBox = AddGroup("Toggles", 336, 32, 138);
             AddCheckBox(togglesGroupBox, freezeLivesCheckBox, "Freeze Lives", 10, 20,
                 (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked)));
             AddCheckBox(togglesGroupBox, freezeCharmsCheckBox, "Freeze Gold Charm", 10, 43,
                 (sender, e) => Toggle(freezeCharmsCheckBox, () => game.SetCharmsFrozen(freezeCharmsCheckBox.Checked)));
-            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 10, 66, null);
+            AddCheckBox(togglesGroupBox, flyModeCheckBox, "Fly Mode", 10, 66, (sender, e) => StartPlayerTool(flyModeCheckBox));
+            AddCheckBox(togglesGroupBox, infiniteJumpCheckBox, "Infinite Jump", 10, 89, (sender, e) => StartPlayerTool(infiniteJumpCheckBox));
+            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 10, 112, null);
 
-            GroupBox statusGroupBox = AddGroup("Game", 336, 130, 112);
+            GroupBox statusGroupBox = AddGroup("Game", 336, 176, 112);
             AddLabel(statusGroupBox, "Level:", 10, 20);
             AddValueLabel(statusGroupBox, levelValueLabel, 70, 20);
             AddLabel(statusGroupBox, "Lives:", 10, 42);
@@ -206,6 +210,8 @@ namespace SluMAN
                 "entrances can be loaded from anywhere once you've visited it. Names for them come\n" +
                 "from data/s1_entrances.txt (level | entrance ID | name).");
             tip.SetToolTip(freezeCharmsCheckBox, "Holds a gold charm, so hits don't cost a life.");
+            tip.SetToolTip(flyModeCheckBox, "Holds Sly's height: L2 rises, R2 sinks, R1 speeds up horizontal movement.");
+            tip.SetToolTip(infiniteJumpCheckBox, "Sly can double jump again and again.");
             FormClosed += (sender, e) => tip.Dispose();
         }
 
@@ -314,6 +320,28 @@ namespace SluMAN
             });
         }
 
+        public bool FlyModeEnabled
+        {
+            get { return flyModeCheckBox.Checked; }
+        }
+
+        public bool InfiniteJumpEnabled
+        {
+            get { return infiniteJumpCheckBox.Checked; }
+        }
+
+        /// <summary>
+        /// Fly Mode and Infinite Jump run in the Player tab's Position Editor, so it's created
+        /// (without switching to its tab) when either is turned on.
+        /// </summary>
+        private void StartPlayerTool(CheckBox toggle)
+        {
+            if (toggle.Checked)
+            {
+                practiceTabs.Create(PlayerTab);
+            }
+        }
+
         /// <summary>
         /// Drops the Player tab's position freezes before a load: they hold coordinates from the
         /// old level, and writing them to the player while the level loads can crash the game.
@@ -324,6 +352,8 @@ namespace SluMAN
             if (positionEditor != null)
             {
                 positionEditor.ClearPositionFreezes();
+                // Fly Mode takes the new level's height.
+                positionEditor.ResetFlyHeight();
             }
         }
 

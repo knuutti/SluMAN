@@ -63,6 +63,22 @@ namespace SluMAN
         /// 0 if the game handles Infinite Jump elsewhere.
         /// </summary>
         public uint infiniteJumpOffset;
+
+        /// <summary>
+        /// Applies Infinite Jump to the player entity, for games that need more than one write.
+        /// Called each tick instead of using infiniteJumpOffset when set.
+        /// </summary>
+        public Action<uint> applyInfiniteJump;
+
+        /// <summary>True if any Character Info field is known; the panel is hidden otherwise.</summary>
+        public bool HasCharacterInfo
+        {
+            get
+            {
+                return entityIdOffset != 0 || healthOffset != 0 || gadgetPowerOffset != 0
+                    || opacityOffset != 0 || rotationOffset != 0;
+            }
+        }
     }
 
     /// <summary>

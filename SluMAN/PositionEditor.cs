@@ -63,6 +63,14 @@ namespace SluMAN
             builtinWarpFile = $"data/{layout.warpFilePrefix}_warp_locations.txt";
 
             InitializeComponent();
+            if (!layout.HasCharacterInfo)
+            {
+                // Nothing to show there for this game: move the left column up into its place.
+                int shift = positionGroupBox.Top - charInfoGroupBox.Top;
+                charInfoGroupBox.Visible = false;
+                positionGroupBox.Top -= shift;
+                warpGroupBox.Top -= shift;
+            }
             Text = $"SluMAN :: Position Editor ({layout.gameName})";
             statusLine = new StatusLine(this, false);
             func.BindEnter(xPosTextBox, setXPosButton);
@@ -281,7 +289,11 @@ namespace SluMAN
                 }
 
                 // Infinite jump: write the full 4 bytes; the LSB is what the game checks.
-                if (InfiniteJumpEnabled && layout.infiniteJumpOffset != 0)
+                if (InfiniteJumpEnabled && layout.applyInfiniteJump != null)
+                {
+                    layout.applyInfiniteJump(entityPtr);
+                }
+                else if (InfiniteJumpEnabled && layout.infiniteJumpOffset != 0)
                 {
                     game.api.WriteMemory(game.pid, entityPtr + layout.infiniteJumpOffset, (uint)0);
                 }

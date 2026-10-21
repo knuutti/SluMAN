@@ -31,9 +31,16 @@ namespace SluMAN
             (addr.clockwerkHealth, 4),
         };
 
-        /// <summary>The entity being played: Sly's, or the vehicle's when he's in one. 0 if none.</summary>
+        /// <summary>
+        /// The entity being played: Sly's, or the vehicle's when he's in one. 0 if none, or while
+        /// a load is pending, when the entity is about to be freed.
+        /// </summary>
         public uint GetActiveEntity()
         {
+            if (ReadInt(sly1.addr.reloadBlock) != 0)
+            {
+                return 0;
+            }
             uint sly = (uint)ReadInt(sly1.addr.slyEntityPtr);
             if (sly != 0 && ReadInt(sly + sly1.addr.slyActiveOffset) != 0)
             {
@@ -64,7 +71,19 @@ namespace SluMAN
                 transformInEntity = true,
                 positionOffset = sly1.addr.positionOffset,
                 velocityOffset = sly1.addr.velocityOffset,
+                applyInfiniteJump = ApplyInfiniteJump,
             };
+        }
+
+        /// <summary>Gives Sly another double jump. Does nothing to a vehicle.</summary>
+        public void ApplyInfiniteJump(uint entity)
+        {
+            if (entity == 0 || entity != (uint)ReadInt(sly1.addr.slyEntityPtr))
+            {
+                return;
+            }
+            api.WriteMemory(pid, entity + sly1.addr.infiniteJumpOffset1, ConvertIntToBytes(-1));
+            api.WriteMemory(pid, entity + sly1.addr.infiniteJumpOffset2, ConvertIntToBytes(1));
         }
 
         private uint GetPlayerCoordsAddress()
