@@ -20,8 +20,9 @@ namespace SluMAN
 
         public IEnumerable<(uint addr, uint size)> AutosplitterAddresses => new (uint, uint)[]
         {
-            (addr.levelId, 4),
-            (addr.worldId, 4),
+            // World and level as one block, so the autosplitter never sees one updated without
+            // the other. Blocks arrive byte-reversed, which puts the level ID first.
+            (addr.worldId, 8),
             (addr.loadingState, 4),
             (addr.w3Keys, 4),
             (addr.charmsCount, 4),
