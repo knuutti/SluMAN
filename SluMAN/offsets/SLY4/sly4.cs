@@ -943,12 +943,6 @@ namespace SluMAN
             return key == null ? null : Title(key);
         }
 
-        /// <summary>The current episode's name key (as in JobEntry.episode), or null when there is none.</summary>
-        public string GetEpisodeKey()
-        {
-            return ReadEntryName(addr.currentEpisodeOffset);
-        }
-
         /// <summary>The current job's title, or null outside jobs.</summary>
         public string GetJobName()
         {
@@ -1176,8 +1170,6 @@ namespace SluMAN
         /// StartJobByInst's third argument isn't a goal index: the game looks for the goal whose
         /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
         /// another level doesn't have yet. To start later, warp to the goal once the job runs.
-        /// Starting a job, hub or hideout of the current episode with 0 crashes the game, so
-        /// those are started from another episode (see Sly4Practice.StartFromOtherEpisode).
         /// </remarks>
         public void StartJob(int jobIndex, bool toHub, bool toHideout)
         {
