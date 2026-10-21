@@ -1326,7 +1326,7 @@ namespace SluMAN
             uint vtable = ReadUInt(node);
             uint descriptor = ReadUInt(vtable + addr.hudShowVtableOffset);
             uint code = ReadUInt(descriptor);
-            if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.hookCodeCave)
+            if (ReadUInt(descriptor + 4) != addr.gameToc || code < 0x10000 || code >= addr.legacyHookCodeCave)
             {
                 throw new InvalidOperationException("That GUI part isn't what SluMAN expects, so it wasn't touched.");
             }

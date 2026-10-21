@@ -30,14 +30,8 @@ namespace SluMAN
         private const uint FrameSize = 0xC0;
         private const uint SavedRegisters = 0x80;
 
-        // The first instructions (stack frame setup) of each stub version, to recognise an older one.
-        private static readonly byte[][] StubPrologues =
-        {
-            // SluMAN 1.1.1 and earlier: a 0x80 frame, hooked on the render thread.
-            new byte[] { 0xF8, 0x21, 0xFF, 0x81, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0x90 },
-            // Now: a 0xC0 frame that keeps r3 to r10.
-            new byte[] { 0xF8, 0x21, 0xFF, 0x41, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0xD0 },
-        };
+        // The stub's first instructions (stack frame setup), to recognise an older version of it.
+        private static readonly byte[] StubPrologue = { 0xF8, 0x21, 0xFF, 0x41, 0x7C, 0x08, 0x02, 0xA6, 0xF8, 0x01, 0x00, 0xD0 };
 
         private readonly IGame game;
 
@@ -109,15 +103,21 @@ namespace SluMAN
         /// </summary>
         private void Install()
         {
-            // An older SluMAN hooked another call, whose stub this one replaces: unhook it first,
-            // so it never runs this stub, which continues into a different function.
-            if (ReadUInt(sly4.addr.legacyHookCallSite) == Branch(sly4.addr.legacyHookCallSite, sly4.addr.hookCodeCave, true))
+            // SluMAN 1.1.1 and earlier hooked the render thread's call: put it back, so game
+            // functions only run on the main thread. Its stub stays, unused.
+            if (ReadUInt(sly4.addr.legacyHookCallSite) == Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCodeCave, true))
             {
                 game.api.WriteMemory(game.pid, sly4.addr.legacyHookCallSite,
                     ToBytes(Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCallTarget, true)));
             }
 
             uint callSite = ReadUInt(sly4.addr.hookCallSite);
+            // A development build briefly hooked this call with a stub at the old address. It's
+            // replaced by pointing the call at the new stub, which is written first.
+            if (callSite == Branch(sly4.addr.hookCallSite, sly4.addr.legacyHookCodeCave, true))
+            {
+                callSite = OriginalCall();
+            }
             byte[] stub = BuildStub();
             byte[] cave = game.api.ReadMemory(game.pid, sly4.addr.hookCodeCave, (uint)stub.Length);
             bool caveHasStub = cave.SequenceEqual(stub);
@@ -131,7 +131,7 @@ namespace SluMAN
                 throw new InvalidOperationException("The game's code isn't what SluMAN expects, so warps aren't available on this version.");
             }
 
-            bool caveHasOldStub = StubPrologues.Any(prologue => cave.Take(prologue.Length).SequenceEqual(prologue));
+            bool caveHasOldStub = cave.Take(StubPrologue.Length).SequenceEqual(StubPrologue);
             if (!caveHasStub && !caveHasOldStub && cave.Any(b => b != 0))
             {
                 throw new InvalidOperationException("The memory for the warp code is already in use.");
