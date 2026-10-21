@@ -23,6 +23,13 @@ init
 
     vars.splitPending = false;
     vars.splitPendingTime = DateTime.Now;
+    // Jobs (by their last checkpoint) already split this run: each splits once, even if the
+    // game speed changes again while the checkpoint stays.
+    vars.splitDone = new System.Collections.Generic.HashSet<int>();
+    vars.lastSpeedChange = DateTime.MinValue;
+    vars.speedChangedRecently = false;
+    // How much earlier than a job's last checkpoint its speed change may arrive and still count.
+    vars.speedRaceMs = 100;
 
     vars.cairoStarted = false;
     vars.palaceStarted = false;
@@ -71,6 +78,12 @@ update
     current.sawmillStarted = vars.reader.ReadUInt32();
     current.blimpStarted = vars.reader.ReadUInt32();
     current.parisCinemaState = vars.reader.ReadUInt32();
+
+    if (current.gameSpeed != old.gameSpeed)
+    {
+        vars.lastSpeedChange = DateTime.Now;
+    }
+    vars.speedChangedRecently = (DateTime.Now - vars.lastSpeedChange).TotalMilliseconds < vars.speedRaceMs;
 }
 
 start
@@ -140,12 +153,26 @@ onReset
 {
     vars.splitPending = false;
     vars.splitPendingTime = DateTime.Now;
+    vars.splitDone.Clear();
     vars.cairoStarted = false;
     vars.palaceStarted = false;
 }
 
 split
 {
+    // The job's last checkpoint, with the game speed changing as its completion animation
+    // starts. The two values arrive separately, so a speed change up to vars.speedRaceMs before the
+    // checkpoint (which then arrived late) counts too.
+    Func<int, bool> SpeedChangeAt = cp => current.checkpointId == cp
+        && (current.gameSpeed != old.gameSpeed || (old.checkpointId != cp && vars.speedChangedRecently));
+    Func<int, bool> Entered = cp => current.checkpointId == cp && old.checkpointId != cp;
+    // Splits a fixed time after the completion animation starts.
+    Action<DateTime> PendingSplit = from =>
+    {
+        vars.splitPending = true;
+        vars.splitPendingTime = from.AddMilliseconds(1950);
+    };
+
     if (vars.splitPending == true)
     {
         if (vars.splitPendingTime < DateTime.Now)
@@ -199,372 +226,377 @@ split
     }
 
     if (settings["EPISODE_1"] || settings["ANY"])
-    { 
-        if (current.checkpointId == 1793 && current.gameSpeed != old.gameSpeed)
+    {
+        if (SpeedChangeAt(1793) && vars.splitDone.Add(1793))
         {
             // Satellite Sabotage
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1820 && old.activeCharacterPointer == 0 && current.activeCharacterPointer != 0 && current.gameSpeed == 0.0f)
+        else if (current.checkpointId == 1820 && old.activeCharacterPointer == 0 && current.activeCharacterPointer != 0 && current.gameSpeed == 0.0f && vars.splitDone.Add(1820))
         {
             // Breaking and Entering
-            vars.splitPending = true;
+            PendingSplit(DateTime.Now);
         }
-        else if (current.checkpointId == 1632 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1632) && vars.splitDone.Add(1632))
         {
             // Bug Dimitri's Office
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1845 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1845) && vars.splitDone.Add(1845))
         {
             // Follow Dimitri
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1908 && current.gameSpeed == 0.0f && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1908) && current.gameSpeed == 0.0f && vars.splitDone.Add(1908))
         {
             // Waterpump Destruction
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1831 && old.checkpointId != 1831)
+        else if (Entered(1831) && vars.splitDone.Add(1831))
         {
             // Silence the Alarms
-            vars.splitPending = true;
+            PendingSplit(DateTime.Now);
         }
-        else if (current.checkpointId == 1881 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1881) && vars.splitDone.Add(1881))
         {
             // Moonlight Rendezvous
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1871 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1871) && vars.splitDone.Add(1871))
         {
             // Theater Pickpocketing
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1898 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1898) && vars.splitDone.Add(1898))
         {
             // Disco Demolitions
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1953 && old.checkpointId != 1953)
+        else if (Entered(1953) && vars.splitDone.Add(1953))
         {
             // Operation: Thunderbeak
             return true;
         }
     }
-    else if (settings["EPISODE_2"] || settings["ANY"])
+
+    if (settings["EPISODE_2"] || settings["ANY"])
     {
-        if (current.checkpointId == 2018 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(2018) && vars.splitDone.Add(2018))
         {
             // Recon The Ballroom
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2032 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2032) && vars.splitDone.Add(2032))
         {
             // Lower the Drawbridge
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2063 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2063) && vars.splitDone.Add(2063))
         {
             // Steal a Tuxedo
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2038 && current.gameSpeed != old.gameSpeed && current.activeCharacterPointer == 0 && current.cameraFov == 1.0f)
+        else if (SpeedChangeAt(2038) && current.activeCharacterPointer == 0 && current.cameraFov == 1.0f && vars.splitDone.Add(2038))
         {
             // Battle the Chopper
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2082 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2082) && vars.splitDone.Add(2082))
         {
             // Dominate the Dance Floor
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2090 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2090) && vars.splitDone.Add(2090))
         {
             // RC Bombing Run
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2105 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2105) && vars.splitDone.Add(2105))
         {
             // Elephant Rampage
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2054 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2054) && vars.splitDone.Add(2054))
         {
             // Boardroom Brawl
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2149 && old.checkpointId != 2149)
+        else if (Entered(2149) && vars.splitDone.Add(2149))
         {
             // OP: Hippo Drop
             return true;
         }
     }
-    else if (settings["EPISODE_3"] || settings["ANY"])
+
+    if (settings["EPISODE_3"] || settings["ANY"])
     {
-        if (current.checkpointId == 2205 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(2205) && vars.splitDone.Add(2205))
         {
             // Spice Room Recon
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2233 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2233) && vars.splitDone.Add(2233))
         {
             // Elephant Rampage
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2212 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2212) && vars.splitDone.Add(2212))
         {
             // Waterbug Run
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2280 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2280) && vars.splitDone.Add(2280))
         {
             // Leading Rajan
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2306 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2306) && vars.splitDone.Add(2306))
         {
             // Blow the Dam
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2295 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2295) && vars.splitDone.Add(2295))
         {
             // Spice Grinder Destruction
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2262 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2262) && vars.splitDone.Add(2262))
         {
             // Neyla's Secret
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2315 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2315) && vars.splitDone.Add(2315))
         {
             // Rip Off the Ruby
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2354 && old.checkpointId != 2354 && current.rajanHealth == 0)
+        else if (Entered(2354) && current.rajanHealth == 0 && vars.splitDone.Add(2354))
         {
             // OP: Wet Tiger
             return true;
         }
     }
-    else if (settings["EPISODE_4"] || settings["ANY"])
+
+    if (settings["EPISODE_4"] || settings["ANY"])
     {
-        if (current.checkpointId == 2426 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(2426) && vars.splitDone.Add(2426))
         {
             // Eavesdrop on Contessa
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2444 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2444) && vars.splitDone.Add(2444))
         {
             // Train Hack
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2461 && old.checkpointId != 2461)
+        else if (Entered(2461) && vars.splitDone.Add(2461))
         {
             // Wall Bombing
-            vars.splitPending = true;
+            PendingSplit(DateTime.Now);
         }
-        else if (current.checkpointId == 2528 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2528) && vars.splitDone.Add(2528))
         {
             // Code Capture
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1637 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(1637) && vars.splitDone.Add(1637))
         {
             // Close to Contessa
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2471 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2471) && vars.splitDone.Add(2471))
         {
             // Big House Brawl
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2503 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2503) && vars.splitDone.Add(2503))
         {
             // Disguise Bridge
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2620 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2620) && vars.splitDone.Add(2620))
         {
             // OP: Trojan Tank
             return true;
         }
     }
-    else if (settings["EPISODE_5"] || settings["ANY"])
+
+    if (settings["EPISODE_5"] || settings["ANY"])
     {
-        if (current.checkpointId == 2659 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(2659) && vars.splitDone.Add(2659))
         {
             // Know Your Enemy
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2705 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2705) && vars.splitDone.Add(2705))
         {
             // Kidnap the General
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2681 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2681) && vars.splitDone.Add(2681))
         {
             // Ghost Capture
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2698 && current.gameSpeed != old.gameSpeed && current.activeCharacterPointer == 0 && current.cameraFov == 0.8f)
+        else if (SpeedChangeAt(2698) && current.activeCharacterPointer == 0 && current.cameraFov == 0.8f && vars.splitDone.Add(2698))
         {
             // Mojo Trap Action
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2761 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2761) && vars.splitDone.Add(2761))
         {
             // Crypt Hack
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2733 && current.gameSpeed == 1.0f && current.gameSpeed != old.gameSpeed && current.mapId == 17)
+        else if (SpeedChangeAt(2733) && current.gameSpeed == 1.0f && current.mapId == 17 && vars.splitDone.Add(2733))
         {
             // Stealing Voices
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2742 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2742) && vars.splitDone.Add(2742))
         {
             // Tank Showdown
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2835 && old.checkpointId != 2835)
+        else if (Entered(2835) && vars.splitDone.Add(2835))
         {
             // OP: High Road
             return true;
         }
     }
-    else if (settings["EPISODE_6"] || settings["ANY"])
+
+    if (settings["EPISODE_6"] || settings["ANY"])
     {
-        if (current.checkpointId == 2877 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(2877) && vars.splitDone.Add(2877))
         {
             // Cabin Crimes
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2891 && current.gameSpeed == 0.0f && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2891) && current.gameSpeed == 0.0f && vars.splitDone.Add(2891))
         {
             // Spice in the Sky
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2929 && current.gameSpeed != old.gameSpeed && current.activeCharacterPointer == 0)
+        else if (SpeedChangeAt(2929) && current.activeCharacterPointer == 0 && vars.splitDone.Add(2929))
         {
             // A Friend in Need
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2907 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2907) && vars.splitDone.Add(2907))
         {
             // Ride the Ironhorse
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2938 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2938) && vars.splitDone.Add(2938))
         {
             // Aerial Assault
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2954 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2954) && vars.splitDone.Add(2954))
         {
             // Bearcub Kidnapping
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 2942 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(2942) && vars.splitDone.Add(2942))
         {
             // Theft on the Rails
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 1644 && old.checkpointId != 1644)
+        else if (Entered(1644) && vars.splitDone.Add(1644))
         {
             // OP: Choo-Choo
             return true;
         }
     }
-    else if (settings["EPISODE_7"] || settings["ANY"])
+
+    if (settings["EPISODE_7"] || settings["ANY"])
     {
-        if (current.checkpointId == 3053 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(3053) && vars.splitDone.Add(3053))
         {
             // Recon the Sawmill
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3126 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3126) && vars.splitDone.Add(3126))
         {
             // Laser Redirection
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3081 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3081) && vars.splitDone.Add(3081))
         {
             // Bearcave Bugging
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3094 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3094) && vars.splitDone.Add(3094))
         {
             // RC Combat Club
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3154 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3154) && vars.splitDone.Add(3154))
         {
             // Old Grizzle Face
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3144 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3144) && vars.splitDone.Add(3144))
         {
             // Lighthouse Break in
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3197 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3197) && vars.splitDone.Add(3197))
         {
             // Thermal Ride
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3186 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3186) && vars.splitDone.Add(3186))
         {
             // Boat Hack
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3301 && old.checkpointId != 3301)
+        else if (Entered(3301) && vars.splitDone.Add(3301))
         {
             // OP: Canada Games
             return true;
         }
     }
-    else if (settings["EPISODE_8"] || settings["ANY"])
+
+    if (settings["EPISODE_8"] || settings["ANY"])
     {
-        if (current.checkpointId == 3385 && current.gameSpeed != old.gameSpeed)
+        if (SpeedChangeAt(3385) && vars.splitDone.Add(3385))
         {
             // Blimp HQ Recon
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3460 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3460) && vars.splitDone.Add(3460))
         {
             // Bentley/Murray Team Up
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3414 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3414) && vars.splitDone.Add(3414))
         {
             // Murray/Sly Tag Team
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3429 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3429) && vars.splitDone.Add(3429))
         {
             // Sly/Bentley Conspire
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3397 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3397) && vars.splitDone.Add(3397))
         {
             // Charged TNT Run
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3475 && current.gameSpeed != old.gameSpeed)
+        else if (SpeedChangeAt(3475) && vars.splitDone.Add(3475))
         {
             // Mega-Jump Job
-            vars.splitPending = true;
+            PendingSplit(vars.lastSpeedChange);
         }
-        else if (current.checkpointId == 3497 && old.checkpointId != 3497)
+        else if (Entered(3497) && vars.splitDone.Add(3497))
         {
             // Showdown with Clock-La
             return true;
         }
     }
 
-
-    if (vars.splitPending == true) { vars.splitPendingTime = DateTime.Now.AddMilliseconds(1950);}
     
     return false;
 }

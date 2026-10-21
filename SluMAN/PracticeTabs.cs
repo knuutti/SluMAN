@@ -19,7 +19,9 @@ namespace SluMAN
     /// <summary>
     /// Turns a Practice window into one window with tabs: the window's own controls on the first
     /// tab, and tool windows (gadgets, position editor, memory) embedded on the others. A tool is
-    /// created the first time its tab is opened, and the window resizes to fit the selected tab.
+    /// created the first time its tab is opened, and the window resizes to fit the selected tab;
+    /// or, with a fixed width, every tab is the Practice tab's width, the tools fill it, and the
+    /// window's height follows the selected tab's content.
     /// </summary>
     public class PracticeTabs
     {
@@ -28,12 +30,27 @@ namespace SluMAN
             public TabPage page;
             public Func<Form> create;
             public Form form;
+            // The form's size before it was docked: its content's size.
+            public Size naturalSize;
+            public bool visible = true;
+            // Its row in the View menu, if there is one.
+            public ToolStripMenuItem viewItem;
         }
+
+        // Space below the Practice tab's lowest control, with a fixed width.
+        private const int PracticeBottomMargin = 8;
+
+        // Written to config.txt when every tab but Practice is hidden, so the defaults don't return.
+        private const string NoTabsVisible = "none";
+
+        // The config.txt key the View menu saves the visible tabs under, or null without the menu.
+        private string viewConfigKey;
 
         private readonly Form host;
         private readonly TabControl tabs = new TabControl();
         private readonly TabPage practicePage;
         private readonly Size practiceSize;
+        private readonly bool fixedWidth;
         private readonly List<Tool> tools = new List<Tool>();
 
         /// <summary>Raised when a tool's form has been created, so the host can keep a reference.</summary>
@@ -46,15 +63,19 @@ namespace SluMAN
         /// Moves every control of <paramref name="host"/> except its menu and status bar onto a
         /// "Practice" tab. Call at the end of the constructor, after the status line exists.
         /// </summary>
-        public PracticeTabs(Form host, string practiceTitle)
+        /// <param name="fixedWidth">Keep the window at the host's width on every tab, with each
+        /// tool docked to fill its tab's width (its controls anchored to grow with it). The height
+        /// is each tab's content height: the Practice tab's lowest control, or a tool's own height.</param>
+        public PracticeTabs(Form host, string practiceTitle, bool fixedWidth = false)
         {
             this.host = host;
+            this.fixedWidth = fixedWidth;
 
             MenuStrip menu = host.Controls.OfType<MenuStrip>().FirstOrDefault();
             StatusStrip status = host.Controls.OfType<StatusStrip>().FirstOrDefault();
             int top = menu != null ? menu.Height : 0;
             int bottom = status != null ? status.Height : 0;
-            practiceSize = new Size(host.ClientSize.Width, host.ClientSize.Height - top - bottom);
+            int practiceHeight = host.ClientSize.Height - top - bottom;
 
             host.SuspendLayout();
 
@@ -73,6 +94,11 @@ namespace SluMAN
                 control.Location = new Point(location.X, location.Y - top);
                 practicePage.Controls.Add(control);
             }
+            if (fixedWidth && content.Count > 0)
+            {
+                practiceHeight = content.Max(c => c.Bottom) + PracticeBottomMargin;
+            }
+            practiceSize = new Size(host.ClientSize.Width, practiceHeight);
 
             tabs.TabPages.Add(practicePage);
             tabs.Dock = DockStyle.Fill;
@@ -107,6 +133,8 @@ namespace SluMAN
             {
                 return null;
             }
+            // Opening a hidden tool (from a menu, or the memory tools opening each other) shows its tab.
+            SetVisible(tool, true);
             tabs.SelectedTab = tool.page;
             return EnsureCreated(tool);
         }
@@ -142,6 +170,105 @@ namespace SluMAN
             }
         }
 
+        /// <summary>
+        /// Adds a View menu next to the Tools menu, listing every tool tab with a tick when it
+        /// shows; clicking one shows or hides it. Practice always shows. Which tabs show is saved
+        /// in config.txt under <paramref name="configKey"/>; until it has been, only
+        /// <paramref name="visibleByDefault"/> show. Call after adding the tools.
+        /// </summary>
+        public void AddViewMenu(string configKey, params string[] visibleByDefault)
+        {
+            viewConfigKey = configKey;
+            MenuStrip menu = host.Controls.OfType<MenuStrip>().FirstOrDefault();
+
+            string saved = "";
+            try
+            {
+                saved = func.GetConfigData("config.txt", configKey);
+            }
+            catch
+            {
+                // No readable config.txt: the defaults.
+            }
+            List<string> visibleTitles = saved == ""
+                ? new List<string>(visibleByDefault)
+                : saved.Split(',').Select(title => title.Trim()).ToList();
+
+            ToolStripMenuItem viewMenu = new ToolStripMenuItem("View");
+            foreach (Tool tool in tools)
+            {
+                Tool current = tool;
+                current.viewItem = new ToolStripMenuItem(current.page.Text);
+                current.viewItem.Click += (sender, e) =>
+                {
+                    SetVisible(current, !current.visible);
+                    SaveVisibleTabs();
+                };
+                viewMenu.DropDownItems.Add(current.viewItem);
+                SetVisible(current, visibleTitles.Contains(current.page.Text));
+            }
+
+            if (menu != null)
+            {
+                int toolsIndex = menu.Items.IndexOf(menu.Items.OfType<ToolStripMenuItem>().FirstOrDefault(item => item.Text == "Tools"));
+                menu.Items.Insert(toolsIndex >= 0 ? toolsIndex + 1 : menu.Items.Count, viewMenu);
+            }
+        }
+
+        /// <summary>Shows or hides a tool's tab, keeping the tabs in the order they were added.</summary>
+        private void SetVisible(Tool tool, bool visible)
+        {
+            bool changed = tool.visible != visible;
+            tool.visible = visible;
+            if (tool.viewItem != null)
+            {
+                tool.viewItem.Checked = visible;
+            }
+            if (!changed)
+            {
+                return;
+            }
+
+            if (visible)
+            {
+                // After Practice and the visible tools added before it.
+                int index = 1 + tools.TakeWhile(t => t != tool).Count(t => t.visible);
+                tabs.TabPages.Insert(index, tool.page);
+            }
+            else
+            {
+                // Hand over to Practice first, so removing the tab doesn't open its neighbour.
+                if (tabs.SelectedTab == tool.page)
+                {
+                    tabs.SelectedTab = practicePage;
+                }
+                // A created tool keeps running (and keeps its state) while its tab is hidden.
+                tabs.TabPages.Remove(tool.page);
+            }
+
+            if (viewConfigKey != null && changed && visible)
+            {
+                SaveVisibleTabs();
+            }
+        }
+
+        private void SaveVisibleTabs()
+        {
+            if (viewConfigKey == null)
+            {
+                return;
+            }
+            List<string> visibleTitles = tools.Where(t => t.visible).Select(t => t.page.Text).ToList();
+            try
+            {
+                func.ChangeFileLines("config.txt", visibleTitles.Count == 0 ? NoTabsVisible : string.Join(",", visibleTitles), viewConfigKey);
+            }
+            catch
+            {
+                // Not remembered; the tabs still show as chosen.
+            }
+        }
+
         /// <summary>Closes every tool, so their own cleanup runs. Call when the host closes.</summary>
         public void CloseAll()
         {
@@ -155,6 +282,16 @@ namespace SluMAN
             }
         }
 
+        /// <summary>
+        /// Creates a tool's form without selecting its tab, for a tool that has to run in the
+        /// background (e.g. the Position Editor driving Fly Mode), and returns it.
+        /// </summary>
+        public Form Create(string title)
+        {
+            Tool tool = tools.FirstOrDefault(t => t.page.Text == title);
+            return tool == null ? null : EnsureCreated(tool);
+        }
+
         private Form EnsureCreated(Tool tool)
         {
             if (tool.form != null && !tool.form.IsDisposed)
@@ -163,9 +300,14 @@ namespace SluMAN
             }
 
             Form form = tool.create();
+            tool.naturalSize = form.ClientSize;
             form.TopLevel = false;
             form.FormBorderStyle = FormBorderStyle.None;
             form.Location = Point.Empty;
+            if (fixedWidth)
+            {
+                form.Dock = DockStyle.Fill;
+            }
             form.FormClosed += (sender, e) => OnToolClosed(tool);
             tool.page.Controls.Add(form);
             form.Show();
@@ -179,7 +321,7 @@ namespace SluMAN
 
             if (tabs.SelectedTab == tool.page)
             {
-                FitTo(form.ClientSize);
+                FitTo(ToolSize(tool));
             }
             return form;
         }
@@ -219,8 +361,13 @@ namespace SluMAN
                 {
                     refreshable.RefreshFromGame();
                 }
-                FitTo(form.ClientSize);
+                FitTo(ToolSize(tool));
             }
+        }
+
+        private Size ToolSize(Tool tool)
+        {
+            return fixedWidth ? new Size(practiceSize.Width, tool.naturalSize.Height) : tool.form.ClientSize;
         }
 
         /// <summary>Resizes the window so a tab's content of <paramref name="contentSize"/> fits exactly.</summary>

@@ -4,12 +4,13 @@ You can find the old SluMAN repository from [here](https://github.com/knuutti/Sl
 
 SluMAN is speedrun tool for Sly Cooper games for PS3 and RPCS3. SluMAN is designed to help speedrunners practice the games by providing custom features that are not place in the vanilla game. 
 
-SluMAN also provides a Speedrun Mode, that provides the runners with an input display, autosplitter and run file loading (exact features might differ between games)
+SluMAN also provides a Speedrun Mode, that provides the runners with an input display and an autosplitter (exact features might differ between games)
 
 ## Supported games
 - Sly Cooper and the Thievius Raccoonus (NPUA80663)
-- Sly 2: Band of Thieves (NPHA80175; NPUA80664 untested)
+- Sly 2: Band of Thieves (NPHA80175, NPEA00342; NPUA80664 untested)
 - Sly 3: Honor Among Thieves (NPEA00343)
+- Sly Cooper: Thieves in Time (BCES01284, NPEA00429)
 
 ## Setup
 To use SluMAN, follow these steps:
@@ -29,6 +30,15 @@ Then all you need to do is run a game, and click Attach!
 Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` button. 
 
 Some features may unfortunately not be supported on RPCS3.
+
+## Run files
+A run file sets up the save a Sly 2 or Sly 3 run starts from. You make it once, in Practice Mode's **Run Files** tab, and keep it in an anchor file slot; during a run you load the anchor file in game, not from SluMAN.
+
+1. Start a new game.
+2. In Practice Mode, open the **Run Files** tab, pick the run file and click **Load**.
+3. Save over your anchor file slot.
+
+The gadgets a run file loads with are saved in the **Gadgets** tab, under Run file gadgets.
 
 ## Your files
 SluMAN keeps your settings, saved positions, watchlists, split routes and warp locations in `%APPDATA%\SluMAN`, so they don't depend on where you extracted SluMAN and updates never touch them. **Tools → Open User Data Folder** opens it.
@@ -50,3 +60,9 @@ The page is only reachable from your own PC, so it needs no firewall rule. **Ser
 
 ## Acknowledgements
 This project is a fork of [racman](https://github.com/MichaelRelaxen/racman). Huge thank you for the work of the racman and [Ratchetron](https://github.com/bordplate/Ratchetron) developers, without your contributions this project would not be possible!
+
+Sly 1 Practice Mode's level and entrance loading, cutscene skipping, world states and player position use addresses found by [SlyMultiTrainer](https://github.com/NiV-L-A/SlyMultiTrainer) by NiV-L-A. Thank you!
+
+Sly 4 support is built on [SLY4-DEBUG-MENU](https://github.com/gg3502/SLY4-DEBUG-MENU) by gg3502. Its research into the game's tunables, episodes, jobs and goals made SluMAN's Sly 4 Tunables and Jobs tabs possible, and the goal lists are generated from it. Thank you!
+
+Licenses for code and data from other projects are in [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt), which is also included in the SluMAN download.

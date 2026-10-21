@@ -5,10 +5,11 @@ namespace SluMAN
 {
     /// <summary>
     /// Skips cutscenes by itself while it runs, doing what Skip Cinematic does as soon as an FMV
-    /// or a dialogue line starts. It watches the FMV state and the dialogue frame counter through
-    /// subscriptions. Their callbacks only mark a skip as due; a background thread subscribes,
-    /// writes the skips and releases the subscriptions, so neither the UI thread nor the
-    /// subscription thread ever waits on the console. One instance runs once: Start, then Stop.
+    /// or a dialogue line starts. A background thread reads the FMV state a few times a second,
+    /// and watches the dialogue frame counter through a subscription whose callback only marks
+    /// a skip as due. The thread subscribes, writes the skips and releases the subscription, so
+    /// neither the UI thread nor the subscription thread ever waits on the console. One instance
+    /// runs once: Start, then Stop.
     /// </summary>
     public class AutoSkipper
     {
@@ -17,6 +18,10 @@ namespace SluMAN
         private const uint FmvSkipValue = 2;
         private const uint DialogueSkipValue = 0;
         private const byte DialogueSkipAfterFrames = 10;
+
+        // How often the FMV state is read. A subscription to it missed the FMVs on PAL Sly 2,
+        // although the state is 0 while one plays, so it's read like Skip Cinematic reads it.
+        private const int FmvPollMs = 100;
 
         // At most one skip of each kind this often, in case a write doesn't take and the value
         // keeps bouncing back to the cutscene state.
@@ -27,26 +32,29 @@ namespace SluMAN
         private readonly uint fmvState;
         private readonly uint dialogueState;
         private readonly uint dialogueFrameCounter;
+        private readonly bool freezeDialogue;
 
         private readonly object pendingLock = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
-        private bool fmvPending;
         private bool dialoguePending;
         private bool stopping;
         private bool releaseOnStop = true;
 
-        // A skip fires once per cutscene: the next one waits until the value has left the
-        // cutscene state. Only the subscription thread uses these.
-        private bool fmvArmed = true;
+        // A dialogue skip fires once per line: the next one waits until the counter has gone
+        // back below the threshold. Only the subscription thread uses this.
         private bool dialogueArmed = true;
 
-        public AutoSkipper(IPS3API api, int pid, uint fmvState, uint dialogueState, uint dialogueFrameCounter)
+        /// <param name="freezeDialogue">Freeze the dialogue state to 0 instead of skipping each
+        /// line as its frame counter passes 10 (Sly 3, whose dialogue state skips every line
+        /// while frozen).</param>
+        public AutoSkipper(IPS3API api, int pid, uint fmvState, uint dialogueState, uint dialogueFrameCounter, bool freezeDialogue = false)
         {
             this.api = api;
             this.pid = pid;
             this.fmvState = fmvState;
             this.dialogueState = dialogueState;
             this.dialogueFrameCounter = dialogueFrameCounter;
+            this.freezeDialogue = freezeDialogue;
         }
 
         public void Start()
@@ -58,9 +66,9 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Returns at once; the background thread releases the subscriptions and ends. After a game
-        /// reset, pass false: the console has dropped them already and may have given their IDs to
-        /// new subscriptions.
+        /// Returns at once; the background thread releases the subscription and ends. After a game
+        /// reset, pass false: the console has dropped it already and may have given its ID to a
+        /// new subscription.
         /// </summary>
         public void Stop(bool releaseSubscriptions = true)
         {
@@ -74,22 +82,28 @@ namespace SluMAN
 
         private void Run()
         {
-            int fmvSubID = -1;
             int dialogueSubID = -1;
             try
             {
-                // Only the low byte matters, the same byte Skip Cinematic reads.
-                fmvSubID = api.SubMemory(pid, fmvState + 0x3, 1, OnFmvState);
-                dialogueSubID = api.SubMemory(pid, dialogueFrameCounter + 0x3, 1, OnDialogueFrame);
+                if (freezeDialogue)
+                {
+                    // Released like the subscription when the skipper stops.
+                    dialogueSubID = api.FreezeMemory(pid, dialogueState, IPS3API.MemoryCondition.Any, DialogueSkipValue);
+                }
+                else
+                {
+                    // Only the low byte matters, the same byte Skip Cinematic reads.
+                    dialogueSubID = api.SubMemory(pid, dialogueFrameCounter + 0x3, 1, OnDialogueFrame);
+                }
                 Console.WriteLine("Auto-skip cinematics on.");
 
                 DateTime lastFmvSkip = DateTime.MinValue;
                 DateTime lastDialogueSkip = DateTime.MinValue;
                 while (true)
                 {
-                    wake.WaitOne();
+                    // Woken early by a dialogue line or Stop; otherwise time to read the FMV state.
+                    wake.WaitOne(FmvPollMs);
 
-                    bool skipFmv;
                     bool skipDialogue;
                     lock (pendingLock)
                     {
@@ -97,15 +111,14 @@ namespace SluMAN
                         {
                             break;
                         }
-                        skipFmv = fmvPending;
                         skipDialogue = dialoguePending;
-                        fmvPending = false;
                         dialoguePending = false;
                     }
 
                     try
                     {
-                        if (skipFmv && WaitForInterval(lastFmvSkip))
+                        if ((DateTime.Now - lastFmvSkip).TotalMilliseconds >= MinSkipIntervalMs
+                            && api.ReadMemory(pid, fmvState + 0x3, 1)[0] == 0)
                         {
                             api.WriteMemory(pid, fmvState, FmvSkipValue);
                             lastFmvSkip = DateTime.Now;
@@ -137,7 +150,6 @@ namespace SluMAN
                 }
                 if (release)
                 {
-                    Release(fmvSubID);
                     Release(dialogueSubID);
                 }
             }
@@ -176,19 +188,6 @@ namespace SluMAN
             }
         }
 
-        private void OnFmvState(byte[] value)
-        {
-            if (value[0] != 0)
-            {
-                fmvArmed = true;
-            }
-            else if (fmvArmed)
-            {
-                fmvArmed = false;
-                MarkPending(true);
-            }
-        }
-
         private void OnDialogueFrame(byte[] value)
         {
             if (value[0] <= DialogueSkipAfterFrames)
@@ -198,11 +197,11 @@ namespace SluMAN
             else if (dialogueArmed)
             {
                 dialogueArmed = false;
-                MarkPending(false);
+                MarkDialoguePending();
             }
         }
 
-        private void MarkPending(bool fmv)
+        private void MarkDialoguePending()
         {
             lock (pendingLock)
             {
@@ -210,14 +209,7 @@ namespace SluMAN
                 {
                     return;
                 }
-                if (fmv)
-                {
-                    fmvPending = true;
-                }
-                else
-                {
-                    dialoguePending = true;
-                }
+                dialoguePending = true;
             }
             wake.Set();
         }

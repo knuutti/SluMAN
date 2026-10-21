@@ -27,6 +27,7 @@ namespace SluMAN
         private float prevFlyPosX;
         private float prevFlyPosY;
         private bool prevFlyMode;
+        private uint flyEntityPtr;
 
         private const float FlyHeightStep = 20.0f;
         private const float FlyBoostMultiplier = 8.0f;
@@ -62,6 +63,23 @@ namespace SluMAN
             builtinWarpFile = $"data/{layout.warpFilePrefix}_warp_locations.txt";
 
             InitializeComponent();
+            if (layout.hideEntityFields)
+            {
+                // Hide the entity fields' column and move the position and velocity readouts into
+                // its place.
+                int shift = lblPosX.Left - lblEntityId.Left;
+                foreach (Control control in charInfoGroupBox.Controls)
+                {
+                    if (control.Left < lblPosX.Left)
+                    {
+                        control.Visible = false;
+                    }
+                    else
+                    {
+                        control.Left -= shift;
+                    }
+                }
+            }
             Text = $"SluMAN :: Position Editor ({layout.gameName})";
             statusLine = new StatusLine(this, false);
             func.BindEnter(xPosTextBox, setXPosButton);
@@ -102,9 +120,22 @@ namespace SluMAN
             transformPtr = 0;
             try
             {
-                byte[] epBytes = game.api.ReadMemory(game.pid, layout.activeCharacterPtr, 4);
-                entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
+                if (layout.readEntity != null)
+                {
+                    entityPtr = layout.readEntity();
+                }
+                else
+                {
+                    byte[] epBytes = game.api.ReadMemory(game.pid, layout.activeCharacterPtr, 4);
+                    entityPtr = BitConverter.ToUInt32(epBytes.Reverse().ToArray(), 0);
+                }
                 if (entityPtr == 0) return false;
+
+                if (layout.transformInEntity)
+                {
+                    transformPtr = entityPtr + layout.transformOffset;
+                    return true;
+                }
 
                 byte[] tpBytes = game.api.ReadMemory(game.pid, entityPtr + layout.transformOffset, 4);
                 transformPtr = BitConverter.ToUInt32(tpBytes.Reverse().ToArray(), 0);
@@ -187,8 +218,12 @@ namespace SluMAN
                 RefreshSlots();
             }
 
-            if (!TryResolvePointers(out uint entityPtr, out uint transformPtr))
+            // During a load (the fade to black included) the player entity is being freed or set
+            // up, and writing to it crashes the game. With no player, e.g. in a hideout, fly mode
+            // takes the height again once there is one.
+            if (game.IsLoading || !TryResolvePointers(out uint entityPtr, out uint transformPtr))
             {
+                prevFlyMode = false;
                 SetLabelsUnavailable();
                 return;
             }
@@ -212,12 +247,21 @@ namespace SluMAN
                 }
 
                 // Fly mode: hold Z, adjust height with L2/R2, amplify horizontal movement with R1.
-                if (flyModeEnabled && !prevFlyMode)
+                if (flyModeEnabled && (!prevFlyMode || entityPtr != flyEntityPtr))
                 {
                     flyFrozenZ = ReadFloat(PositionAddress(transformPtr, 2));
                     prevFlyPosX = ReadFloat(PositionAddress(transformPtr, 0));
                     prevFlyPosY = ReadFloat(PositionAddress(transformPtr, 1));
-                    zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    flyEntityPtr = entityPtr;
+                    // Not a position yet: the entity is still being set up.
+                    if (!IsFinite(flyFrozenZ) || !IsFinite(prevFlyPosX) || !IsFinite(prevFlyPosY))
+                    {
+                        flyModeEnabled = false;
+                    }
+                    else
+                    {
+                        zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
+                    }
                 }
                 prevFlyMode = flyModeEnabled;
 
@@ -254,7 +298,11 @@ namespace SluMAN
                 }
 
                 // Infinite jump: write the full 4 bytes; the LSB is what the game checks.
-                if (InfiniteJumpEnabled && layout.infiniteJumpOffset != 0)
+                if (InfiniteJumpEnabled && layout.applyInfiniteJump != null)
+                {
+                    layout.applyInfiniteJump(entityPtr);
+                }
+                else if (InfiniteJumpEnabled && layout.infiniteJumpOffset != 0)
                 {
                     game.api.WriteMemory(game.pid, entityPtr + layout.infiniteJumpOffset, (uint)0);
                 }
@@ -288,6 +336,11 @@ namespace SluMAN
             {
                 SetLabelsUnavailable();
             }
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         private static string FormatFloat(float value)
@@ -616,6 +669,10 @@ namespace SluMAN
         {
             try
             {
+                if (layout.readMapIndicator != null)
+                {
+                    return layout.readMapIndicator() ?? "";
+                }
                 byte[] b = game.api.ReadMemory(game.pid, layout.mapNameAddress, 32);
                 int nullIdx = Array.IndexOf(b, (byte)0);
                 if (nullIdx < 0) nullIdx = b.Length;

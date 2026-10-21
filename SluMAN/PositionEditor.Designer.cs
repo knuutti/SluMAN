@@ -1,4 +1,4 @@
-namespace SluMAN
+﻿namespace SluMAN
 {
     partial class PositionEditor
     {
@@ -99,7 +99,7 @@ namespace SluMAN
             this.charInfoGroupBox.Controls.Add(this.zVelLiveLabel);
             this.charInfoGroupBox.Location = new System.Drawing.Point(10, 10);
             this.charInfoGroupBox.Name = "charInfoGroupBox";
-            this.charInfoGroupBox.Size = new System.Drawing.Size(462, 130);
+            this.charInfoGroupBox.Size = new System.Drawing.Size(312, 138);
             this.charInfoGroupBox.TabIndex = 0;
             this.charInfoGroupBox.TabStop = false;
             this.charInfoGroupBox.Text = "Character Info";
@@ -180,7 +180,7 @@ namespace SluMAN
             // lblRotation
             //
             this.lblRotation.AutoSize = true;
-            this.lblRotation.Location = new System.Drawing.Point(132, 91);
+            this.lblRotation.Location = new System.Drawing.Point(8, 114);
             this.lblRotation.Name = "lblRotation";
             this.lblRotation.Size = new System.Drawing.Size(37, 13);
             this.lblRotation.TabIndex = 8;
@@ -189,7 +189,7 @@ namespace SluMAN
             // rotationValueLabel
             //
             this.rotationValueLabel.AutoSize = true;
-            this.rotationValueLabel.Location = new System.Drawing.Point(175, 91);
+            this.rotationValueLabel.Location = new System.Drawing.Point(56, 114);
             this.rotationValueLabel.Name = "rotationValueLabel";
             this.rotationValueLabel.Size = new System.Drawing.Size(27, 13);
             this.rotationValueLabel.TabIndex = 9;
@@ -249,7 +249,7 @@ namespace SluMAN
             // lblHSpeed
             //
             this.lblHSpeed.AutoSize = true;
-            this.lblHSpeed.Location = new System.Drawing.Point(269, 22);
+            this.lblHSpeed.Location = new System.Drawing.Point(132, 91);
             this.lblHSpeed.Name = "lblHSpeed";
             this.lblHSpeed.Size = new System.Drawing.Size(103, 13);
             this.lblHSpeed.TabIndex = 16;
@@ -258,16 +258,16 @@ namespace SluMAN
             //
             // hSpeedLabel
             //
-            this.hSpeedLabel.Location = new System.Drawing.Point(378, 22);
+            this.hSpeedLabel.Location = new System.Drawing.Point(244, 91);
             this.hSpeedLabel.Name = "hSpeedLabel";
-            this.hSpeedLabel.Size = new System.Drawing.Size(88, 13);
+            this.hSpeedLabel.Size = new System.Drawing.Size(60, 13);
             this.hSpeedLabel.TabIndex = 17;
             this.hSpeedLabel.Text = "N/A";
             //
             // lblZVel
             //
             this.lblZVel.AutoSize = true;
-            this.lblZVel.Location = new System.Drawing.Point(269, 45);
+            this.lblZVel.Location = new System.Drawing.Point(132, 114);
             this.lblZVel.Name = "lblZVel";
             this.lblZVel.Size = new System.Drawing.Size(91, 13);
             this.lblZVel.TabIndex = 18;
@@ -275,9 +275,9 @@ namespace SluMAN
             //
             // zVelLiveLabel
             //
-            this.zVelLiveLabel.Location = new System.Drawing.Point(378, 45);
+            this.zVelLiveLabel.Location = new System.Drawing.Point(244, 114);
             this.zVelLiveLabel.Name = "zVelLiveLabel";
-            this.zVelLiveLabel.Size = new System.Drawing.Size(88, 13);
+            this.zVelLiveLabel.Size = new System.Drawing.Size(60, 13);
             this.zVelLiveLabel.TabIndex = 19;
             this.zVelLiveLabel.Text = "N/A";
             //
@@ -295,9 +295,9 @@ namespace SluMAN
             this.positionGroupBox.Controls.Add(this.zPosTextBox);
             this.positionGroupBox.Controls.Add(this.setZPosButton);
             this.positionGroupBox.Controls.Add(this.freezePosZCheckBox);
-            this.positionGroupBox.Location = new System.Drawing.Point(10, 148);
+            this.positionGroupBox.Location = new System.Drawing.Point(10, 156);
             this.positionGroupBox.Name = "positionGroupBox";
-            this.positionGroupBox.Size = new System.Drawing.Size(462, 115);
+            this.positionGroupBox.Size = new System.Drawing.Size(312, 115);
             this.positionGroupBox.TabIndex = 1;
             this.positionGroupBox.TabStop = false;
             this.positionGroupBox.Text = "Set Position";
@@ -423,9 +423,9 @@ namespace SluMAN
             this.warpGroupBox.Controls.Add(this.saveWarpButton);
             this.warpGroupBox.Controls.Add(this.deleteWarpButton);
             this.warpGroupBox.Controls.Add(this.currentMapLabel);
-            this.warpGroupBox.Location = new System.Drawing.Point(10, 271);
+            this.warpGroupBox.Location = new System.Drawing.Point(10, 279);
             this.warpGroupBox.Name = "warpGroupBox";
-            this.warpGroupBox.Size = new System.Drawing.Size(462, 133);
+            this.warpGroupBox.Size = new System.Drawing.Size(312, 133);
             this.warpGroupBox.TabIndex = 2;
             this.warpGroupBox.TabStop = false;
             this.warpGroupBox.Text = "Warp Locations";
@@ -445,15 +445,15 @@ namespace SluMAN
             this.warpLocationComboBox.FormattingEnabled = true;
             this.warpLocationComboBox.Location = new System.Drawing.Point(65, 22);
             this.warpLocationComboBox.Name = "warpLocationComboBox";
-            this.warpLocationComboBox.Size = new System.Drawing.Size(285, 21);
+            this.warpLocationComboBox.Size = new System.Drawing.Size(180, 21);
             this.warpLocationComboBox.TabIndex = 0;
             this.warpLocationComboBox.SelectedIndexChanged += new System.EventHandler(this.warpLocationComboBox_SelectedIndexChanged);
             //
             // warpButton
             //
-            this.warpButton.Location = new System.Drawing.Point(355, 21);
+            this.warpButton.Location = new System.Drawing.Point(250, 21);
             this.warpButton.Name = "warpButton";
-            this.warpButton.Size = new System.Drawing.Size(97, 23);
+            this.warpButton.Size = new System.Drawing.Size(52, 23);
             this.warpButton.TabIndex = 1;
             this.warpButton.Text = "Warp";
             this.warpButton.UseVisualStyleBackColor = true;
@@ -472,7 +472,7 @@ namespace SluMAN
             //
             this.warpNameTextBox.Location = new System.Drawing.Point(65, 52);
             this.warpNameTextBox.Name = "warpNameTextBox";
-            this.warpNameTextBox.Size = new System.Drawing.Size(285, 20);
+            this.warpNameTextBox.Size = new System.Drawing.Size(237, 20);
             this.warpNameTextBox.TabIndex = 2;
             //
             // saveWarpButton
@@ -500,7 +500,7 @@ namespace SluMAN
             //
             this.currentMapLabel.Location = new System.Drawing.Point(8, 111);
             this.currentMapLabel.Name = "currentMapLabel";
-            this.currentMapLabel.Size = new System.Drawing.Size(444, 13);
+            this.currentMapLabel.Size = new System.Drawing.Size(296, 13);
             this.currentMapLabel.TabIndex = 5;
             this.currentMapLabel.Text = "Current map: -";
             //
@@ -511,9 +511,9 @@ namespace SluMAN
             this.savedPositionsGroupBox.Controls.Add(this.loadSlotButton);
             this.savedPositionsGroupBox.Controls.Add(this.clearSlotButton);
             this.savedPositionsGroupBox.Controls.Add(this.slotInfoLabel);
-            this.savedPositionsGroupBox.Location = new System.Drawing.Point(482, 10);
+            this.savedPositionsGroupBox.Location = new System.Drawing.Point(330, 10);
             this.savedPositionsGroupBox.Name = "savedPositionsGroupBox";
-            this.savedPositionsGroupBox.Size = new System.Drawing.Size(330, 394);
+            this.savedPositionsGroupBox.Size = new System.Drawing.Size(310, 402);
             this.savedPositionsGroupBox.TabIndex = 3;
             this.savedPositionsGroupBox.TabStop = false;
             this.savedPositionsGroupBox.Text = "Saved Positions (this map)";
@@ -538,7 +538,7 @@ namespace SluMAN
             this.slotGrid.RowHeadersVisible = false;
             this.slotGrid.ScrollBars = System.Windows.Forms.ScrollBars.None;
             this.slotGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.slotGrid.Size = new System.Drawing.Size(310, 222);
+            this.slotGrid.Size = new System.Drawing.Size(290, 222);
             this.slotGrid.TabIndex = 0;
             this.slotGrid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.slotGrid_CellEndEdit);
             this.slotGrid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.slotGrid_CellDoubleClick);
@@ -588,7 +588,7 @@ namespace SluMAN
             //
             this.saveSlotButton.Location = new System.Drawing.Point(10, 250);
             this.saveSlotButton.Name = "saveSlotButton";
-            this.saveSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.saveSlotButton.Size = new System.Drawing.Size(92, 30);
             this.saveSlotButton.TabIndex = 1;
             this.saveSlotButton.Text = "Save Here";
             this.saveSlotButton.UseVisualStyleBackColor = true;
@@ -596,9 +596,9 @@ namespace SluMAN
             //
             // loadSlotButton
             //
-            this.loadSlotButton.Location = new System.Drawing.Point(116, 250);
+            this.loadSlotButton.Location = new System.Drawing.Point(108, 250);
             this.loadSlotButton.Name = "loadSlotButton";
-            this.loadSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.loadSlotButton.Size = new System.Drawing.Size(92, 30);
             this.loadSlotButton.TabIndex = 2;
             this.loadSlotButton.Text = "Load";
             this.loadSlotButton.UseVisualStyleBackColor = true;
@@ -606,9 +606,9 @@ namespace SluMAN
             //
             // clearSlotButton
             //
-            this.clearSlotButton.Location = new System.Drawing.Point(222, 250);
+            this.clearSlotButton.Location = new System.Drawing.Point(206, 250);
             this.clearSlotButton.Name = "clearSlotButton";
-            this.clearSlotButton.Size = new System.Drawing.Size(98, 30);
+            this.clearSlotButton.Size = new System.Drawing.Size(94, 30);
             this.clearSlotButton.TabIndex = 3;
             this.clearSlotButton.Text = "Clear";
             this.clearSlotButton.UseVisualStyleBackColor = true;
@@ -618,7 +618,7 @@ namespace SluMAN
             //
             this.slotInfoLabel.Location = new System.Drawing.Point(8, 292);
             this.slotInfoLabel.Name = "slotInfoLabel";
-            this.slotInfoLabel.Size = new System.Drawing.Size(312, 92);
+            this.slotInfoLabel.Size = new System.Drawing.Size(294, 92);
             this.slotInfoLabel.TabIndex = 4;
             this.slotInfoLabel.Text = "The Save Position and Load Position combos use the selected slot.";
             //
@@ -626,7 +626,7 @@ namespace SluMAN
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(824, 414);
+            this.ClientSize = new System.Drawing.Size(650, 422);
             this.Controls.Add(this.savedPositionsGroupBox);
             this.Controls.Add(this.charInfoGroupBox);
             this.Controls.Add(this.positionGroupBox);

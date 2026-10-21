@@ -67,7 +67,8 @@ start
 
 isLoading
 {
-
+    // For Game Time with loads removed. Sly 1 runs are timed in Real Time, which this doesn't touch.
+    return current.loadingState == 1;
 }
 
 onReset
