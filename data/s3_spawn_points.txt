@@ -7,12 +7,19 @@
 # came from (a run file or the map's start), to help name it.
 #
 # Sly 3's job list loads jobs without a spawn ID (the game places the player at the checkpoint),
-# so this file starts with the IDs from the map list, the run files and the address sheet's
-# "Sly 3 Reload Spawn Locations". Practice Mode also remembers every spawn point a load arrives
-# at, in s3_seen_spawn_points.txt in the user data folder; copy those here to ship and name them.
+# so these were gathered by loading every job checkpoint and noting where each load arrived
+# ("job checkpoint"), plus the map list, the run files and the address sheet's "Sly 3 Reload
+# Spawn Locations". Practice Mode also remembers every spawn point a load arrives at, in
+# s3_seen_spawn_points.txt in the user data folder; copy new ones here to ship and name them.
+
+# ==== Main Menu ====
+dvd_menu | 424 |  # job checkpoint
 
 # ==== Hazard Room ====
 i_trainer | 424 |  # Hazard Room map start
+i_trainer | 162872 |  # job checkpoint
+i_trainer | 162647 |  # job checkpoint
+i_trainer | 163119 |  # job checkpoint
 
 # ==== Venice Hub ====
 v_ext | 424 | Safe House  # Episode 1 run file
@@ -23,7 +30,44 @@ v_ext | 139723 | Octavio Snap job trigger  # address sheet
 v_ext | 138801 | Canal Chase job trigger  # address sheet
 v_ext | 138392 | Tar Ball job trigger  # address sheet
 v_ext | 51378 | Operation: Tar-Be Gone! job trigger  # address sheet
-# Also in the address sheet, map not noted: 139855 pump room, 138348 Turf War 4, 139664 Bomb 1
+v_ext | 138676 |  # job checkpoint
+v_ext | 139731 |  # job checkpoint
+v_ext | 139738 |  # job checkpoint
+v_ext | 139746 |  # job checkpoint
+v_ext | 139750 |  # job checkpoint
+v_ext | 139754 |  # job checkpoint
+v_ext | 139643 |  # job checkpoint
+v_ext | 138333 |  # job checkpoint
+v_ext | 138338 |  # job checkpoint
+v_ext | 138343 |  # job checkpoint
+v_ext | 138348 | Turf War 4  # job checkpoint; address sheet
+v_ext | 139659 |  # job checkpoint
+v_ext | 139664 | Bomb 1  # job checkpoint; address sheet
+v_ext | 138473 |  # job checkpoint
+v_ext | 139673 |  # job checkpoint
+v_ext | 139678 |  # job checkpoint
+v_ext | 139810 |  # job checkpoint
+v_ext | 139815 |  # job checkpoint
+v_ext | 139819 |  # job checkpoint
+v_ext | 139057 |  # job checkpoint
+v_ext | 139880 |  # job checkpoint
+
+# ==== Canal Chase ====
+v_canal | 138801 |  # job checkpoint
+v_canal | 424 |  # job checkpoint
+
+# ==== Coffee House ====
+v_apt | 138896 |  # job checkpoint
+v_apt | 138953 |  # job checkpoint
+v_apt | 139022 |  # job checkpoint
+
+# ==== Opera House ====
+v_gauntlet | 139788 |  # job checkpoint
+v_gauntlet | 138684 |  # job checkpoint
+v_gauntlet | 138706 |  # job checkpoint
+v_gauntlet | 139801 |  # job checkpoint
+v_gauntlet | 139137 |  # job checkpoint
+v_gauntlet | 139855 | Pump room  # job checkpoint; address sheet
 
 # ==== Police Station ====
 v_interpol | 137291 | Police HQ vent  # address sheet
@@ -34,19 +78,260 @@ v_interpol | 137235 | Cell key table  # address sheet
 o_ext | 424 |  # Episode 2 run file
 o_ext | 44438 |  # Outback Hub map start
 o_ext | 119462 | Guru's Hut  # address sheet (Episode 2; map assumed)
+o_ext | 119449 |  # job checkpoint
+o_ext | 119456 |  # job checkpoint
+o_ext | 120759 |  # job checkpoint
+o_ext | 119520 |  # job checkpoint
+o_ext | 120219 |  # job checkpoint
+o_ext | 120890 |  # job checkpoint
+o_ext | 120694 |  # job checkpoint
+o_ext | 120779 |  # job checkpoint
+o_ext | 120786 |  # job checkpoint
+o_ext | 119705 |  # job checkpoint
+o_ext | 119711 |  # job checkpoint
+o_ext | 120764 |  # job checkpoint
+o_ext | 120820 |  # job checkpoint
+o_ext | 120858 |  # job checkpoint
+o_ext | 120164 |  # job checkpoint
+o_ext | 120897 |  # job checkpoint
+o_ext | 120435 |  # job checkpoint
+
+# ==== Ayer's Rock ====
+o_quarry | 119819 |  # job checkpoint
+o_quarry | 120804 |  # job checkpoint
+o_quarry | 119850 |  # job checkpoint
+o_quarry | 120529 |  # job checkpoint
+o_quarry | 120921 |  # job checkpoint
+
+# ==== Oil Field ====
+o_arena | 119594 |  # job checkpoint
+o_arena | 120765 |  # job checkpoint
+o_arena | 120768 |  # job checkpoint
+
+# ==== Cave 1 ====
+o_cave_a | 120219 |  # job checkpoint
+o_cave_a | 120249 |  # job checkpoint
+
+# ==== Cave 2 ====
+o_cave_b | 120219 |  # job checkpoint
+o_cave_b | 120249 |  # job checkpoint
+
+# ==== Cave 3 ====
+o_cave_murray | 118729 |  # job checkpoint
+o_cave_murray | 118698 |  # job checkpoint
+o_cave_murray | 118660 |  # job checkpoint
+o_cave_murray | 118649 |  # job checkpoint
+
+# ==== Lemonade Bar ====
+o_bar | 119906 |  # job checkpoint
+o_bar | 120836 |  # job checkpoint
 
 # ==== Holland Hub ====
 h_ext | 424 |  # Episode 3 run file
 h_ext | 44438 |  # Holland Hub map start
+h_ext | 92642 |  # job checkpoint
+h_ext | 93958 |  # job checkpoint
+h_ext | 93968 |  # job checkpoint
+h_ext | 93972 |  # job checkpoint
+h_ext | 92978 |  # job checkpoint
+h_ext | 93098 |  # job checkpoint
+h_ext | 93243 |  # job checkpoint
+h_ext | 94015 |  # job checkpoint
+h_ext | 93426 |  # job checkpoint
+h_ext | 94028 |  # job checkpoint
+h_ext | 93346 |  # job checkpoint
+h_ext | 93345 |  # job checkpoint
+h_ext | 94020 |  # job checkpoint
+h_ext | 94022 |  # job checkpoint
+h_ext | 94024 |  # job checkpoint
+h_ext | 93450 |  # job checkpoint
+h_ext | 93443 |  # job checkpoint
+h_ext | 94035 |  # job checkpoint
+h_ext | 51378 |  # job checkpoint
+h_ext | 94050 |  # job checkpoint
+
+# ==== Hotel ====
+h_hotel | 92642 |  # job checkpoint
+h_hotel | 93973 |  # job checkpoint
+h_hotel | 92940 |  # job checkpoint
+h_hotel | 93070 |  # job checkpoint
+h_hotel | 93450 |  # job checkpoint
+
+# ==== Black Baron's Hangar ====
+h_hangar_b | 92845 |  # job checkpoint
+
+# ==== Cooper Gang Hangar ====
+h_hangar_c | 93243 |  # job checkpoint
+h_hangar_c | 93194 |  # job checkpoint
+
+# ==== Team Belgium's Hangar ====
+h_hangar_a | 93123 |  # job checkpoint
+
+# ==== Sewer ====
+h_sewer | 93052 |  # job checkpoint
+h_sewer | 93984 |  # job checkpoint
+h_sewer | 93077 |  # job checkpoint
+h_sewer | 93990 |  # job checkpoint
+
+# ==== Dogfight Arena ====
+h_dogfight | 93308 |  # job checkpoint
+h_dogfight | 93763 |  # job checkpoint
 
 # ==== China Hub ====
 c_ext | 424 |  # Episode 4 run file
 c_ext | 44438 |  # China Hub map start
+c_ext | 69823 |  # job checkpoint
+c_ext | 68286 |  # job checkpoint
+c_ext | 69847 |  # job checkpoint
+c_ext | 68396 |  # job checkpoint
+c_ext | 69852 |  # job checkpoint
+c_ext | 69857 |  # job checkpoint
+c_ext | 68502 |  # job checkpoint
+c_ext | 68508 |  # job checkpoint
+c_ext | 69867 |  # job checkpoint
+c_ext | 68539 |  # job checkpoint
+c_ext | 69881 |  # job checkpoint
+c_ext | 69882 |  # job checkpoint
+c_ext | 68844 |  # job checkpoint
+c_ext | 69898 |  # job checkpoint
+c_ext | 68909 |  # job checkpoint
+c_ext | 68933 |  # job checkpoint
+c_ext | 69908 |  # job checkpoint
+c_ext | 68980 |  # job checkpoint
+c_ext | 69915 |  # job checkpoint
+c_ext | 69167 |  # job checkpoint
+c_ext | 69170 |  # job checkpoint
+c_ext | 69272 |  # job checkpoint
+c_ext | 51378 |  # job checkpoint
+c_ext | 69503 |  # job checkpoint
+c_ext | 69576 |  # job checkpoint
+c_ext | 69625 |  # job checkpoint
+
+# ==== Intro ====
+c_intro | 69799 |  # job checkpoint
+c_intro | 68019 |  # job checkpoint
+c_intro | 69802 |  # job checkpoint
+c_intro | 68057 |  # job checkpoint
+c_intro | 68083 |  # job checkpoint
+c_intro | 68106 |  # job checkpoint
+
+# ==== Flashback ====
+c_flashback | 68180 |  # job checkpoint
+
+# ==== Tsao's Battleground ====
+c_forest | 68688 |  # job checkpoint
+c_forest | 68752 |  # job checkpoint
+
+# ==== Panda King's House ====
+c_apt | 68844 |  # job checkpoint
+
+# ==== Tsao's Business Center ====
+c_hall_a | 68555 |  # job checkpoint
+c_hall_a | 69877 |  # job checkpoint
+
+# ==== Palace ====
+c_hall_b | 69823 |  # job checkpoint
+c_hall_b | 68262 |  # job checkpoint
+c_hall_b | 68595 |  # job checkpoint
+c_hall_b | 69877 |  # job checkpoint
+c_hall_b | 69529 |  # job checkpoint
+
+# ==== Treasure Temple ====
+c_tilt_hall | 69933 |  # job checkpoint
+c_tilt_hall | 69413 |  # job checkpoint
+c_tilt_hall | 69942 |  # job checkpoint
+c_tilt_hall | 69446 |  # job checkpoint
 
 # ==== Pirate Hub ====
 p_ext | 424 |  # Episode 5 run file
 p_ext | 44438 |  # Pirate Hub map start
+p_ext | 49981 |  # job checkpoint
+p_ext | 51199 |  # job checkpoint
+p_ext | 51203 |  # job checkpoint
+p_ext | 50013 |  # job checkpoint
+p_ext | 51207 |  # job checkpoint
+p_ext | 51210 |  # job checkpoint
+p_ext | 51262 |  # job checkpoint
+p_ext | 51263 |  # job checkpoint
+p_ext | 50142 |  # job checkpoint
+p_ext | 50198 |  # job checkpoint
+p_ext | 50226 |  # job checkpoint
+p_ext | 51291 |  # job checkpoint
+p_ext | 51308 |  # job checkpoint
+p_ext | 50534 |  # job checkpoint
+p_ext | 51319 |  # job checkpoint
+p_ext | 51321 |  # job checkpoint
+p_ext | 51324 |  # job checkpoint
+p_ext | 51326 |  # job checkpoint
+p_ext | 50827 |  # job checkpoint
+p_ext | 51381 |  # job checkpoint
+p_ext | 51390 |  # job checkpoint
+p_ext | 51393 |  # job checkpoint
+p_ext | 51397 |  # job checkpoint
+p_ext | 51099 |  # job checkpoint
+
+# ==== Sailing Map ====
+p_at_sea | 50474 |  # job checkpoint
+p_at_sea | 51330 |  # job checkpoint
+p_at_sea | 51347 |  # job checkpoint
+p_at_sea | 50589 |  # job checkpoint
+p_at_sea | 50698 |  # job checkpoint
+p_at_sea | 50777 |  # job checkpoint
+p_at_sea | 51371 |  # job checkpoint
+p_at_sea | 51373 |  # job checkpoint
+p_at_sea | 51374 |  # job checkpoint
+p_at_sea | 51376 |  # job checkpoint
+
+# ==== Underwater Shipwreck ====
+p_dive | 16439 |  # job checkpoint
+p_dive | 51348 |  # job checkpoint
+p_dive | 51364 |  # job checkpoint
+p_dive | 51368 |  # job checkpoint
+
+# ==== Dagger Island ====
+p_island_map | 46707 |  # job checkpoint
+p_island_map | 46705 |  # job checkpoint
 
 # ==== Kaine Island ====
 m_ext | 15022 |  # Kaine Island map start
 m_ext | 16386 |  # Episode 6 run files
+m_ext | 424 |  # job checkpoint
+m_ext | 16361 |  # job checkpoint
+m_ext | 16342 |  # job checkpoint
+m_ext | 15366 |  # job checkpoint
+m_ext | 15429 |  # job checkpoint
+m_ext | 15730 |  # job checkpoint
+m_ext | 16434 |  # job checkpoint
+m_ext | 16439 |  # job checkpoint
+m_ext | 15916 |  # job checkpoint
+m_ext | 15928 |  # job checkpoint
+m_ext | 15937 |  # job checkpoint
+m_ext | 16467 |  # job checkpoint
+m_ext | 15981 |  # job checkpoint
+m_ext | 15997 |  # job checkpoint
+m_ext | 16025 |  # job checkpoint
+m_ext | 16473 |  # job checkpoint
+
+# ==== Underwater ====
+m_underwater | 15787 |  # job checkpoint
+m_underwater | 15792 |  # job checkpoint
+
+# ==== Cooper Vault ====
+m_vault | 16319 |  # job checkpoint
+
+# ==== Gauntlet ====
+m_gauntlet | 16136 |  # job checkpoint
+m_gauntlet | 16482 |  # job checkpoint
+m_gauntlet | 16487 |  # job checkpoint
+m_gauntlet | 16490 |  # job checkpoint
+m_gauntlet | 16493 |  # job checkpoint
+m_gauntlet | 16509 |  # job checkpoint
+m_gauntlet | 16528 |  # job checkpoint
+m_gauntlet | 16530 |  # job checkpoint
+m_gauntlet | 16536 |  # job checkpoint
+m_gauntlet | 16551 |  # job checkpoint
+m_gauntlet | 16556 |  # job checkpoint
+
+# ==== Inner Sanctum ====
+m_boss | 9846 |  # job checkpoint
+m_boss | 9844 |  # job checkpoint
