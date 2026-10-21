@@ -75,7 +75,7 @@ namespace SluMAN
             valueLabel.AutoSize = true;
             valueLabel.Location = new Point(300, buttonsY + 5);
             Controls.Add(valueLabel);
-            tip.SetToolTip(valueLabel, "The movie flags as the game stores them, at game state + 0x19F4.");
+            tip.SetToolTip(valueLabel, "The movie flags as the game stores them, at game state + 0x19F8 (0x3E8004).");
 
             noteLabel = new Label();
             noteLabel.AutoSize = true;

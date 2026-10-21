@@ -441,9 +441,9 @@ namespace SluMAN
             public string file;
         }
 
-        // The in-game movie list, in its order. Each movie's watched bit is assumed to be its
-        // position in the list (bit 0 = the first): change the order here if a bit turns out to
-        // belong to another movie.
+        // The in-game movie list, in its order. Each movie's watched bit is its position in the
+        // list (bit 0 = the first; Tide of Terror's bit 4 is confirmed): change the order here if
+        // a bit turns out to belong to another movie.
         public static readonly MovieEntry[] Movies = new MovieEntry[]
         {
             new MovieEntry { name = "The Secret Police File", file = "secret_origin.bik" },
