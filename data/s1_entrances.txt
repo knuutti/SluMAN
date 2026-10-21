@@ -1,7 +1,8 @@
 # Sly 1 entrance names: level | entrance ID | English name
 #
-# The Level group in Practice Mode lists the loaded level's entrances, read from the game, by ID.
-# Lines here name them, and list entrances of levels that aren't loaded, so they can be loaded
-# straight away. The level is as the Level dropdown shows it, e.g. "Tide of Terror: A Stealthy
+# The Level group in Practice Mode lists the entrances read from the game, by ID: the loaded
+# level's, and those of every level visited before (kept in s1_seen_entrances.txt in the user
+# data folder). Lines here name them, and list entrances of levels that haven't been visited, so
+# they can be loaded straight away. The level is as the Level dropdown shows it, e.g. "Tide of Terror: A Stealthy
 # Approach" or "Paris". The entrance ID is the number the dropdown shows. Everything after a #
 # is a comment.

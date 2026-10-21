@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
@@ -21,6 +22,9 @@ namespace SluMAN
         private const string ViewerTab = "Memory Viewer";
         private const string LevelStart = "Level start";
         private const string EntranceFile = "data/s1_entrances.txt";
+        // In the user data folder: every entrance read from the game, so a level's entrances
+        // can be loaded from anywhere once it has been visited.
+        private const string SeenEntranceFile = "s1_seen_entrances.txt";
 
         // The status refreshes every second; on a PS3 every read is a network round trip.
         private const int RefreshIntervalMs = 1000;
@@ -44,6 +48,7 @@ namespace SluMAN
         private GameSession session;
         private PracticeTabs practiceTabs;
         private SpawnPoints namedEntrances;
+        private SpawnPoints seenEntrances;
 
         // The current level when the entrances were last read; they're read again when it changes.
         private int entrancesLevel = -2;
@@ -77,6 +82,7 @@ namespace SluMAN
             statusLine = new StatusLine(this, true);
 
             namedEntrances = new SpawnPoints(EntranceFile);
+            seenEntrances = new SpawnPoints(UserData.Path(SeenEntranceFile));
             foreach (sly1.LevelEntry level in sly1.GetLevels())
             {
                 levelComboBox.Items.Add(level);
@@ -190,8 +196,9 @@ namespace SluMAN
 
             ToolTip tip = new ToolTip();
             tip.SetToolTip(entranceComboBox,
-                "Entrances of the loaded level are read from the game. Names for them, and entrances of\n" +
-                "other levels, come from data/s1_entrances.txt (level | entrance ID | name).");
+                "Entrances are read from the game when you're in a level, and remembered, so a level's\n" +
+                "entrances can be loaded from anywhere once you've visited it. Names for them come\n" +
+                "from data/s1_entrances.txt (level | entrance ID | name).");
             tip.SetToolTip(freezeCharmsCheckBox, "Holds a gold charm, so hits don't cost a life.");
             FormClosed += (sender, e) => tip.Dispose();
         }
@@ -315,6 +322,13 @@ namespace SluMAN
                 }
 
                 List<int> ids = new List<int>(names.Keys);
+                foreach (SpawnPoints.SpawnPoint seen in seenEntrances.ForMap(sly1.LevelTitle(level.index)))
+                {
+                    if (!ids.Contains((int)seen.id))
+                    {
+                        ids.Add((int)seen.id);
+                    }
+                }
                 if (level.index == entrancesLevel)
                 {
                     foreach (int id in currentEntrances)
@@ -335,6 +349,48 @@ namespace SluMAN
             }
             entranceComboBox.SelectedIndex = 0;
             entranceComboBox.Enabled = entranceComboBox.Items.Count > 1;
+        }
+
+        /// <summary>Adds the level's entrances that aren't in the seen entrance file yet to it.</summary>
+        private void RememberEntrances(int level, List<int> entrances)
+        {
+            if (level < 0 || entrances.Count == 0)
+            {
+                return;
+            }
+            string title = sly1.LevelTitle(level);
+            List<uint> known = new List<uint>();
+            foreach (SpawnPoints.SpawnPoint seen in seenEntrances.ForMap(title))
+            {
+                known.Add(seen.id);
+            }
+            List<string> lines = new List<string>();
+            foreach (int id in entrances)
+            {
+                if (id >= 0 && !known.Contains((uint)id))
+                {
+                    lines.Add($"{title} | {id}");
+                }
+            }
+            if (lines.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                string path = UserData.Path(SeenEntranceFile);
+                if (!File.Exists(path))
+                {
+                    lines.Insert(0, "# Sly 1 entrances SluMAN has read from the game: level | entrance ID. Written by SluMAN.");
+                }
+                File.AppendAllLines(path, lines);
+                seenEntrances = new SpawnPoints(path);
+            }
+            catch
+            {
+                // Not writable: the entrances still show while the level is loaded.
+            }
         }
 
         private void SelectCurrentLevel()
@@ -373,6 +429,7 @@ namespace SluMAN
                     {
                         entrancesLevel = level;
                         currentEntrances = entrances;
+                        RememberEntrances(level, entrances);
                         sly1.LevelEntry selected = levelComboBox.SelectedItem as sly1.LevelEntry;
                         if (selected != null && selected.index == level)
                         {
