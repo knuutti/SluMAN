@@ -533,6 +533,35 @@ namespace SluMAN
             api.WriteMemory(pid, WorldSave(world) + sly1.addr.worldFlagsOffset, ConvertIntToBytes(flags));
         }
 
+        // The last loading state the Practice Mode popup saw: 1 while loading, 0 once done.
+        private volatile int popUpLoadingState = -1;
+
+        /// <summary>
+        /// Shows webMAN's "SluMAN (Practice Mode)" popup on the PS3 after every load, like Sly 2
+        /// and Sly 3, so a run's video shows Practice Mode was on. Ratchetron only. Call again
+        /// after a reconnect.
+        /// </summary>
+        public void SetupWebManPopUp()
+        {
+            if (!(api is Ratchetron))
+            {
+                return;
+            }
+            popUpLoadingState = -1;
+            api.SubMemory(pid, sly1.addr.loadingState, 4, (value) =>
+            {
+                int state = BitConverter.ToInt32(value, 0);
+                bool finished = state == 0 && popUpLoadingState == 1;
+                popUpLoadingState = state;
+                if (finished)
+                {
+                    // A web request: not on the subscription thread.
+                    string ip = api.GetIP();
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ => WebMAN.DisplayVersionPopUp(ip));
+                }
+            });
+        }
+
         private int ReadInt(uint address)
         {
             byte[] bytes = api.ReadMemory(pid, address, 4);

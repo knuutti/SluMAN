@@ -98,6 +98,8 @@ namespace SluMAN
             game.combosActive = true;
             game.InputsTimer.Start();
 
+            game.SetupWebManPopUp();
+
             session = new GameSession(this, game, gameNameId, "Sly 1", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
@@ -499,6 +501,7 @@ namespace SluMAN
 
         private void session_Reconnected()
         {
+            game.SetupWebManPopUp();
             // The game reset, so the console dropped the freezes: make them again.
             game.ForgetFreezes();
             if (freezeLivesCheckBox.Checked)

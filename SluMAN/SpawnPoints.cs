@@ -26,12 +26,16 @@ namespace SluMAN
 
         private readonly Dictionary<string, List<SpawnPoint>> byMap = new Dictionary<string, List<SpawnPoint>>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>Reads the file; a missing or unreadable file gives no spawn points.</summary>
+        /// <summary>Reads the file; a missing or unreadable file (or a null path) gives no spawn points.</summary>
         public SpawnPoints(string path)
         {
             string[] lines;
             try
             {
+                if (path == null)
+                {
+                    return;
+                }
                 lines = File.ReadAllLines(path);
             }
             catch
@@ -79,7 +83,8 @@ namespace SluMAN
             return byMap.TryGetValue(StripPrefix(map), out spawns) ? spawns : new List<SpawnPoint>();
         }
 
-        private static string StripPrefix(string map)
+        /// <summary>The map name without its "Y$KF" prefix.</summary>
+        public static string StripPrefix(string map)
         {
             return map.StartsWith(MapPrefix) ? map.Substring(MapPrefix.Length) : map;
         }
