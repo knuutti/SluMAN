@@ -65,6 +65,9 @@ namespace SluMAN
         public uint worldVaultsOffset { get; private set; }
         public uint worldSprintsOffset { get; private set; }
         public uint worldFlagsOffset { get; private set; }
+        // gameState + moviesOffset: one bit per movie (FMV) unlocked, which may be what lets a
+        // movie be skipped.
+        public uint moviesOffset { get; private set; }
 
         private Sly1Addresses()
         {
@@ -140,6 +143,7 @@ namespace SluMAN
                 worldVaultsOffset = 0x43C,
                 worldSprintsOffset = 0x440,
                 worldFlagsOffset = 0x448,
+                moviesOffset = 0x19F4,
             };
 
             return new Dictionary<string, Sly1Addresses>(StringComparer.OrdinalIgnoreCase)

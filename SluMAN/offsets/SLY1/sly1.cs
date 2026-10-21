@@ -434,6 +434,17 @@ namespace SluMAN
             api.WriteMemory(pid, WorldSave(world) + sly1.addr.worldFlagsOffset, ConvertIntToBytes(flags));
         }
 
+        /// <summary>The unlocked movies: one bit per movie.</summary>
+        public uint GetMovies()
+        {
+            return (uint)ReadInt(sly1.addr.gameState + sly1.addr.moviesOffset);
+        }
+
+        public void SetMovies(uint movies)
+        {
+            api.WriteMemory(pid, sly1.addr.gameState + sly1.addr.moviesOffset, ConvertIntToBytes((int)movies));
+        }
+
         private int ReadInt(uint address)
         {
             byte[] bytes = api.ReadMemory(pid, address, 4);
