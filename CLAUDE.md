@@ -65,7 +65,7 @@ Practice windows are a fixed 660 wide with tabs (`PracticeTabs` with `fixedWidth
 
 ### Autosplitter (`AutosplitterHelper.cs`)
 
-Writes game state into a named memory-mapped file `"SluMAN-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose.
+Writes game state into a named memory-mapped file `"SluMAN-autosplitter"` (128 bytes addresses + 256 bytes config). LiveSplit autosplitter scripts read from this MMF. Games implement `IAutosplitterAvailable` to declare which addresses to expose. With Tools → Log Autosplitter Values on (Speedrun Mode), `AutosplitterLog` writes every shared value as it arrives, timestamped and numbered in the `.asl`'s read order, to `autosplitter_logs/` in the user data folder, for diagnosing missed splits.
 
 ### Lua mod scripting (`LuaAutomation.cs`)
 

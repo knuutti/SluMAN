@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -14,6 +16,7 @@ namespace SluMAN
     {
         private const string PrefersAutosplitterKey = "prefersAutosplitter";
         private const string PrefersAlwaysOnTopKey = "prefersAlwaysOnTop";
+        private const string LogsAutosplitterKey = "logsAutosplitter";
 
         // How long to wait after the game is back before subscribing, so it has finished starting.
         private const int SettleDelayMs = 2000;
@@ -173,15 +176,97 @@ namespace SluMAN
             send(ip);
         }
 
+        /// <summary>
+        /// Adds the autosplitter log items to the form's Tools menu, before its first separator.
+        /// </summary>
+        public void AddAutosplitterLogMenu(MenuStrip menu)
+        {
+            foreach (ToolStripItem item in menu.Items)
+            {
+                ToolStripMenuItem tools = item as ToolStripMenuItem;
+                if (tools == null || tools.Text != "Tools")
+                {
+                    continue;
+                }
+                int index = tools.DropDownItems.Count;
+                for (int i = 0; i < tools.DropDownItems.Count; i++)
+                {
+                    if (tools.DropDownItems[i] is ToolStripSeparator)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                foreach (ToolStripItem logItem in CreateAutosplitterLogMenuItems())
+                {
+                    tools.DropDownItems.Insert(index++, logItem);
+                }
+                return;
+            }
+        }
+
+        /// <summary>
+        /// A Tools menu item that turns the autosplitter value log on or off (saved in config.txt),
+        /// and one that opens the folder the logs are written to.
+        /// </summary>
+        private ToolStripItem[] CreateAutosplitterLogMenuItems()
+        {
+            ToolStripMenuItem logItem = new ToolStripMenuItem("Log Autosplitter Values");
+            logItem.ToolTipText = "Writes every value the autosplitter sees, with the time, to a file in\n" +
+                "the user data folder's autosplitter_logs, to find out why a split was missed.";
+            logItem.Checked = ReadPreference(LogsAutosplitterKey);
+            logItem.Click += (sender, e) =>
+            {
+                logItem.Checked = !logItem.Checked;
+                func.ChangeFileLines("config.txt", logItem.Checked ? "true" : "false", LogsAutosplitterKey);
+                // Restart a running autosplitter so the log starts or stops now.
+                if (autosplitter != null)
+                {
+                    StopAutosplitter();
+                    StartAutosplitter();
+                }
+            };
+
+            ToolStripMenuItem openItem = new ToolStripMenuItem("Open Autosplitter Logs");
+            openItem.Click += (sender, e) =>
+            {
+                string folder = UserData.Path(AutosplitterLog.FolderName);
+                try
+                {
+                    Directory.CreateDirectory(folder);
+                    Process.Start("explorer.exe", "\"" + folder + "\"");
+                }
+                catch (Exception ex)
+                {
+                    func.Status($"Couldn't open {folder}: {ex.Message}", true);
+                }
+            };
+            return new ToolStripItem[] { logItem, openItem };
+        }
+
         private void StartAutosplitter()
         {
+            AutosplitterLog log = null;
             try
             {
                 autosplitter = new AutosplitterHelper();
+                if (ReadPreference(LogsAutosplitterKey))
+                {
+                    log = new AutosplitterLog(gameName);
+                    autosplitter.Log = log;
+                }
                 autosplitter.StartAutosplitterForGame(game);
+                if (log != null)
+                {
+                    func.Status($"Logging autosplitter values to {Path.GetFileName(log.FilePath)}.");
+                }
             }
             catch (Exception ex)
             {
+                if (log != null)
+                {
+                    log.Dispose();
+                }
                 func.Status($"Couldn't start the autosplitter: {ex.Message}", true);
                 Console.WriteLine(ex);
             }
