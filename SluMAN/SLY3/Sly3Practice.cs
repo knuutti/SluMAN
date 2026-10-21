@@ -54,7 +54,7 @@ namespace SluMAN
 
             mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
                 game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
-                new SpawnPoints("data/s3_spawn_points.txt"));
+                new SpawnPoints("data/s3_spawn_points.txt"), UserData.Path("s3_seen_spawn_points.txt"));
 
             gameNameId = sly3.addr.GameId;
 
@@ -146,6 +146,7 @@ namespace SluMAN
                     // The load may have been another save, so an open tool such as the gadgets
                     // reads it again. Save data doesn't wait for the player like the toggles do.
                     practiceTabs.RefreshShownTool();
+                    RememberSpawnPoint();
 
                     reapplyAttempts = 0;
                     reapplyTimer.Stop();
@@ -155,6 +156,22 @@ namespace SluMAN
             catch
             {
                 // The form closed in between.
+            }
+        }
+
+        /// <summary>
+        /// Adds the spawn point the load arrived at to the Spawn point dropdown's remembered ones,
+        /// so it can be loaded from then on.
+        /// </summary>
+        private void RememberSpawnPoint()
+        {
+            try
+            {
+                mapPicker.Remember(game.GetMapIndicator(), game.GetSpawnLocation());
+            }
+            catch
+            {
+                // Not readable right now; the next load tries again.
             }
         }
 

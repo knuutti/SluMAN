@@ -6,19 +6,34 @@
 # spawn point without one shows as its ID. Everything after a # is a comment: here, where the ID
 # came from (a run file or the map's start), to help name it.
 #
-# Sly 3's job list loads jobs without a spawn ID, so this file starts with only the IDs from the
-# map list and the run files.
+# Sly 3's job list loads jobs without a spawn ID (the game places the player at the checkpoint),
+# so this file starts with the IDs from the map list, the run files and the address sheet's
+# "Sly 3 Reload Spawn Locations". Practice Mode also remembers every spawn point a load arrives
+# at, in s3_seen_spawn_points.txt in the user data folder; copy those here to ship and name them.
 
 # ==== Hazard Room ====
 i_trainer | 424 |  # Hazard Room map start
 
 # ==== Venice Hub ====
-v_ext | 424 |  # Episode 1 run file
-v_ext | 44438 |  # Venice Hub map start
+v_ext | 424 | Safe House  # Episode 1 run file
+v_ext | 44438 | In front of the Safe House  # Venice Hub map start
+v_ext | 49981 | Police HQ job trigger  # address sheet
+v_ext | 51210 | Exiting Police HQ  # address sheet
+v_ext | 139723 | Octavio Snap job trigger  # address sheet
+v_ext | 138801 | Canal Chase job trigger  # address sheet
+v_ext | 138392 | Tar Ball job trigger  # address sheet
+v_ext | 51378 | Operation: Tar-Be Gone! job trigger  # address sheet
+# Also in the address sheet, map not noted: 139855 pump room, 138348 Turf War 4, 139664 Bomb 1
+
+# ==== Police Station ====
+v_interpol | 137291 | Police HQ vent  # address sheet
+v_interpol | 137226 | Next to Dimitri's cell  # address sheet
+v_interpol | 137235 | Cell key table  # address sheet
 
 # ==== Outback Hub ====
 o_ext | 424 |  # Episode 2 run file
 o_ext | 44438 |  # Outback Hub map start
+o_ext | 119462 | Guru's Hut  # address sheet (Episode 2; map assumed)
 
 # ==== Holland Hub ====
 h_ext | 424 |  # Episode 3 run file

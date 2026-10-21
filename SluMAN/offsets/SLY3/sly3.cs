@@ -366,6 +366,19 @@ namespace SluMAN
             }
         }
 
+        /// <summary>The current map's internal name, such as "Y$KFv_ext". Empty if it can't be read.</summary>
+        public string GetMapIndicator()
+        {
+            return ReadMapIndicator(sly3.addr.mapAOB);
+        }
+
+        /// <summary>The spawn point the player last arrived at (the game sets it through doors and loads).</summary>
+        public uint GetSpawnLocation()
+        {
+            byte[] bytes = api.ReadMemory(pid, sly3.addr.spawnLocation, 4);
+            return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
         public void SetSpawnLocation(uint location)
         {
             api.WriteMemory(pid, sly3.addr.spawnLocation, location);

@@ -41,7 +41,7 @@ namespace SluMAN
 
             mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
                 game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
-                new SpawnPoints("data/s2_spawn_points.txt"));
+                new SpawnPoints("data/s2_spawn_points.txt"), UserData.Path("s2_seen_spawn_points.txt"));
 
             gameNameId = sly2.addr.GameId;
 
@@ -183,6 +183,22 @@ namespace SluMAN
         // How long to wait after a load finishes before re-applying, so the game has set up the
         // player entity.
         private const int ReapplyDelayMs = 500;
+        /// <summary>
+        /// Adds the spawn point the load arrived at to the Spawn point dropdown's remembered ones,
+        /// so it can be loaded from then on.
+        /// </summary>
+        private void RememberSpawnPoint()
+        {
+            try
+            {
+                mapPicker.Remember(game.GetMapIndicator(), game.GetSpawnLocation());
+            }
+            catch
+            {
+                // Not readable right now; the next load tries again.
+            }
+        }
+
         // Retries while the player entity doesn't exist yet: 10 x 500 ms.
         private const int MaxReapplyAttempts = 10;
         private readonly Timer reapplyTimer = new Timer();
@@ -202,6 +218,7 @@ namespace SluMAN
                     // The load may have been another save, so an open tool such as the gadgets
                     // reads it again. Save data doesn't wait for the player like the toggles do.
                     practiceTabs.RefreshShownTool();
+                    RememberSpawnPoint();
 
                     reapplyAttempts = 0;
                     reapplyTimer.Stop();
