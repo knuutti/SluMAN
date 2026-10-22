@@ -88,6 +88,11 @@ namespace SluMAN
                 freeCamera.PlaybackFinished -= freeCamera_PlaybackFinished;
                 playbackTimer.Stop();
                 countdownTimer.Stop();
+                // Leave the game with its HUD.
+                if (hideHudCheckBox.Checked)
+                {
+                    try { game.SetHudHidden(false); } catch { }
+                }
             };
             FormClosed += (sender, e) =>
             {
@@ -127,12 +132,22 @@ namespace SluMAN
             freeCameraCheckBox.Click += freeCameraCheckBox_Click;
             group.Controls.Add(freeCameraCheckBox);
 
-            // Where Sly 4's tab has it, but off: how Sly 3 hides its HUD isn't known yet.
             hideHudCheckBox.Text = "Hide HUD";
             hideHudCheckBox.AutoSize = true;
             hideHudCheckBox.Location = new Point(190, 20);
-            hideHudCheckBox.Enabled = false;
+            hideHudCheckBox.Click += (sender, e) => SetHudHidden(hideHudCheckBox.Checked);
             group.Controls.Add(hideHudCheckBox);
+            ToolTip hudTip = new ToolTip();
+            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD (sets its scale X to 0).");
+            try
+            {
+                hideHudCheckBox.Checked = game.IsHudHidden();
+            }
+            catch
+            {
+                // Left unticked; ticking it writes the value anyway.
+            }
+            FormClosed += (sender, e) => hudTip.Dispose();
 
             Label moveLabel = new Label();
             moveLabel.Text = "Move speed (units / s):";
@@ -515,6 +530,20 @@ namespace SluMAN
             }
             freeCameraCheckBox.Checked = freeCamera.IsOn;
             ShowPlaying();
+        }
+
+        private void SetHudHidden(bool hidden)
+        {
+            try
+            {
+                game.SetHudHidden(hidden);
+                statusLine.Info(hidden ? "Hid the HUD." : "Showed the HUD.");
+            }
+            catch (Exception ex)
+            {
+                hideHudCheckBox.Checked = !hidden;
+                statusLine.Error($"Couldn't {(hidden ? "hide" : "show")} the HUD: {ex.Message}");
+            }
         }
 
         private void ShowFov()

@@ -506,6 +506,32 @@ namespace SluMAN
             api.WriteMemory(pid, ptr + 0x2C, ConvertIntToBytes(disabled ? 1 : 0));
         }
 
+        // The HUD's scale X when Hide HUD hid it, to put back.
+        private float hudScaleXBeforeHiding = 1f;
+
+        /// <summary>Hides the HUD (its scale X to 0) or puts back the scale it had.</summary>
+        public void SetHudHidden(bool hidden)
+        {
+            float current = ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0);
+            if (hidden)
+            {
+                if (current != 0)
+                {
+                    hudScaleXBeforeHiding = current;
+                }
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(0f));
+            }
+            else if (current == 0)
+            {
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(hudScaleXBeforeHiding));
+            }
+        }
+
+        public bool IsHudHidden()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0) == 0;
+        }
+
         public void SetCameraFOV(float value)
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);

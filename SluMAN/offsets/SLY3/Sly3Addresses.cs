@@ -95,6 +95,12 @@ namespace SluMAN
         public uint[] worldMatrixUpdateCalls { get; private set; }
         public uint cameraHookStub { get; private set; }
         public uint cameraHookData { get; private set; }
+
+        // The HUD's scale (stretch) and position, 1.0 and 0.0 normally. A scale X of 0 hides it.
+        public uint hudScaleX { get; private set; }
+        public uint hudScaleY { get; private set; }
+        public uint hudPositionX { get; private set; }
+        public uint hudPositionY { get; private set; }
         public uint objectParentOffset { get; private set; }
         public uint objectChangedOffset { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
@@ -221,6 +227,11 @@ namespace SluMAN
                 cameraHookStub = 0x3CE590,
                 // The data segment ends at 0x8ABAC8, in a page the game has mapped.
                 cameraHookData = 0x8ABB00,
+
+                hudScaleX = 0x509050,
+                hudScaleY = 0x50905C,
+                hudPositionX = 0x509060,
+                hudPositionY = 0x509064,
                 objectParentOffset = 0x40,
                 objectChangedOffset = 0x44,
                 cameraFovTargetOffset = 0x11C,
