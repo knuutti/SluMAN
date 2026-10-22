@@ -84,12 +84,14 @@ namespace SluMAN
         public uint cameraDrawMatrix { get; private set; }
         // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
         // updated from its local one (+0x50) by one function, when the object is marked changed
-        // (+0x44 negative) and has no parent (+0x40). Its first instruction is pointed at a stub
-        // in the unused end of the code segment, which for the camera SluMAN drives first copies
-        // in SluMAN's matrix from the stub's data (unused end of the data segment).
+        // (+0x44 negative) and has no parent (+0x40). Its first instruction is pointed at a stub,
+        // written over a function the game never calls, which for the camera SluMAN drives first
+        // copies in SluMAN's matrix from the stub's data (unused end of the data segment).
         public uint worldMatrixUpdateFunction { get; private set; }
         public uint worldMatrixUpdateFirstInstruction { get; private set; }
         public uint cameraHookStub { get; private set; }
+        // The never-called function's first words, which the stub may only be written over.
+        public uint[] cameraHookStubOriginal { get; private set; }
         public uint cameraHookData { get; private set; }
         public uint objectParentOffset { get; private set; }
         public uint objectChangedOffset { get; private set; }
@@ -210,9 +212,18 @@ namespace SluMAN
 
                 worldMatrixUpdateFunction = 0x220118,
                 worldMatrixUpdateFirstInstruction = 0xF821FF41, // stdu r1, -0xC0(r1)
-                // The code segment ends at 0x451F68 and the data segment at 0x8ABAC8, in pages
-                // the game has mapped.
-                cameraHookStub = 0x451F80,
+                // A small math function (0x80 bytes) nothing calls, branches into or points to.
+                // Not past the code segment's end: RPCS3's static interpreter can only run code
+                // inside the segment, and jumped to 0 there.
+                cameraHookStub = 0x22C2D4,
+                cameraHookStubOriginal = new uint[]
+                {
+                    0xF821FF51, 0x7C0802A6, 0xDBA10098, 0xFFA00890, 0xEC230828, 0xDBC100A0,
+                    0xDBE100A8, 0xFFC02090, 0xFFE01090, 0xF80100C0, 0xFB810078, 0xFBA10080,
+                    0x7D1C4378, 0x7CFD3B78, 0x4BFFFF6D, 0x7BA70020, 0xFC600890, 0x7B880020,
+                    0xFC40F890, 0xC022051C, 0xFC80F090, 0x4BFFFBA1,
+                },
+                // The data segment ends at 0x8ABAC8, in a page the game has mapped.
                 cameraHookData = 0x8ABB00,
                 objectParentOffset = 0x40,
                 objectChangedOffset = 0x44,

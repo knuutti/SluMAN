@@ -772,12 +772,13 @@ namespace SluMAN
                 throw new InvalidOperationException("The camera is attached to something, so the camera hook can't drive it.");
             }
 
-            // Both areas are unused memory: zeros, or what SluMAN put there before.
+            // The stub goes over the never-called function, as it is in the game or with the stub
+            // already written; the data in unused memory: zeros, or what SluMAN put there before.
             byte[] code = CameraHookStub();
             byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
-            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
+            if (!codeThere.SequenceEqual(code) && !codeThere.SequenceEqual(WordsToBytes(addr.cameraHookStubOriginal)))
             {
-                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in is in use.");
+                throw new InvalidOperationException($"The code at 0x{stub:X} SluMAN puts its camera code over isn't what it expects, so the camera hook isn't available on this version.");
             }
             byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
             if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
@@ -869,12 +870,17 @@ namespace SluMAN
                 addr.worldMatrixUpdateFirstInstruction, // 20 the instruction the branch replaced
                 Branch(stub + 21 * 4, addr.worldMatrixUpdateFunction + 4, false),
             };
-            byte[] code = new byte[words.Length * 4];
+            return WordsToBytes(words);
+        }
+
+        private static byte[] WordsToBytes(uint[] words)
+        {
+            byte[] bytes = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)
             {
-                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, bytes, i * 4, 4);
             }
-            return code;
+            return bytes;
         }
 
         private static uint Branch(uint from, uint to, bool link)
