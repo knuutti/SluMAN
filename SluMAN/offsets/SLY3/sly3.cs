@@ -760,12 +760,13 @@ namespace SluMAN
             uint function = addr.worldMatrixUpdateFunction;
             uint stub = addr.cameraHookStub;
             uint data = addr.cameraHookData;
-            uint original = addr.worldMatrixUpdateFirstInstruction;
-            uint hooked = Branch(function, stub, false);
-            uint instruction = ReadUInt(function);
-            if (instruction != original && instruction != hooked)
+            foreach (uint call in addr.worldMatrixUpdateCalls)
             {
-                throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+                uint instruction = ReadUInt(call);
+                if (instruction != Branch(call, function, true) && instruction != Branch(call, stub, true))
+                {
+                    throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+                }
             }
             if (ReadUInt(camera + addr.objectParentOffset) != 0)
             {
@@ -776,9 +777,10 @@ namespace SluMAN
             // already written; the data in unused memory: zeros, or what SluMAN put there before.
             byte[] code = CameraHookStub();
             byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
-            if (!codeThere.SequenceEqual(code) && !codeThere.SequenceEqual(WordsToBytes(addr.cameraHookStubOriginal)))
+            byte[] original = WordsToBytes(addr.cameraHookStubOriginal).Take(code.Length).ToArray();
+            if (!codeThere.SequenceEqual(code) && !codeThere.SequenceEqual(original))
             {
-                throw new InvalidOperationException($"The code at 0x{stub:X} SluMAN puts its camera code over isn't what it expects, so the camera hook isn't available on this version.");
+                throw new InvalidOperationException($"The code at 0x{stub:X} SluMAN puts its camera code over isn't what it expects. Restart the game, or the camera hook isn't available on this version.");
             }
             byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
             if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
@@ -800,8 +802,11 @@ namespace SluMAN
                     throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
                 }
             }
-            api.WriteMemory(pid, function, BitConverter.GetBytes(hooked).Reverse().ToArray());
             api.WriteMemory(pid, data, BitConverter.GetBytes(1u).Reverse().ToArray());
+            foreach (uint call in addr.worldMatrixUpdateCalls)
+            {
+                api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, stub, true)).Reverse().ToArray());
+            }
         }
 
         /// <summary>Marks an object's world matrix as changed, so the game works it out again.</summary>
@@ -822,21 +827,24 @@ namespace SluMAN
             return ReadUInt(addr.cameraHookData + 8);
         }
 
-        /// <summary>Lets the game's own camera through again, and puts the game's code back.</summary>
+        /// <summary>Lets the game's own camera through again, and puts the game's calls back.</summary>
         public void StopCameraHook()
         {
             api.WriteMemory(pid, addr.cameraHookData, new byte[4]);
             uint function = addr.worldMatrixUpdateFunction;
-            if (ReadUInt(function) == Branch(function, addr.cameraHookStub, false))
+            foreach (uint call in addr.worldMatrixUpdateCalls)
             {
-                api.WriteMemory(pid, function, BitConverter.GetBytes(addr.worldMatrixUpdateFirstInstruction).Reverse().ToArray());
+                if (ReadUInt(call) == Branch(call, addr.cameraHookStub, true))
+                {
+                    api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, function, true)).Reverse().ToArray());
+                }
             }
         }
 
         /// <summary>
-        /// The camera hook's stub, branched to instead of the world matrix update's first
-        /// instruction, with the object in r3. It only uses registers the function sets before
-        /// reading (r4 to r7, r11, r12, the count register and cr0).
+        /// The camera hook's stub, called instead of the world matrix update with the object in
+        /// r3. It only uses registers a call may change (r4 to r7, r11, r12, the count register
+        /// and cr0), then branches on into the function, which returns to the caller.
         /// </summary>
         private byte[] CameraHookStub()
         {
@@ -867,8 +875,7 @@ namespace SluMAN
                 0x80EB0008,             // 17 lwz r7, 8(r11)
                 0x38E70001,             // 18 addi r7, r7, 1
                 0x90EB0008,             // 19 stw r7, 8(r11) (count)
-                addr.worldMatrixUpdateFirstInstruction, // 20 the instruction the branch replaced
-                Branch(stub + 21 * 4, addr.worldMatrixUpdateFunction + 4, false),
+                Branch(stub + 20 * 4, addr.worldMatrixUpdateFunction, false), // 20 b to the function
             };
             return WordsToBytes(words);
         }

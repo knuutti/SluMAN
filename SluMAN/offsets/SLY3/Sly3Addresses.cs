@@ -84,11 +84,14 @@ namespace SluMAN
         public uint cameraDrawMatrix { get; private set; }
         // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
         // updated from its local one (+0x50) by one function, when the object is marked changed
-        // (+0x44 negative) and has no parent (+0x40). Its first instruction is pointed at a stub,
+        // (+0x44 negative) and has no parent (+0x40). Every call to it is pointed at a stub,
         // written over a function the game never calls, which for the camera SluMAN drives first
-        // copies in SluMAN's matrix from the stub's data (unused end of the data segment).
+        // copies in SluMAN's matrix from the stub's data (unused end of the data segment), then
+        // carries on into the function. RPCS3's static interpreter keeps the kind of instruction
+        // it first ran at an address, so only calls (bl to bl) can be patched, and the stub must
+        // be code that hasn't run.
         public uint worldMatrixUpdateFunction { get; private set; }
-        public uint worldMatrixUpdateFirstInstruction { get; private set; }
+        public uint[] worldMatrixUpdateCalls { get; private set; }
         public uint cameraHookStub { get; private set; }
         // The never-called function's first words, which the stub may only be written over.
         public uint[] cameraHookStubOriginal { get; private set; }
@@ -211,7 +214,7 @@ namespace SluMAN
                 cameraFarClipOffset = 0x114,
 
                 worldMatrixUpdateFunction = 0x220118,
-                worldMatrixUpdateFirstInstruction = 0xF821FF41, // stdu r1, -0xC0(r1)
+                worldMatrixUpdateCalls = new uint[] { 0x5DA38, 0x5FBA0, 0x15D0F4, 0x15D69C, 0x1AC8E8, 0x220250 },
                 // A small math function (0x80 bytes) nothing calls, branches into or points to.
                 // Not past the code segment's end: RPCS3's static interpreter can only run code
                 // inside the segment, and jumped to 0 there.
