@@ -13,16 +13,21 @@ namespace SluMAN
     /// <para>
     /// No game code is patched: the camera's matrix, and the copies of it the game draws from
     /// (cameraDrawMatrixOffset in the camera struct, cameraDrawMatrix in the game's data), are
-    /// written from SluMAN, each in one write, faster than the game's frame rate. The game copies
-    /// its own camera into them once a frame, so a write that lands after that is the one drawn. On RPCS3 that's nearly every frame; on a PS3, writes are slower
-    /// and the game's camera shows through more often.
+    /// written from SluMAN, each in one write. The game copies its own camera into them once a
+    /// frame, just before drawing, so on RPCS3 they're rewritten nonstop to be the ones drawn
+    /// (which keeps one CPU core busy while the camera is on). On a PS3 writes are round trips
+    /// over the network, so the game's camera shows through.
     /// </para>
     /// Runs on its own thread and keeps going whichever tab shows. Sly3Practice owns the one
     /// instance. It turns itself off when a load starts.
     /// </summary>
     public class Sly3FreeCamera
     {
-        private const int Rpcs3IntervalMs = 2;
+        // How often the sticks move the camera (and the player is held). On RPCS3 the camera's
+        // matrices are also rewritten nonstop in between: the game copies its own camera into
+        // them just before drawing, and only writing over and over wins against that (a sleep
+        // between writes lasts about 15 ms on Windows, and the game's camera shows through).
+        private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 30;
         private const float DeadZone = 0.2f;
         // Field of view limits and the game's usual one (the PS2 freecam's), in radians.
@@ -36,6 +41,7 @@ namespace SluMAN
 
         private readonly sly3 game;
         private readonly int intervalMs;
+        private readonly bool rewriteNonstop;
         private readonly SynchronizationContext uiContext;
         private readonly Stopwatch clock = new Stopwatch();
         private readonly object stateLock = new object();
@@ -85,6 +91,8 @@ namespace SluMAN
         {
             this.game = game;
             intervalMs = game.api is RPCS3 ? Rpcs3IntervalMs : PS3IntervalMs;
+            // On a PS3 each write is a round trip over the network, so it's ticks only.
+            rewriteNonstop = game.api is RPCS3;
             uiContext = SynchronizationContext.Current ?? new SynchronizationContext();
         }
 
@@ -399,8 +407,27 @@ namespace SluMAN
 
         private void Run()
         {
+            Stopwatch sinceTick = new Stopwatch();
             while (running)
             {
+                if (rewriteNonstop && sinceTick.IsRunning && sinceTick.ElapsedMilliseconds < intervalMs)
+                {
+                    lock (stateLock)
+                    {
+                        try
+                        {
+                            WriteCamera();
+                        }
+                        catch
+                        {
+                            // The next tick finds out why.
+                        }
+                    }
+                    Thread.Yield();
+                    continue;
+                }
+                sinceTick.Restart();
+
                 string stopReason;
                 lock (stateLock)
                 {
@@ -425,7 +452,10 @@ namespace SluMAN
                     RaiseModeChanged();
                     return;
                 }
-                Thread.Sleep(intervalMs);
+                if (!rewriteNonstop)
+                {
+                    Thread.Sleep(intervalMs);
+                }
             }
         }
 

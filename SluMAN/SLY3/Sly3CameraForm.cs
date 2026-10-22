@@ -179,8 +179,8 @@ namespace SluMAN
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
                 "R2 / L2 zoom. The player is held where they stood. The\n" +
-                "camera turns off when a level loads. The game's own camera\n" +
-                "can show through now and then, more on a PS3 than RPCS3.";
+                "camera turns off when a level loads. On a PS3 the game's\n" +
+                "own camera shows through; RPCS3 keeps it out.";
             help.Location = new Point(8, 180);
             help.Size = new Size(298, 54);
             group.Controls.Add(help);
