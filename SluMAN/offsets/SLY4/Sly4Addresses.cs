@@ -18,11 +18,14 @@ namespace SluMAN
         public string DisplayName { get; private set; }
 
         // Inputs: the game's pad object, which holds the controller data the game read this frame.
-        // Buttons are the two button bytes as a 4-byte word: 00, Select..Left, 00, L2..Square.
-        // Each stick is two big-endian floats, X then Y.
-        public uint inputButtons { get; private set; }
-        public uint analogLeft { get; private set; }
-        public uint analogRight { get; private set; }
+        // It's on the heap, so it moves when the heap layout does (with the archive replaced by
+        // loose files, for one); padPtr is the static pointer the game keeps to player 1's pad,
+        // set once at boot. Buttons are the two button bytes as a 4-byte word: 00, Select..Left,
+        // 00, L2..Square. Each stick is two big-endian floats, X then Y.
+        public uint padPtr { get; private set; }
+        public uint padButtonsOffset { get; private set; }
+        public uint padAnalogLeftOffset { get; private set; }
+        public uint padAnalogRightOffset { get; private set; }
 
         // Pointers
         public uint gameManagerPtr { get; private set; }
@@ -215,10 +218,13 @@ namespace SluMAN
                 GameId = GameIdPALDisc,
                 DisplayName = "SLY 4 (PAL, Disc)",
 
-                // From the RaCMAN input viewer for NPEA00429; the pad object is at 0x30A1C040.
-                inputButtons = 0x30A1C0E0,
-                analogLeft = 0x30A1C060,
-                analogRight = 0x30A1C068,
+                // The pad pointer is in the player array that the boot code at 0x463000 fills
+                // (0x10B19E0, a 0x2EC0-byte entry per player, the pad at +0xCC). The buttons are
+                // in the CellPadData the pad reads into at +0x98.
+                padPtr = 0x10B1AAC,
+                padButtonsOffset = 0xA0,
+                padAnalogLeftOffset = 0x20,
+                padAnalogRightOffset = 0x28,
 
                 gameManagerPtr = 0xF65CA0,
                 episodeManagerPtr = 0xF64C20,
