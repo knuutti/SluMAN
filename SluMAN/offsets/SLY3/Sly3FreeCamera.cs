@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using SluMAN.Memory;
@@ -10,10 +11,10 @@ namespace SluMAN
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
     /// L1 move up and down, R2 and L2 zoom. The player is held where they stood.
     /// <para>
-    /// No game code is patched: the camera's matrix is written from SluMAN, all of it in one
-    /// write, faster than the game's frame rate. The game writes its own camera once a frame and
-    /// builds what it draws from the camera at the start of the next, so a write that lands in
-    /// between is the one drawn. On RPCS3 that's nearly every frame; on a PS3, writes are slower
+    /// No game code is patched: the camera's matrix, and the copies of it the game draws from
+    /// (cameraDrawMatrixOffset in the camera struct, cameraDrawMatrix in the game's data), are
+    /// written from SluMAN, each in one write, faster than the game's frame rate. The game copies
+    /// its own camera into them once a frame, so a write that lands after that is the one drawn. On RPCS3 that's nearly every frame; on a PS3, writes are slower
     /// and the game's camera shows through more often.
     /// </para>
     /// Runs on its own thread and keeps going whichever tab shows. Sly3Practice owns the one
@@ -96,12 +97,13 @@ namespace SluMAN
         public bool IsOn => on;
 
         /// <summary>
-        /// The other copies of the camera's position to write with it (each the address of the
-        /// position's 3 floats). Takes effect the next time the camera starts.
+        /// More copies of the camera's position to write with it (each the address of the
+        /// position's 3 floats), on top of the ones the game draws from (cameraDrawMatrixOffset,
+        /// cameraDrawMatrix). Takes effect the next time the camera starts.
         /// </summary>
         public uint[] Copies = new uint[0];
 
-        /// <summary>How many of the copies are written as whole matrices, while the camera is on.</summary>
+        /// <summary>How many copies are written as whole matrices, while the camera is on.</summary>
         public int MatrixCopyCount
         {
             get
@@ -339,16 +341,31 @@ namespace SluMAN
             leftSign = Dot(Axis(m, 1), Left()) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 2), Cross(Forward(), Left())) < 0 ? -1 : 1;
 
-            uint[] copies = (uint[])Copies.Clone();
-            copyPositions = copies;
-            copyRowW = new float[copies.Length][];
-            for (int i = 0; i < copies.Length; i++)
+            // The copies the game draws from, then any more found with Find camera.
+            List<uint> copies = new List<uint>();
+            copies.Add(target + sly3.addr.cameraDrawMatrixOffset + 0x30);
+            copies.Add(sly3.addr.cameraDrawMatrix + 0x30);
+            foreach (uint copy in Copies)
             {
-                uint matrix = copies[i] - 0x30;
+                if (!copies.Contains(copy) && copy != target + (uint)offset + 0x30)
+                {
+                    copies.Add(copy);
+                }
+            }
+            copyPositions = copies.ToArray();
+            copyRowW = new float[copyPositions.Length][];
+            for (int i = 0; i < copyPositions.Length; i++)
+            {
+                // A copy gets the whole matrix only when it's the same matrix as the camera's, so
+                // nothing that just happens to share the position is turned.
+                uint matrix = copyPositions[i] - 0x30;
                 if (game.IsCameraMatrixAt(matrix))
                 {
                     float[] copy = game.ReadMatrixAt(matrix);
-                    copyRowW[i] = new float[] { copy[3], copy[7], copy[11], copy[15] };
+                    if (SameRotation(copy, m))
+                    {
+                        copyRowW[i] = new float[] { copy[3], copy[7], copy[11], copy[15] };
+                    }
                 }
             }
 
@@ -550,6 +567,24 @@ namespace SluMAN
         private static float Stick(float value)
         {
             return Math.Abs(value) < DeadZone ? 0 : value;
+        }
+
+        // How far two matrices' axes may differ and still be the same rotation.
+        private const float SameRotationTolerance = 0.01f;
+
+        private static bool SameRotation(float[] a, float[] b)
+        {
+            for (int row = 0; row < 3; row++)
+            {
+                for (int column = 0; column < 3; column++)
+                {
+                    if (Math.Abs(a[row * 4 + column] - b[row * 4 + column]) > SameRotationTolerance)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         /// <summary>One of the matrix's axes (0 X, 1 Y, 2 Z): a row.</summary>

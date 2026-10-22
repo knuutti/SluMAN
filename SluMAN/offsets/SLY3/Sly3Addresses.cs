@@ -77,6 +77,11 @@ namespace SluMAN
         // 4x4: X, Y, Z axes, then position. Where the PS2 version has it; the free camera checks
         // it holds a camera matrix and searches the struct when it doesn't (sly3.FindCameraMatrix).
         public uint cameraMatrixOffset { get; private set; }
+        // Copies of the camera matrix the game draws from, which it copies the one above into
+        // every frame: one in the camera struct and one in the game's data. Writing only the
+        // matrix above doesn't move the view; the free camera writes these too.
+        public uint cameraDrawMatrixOffset { get; private set; }
+        public uint cameraDrawMatrix { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
         public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
 
@@ -185,7 +190,11 @@ namespace SluMAN
 
                 cameraCount = 0x7DA530,
                 cameraArray = 0x7DA534,
-                cameraMatrixOffset = 0x50, // PS2 offset, not confirmed on PS3
+                cameraMatrixOffset = 0x50,
+                // Raising either one's position moves the view (Find camera); 0x7D6590, another
+                // copy, doesn't.
+                cameraDrawMatrixOffset = 0x90,
+                cameraDrawMatrix = 0x7DA890,
                 cameraFarClipOffset = 0x114,
                 cameraFovTargetOffset = 0x11C,
 

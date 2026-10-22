@@ -275,7 +275,7 @@ namespace SluMAN
                 {
                     freeCamera.CameraSpeed = (float)moveSpeedUpDown.Value;
                     freeCamera.Start(SelectedCamera());
-                    statusLine.Info($"Free camera on: camera 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}."
+                    statusLine.Info($"Free camera on: camera 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}, {freeCamera.MatrixCopyCount} drawn copies."
                         + (freeCamera.FovKnown ? "" : " Its field of view isn't one SluMAN knows, so zoom is off."));
                 }
                 else
@@ -343,7 +343,7 @@ namespace SluMAN
             cameraComboBox.Enabled = !on;
             drivenLabel.Text = on
                 ? $"Driving 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}"
-                    + (freeCamera.Copies.Length > 0 ? $", and {freeCamera.Copies.Length} copies." : ".")
+                    + $", {freeCamera.MatrixCopyCount} drawn copies."
                 : "The free camera is off.";
             ShowFov();
         }
@@ -509,8 +509,8 @@ namespace SluMAN
                     freeCamera.Copies = moving.ToArray();
                     text.AppendLine();
                     text.AppendLine(moving.Count > 0
-                        ? $"The free camera now also writes {string.Join(", ", moving.ConvertAll(a => a.ToString("X8")))} (until SluMAN closes)."
-                        : "None moved the view, so the free camera writes only the camera struct.");
+                        ? $"The free camera also writes {string.Join(", ", moving.ConvertAll(a => a.ToString("X8")))}, on top of the copies it always writes (until SluMAN closes)."
+                        : "None moved the view, so the free camera writes only the copies it always writes.");
                 }
                 else
                 {
