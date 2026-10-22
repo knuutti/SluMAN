@@ -27,6 +27,10 @@ namespace SluMAN
         private readonly NumericUpDown lookSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown fovUpDown = new NumericUpDown();
         private readonly CheckBox hideHudCheckBox = new CheckBox();
+        private readonly CheckBox noFogCheckBox = new CheckBox();
+        // No fog is checked again every this many field-of-view refreshes (a load may set the fog).
+        private const int NoFogRefreshTicks = 10;
+        private int noFogTick;
         private readonly CheckBox characterControlCheckBox = new CheckBox();
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
@@ -93,6 +97,10 @@ namespace SluMAN
                 {
                     try { game.SetHudHidden(false); } catch { }
                 }
+                if (noFogCheckBox.Checked)
+                {
+                    try { game.SetFogDisabled(false); } catch { }
+                }
             };
             FormClosed += (sender, e) =>
             {
@@ -101,7 +109,14 @@ namespace SluMAN
             };
 
             fovTimer.Interval = 100;
-            fovTimer.Tick += (sender, e) => ShowFov();
+            fovTimer.Tick += (sender, e) =>
+            {
+                ShowFov();
+                if (noFogCheckBox.Checked && ++noFogTick % NoFogRefreshTicks == 0)
+                {
+                    try { game.SetFogDisabled(true); } catch { }
+                }
+            };
             fovTimer.Start();
             FormClosing += (sender, e) => fovTimer.Stop();
             FormClosed += (sender, e) => fovTimer.Dispose();
@@ -413,8 +428,23 @@ namespace SluMAN
                 func.BindEnter(box, setButton);
             }
 
+            noFogCheckBox.Text = "No fog";
+            noFogCheckBox.AutoSize = true;
+            noFogCheckBox.Location = new Point(264, 78);
+            noFogCheckBox.Click += (sender, e) => SetFogDisabled(noFogCheckBox.Checked);
+            group.Controls.Add(noFogCheckBox);
+            try
+            {
+                noFogCheckBox.Checked = game.IsFogDisabled();
+            }
+            catch
+            {
+                // Left unticked; ticking it writes the value anyway.
+            }
+
             ToolTip tip = new ToolTip();
             tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees; Z is up.");
+            tip.SetToolTip(noFogCheckBox, "Turns the fog off, and keeps it off after loads. Untick to put it back.");
             FormClosed += (sender, e) => tip.Dispose();
             return group;
         }
@@ -530,6 +560,20 @@ namespace SluMAN
             }
             freeCameraCheckBox.Checked = freeCamera.IsOn;
             ShowPlaying();
+        }
+
+        private void SetFogDisabled(bool disabled)
+        {
+            try
+            {
+                game.SetFogDisabled(disabled);
+                statusLine.Info(disabled ? "Turned the fog off." : "Put the fog back.");
+            }
+            catch (Exception ex)
+            {
+                noFogCheckBox.Checked = !disabled;
+                statusLine.Error($"Couldn't change the fog: {ex.Message}");
+            }
         }
 
         private void SetHudHidden(bool hidden)

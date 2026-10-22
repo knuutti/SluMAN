@@ -101,6 +101,9 @@ namespace SluMAN
         public uint hudScaleY { get; private set; }
         public uint hudPositionX { get; private set; }
         public uint hudPositionY { get; private set; }
+
+        // The fog: 0 turns it off.
+        public uint fog { get; private set; }
         public uint objectParentOffset { get; private set; }
         public uint objectChangedOffset { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
@@ -232,6 +235,8 @@ namespace SluMAN
                 hudScaleY = 0x50905C,
                 hudPositionX = 0x509060,
                 hudPositionY = 0x509064,
+
+                fog = 0x58993C,
                 objectParentOffset = 0x40,
                 objectChangedOffset = 0x44,
                 cameraFovTargetOffset = 0x11C,
