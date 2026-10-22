@@ -20,7 +20,7 @@ namespace SluMAN
 
         private readonly sly4 game;
         private readonly Sly4FreeMove freeMove;
-        private Sly4CameraPath path = new Sly4CameraPath();
+        private CameraPath path = new CameraPath();
 
         private readonly CheckBox freeCameraCheckBox = new CheckBox();
         private readonly NumericUpDown moveSpeedUpDown = new NumericUpDown();
@@ -196,10 +196,10 @@ namespace SluMAN
             lookSpeedUpDown.Minimum = 10;
             lookSpeedUpDown.Maximum = MaxLookDegrees;
             lookSpeedUpDown.Increment = 10;
-            lookSpeedUpDown.Value = (decimal)Math.Max(10, Math.Min(MaxLookDegrees, Math.Round(Sly4CameraPath.Degrees(freeMove.LookSpeed))));
+            lookSpeedUpDown.Value = (decimal)Math.Max(10, Math.Min(MaxLookDegrees, Math.Round(CameraPath.Degrees(freeMove.LookSpeed))));
             lookSpeedUpDown.Location = new Point(214, 72);
             lookSpeedUpDown.Size = new Size(60, 20);
-            lookSpeedUpDown.ValueChanged += (sender, e) => freeMove.LookSpeed = Sly4CameraPath.Radians((float)lookSpeedUpDown.Value);
+            lookSpeedUpDown.ValueChanged += (sender, e) => freeMove.LookSpeed = CameraPath.Radians((float)lookSpeedUpDown.Value);
             group.Controls.Add(lookSpeedUpDown);
 
             Label fovLabel = new Label();
@@ -214,7 +214,7 @@ namespace SluMAN
 
             fovUpDown.DecimalPlaces = 4;
             fovUpDown.Minimum = 0.0001m;
-            fovUpDown.Maximum = (decimal)Math.Round(Sly4CameraPath.Degrees(Sly4FreeMove.MaxFov));
+            fovUpDown.Maximum = (decimal)Math.Round(CameraPath.Degrees(Sly4FreeMove.MaxFov));
             fovUpDown.Value = 53.5m;
             fovUpDown.Location = new Point(214, 98);
             fovUpDown.Size = new Size(60, 20);
@@ -222,7 +222,7 @@ namespace SluMAN
             {
                 if (!updatingFov)
                 {
-                    freeMove.Fov = Sly4CameraPath.Radians((float)fovUpDown.Value);
+                    freeMove.Fov = CameraPath.Radians((float)fovUpDown.Value);
                 }
             };
             group.Controls.Add(fovUpDown);
@@ -494,7 +494,7 @@ namespace SluMAN
             float[] values =
             {
                 position[0], position[1], position[2],
-                Sly4CameraPath.Degrees(yaw), Sly4CameraPath.Degrees(pitch), Sly4CameraPath.Degrees(fov),
+                CameraPath.Degrees(yaw), CameraPath.Degrees(pitch), CameraPath.Degrees(fov),
             };
             for (int i = 0; i < values.Length; i++)
             {
@@ -523,7 +523,7 @@ namespace SluMAN
                 return;
             }
             freeMove.SetCamera(new float[] { values[0], values[1], values[2] },
-                Sly4CameraPath.Radians(values[3]), Sly4CameraPath.Radians(values[4]), Sly4CameraPath.Radians(values[5]));
+                CameraPath.Radians(values[3]), CameraPath.Radians(values[4]), CameraPath.Radians(values[5]));
         }
 
         private static void AddButton(Control parent, string text, int x, int y, int width, EventHandler click)
@@ -662,7 +662,7 @@ namespace SluMAN
             {
                 return;
             }
-            decimal degrees = (decimal)Math.Round(Sly4CameraPath.Degrees(freeMove.Fov), 4);
+            decimal degrees = (decimal)Math.Round(CameraPath.Degrees(freeMove.Fov), 4);
             degrees = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, degrees));
             if (fovUpDown.Value != degrees)
             {
@@ -700,7 +700,7 @@ namespace SluMAN
             {
                 return;
             }
-            Sly4CameraPath.Keyframe key = new Sly4CameraPath.Keyframe();
+            CameraPath.Keyframe key = new CameraPath.Keyframe();
             if (!ReadView(key))
             {
                 return;
@@ -711,7 +711,7 @@ namespace SluMAN
             // A new keyframe takes the timing of the one before it.
             if (index > 0)
             {
-                Sly4CameraPath.Keyframe previous = path.Keyframes[index - 1];
+                CameraPath.Keyframe previous = path.Keyframes[index - 1];
                 key.duration = previous.duration;
                 key.easing = previous.easing;
             }
@@ -721,7 +721,7 @@ namespace SluMAN
         }
 
         /// <summary>Copies the free camera's view into a keyframe. False if the camera is off.</summary>
-        private bool ReadView(Sly4CameraPath.Keyframe key)
+        private bool ReadView(CameraPath.Keyframe key)
         {
             float[] position;
             float yaw;
@@ -775,7 +775,7 @@ namespace SluMAN
             {
                 return;
             }
-            Sly4CameraPath.Keyframe key = path.Keyframes[index];
+            CameraPath.Keyframe key = path.Keyframes[index];
             path.Keyframes.RemoveAt(index);
             path.Keyframes.Insert(target, key);
             ShowKeyframes(target);
@@ -788,7 +788,7 @@ namespace SluMAN
             {
                 return;
             }
-            Sly4CameraPath.Keyframe key = path.Keyframes[index];
+            CameraPath.Keyframe key = path.Keyframes[index];
             freeMove.SetCamera(new float[] { key.x, key.y, key.z }, key.yaw, key.pitch, key.fov);
             ShowScrubPosition(path.TimeOf(index));
         }
@@ -829,13 +829,13 @@ namespace SluMAN
 
         private ListViewItem KeyframeItem(int index)
         {
-            Sly4CameraPath.Keyframe key = path.Keyframes[index];
+            CameraPath.Keyframe key = path.Keyframes[index];
             bool last = index == path.Keyframes.Count - 1;
             ListViewItem item = new ListViewItem((index + 1).ToString());
             item.SubItems.Add($"{Format(key.x)}, {Format(key.y)}, {Format(key.z)}");
-            item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.yaw)));
-            item.SubItems.Add(Format(Sly4CameraPath.Degrees(key.pitch)));
-            item.SubItems.Add(key.fov > 0 ? FormatFov(Sly4CameraPath.Degrees(key.fov)) : "game");
+            item.SubItems.Add(Format(CameraPath.Degrees(key.yaw)));
+            item.SubItems.Add(Format(CameraPath.Degrees(key.pitch)));
+            item.SubItems.Add(key.fov > 0 ? FormatFov(CameraPath.Degrees(key.fov)) : "game");
             // The last keyframe ends the path, so its timing isn't used.
             item.SubItems.Add(last ? "-" : key.duration.ToString("0.##", CultureInfo.InvariantCulture));
             item.SubItems.Add(last || path.Smooth ? "-" : EasingText(key.easing));
@@ -853,9 +853,9 @@ namespace SluMAN
             return value.ToString("0.0", CultureInfo.InvariantCulture);
         }
 
-        private static string EasingText(Sly4CameraPath.Easing easing)
+        private static string EasingText(CameraPath.Easing easing)
         {
-            return easing == Sly4CameraPath.Easing.EaseInOut ? "Ease" : easing.ToString();
+            return easing == CameraPath.Easing.EaseInOut ? "Ease" : easing.ToString();
         }
 
         private void ShowSelectedKeyframe()
@@ -864,7 +864,7 @@ namespace SluMAN
             updating = true;
             if (index >= 0)
             {
-                Sly4CameraPath.Keyframe key = path.Keyframes[index];
+                CameraPath.Keyframe key = path.Keyframes[index];
                 durationUpDown.Value = (decimal)Math.Max(0, Math.Min(600, key.duration));
                 easingComboBox.SelectedIndex = (int)key.easing;
             }
@@ -881,11 +881,11 @@ namespace SluMAN
             {
                 return;
             }
-            Sly4CameraPath.Keyframe key = path.Keyframes[index];
+            CameraPath.Keyframe key = path.Keyframes[index];
             key.duration = (float)durationUpDown.Value;
             if (easingComboBox.SelectedIndex >= 0)
             {
-                key.easing = (Sly4CameraPath.Easing)easingComboBox.SelectedIndex;
+                key.easing = (CameraPath.Easing)easingComboBox.SelectedIndex;
             }
             ListViewItem item = KeyframeItem(index);
             for (int i = 1; i < item.SubItems.Count; i++)
@@ -912,7 +912,7 @@ namespace SluMAN
                 {
                     return;
                 }
-                Sly4CameraPath.Keyframe first = path.Keyframes[0];
+                CameraPath.Keyframe first = path.Keyframes[0];
                 freeMove.SetCamera(new float[] { first.x, first.y, first.z }, first.yaw, first.pitch, first.fov);
                 countdownLeft = CountdownSeconds;
                 statusLine.Info($"Playing in {countdownLeft}...");
@@ -1044,7 +1044,7 @@ namespace SluMAN
             pathNameComboBox.Items.Clear();
             if (level != "")
             {
-                foreach (string name in Sly4CameraPath.SavedNames(level))
+                foreach (string name in CameraPath.SavedNames(CameraPath.Sly4Folder, level))
                 {
                     pathNameComboBox.Items.Add(name);
                 }
@@ -1060,7 +1060,7 @@ namespace SluMAN
                 statusLine.Error("Paths are saved per level; load into a level first.");
                 return null;
             }
-            if (!Sly4CameraPath.IsValidName(name))
+            if (!CameraPath.IsValidName(name))
             {
                 statusLine.Error("Type a name for the path, without \\ / : * ? \" < > | characters.");
                 return null;
@@ -1083,7 +1083,7 @@ namespace SluMAN
             }
             try
             {
-                path.Save(levelName, name);
+                path.Save(CameraPath.Sly4Folder, levelName, name);
                 if (!pathNameComboBox.Items.Contains(name))
                 {
                     pathNameComboBox.Items.Add(name);
@@ -1106,7 +1106,7 @@ namespace SluMAN
             }
             try
             {
-                Sly4CameraPath loaded = Sly4CameraPath.Load(levelName, name);
+                CameraPath loaded = CameraPath.Load(CameraPath.Sly4Folder, levelName, name);
                 StopPlayback();
                 path = loaded;
                 smoothCheckBox.Checked = path.Smooth;
@@ -1134,7 +1134,7 @@ namespace SluMAN
             }
             try
             {
-                Sly4CameraPath.Delete(levelName, name);
+                CameraPath.Delete(CameraPath.Sly4Folder, levelName, name);
                 pathNameComboBox.Items.Remove(name);
                 pathNameComboBox.Text = "";
                 statusLine.Info($"Deleted \"{name}\". The keyframes stay in the list until you change them.");

@@ -182,7 +182,7 @@
     <Compile Include="offsets\SLY4\Sly4GoalWatcher.cs" />
     <Compile Include="offsets\SLY4\Sly4SpawnPoints.cs" />
     <Compile Include="offsets\SLY4\Sly4FreeMove.cs" />
-    <Compile Include="offsets\SLY4\Sly4CameraPath.cs" />
+    <Compile Include="CameraPath.cs" />
     <Compile Include="offsets\SLY4\Sly4AutosplitterValues.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />

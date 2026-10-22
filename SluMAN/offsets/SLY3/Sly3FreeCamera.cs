@@ -8,7 +8,8 @@ namespace SluMAN
     /// <summary>
     /// The Sly 3 free camera, steered with the controller as read for the input display (so its
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
-    /// L1 move up and down, R2 and L2 zoom. The player is held where they stood.
+    /// L1 move up and down, R2 and L2 zoom, R3 asks for a keyframe (KeyframeRequested). The player
+    /// is held where they stood. It can also play a camera path instead of following the sticks.
     /// <para>
     /// The camera is driven through the camera hook (sly3.StartCameraHook): the game's world
     /// matrix update puts SluMAN's matrix into the camera before working out the matrix that's
@@ -77,6 +78,12 @@ namespace SluMAN
         private float[] playerPosition;
         private bool characterControl;
 
+        // The path being played (a copy, so editing the list doesn't touch it), or null.
+        private CameraPath playingPath;
+        private bool loopPlayback;
+        private float playTime;
+        private bool r3WasPressed;
+
         // The copies of the camera's matrix the game draws from, written with the camera each
         // tick when the camera hook can't run. A copy that's the last row of a camera matrix gets
         // the whole matrix, with its own W values; otherwise only the position.
@@ -113,42 +120,80 @@ namespace SluMAN
         /// <summary>Raised on the UI thread with news about the camera hook: whether it runs.</summary>
         public event Action<string, bool> Notice;
 
-        /// <summary>Whether the camera hook drives the camera (no flicker), while it's on.</summary>
-        public bool IsHooked
-        {
-            get
-            {
-                lock (stateLock)
-                {
-                    return on && hooked;
-                }
-            }
-        }
-
         /// <summary>Raised on the UI thread when the camera is turned on or off.</summary>
         public event Action ModeChanged;
 
-        public bool IsOn => on;
+        /// <summary>Raised on the UI thread when R3 is pressed with the free camera on.</summary>
+        public event Action KeyframeRequested;
 
-        /// <summary>How many copies are written as whole matrices, while the camera is on.</summary>
-        public int MatrixCopyCount
+        /// <summary>Raised on the UI thread when a path finishes playing (not when stopped).</summary>
+        public event Action PlaybackFinished;
+
+        public bool IsPlaying
         {
             get
             {
                 lock (stateLock)
                 {
-                    int count = 0;
-                    foreach (float[] w in copyRowW)
-                    {
-                        if (w != null)
-                        {
-                            count++;
-                        }
-                    }
-                    return count;
+                    return playingPath != null;
                 }
             }
         }
+
+        /// <summary>Seconds into the path being played.</summary>
+        public float PlaybackTime
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return playTime;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Plays a camera path, turning the free camera on first if needed. Needs a keyframe.
+        /// </summary>
+        public void Play(CameraPath path, bool loop)
+        {
+            if (path.Keyframes.Count == 0)
+            {
+                throw new InvalidOperationException("Add a keyframe first.");
+            }
+            if (!on)
+            {
+                Start();
+            }
+
+            CameraPath copy = new CameraPath();
+            copy.Smooth = path.Smooth;
+            foreach (CameraPath.Keyframe key in path.Keyframes)
+            {
+                copy.Keyframes.Add(new CameraPath.Keyframe
+                {
+                    x = key.x, y = key.y, z = key.z, yaw = key.yaw, pitch = key.pitch, fov = key.fov,
+                    duration = key.duration, easing = key.easing
+                });
+            }
+            lock (stateLock)
+            {
+                playingPath = copy;
+                loopPlayback = loop;
+                playTime = 0;
+                ShowPathAt(0);
+            }
+        }
+
+        public void StopPlayback()
+        {
+            lock (stateLock)
+            {
+                playingPath = null;
+            }
+        }
+
+        public bool IsOn => on;
 
         /// <summary>Whether the free camera sets the field of view (see fovKnown).</summary>
         public bool FovKnown
@@ -158,30 +203,6 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     return fovKnown;
-                }
-            }
-        }
-
-        /// <summary>The camera being driven, or 0 when off.</summary>
-        public uint Camera
-        {
-            get
-            {
-                lock (stateLock)
-                {
-                    return on ? camera : 0;
-                }
-            }
-        }
-
-        /// <summary>Where the driven camera's matrix is in its struct, or -1 when off.</summary>
-        public int MatrixOffset
-        {
-            get
-            {
-                lock (stateLock)
-                {
-                    return on ? matrixOffset : -1;
                 }
             }
         }
@@ -254,8 +275,11 @@ namespace SluMAN
             }
         }
 
-        /// <summary>The camera's position, yaw and pitch (radians), or false when it's off.</summary>
-        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch)
+        /// <summary>
+        /// The camera's position, yaw, pitch and field of view (radians; 0 when the game's is
+        /// left alone, see FovKnown), or false when it's off.
+        /// </summary>
+        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch, out float cameraFov)
         {
             lock (stateLock)
             {
@@ -264,17 +288,22 @@ namespace SluMAN
                     position = null;
                     cameraYaw = 0;
                     cameraPitch = 0;
+                    cameraFov = 0;
                     return false;
                 }
                 position = (float[])cameraPosition.Clone();
                 cameraYaw = yaw;
                 cameraPitch = pitch;
+                cameraFov = fovKnown ? fov : 0;
                 return true;
             }
         }
 
-        /// <summary>Puts the camera somewhere, or false when it's off.</summary>
-        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch)
+        /// <summary>
+        /// Puts the camera somewhere (stopping any playback), or false when it's off. A field of
+        /// view of 0 is the game's.
+        /// </summary>
+        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch, float cameraFov)
         {
             lock (stateLock)
             {
@@ -282,23 +311,25 @@ namespace SluMAN
                 {
                     return false;
                 }
+                playingPath = null;
                 cameraPosition = (float[])position.Clone();
                 yaw = cameraYaw;
                 pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, cameraPitch));
+                fov = ClampFov(cameraFov > 0 ? cameraFov : gameFov);
                 WriteCamera();
                 return true;
             }
         }
 
-        /// <summary>Starts driving a camera (the main one when 0), from where it is now.</summary>
-        public void Start(uint cameraToDrive = 0)
+        /// <summary>Starts driving the main camera, from where it is now.</summary>
+        public void Start()
         {
             Stop();
             if (game.IsLoading)
             {
                 throw new InvalidOperationException("Wait for the level to finish loading.");
             }
-            uint target = cameraToDrive != 0 ? cameraToDrive : game.GetMainCamera();
+            uint target = game.GetMainCamera();
             if (target == 0)
             {
                 throw new InvalidOperationException("The game has no camera yet.");
@@ -345,6 +376,7 @@ namespace SluMAN
                     Unhook();
                 }
                 on = false;
+                playingPath = null;
             }
             RaiseModeChanged();
         }
@@ -501,6 +533,7 @@ namespace SluMAN
                         GiveBackFov();
                         Unhook();
                         on = false;
+                        playingPath = null;
                     }
                     uiContext.Post((state) =>
                     {
@@ -532,13 +565,19 @@ namespace SluMAN
                     return "the free camera turns off while a level loads.";
                 }
 
-                if (!characterControl)
+                if (playingPath != null)
+                {
+                    TickPlayback(step);
+                }
+                else if (!characterControl)
                 {
                     TickSticks(step);
-                    if (playerPosition != null)
-                    {
-                        game.SetPlayerPosition(playerPosition);
-                    }
+                }
+                // With character control the camera stays put (or keeps playing its path).
+                // Otherwise the player is kept where they stood, so steering doesn't walk them off.
+                if (!characterControl && playerPosition != null)
+                {
+                    game.SetPlayerPosition(playerPosition);
                 }
                 CheckHook();
                 // The game writes its own camera every frame, so the free one is written every
@@ -556,8 +595,65 @@ namespace SluMAN
             }
         }
 
+        private void TickPlayback(float step)
+        {
+            float total = playingPath.TotalDuration;
+            playTime += step;
+            if (playTime >= total)
+            {
+                if (loopPlayback && total > 0)
+                {
+                    playTime %= total;
+                }
+                else
+                {
+                    playTime = total;
+                    ShowPathAt(total);
+                    playingPath = null;
+                    Post(() => PlaybackFinished);
+                    return;
+                }
+            }
+            ShowPathAt(playTime);
+        }
+
+        private void ShowPathAt(float time)
+        {
+            float[] position = new float[3];
+            float pathYaw;
+            float pathPitch;
+            float pathFov;
+            playingPath.Evaluate(time, gameFov, position, out pathYaw, out pathPitch, out pathFov);
+            cameraPosition = position;
+            yaw = pathYaw;
+            pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pathPitch));
+            fov = ClampFov(pathFov);
+            WriteCamera();
+        }
+
+        /// <summary>Raises an event on the UI thread. Reads the handler there, as it is then.</summary>
+        private void Post(Func<Action> handlerOf)
+        {
+            uiContext.Post((state) =>
+            {
+                Action handler = handlerOf();
+                if (handler != null)
+                {
+                    handler();
+                }
+            }, null);
+        }
+
         private void TickSticks(float step)
         {
+            // R3 asks the Camera tab for a keyframe here, once per press.
+            bool r3 = Inputs.IsPressed(Inputs.Buttons.r3);
+            if (r3 && !r3WasPressed)
+            {
+                Post(() => KeyframeRequested);
+            }
+            r3WasPressed = r3;
+
             yaw -= Stick(Inputs.rx) * LookSpeed * step;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));

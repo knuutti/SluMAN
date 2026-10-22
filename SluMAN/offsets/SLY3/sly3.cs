@@ -520,32 +520,10 @@ namespace SluMAN
             api.WriteMemory(pid, ptr + sly3.addr.cameraFarClipOffset, ConvertFloatToBytes(value));
         }
 
-        // More than this many cameras means the count isn't one.
-        private const uint MaxCameras = 32;
-
         /// <summary>The main camera (the CM struct), or 0 before the game has one.</summary>
         public uint GetMainCamera()
         {
             return ReadUInt(addr.cameraPointer);
-        }
-
-        /// <summary>Every camera in the game's camera array, in its order. Empty during a load.</summary>
-        public uint[] GetCameras()
-        {
-            uint count = ReadUInt(addr.cameraCount);
-            if (count == 0 || count > MaxCameras)
-            {
-                return new uint[0];
-            }
-            byte[] bytes = api.ReadMemory(pid, addr.cameraArray, count * 4);
-            uint[] cameras = new uint[count];
-            for (int i = 0; i < count; i++)
-            {
-                byte[] value = new byte[4];
-                Array.Copy(bytes, i * 4, value, 0, 4);
-                cameras[i] = BitConverter.ToUInt32(value.Reverse().ToArray(), 0);
-            }
-            return cameras;
         }
 
         // How far into the camera struct FindCameraMatrix looks, and how far an axis may be from

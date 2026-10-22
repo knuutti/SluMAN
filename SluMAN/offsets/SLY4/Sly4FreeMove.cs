@@ -75,7 +75,7 @@ namespace SluMAN
         private float[] cameraW;
 
         // The path being played (a copy, so editing the list doesn't touch it), or null.
-        private Sly4CameraPath playingPath;
+        private CameraPath playingPath;
         private bool loopPlayback;
         private float playTime;
         private bool r3WasPressed;
@@ -256,7 +256,7 @@ namespace SluMAN
         /// <summary>
         /// Plays a camera path, turning the free camera on first if needed. Needs a keyframe.
         /// </summary>
-        public void Play(Sly4CameraPath path, bool loop)
+        public void Play(CameraPath path, bool loop)
         {
             if (path.Keyframes.Count == 0)
             {
@@ -267,11 +267,11 @@ namespace SluMAN
                 Start(Mode.FreeCamera);
             }
 
-            Sly4CameraPath copy = new Sly4CameraPath();
+            CameraPath copy = new CameraPath();
             copy.Smooth = path.Smooth;
-            foreach (Sly4CameraPath.Keyframe key in path.Keyframes)
+            foreach (CameraPath.Keyframe key in path.Keyframes)
             {
-                copy.Keyframes.Add(new Sly4CameraPath.Keyframe
+                copy.Keyframes.Add(new CameraPath.Keyframe
                 {
                     x = key.x, y = key.y, z = key.z, yaw = key.yaw, pitch = key.pitch, fov = key.fov,
                     duration = key.duration, easing = key.easing
