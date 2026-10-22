@@ -64,6 +64,12 @@ namespace SluMAN
         private float[] playerPosition;
         private bool characterControl;
 
+        // Other copies of the camera's position the game draws from (found with Find camera),
+        // written with the camera each tick. A copy that's the last row of a camera matrix gets
+        // the whole matrix, with its own W values; otherwise only the position.
+        private uint[] copyPositions = new uint[0];
+        private float[][] copyRowW = new float[0][];
+
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
         public float CameraSpeed = 1600f;
 
@@ -88,6 +94,32 @@ namespace SluMAN
         public event Action ModeChanged;
 
         public bool IsOn => on;
+
+        /// <summary>
+        /// The other copies of the camera's position to write with it (each the address of the
+        /// position's 3 floats). Takes effect the next time the camera starts.
+        /// </summary>
+        public uint[] Copies = new uint[0];
+
+        /// <summary>How many of the copies are written as whole matrices, while the camera is on.</summary>
+        public int MatrixCopyCount
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    int count = 0;
+                    foreach (float[] w in copyRowW)
+                    {
+                        if (w != null)
+                        {
+                            count++;
+                        }
+                    }
+                    return count;
+                }
+            }
+        }
 
         /// <summary>Whether the free camera sets the field of view (see fovKnown).</summary>
         public bool FovKnown
@@ -307,6 +339,19 @@ namespace SluMAN
             leftSign = Dot(Axis(m, 1), Left()) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 2), Cross(Forward(), Left())) < 0 ? -1 : 1;
 
+            uint[] copies = (uint[])Copies.Clone();
+            copyPositions = copies;
+            copyRowW = new float[copies.Length][];
+            for (int i = 0; i < copies.Length; i++)
+            {
+                uint matrix = copies[i] - 0x30;
+                if (game.IsCameraMatrixAt(matrix))
+                {
+                    float[] copy = game.ReadMatrixAt(matrix);
+                    copyRowW[i] = new float[] { copy[3], copy[7], copy[11], copy[15] };
+                }
+            }
+
             float cameraFov = game.ReadCameraFov(target);
             fovKnown = cameraFov >= MinFov && cameraFov <= MaxFov;
             gameFov = fovKnown ? cameraFov : DefaultFov;
@@ -463,6 +508,21 @@ namespace SluMAN
                 m[row * 4 + 3] = rowW[row];
             }
             game.WriteCameraMatrix(camera, matrixOffset, m);
+
+            for (int i = 0; i < copyPositions.Length; i++)
+            {
+                if (copyRowW[i] == null)
+                {
+                    game.WritePositionAt(copyPositions[i], cameraPosition);
+                    continue;
+                }
+                float[] copy = (float[])m.Clone();
+                for (int row = 0; row < 4; row++)
+                {
+                    copy[row * 4 + 3] = copyRowW[i][row];
+                }
+                game.WriteMatrixAt(copyPositions[i] - 0x30, copy);
+            }
         }
 
         /// <summary>Where the camera looks. Z is up.</summary>

@@ -19,7 +19,7 @@ namespace SluMAN
         // How far, and for how long, Find camera raises each copy of the camera's position to see
         // whether the camera follows.
         private const float CameraTestRaise = 100f;
-        private const int CameraTestMs = 300;
+        private const int CameraTestMs = 2000;
 
         // Where the game's data can be: main memory (the EBOOT's data and the heap) and the user
         // memory above it.
@@ -342,7 +342,8 @@ namespace SluMAN
             freeCameraCheckBox.Checked = on;
             cameraComboBox.Enabled = !on;
             drivenLabel.Text = on
-                ? $"Driving 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}."
+                ? $"Driving 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}"
+                    + (freeCamera.Copies.Length > 0 ? $", and {freeCamera.Copies.Length} copies." : ".")
                 : "The free camera is off.";
             ShowFov();
         }
@@ -460,7 +461,8 @@ namespace SluMAN
                     // Found by the last search too: a copy the game keeps up to date.
                     bool again = lastCameraFinds != null && lastCameraFinds.Contains(address);
                     string inCamera = address >= camera && address < camera + 0x1000 ? $"  (camera +0x{address - camera:X})" : "";
-                    text.AppendLine($"{address:X8}{inCamera}{(again ? "  (also last time)" : "")}");
+                    string matrix = game.IsCameraMatrixAt(address - 0x30) ? $"  (row 4 of a matrix at {address - 0x30:X8})" : "";
+                    text.AppendLine($"{address:X8}{inCamera}{matrix}{(again ? "  (also last time)" : "")}");
                 }
                 if (found.Count == 0)
                 {
@@ -480,12 +482,35 @@ namespace SluMAN
                 if (live.Count > 0)
                 {
                     text.AppendLine();
-                    text.AppendLine($"Which copy moves the camera (raising each by {CameraTestRaise} for a moment):");
+                    text.AppendLine($"Which copy moves the view (raising each by {CameraTestRaise} for {CameraTestMs / 1000} seconds):");
+                    List<uint> moving = new List<uint>();
                     foreach (uint address in live)
                     {
+                        Cursor = Cursors.Default;
+                        if (MessageBox.Show(this, $"Raising the copy at {address:X8} for {CameraTestMs / 1000} seconds. Watch the game's view.",
+                            "Find camera", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                        {
+                            text.AppendLine("Stopped.");
+                            break;
+                        }
+                        Cursor = Cursors.WaitCursor;
                         float moved = game.TestCameraCopy(address, camera, matrixOffset, CameraTestRaise, CameraTestMs);
-                        text.AppendLine($"{address:X8}: the camera rose by {moved.ToString("F2", CultureInfo.InvariantCulture)}");
+                        Cursor = Cursors.Default;
+                        bool viewMoved = MessageBox.Show(this, $"Did the view move up while {address:X8} was raised?",
+                            "Find camera", MessageBoxButtons.YesNo) == DialogResult.Yes;
+                        if (viewMoved)
+                        {
+                            moving.Add(address);
+                        }
+                        text.AppendLine($"{address:X8}: the view {(viewMoved ? "moved" : "didn't move")}, the camera struct rose by {moved.ToString("F2", CultureInfo.InvariantCulture)}");
                     }
+
+                    // The free camera writes these along with the camera struct.
+                    freeCamera.Copies = moving.ToArray();
+                    text.AppendLine();
+                    text.AppendLine(moving.Count > 0
+                        ? $"The free camera now also writes {string.Join(", ", moving.ConvertAll(a => a.ToString("X8")))} (until SluMAN closes)."
+                        : "None moved the view, so the free camera writes only the camera struct.");
                 }
                 else
                 {

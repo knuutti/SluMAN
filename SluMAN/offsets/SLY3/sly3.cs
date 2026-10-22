@@ -612,7 +612,19 @@ namespace SluMAN
         /// </summary>
         public float[] ReadCameraMatrix(uint camera, int matrixOffset)
         {
-            byte[] bytes = api.ReadMemory(pid, camera + (uint)matrixOffset, 0x40);
+            return ReadMatrixAt(camera + (uint)matrixOffset);
+        }
+
+        /// <summary>Writes a camera's matrix (laid out as ReadCameraMatrix's) in one write, so a frame never mixes old and new.</summary>
+        public void WriteCameraMatrix(uint camera, int matrixOffset, float[] matrix)
+        {
+            WriteMatrixAt(camera + (uint)matrixOffset, matrix);
+        }
+
+        /// <summary>A matrix at an address, laid out as ReadCameraMatrix's.</summary>
+        public float[] ReadMatrixAt(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 0x40);
             float[] matrix = new float[16];
             for (int i = 0; i < 16; i++)
             {
@@ -621,15 +633,32 @@ namespace SluMAN
             return matrix;
         }
 
-        /// <summary>Writes a camera's matrix (laid out as ReadCameraMatrix's) in one write, so a frame never mixes old and new.</summary>
-        public void WriteCameraMatrix(uint camera, int matrixOffset, float[] matrix)
+        /// <summary>Writes a matrix (laid out as ReadCameraMatrix's) at an address, in one write.</summary>
+        public void WriteMatrixAt(uint address, float[] matrix)
         {
             byte[] bytes = new byte[0x40];
             for (int i = 0; i < 16; i++)
             {
                 Array.Copy(ConvertFloatToBytes(matrix[i]), 0, bytes, i * 4, 4);
             }
-            api.WriteMemory(pid, camera + (uint)matrixOffset, bytes);
+            api.WriteMemory(pid, address, bytes);
+        }
+
+        /// <summary>Writes a position (3 floats) at an address, in one write.</summary>
+        public void WritePositionAt(uint address, float[] position)
+        {
+            byte[] bytes = new byte[12];
+            for (int axis = 0; axis < 3; axis++)
+            {
+                Array.Copy(ConvertFloatToBytes(position[axis]), 0, bytes, axis * 4, 4);
+            }
+            api.WriteMemory(pid, address, bytes);
+        }
+
+        /// <summary>Whether a camera matrix (see FindCameraMatrix) starts at an address.</summary>
+        public bool IsCameraMatrixAt(uint address)
+        {
+            return IsCameraMatrix(api.ReadMemory(pid, address, 0x40), 0);
         }
 
         /// <summary>The field of view a camera is easing to, in radians.</summary>
