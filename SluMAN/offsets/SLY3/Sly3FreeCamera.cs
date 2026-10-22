@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using SluMAN.Memory;
@@ -78,8 +77,8 @@ namespace SluMAN
         private float[] playerPosition;
         private bool characterControl;
 
-        // Other copies of the camera's position the game draws from (found with Find camera),
-        // written with the camera each tick. A copy that's the last row of a camera matrix gets
+        // The copies of the camera's matrix the game draws from, written with the camera each
+        // tick when the camera hook can't run. A copy that's the last row of a camera matrix gets
         // the whole matrix, with its own W values; otherwise only the position.
         private uint[] copyPositions = new uint[0];
         private float[][] copyRowW = new float[0][];
@@ -130,13 +129,6 @@ namespace SluMAN
         public event Action ModeChanged;
 
         public bool IsOn => on;
-
-        /// <summary>
-        /// More copies of the camera's position to write with it (each the address of the
-        /// position's 3 floats), on top of the ones the game draws from (cameraDrawMatrixOffset,
-        /// cameraDrawMatrix). Takes effect the next time the camera starts.
-        /// </summary>
-        public uint[] Copies = new uint[0];
 
         /// <summary>How many copies are written as whole matrices, while the camera is on.</summary>
         public int MatrixCopyCount
@@ -422,18 +414,12 @@ namespace SluMAN
             leftSign = Dot(Axis(m, 1), Left()) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 2), Cross(Forward(), Left())) < 0 ? -1 : 1;
 
-            // The copies the game draws from, then any more found with Find camera.
-            List<uint> copies = new List<uint>();
-            copies.Add(target + sly3.addr.cameraDrawMatrixOffset + 0x30);
-            copies.Add(sly3.addr.cameraDrawMatrix + 0x30);
-            foreach (uint copy in Copies)
+            // The copies the game draws from, for when the camera hook can't run.
+            copyPositions = new uint[]
             {
-                if (!copies.Contains(copy) && copy != target + (uint)offset + 0x30)
-                {
-                    copies.Add(copy);
-                }
-            }
-            copyPositions = copies.ToArray();
+                target + sly3.addr.cameraDrawMatrixOffset + 0x30,
+                sly3.addr.cameraDrawMatrix + 0x30,
+            };
             copyRowW = new float[copyPositions.Length][];
             for (int i = 0; i < copyPositions.Length; i++)
             {

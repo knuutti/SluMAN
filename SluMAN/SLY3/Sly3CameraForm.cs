@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
-using System.Text;
 using System.Windows.Forms;
-using SluMAN.Memory;
 
 namespace SluMAN
 {
@@ -16,22 +14,6 @@ namespace SluMAN
     {
         private const int MaxLookDegrees = 360;
         private const int MaxMoveSpeed = 20000;
-        // How far, and for how long, Find camera raises each copy of the camera's position to see
-        // whether the camera follows.
-        private const float CameraTestRaise = 100f;
-        private const int CameraTestMs = 2000;
-
-        // Where the game's data can be: main memory (the EBOOT's data and the heap) and the user
-        // memory above it.
-        private static readonly uint[][] CameraSearchRanges =
-        {
-            new uint[] { 0x00010000, 0x10000000 },
-            new uint[] { 0x30000000, 0x40000000 },
-        };
-
-        // The last Find camera result, to point out the copies that are found again.
-        private List<uint> lastCameraFinds;
-
         private readonly sly3 game;
         private readonly Sly3FreeCamera freeCamera;
 
@@ -229,9 +211,6 @@ namespace SluMAN
             Button setButton = new Button();
             SetButton(setButton, "Set Camera", 114, 74, 100, (sender, e) => WriteCameraBoxes());
             group.Controls.Add(setButton);
-            Button findButton = new Button();
-            SetButton(findButton, "Find camera", 220, 74, 84, (sender, e) => FindCamera());
-            group.Controls.Add(findButton);
             foreach (TextBox box in cameraBoxes)
             {
                 func.BindEnter(box, setButton);
@@ -243,9 +222,6 @@ namespace SluMAN
 
             ToolTip tip = new ToolTip();
             tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw and pitch in degrees; Z is up.");
-            tip.SetToolTip(findButton,
-                "Looks for every copy of the camera's position in memory (RPCS3 only). Move the camera\n" +
-                "and search again to test which copy the camera is made from.");
             tip.SetToolTip(drivenLabel, "The camera being driven, and where its matrix is in it.");
             FormClosed += (sender, e) => tip.Dispose();
             return group;
@@ -421,132 +397,6 @@ namespace SluMAN
                 statusLine.Error($"Couldn't move the free camera: {ex.Message}");
             }
             ShowMode();
-        }
-
-        /// <summary>
-        /// Looks through the game's memory for every other copy of the camera's position, to find
-        /// where the game keeps the camera it writes into the camera struct each frame. On a second
-        /// search, each copy found both times is raised for a moment while the camera is watched:
-        /// a copy the camera is made from makes it rise too. RPCS3 only, which reads memory
-        /// directly. The result goes on the clipboard.
-        /// </summary>
-        private void FindCamera()
-        {
-            if (!(game.api is RPCS3))
-            {
-                statusLine.Error("Finding the camera needs RPCS3: on a PS3 it would take thousands of reads.");
-                return;
-            }
-            if (freeCamera.IsOn)
-            {
-                statusLine.Error("Turn off the free camera first: it writes the camera itself.");
-                return;
-            }
-            try
-            {
-                uint camera = SelectedCamera();
-                if (camera == 0)
-                {
-                    camera = game.GetMainCamera();
-                }
-                if (camera == 0)
-                {
-                    statusLine.Error("The game has no camera yet.");
-                    return;
-                }
-                int matrixOffset = game.FindCameraMatrix(camera);
-                if (matrixOffset < 0)
-                {
-                    statusLine.Error($"Found no camera matrix in the camera at 0x{camera:X}.");
-                    return;
-                }
-                uint positionAddress = camera + (uint)matrixOffset + 0x30;
-
-                Cursor = Cursors.WaitCursor;
-                byte[] position = game.api.ReadMemory(game.pid, positionAddress, 12);
-                List<uint> found = game.FindMemory(position, CameraSearchRanges);
-
-                StringBuilder text = new StringBuilder();
-                text.AppendLine($"Camera: {camera:X8}, matrix at +0x{matrixOffset:X}, position {BitConverter.ToString(position).Replace("-", " ")}");
-                text.AppendLine($"(at {positionAddress:X8})");
-                text.AppendLine();
-                foreach (uint address in found)
-                {
-                    // Found by the last search too: a copy the game keeps up to date.
-                    bool again = lastCameraFinds != null && lastCameraFinds.Contains(address);
-                    string inCamera = address >= camera && address < camera + 0x1000 ? $"  (camera +0x{address - camera:X})" : "";
-                    string matrix = game.IsCameraMatrixAt(address - 0x30) ? $"  (row 4 of a matrix at {address - 0x30:X8})" : "";
-                    text.AppendLine($"{address:X8}{inCamera}{matrix}{(again ? "  (also last time)" : "")}");
-                }
-                if (found.Count == 0)
-                {
-                    text.AppendLine("No copies found.");
-                }
-                // The copies found both times, except the camera matrix's own.
-                List<uint> live = new List<uint>();
-                foreach (uint address in found)
-                {
-                    if (lastCameraFinds != null && lastCameraFinds.Contains(address) && address != positionAddress)
-                    {
-                        live.Add(address);
-                    }
-                }
-                lastCameraFinds = found;
-
-                if (live.Count > 0)
-                {
-                    text.AppendLine();
-                    text.AppendLine($"Which copy moves the view (raising each by {CameraTestRaise} for {CameraTestMs / 1000} seconds):");
-                    List<uint> moving = new List<uint>();
-                    foreach (uint address in live)
-                    {
-                        Cursor = Cursors.Default;
-                        if (MessageBox.Show(this, $"Raising the copy at {address:X8} for {CameraTestMs / 1000} seconds. Watch the game's view.",
-                            "Find camera", MessageBoxButtons.OKCancel) != DialogResult.OK)
-                        {
-                            text.AppendLine("Stopped.");
-                            break;
-                        }
-                        Cursor = Cursors.WaitCursor;
-                        float moved = game.TestCameraCopy(address, camera, matrixOffset, CameraTestRaise, CameraTestMs);
-                        Cursor = Cursors.Default;
-                        bool viewMoved = MessageBox.Show(this, $"Did the view move up while {address:X8} was raised?",
-                            "Find camera", MessageBoxButtons.YesNo) == DialogResult.Yes;
-                        if (viewMoved)
-                        {
-                            moving.Add(address);
-                        }
-                        text.AppendLine($"{address:X8}: the view {(viewMoved ? "moved" : "didn't move")}, the camera struct rose by {moved.ToString("F2", CultureInfo.InvariantCulture)}");
-                    }
-
-                    // The free camera writes these along with the camera struct.
-                    freeCamera.Copies = moving.ToArray();
-                    text.AppendLine();
-                    text.AppendLine(moving.Count > 0
-                        ? $"The free camera also writes {string.Join(", ", moving.ConvertAll(a => a.ToString("X8")))}, on top of the copies it always writes (until SluMAN closes)."
-                        : "None moved the view, so the free camera writes only the copies it always writes.");
-                }
-                else
-                {
-                    text.AppendLine();
-                    text.AppendLine("Move the camera a little and search again to test which copy moves it.");
-                }
-
-                // Message boxes can't be selected from, so the result goes on the clipboard.
-                bool copied = true;
-                try { Clipboard.SetText(text.ToString()); } catch { copied = false; }
-                text.AppendLine();
-                text.AppendLine(copied ? "This text is on the clipboard: paste it anywhere." : "Couldn't copy this to the clipboard.");
-                MessageBox.Show(this, text.ToString(), $"Camera position found {found.Count} times");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't search: {ex.Message}");
-            }
-            finally
-            {
-                Cursor = Cursors.Default;
-            }
         }
 
         private static float Degrees(float radians)

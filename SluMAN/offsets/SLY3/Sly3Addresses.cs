@@ -79,7 +79,8 @@ namespace SluMAN
         public uint cameraMatrixOffset { get; private set; }
         // Copies of the camera matrix the game draws from, which it copies the one above into
         // every frame: one in the camera struct and one in the game's data. Writing only the
-        // matrix above doesn't move the view; the free camera writes these too.
+        // matrix above doesn't move the view, so without the camera hook the free camera writes
+        // these too.
         public uint cameraDrawMatrixOffset { get; private set; }
         public uint cameraDrawMatrix { get; private set; }
         // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
@@ -205,8 +206,7 @@ namespace SluMAN
                 cameraCount = 0x7DA530,
                 cameraArray = 0x7DA534,
                 cameraMatrixOffset = 0x50,
-                // Raising either one's position moves the view (Find camera); 0x7D6590, another
-                // copy, doesn't.
+                // Raising either one's position moved the view; 0x7D6590, another copy, didn't.
                 cameraDrawMatrixOffset = 0x90,
                 cameraDrawMatrix = 0x7DA890,
                 cameraFarClipOffset = 0x114,
