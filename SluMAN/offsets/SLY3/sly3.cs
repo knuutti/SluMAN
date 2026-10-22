@@ -549,35 +549,6 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0) == 0;
         }
 
-        // The fog's value when No fog turned it off, to put back.
-        private float fogBeforeNoFog = 1f;
-
-        /// <summary>
-        /// Turns the fog off (0) or puts back the value it had. Turning it off again after the
-        /// game has set it (a load) remembers the new value; only writes when it changes.
-        /// </summary>
-        public void SetFogDisabled(bool disabled)
-        {
-            float current = ToFloat(api.ReadMemory(pid, addr.fog, 4), 0);
-            if (disabled)
-            {
-                if (current != 0)
-                {
-                    fogBeforeNoFog = current;
-                    api.WriteMemory(pid, addr.fog, ConvertFloatToBytes(0f));
-                }
-            }
-            else if (current == 0)
-            {
-                api.WriteMemory(pid, addr.fog, ConvertFloatToBytes(fogBeforeNoFog));
-            }
-        }
-
-        public bool IsFogDisabled()
-        {
-            return ToFloat(api.ReadMemory(pid, addr.fog, 4), 0) == 0;
-        }
-
         public void SetCameraFOV(float value)
         {
             byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);
@@ -740,6 +711,12 @@ namespace SluMAN
             }
 
             return true;
+        }
+
+        public bool IsFogDisabled()
+        {
+            return !string.IsNullOrEmpty(GetMapIndicator())
+                && ToFloat(api.ReadMemory(pid, addr.levelFogAmount, 4), 0) == NoFogAmount;
         }
 
         /// <summary>Whether a camera matrix (see FindCameraMatrix) starts at an address.</summary>

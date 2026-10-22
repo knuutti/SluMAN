@@ -27,10 +27,6 @@ namespace SluMAN
         private readonly NumericUpDown lookSpeedUpDown = new NumericUpDown();
         private readonly NumericUpDown fovUpDown = new NumericUpDown();
         private readonly CheckBox hideHudCheckBox = new CheckBox();
-        private readonly CheckBox noFogCheckBox = new CheckBox();
-        // No fog is checked again every this many field-of-view refreshes (a load may set the fog).
-        private const int NoFogRefreshTicks = 10;
-        private int noFogTick;
         private readonly CheckBox characterControlCheckBox = new CheckBox();
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
@@ -100,10 +96,6 @@ namespace SluMAN
                 if (hideHudCheckBox.Checked)
                 {
                     try { game.SetHudHidden(false); } catch { }
-                }
-                if (noFogCheckBox.Checked)
-                {
-                    try { game.SetFogDisabled(false); } catch { }
                 }
                 if (noFogCheckBox.Checked)
                 {
@@ -568,20 +560,6 @@ namespace SluMAN
             }
             freeCameraCheckBox.Checked = freeCamera.IsOn;
             ShowPlaying();
-        }
-
-        private void SetFogDisabled(bool disabled)
-        {
-            try
-            {
-                game.SetFogDisabled(disabled);
-                statusLine.Info(disabled ? "Turned the fog off." : "Put the fog back.");
-            }
-            catch (Exception ex)
-            {
-                noFogCheckBox.Checked = !disabled;
-                statusLine.Error($"Couldn't change the fog: {ex.Message}");
-            }
         }
 
         private void SetHudHidden(bool hidden)
