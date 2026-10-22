@@ -82,6 +82,17 @@ namespace SluMAN
         // matrix above doesn't move the view; the free camera writes these too.
         public uint cameraDrawMatrixOffset { get; private set; }
         public uint cameraDrawMatrix { get; private set; }
+        // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
+        // updated from its local one (+0x50) by one function, when the object is marked changed
+        // (+0x44 negative) and has no parent (+0x40). Its first instruction is pointed at a stub
+        // in the unused end of the code segment, which for the camera SluMAN drives first copies
+        // in SluMAN's matrix from the stub's data (unused end of the data segment).
+        public uint worldMatrixUpdateFunction { get; private set; }
+        public uint worldMatrixUpdateFirstInstruction { get; private set; }
+        public uint cameraHookStub { get; private set; }
+        public uint cameraHookData { get; private set; }
+        public uint objectParentOffset { get; private set; }
+        public uint objectChangedOffset { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
         public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
 
@@ -196,6 +207,15 @@ namespace SluMAN
                 cameraDrawMatrixOffset = 0x90,
                 cameraDrawMatrix = 0x7DA890,
                 cameraFarClipOffset = 0x114,
+
+                worldMatrixUpdateFunction = 0x220118,
+                worldMatrixUpdateFirstInstruction = 0xF821FF41, // stdu r1, -0xC0(r1)
+                // The code segment ends at 0x451F68 and the data segment at 0x8ABAC8, in pages
+                // the game has mapped.
+                cameraHookStub = 0x451F80,
+                cameraHookData = 0x8ABB00,
+                objectParentOffset = 0x40,
+                objectChangedOffset = 0x44,
                 cameraFovTargetOffset = 0x11C,
 
                 veniceStarted = 0x6CE0B4,

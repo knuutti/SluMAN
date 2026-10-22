@@ -68,9 +68,11 @@ namespace SluMAN
             statusLine = new StatusLine(this, false);
 
             freeCamera.ModeChanged += freeCamera_ModeChanged;
+            freeCamera.Notice += freeCamera_Notice;
             FormClosing += (sender, e) =>
             {
                 freeCamera.ModeChanged -= freeCamera_ModeChanged;
+                freeCamera.Notice -= freeCamera_Notice;
                 fovTimer.Stop();
             };
             FormClosed += (sender, e) => fovTimer.Dispose();
@@ -179,8 +181,8 @@ namespace SluMAN
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
                 "R2 / L2 zoom. The player is held where they stood. The\n" +
-                "camera turns off when a level loads. On a PS3 the game's\n" +
-                "own camera shows through; RPCS3 keeps it out.";
+                "camera turns off when a level loads. On RPCS3, set the PPU\n" +
+                "decoder to Interpreter (static) so the game's camera stays out.";
             help.Location = new Point(8, 180);
             help.Size = new Size(298, 54);
             group.Controls.Add(help);
@@ -275,8 +277,10 @@ namespace SluMAN
                 {
                     freeCamera.CameraSpeed = (float)moveSpeedUpDown.Value;
                     freeCamera.Start(SelectedCamera());
-                    statusLine.Info($"Free camera on: camera 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}, {freeCamera.MatrixCopyCount} drawn copies."
-                        + (freeCamera.FovKnown ? "" : " Its field of view isn't one SluMAN knows, so zoom is off."));
+                    if (!freeCamera.FovKnown)
+                    {
+                        statusLine.Info("The camera's field of view isn't one SluMAN knows, so zoom is off.");
+                    }
                 }
                 else
                 {
@@ -332,6 +336,16 @@ namespace SluMAN
             ShowMode();
         }
 
+        private void freeCamera_Notice(string message, bool isError)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+            statusLine.Show(message, isError);
+            ShowMode();
+        }
+
         private void ShowMode()
         {
             if (IsDisposed)
@@ -342,8 +356,8 @@ namespace SluMAN
             freeCameraCheckBox.Checked = on;
             cameraComboBox.Enabled = !on;
             drivenLabel.Text = on
-                ? $"Driving 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}"
-                    + $", {freeCamera.MatrixCopyCount} drawn copies."
+                ? $"Driving 0x{freeCamera.Camera:X}, matrix at +0x{freeCamera.MatrixOffset:X}, "
+                    + (freeCamera.IsHooked ? "through the camera hook." : $"{freeCamera.MatrixCopyCount} drawn copies.")
                 : "The free camera is off.";
             ShowFov();
         }

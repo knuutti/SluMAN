@@ -745,6 +745,143 @@ namespace SluMAN
             return most;
         }
 
+        // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
+        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix.
+        private const uint CameraHookMark = 0x534C4D33; // "SLM3"
+        private const uint CameraHookDataSize = 0x50;
+
+        /// <summary>
+        /// Starts the camera hook for a camera: from the next frame, the game's world matrix
+        /// update puts the matrix given to SetCameraHookMatrix into the camera (+0x50, marked
+        /// changed) before working out its world matrix (+0x90), which everything drawn uses.
+        /// </summary>
+        public void StartCameraHook(uint camera, float[] matrix)
+        {
+            uint function = addr.worldMatrixUpdateFunction;
+            uint stub = addr.cameraHookStub;
+            uint data = addr.cameraHookData;
+            uint original = addr.worldMatrixUpdateFirstInstruction;
+            uint hooked = Branch(function, stub, false);
+            uint instruction = ReadUInt(function);
+            if (instruction != original && instruction != hooked)
+            {
+                throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+            }
+            if (ReadUInt(camera + addr.objectParentOffset) != 0)
+            {
+                throw new InvalidOperationException("The camera is attached to something, so the camera hook can't drive it.");
+            }
+
+            // Both areas are unused memory: zeros, or what SluMAN put there before.
+            byte[] code = CameraHookStub();
+            byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in is in use.");
+            }
+            byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
+            if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
+            }
+
+            // Off while the stub and matrix are written, then on.
+            byte[] header = new byte[0x10];
+            Array.Copy(BitConverter.GetBytes(camera).Reverse().ToArray(), 0, header, 4, 4);
+            Array.Copy(BitConverter.GetBytes(CameraHookMark).Reverse().ToArray(), 0, header, 0xC, 4);
+            api.WriteMemory(pid, data, header);
+            SetCameraHookMatrix(matrix);
+            if (!codeThere.SequenceEqual(code))
+            {
+                api.WriteMemory(pid, stub, code);
+                if (!api.ReadMemory(pid, stub, (uint)code.Length).SequenceEqual(code))
+                {
+                    throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
+                }
+            }
+            api.WriteMemory(pid, function, BitConverter.GetBytes(hooked).Reverse().ToArray());
+            api.WriteMemory(pid, data, BitConverter.GetBytes(1u).Reverse().ToArray());
+        }
+
+        /// <summary>Marks an object's world matrix as changed, so the game works it out again.</summary>
+        public void MarkObjectChanged(uint obj)
+        {
+            api.WriteMemory(pid, obj + addr.objectChangedOffset, ConvertIntToBytes(-1));
+        }
+
+        /// <summary>The matrix (laid out as ReadCameraMatrix's) the camera hook puts in, from the next frame. One write.</summary>
+        public void SetCameraHookMatrix(float[] matrix)
+        {
+            WriteMatrixAt(addr.cameraHookData + 0x10, matrix);
+        }
+
+        /// <summary>How many times the camera hook has put the matrix in since it started.</summary>
+        public uint CameraHookCount()
+        {
+            return ReadUInt(addr.cameraHookData + 8);
+        }
+
+        /// <summary>Lets the game's own camera through again, and puts the game's code back.</summary>
+        public void StopCameraHook()
+        {
+            api.WriteMemory(pid, addr.cameraHookData, new byte[4]);
+            uint function = addr.worldMatrixUpdateFunction;
+            if (ReadUInt(function) == Branch(function, addr.cameraHookStub, false))
+            {
+                api.WriteMemory(pid, function, BitConverter.GetBytes(addr.worldMatrixUpdateFirstInstruction).Reverse().ToArray());
+            }
+        }
+
+        /// <summary>
+        /// The camera hook's stub, branched to instead of the world matrix update's first
+        /// instruction, with the object in r3. It only uses registers the function sets before
+        /// reading (r4 to r7, r11, r12, the count register and cr0).
+        /// </summary>
+        private byte[] CameraHookStub()
+        {
+            uint stub = addr.cameraHookStub;
+            uint data = addr.cameraHookData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
+            uint[] words =
+            {
+                0x3D600000 | high,      //  0 lis r11, data@ha
+                0x396B0000 | low,       //  1 addi r11, r11, data@l
+                0x818B0000,             //  2 lwz r12, 0(r11) (on)
+                0x2C0C0000,             //  3 cmpwi r12, 0
+                0x41820040,             //  4 beq +0x40 (to 20: off)
+                0x818B0004,             //  5 lwz r12, 4(r11) (the camera)
+                0x7C036000,             //  6 cmpw r3, r12
+                0x40820034,             //  7 bne +0x34 (to 20: another object)
+                0x38C00010,             //  8 li r6, 16 (words)
+                0x7CC903A6,             //  9 mtctr r6
+                0x38AB000C,             // 10 addi r5, r11, matrix - 4
+                0x3883004C,             // 11 addi r4, r3, 0x50 - 4
+                0x84E50004,             // 12 lwzu r7, 4(r5)
+                0x94E40004,             // 13 stwu r7, 4(r4)
+                0x4200FFF8,             // 14 bdnz -8
+                0x38E0FFFF,             // 15 li r7, -1
+                0x90E30044,             // 16 stw r7, 0x44(r3) (changed: work out the world matrix again)
+                0x80EB0008,             // 17 lwz r7, 8(r11)
+                0x38E70001,             // 18 addi r7, r7, 1
+                0x90EB0008,             // 19 stw r7, 8(r11) (count)
+                addr.worldMatrixUpdateFirstInstruction, // 20 the instruction the branch replaced
+                Branch(stub + 21 * 4, addr.worldMatrixUpdateFunction + 4, false),
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        private static uint Branch(uint from, uint to, bool link)
+        {
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
+        }
+
         /// <summary>The active character's position, or null when there's no character (a load).</summary>
         public float[] GetPlayerPosition()
         {

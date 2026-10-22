@@ -11,12 +11,16 @@ namespace SluMAN
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
     /// L1 move up and down, R2 and L2 zoom. The player is held where they stood.
     /// <para>
-    /// No game code is patched: the camera's matrix, and the copies of it the game draws from
-    /// (cameraDrawMatrixOffset in the camera struct, cameraDrawMatrix in the game's data), are
-    /// written from SluMAN, each in one write. The game copies its own camera into them once a
-    /// frame, just before drawing, so on RPCS3 they're rewritten nonstop to be the ones drawn
-    /// (which keeps one CPU core busy while the camera is on). On a PS3 writes are round trips
-    /// over the network, so the game's camera shows through.
+    /// The camera is driven through the camera hook (sly3.StartCameraHook): the game's world
+    /// matrix update puts SluMAN's matrix into the camera before working out the matrix that's
+    /// drawn, so the game's own camera never shows. SluMAN only writes the matrix to the hook's
+    /// data each tick.
+    /// </para>
+    /// <para>
+    /// When the hook can't run (on RPCS3 it needs the Interpreter PPU decoder), the camera's
+    /// matrix and the copies the game draws from (cameraDrawMatrixOffset, cameraDrawMatrix) are
+    /// written directly instead; on RPCS3 nonstop, which keeps one CPU core busy. The game copies
+    /// its own camera into them just before drawing, so it shows through now and then.
     /// </para>
     /// Runs on its own thread and keeps going whichever tab shows. Sly3Practice owns the one
     /// instance. It turns itself off when a load starts.
@@ -42,6 +46,9 @@ namespace SluMAN
         private readonly sly3 game;
         private readonly int intervalMs;
         private readonly bool rewriteNonstop;
+        // How long the camera hook gets to show it runs (its count goes up) before SluMAN falls
+        // back to writing the camera directly.
+        private const int HookCheckMs = 500;
         private readonly SynchronizationContext uiContext;
         private readonly Stopwatch clock = new Stopwatch();
         private readonly object stateLock = new object();
@@ -77,6 +84,11 @@ namespace SluMAN
         private uint[] copyPositions = new uint[0];
         private float[][] copyRowW = new float[0][];
 
+        // Whether the camera hook drives the camera, and whether it has been seen running.
+        private bool hooked;
+        private bool hookConfirmed;
+        private readonly Stopwatch sinceHook = new Stopwatch();
+
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
         public float CameraSpeed = 1600f;
 
@@ -98,6 +110,21 @@ namespace SluMAN
 
         /// <summary>Raised on the UI thread when the camera stops by itself: an error or a load.</summary>
         public event Action<string> Stopped;
+
+        /// <summary>Raised on the UI thread with news about the camera hook: whether it runs.</summary>
+        public event Action<string, bool> Notice;
+
+        /// <summary>Whether the camera hook drives the camera (no flicker), while it's on.</summary>
+        public bool IsHooked
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return on && hooked;
+                }
+            }
+        }
 
         /// <summary>Raised on the UI thread when the camera is turned on or off.</summary>
         public event Action ModeChanged;
@@ -323,10 +350,56 @@ namespace SluMAN
                 if (on)
                 {
                     GiveBackFov();
+                    Unhook();
                 }
                 on = false;
             }
             RaiseModeChanged();
+        }
+
+        private void Unhook()
+        {
+            if (hooked)
+            {
+                try { game.StopCameraHook(); } catch { }
+                hooked = false;
+            }
+        }
+
+        /// <summary>
+        /// Starts the camera hook, or leaves it off (writing the camera directly) and says why.
+        /// </summary>
+        private void Hook()
+        {
+            hooked = false;
+            hookConfirmed = false;
+            if (matrixOffset != (int)sly3.addr.cameraMatrixOffset)
+            {
+                PostNotice($"The camera's matrix is at +0x{matrixOffset:X}, not where the camera hook puts it, so the game's camera shows through now and then.", true);
+                return;
+            }
+            try
+            {
+                game.StartCameraHook(camera, BuildMatrix());
+                hooked = true;
+                sinceHook.Restart();
+            }
+            catch (Exception ex)
+            {
+                PostNotice($"{ex.Message} The game's camera shows through now and then.", true);
+            }
+        }
+
+        private void PostNotice(string message, bool isError)
+        {
+            uiContext.Post((state) =>
+            {
+                Action<string, bool> handler = Notice;
+                if (handler != null)
+                {
+                    handler(message, isError);
+                }
+            }, null);
         }
 
         private void StartCamera(uint target)
@@ -381,6 +454,7 @@ namespace SluMAN
             fovKnown = cameraFov >= MinFov && cameraFov <= MaxFov;
             gameFov = fovKnown ? cameraFov : DefaultFov;
             fov = gameFov;
+            Hook();
             WriteCamera();
         }
 
@@ -410,7 +484,7 @@ namespace SluMAN
             Stopwatch sinceTick = new Stopwatch();
             while (running)
             {
-                if (rewriteNonstop && sinceTick.IsRunning && sinceTick.ElapsedMilliseconds < intervalMs)
+                if (rewriteNonstop && !hooked && sinceTick.IsRunning && sinceTick.ElapsedMilliseconds < intervalMs)
                 {
                     lock (stateLock)
                     {
@@ -439,6 +513,7 @@ namespace SluMAN
                     lock (stateLock)
                     {
                         GiveBackFov();
+                        Unhook();
                         on = false;
                     }
                     uiContext.Post((state) =>
@@ -452,7 +527,7 @@ namespace SluMAN
                     RaiseModeChanged();
                     return;
                 }
-                if (!rewriteNonstop)
+                if (!rewriteNonstop || hooked)
                 {
                     Thread.Sleep(intervalMs);
                 }
@@ -479,6 +554,7 @@ namespace SluMAN
                         game.SetPlayerPosition(playerPosition);
                     }
                 }
+                CheckHook();
                 // The game writes its own camera every frame, so the free one is written every
                 // tick, also while it stays put.
                 WriteCamera();
@@ -534,7 +610,8 @@ namespace SluMAN
             fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
         }
 
-        private void WriteCamera()
+        /// <summary>The free camera's matrix, laid out as sly3.ReadCameraMatrix's.</summary>
+        private float[] BuildMatrix()
         {
             float[] forward = Forward();
             float[] left = Left();
@@ -554,8 +631,22 @@ namespace SluMAN
                 }
                 m[row * 4 + 3] = rowW[row];
             }
-            game.WriteCameraMatrix(camera, matrixOffset, m);
+            return m;
+        }
 
+        private void WriteCamera()
+        {
+            float[] m = BuildMatrix();
+            if (hooked)
+            {
+                game.SetCameraHookMatrix(m);
+                // Marked changed, so the game works out the drawn matrix again even when its own
+                // camera stays put.
+                game.MarkObjectChanged(camera);
+                return;
+            }
+
+            game.WriteCameraMatrix(camera, matrixOffset, m);
             for (int i = 0; i < copyPositions.Length; i++)
             {
                 if (copyRowW[i] == null)
@@ -570,6 +661,28 @@ namespace SluMAN
                 }
                 game.WriteMatrixAt(copyPositions[i] - 0x30, copy);
             }
+        }
+
+        /// <summary>
+        /// Once the camera hook has had time to run, checks that it did; if it didn't, falls back
+        /// to writing the camera directly.
+        /// </summary>
+        private void CheckHook()
+        {
+            if (!hooked || hookConfirmed || sinceHook.ElapsedMilliseconds < HookCheckMs)
+            {
+                return;
+            }
+            if (game.CameraHookCount() > 0)
+            {
+                hookConfirmed = true;
+                PostNotice("Free camera on, through the camera hook: the game's camera stays out.", false);
+                return;
+            }
+            Unhook();
+            PostNotice(game.api is RPCS3
+                ? "The camera hook isn't running: set RPCS3's PPU decoder to Interpreter (static). Until then the game's camera shows through now and then."
+                : "The camera hook isn't running, so the game's camera shows through now and then.", true);
         }
 
         /// <summary>Where the camera looks. Z is up.</summary>
