@@ -508,22 +508,39 @@ namespace SluMAN
 
         // The HUD's scale X when Hide HUD hid it, to put back.
         private float hudScaleXBeforeHiding = 1f;
+        private int infoboxYPositionBeforeHiding = -240;
 
-        /// <summary>Hides the HUD (its scale X to 0) or puts back the scale it had.</summary>
+        /// <summary>Hides the HUD (its scale X and infobox) or puts them back.</summary>
         public void SetHudHidden(bool hidden)
         {
-            float current = ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0);
+            float current = ToFloat(api.ReadMemory(pid, addr.hudPositionX, 4), 0);
+            uint infobox = ReadUInt(addr.infoboxPointer);
             if (hidden)
             {
                 if (current != 0)
                 {
                     hudScaleXBeforeHiding = current;
                 }
-                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(0f));
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(1000f));
+                if (infobox != 0)
+                {
+                    byte[] positionBytes = api.ReadMemory(pid, infobox + addr.infoboxYPositionOffset, 4);
+                    int position = BitConverter.ToInt32(positionBytes.Reverse().ToArray(), 0);
+                    if (position != -2400)
+                    {
+                        infoboxYPositionBeforeHiding = position;
+                    }
+                    api.WriteMemory(pid, infobox + addr.infoboxYPositionOffset, ConvertIntToBytes(-2400));
+                }
             }
             else if (current == 0)
             {
                 api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(hudScaleXBeforeHiding));
+                if (infobox != 0)
+                {
+                    api.WriteMemory(pid, infobox + addr.infoboxYPositionOffset,
+                        ConvertIntToBytes(infoboxYPositionBeforeHiding));
+                }
             }
         }
 
@@ -686,6 +703,43 @@ namespace SluMAN
                 Array.Copy(ConvertFloatToBytes(position[axis]), 0, bytes, axis * 4, 4);
             }
             api.WriteMemory(pid, address, bytes);
+        }
+
+        private const float NoFogAmount = 0f;
+        private readonly Dictionary<string, float> levelFogBeforeNoFog = new Dictionary<string, float>();
+
+        /// <summary>
+        /// Turns the current level's fog off, or puts back the amount saved for that level.
+        /// A level load sets the amount again, so call it again after one.
+        /// </summary>
+        public bool SetFogDisabled(bool disabled)
+        {
+            string level = GetMapIndicator();
+            if (string.IsNullOrEmpty(level))
+            {
+                return false;
+            }
+
+            if (disabled)
+            {
+                if (!levelFogBeforeNoFog.ContainsKey(level))
+                {
+                    float current = ToFloat(api.ReadMemory(pid, addr.levelFogAmount, 4), 0);
+                    levelFogBeforeNoFog[level] = current;
+                }
+                api.WriteMemory(pid, addr.levelFogAmount, ConvertFloatToBytes(NoFogAmount));
+            }
+            else
+            {
+                float original;
+                if (levelFogBeforeNoFog.TryGetValue(level, out original))
+                {
+                    api.WriteMemory(pid, addr.levelFogAmount, ConvertFloatToBytes(original));
+                    levelFogBeforeNoFog.Remove(level);
+                }
+            }
+
+            return true;
         }
 
         /// <summary>Whether a camera matrix (see FindCameraMatrix) starts at an address.</summary>

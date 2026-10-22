@@ -108,6 +108,9 @@ namespace SluMAN
         public uint objectChangedOffset { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
         public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
+        public uint levelFogAmount { get; private set; } // set to 0.0 to remove fog
+        public uint infoboxPointer { get; private set; }
+        public uint infoboxYPositionOffset { get; private set; }
 
         // Episode 1 specific addresses
         public uint veniceStarted { get; private set; }
@@ -240,6 +243,9 @@ namespace SluMAN
                 objectParentOffset = 0x40,
                 objectChangedOffset = 0x44,
                 cameraFovTargetOffset = 0x11C,
+                levelFogAmount = 0x58993C,
+                infoboxPointer = 0x6D3838,
+                infoboxYPositionOffset = 0x90,
 
                 veniceStarted = 0x6CE0B4,
                 outbackStarted = 0x6CEA80,
