@@ -366,27 +366,77 @@ namespace SluMAN
             RunCombos();
         }
 
-        protected override void SetupInputDisplayMemorySubsButtons()
+        // How often to look for the pad while the game is still booting.
+        private const int PadRetryMs = 1000;
+
+        // Bumped by each SetupInputDisplayMemorySubs, so a wait for the pad from before a
+        // reconnect gives up instead of subscribing too.
+        private int padGeneration;
+
+        /// <summary>
+        /// Subscribes to the pad through the game's pointer to it. The pointer is set early in
+        /// boot, so right after a reset it can still be 0; then this waits for it on a background
+        /// thread.
+        /// </summary>
+        public override void SetupInputDisplayMemorySubs()
         {
-            api.SubMemory(pid, addr.inputButtons, 4, (value) =>
+            int generation = System.Threading.Interlocked.Increment(ref padGeneration);
+            uint pad = ReadPadPointer();
+            if (pad != 0)
+            {
+                SubscribePad(pad);
+                return;
+            }
+
+            System.Threading.Thread worker = new System.Threading.Thread(() =>
+            {
+                while (pad == 0)
+                {
+                    System.Threading.Thread.Sleep(PadRetryMs);
+                    if (generation != padGeneration)
+                    {
+                        return;
+                    }
+                    pad = ReadPadPointer();
+                }
+                SubscribePad(pad);
+            });
+            worker.IsBackground = true;
+            worker.Name = "Sly 4 pad lookup";
+            worker.Start();
+        }
+
+        private uint ReadPadPointer()
+        {
+            try
+            {
+                return ReadUInt(addr.padPtr);
+            }
+            catch
+            {
+                // Not readable yet.
+                return 0;
+            }
+        }
+
+        private void SubscribePad(uint pad)
+        {
+            api.SubMemory(pid, pad + addr.padButtonsOffset, 4, (value) =>
             {
                 // The word is 00, Select..Left, 00, L2..Square, which is the standard layout's two
                 // bytes with a gap between them.
                 int buttons = BitConverter.ToInt32(value, 0);
                 Inputs.RawInputs = (buttons & 0xFF) | ((buttons >> 8) & 0xFF00);
             });
-        }
 
-        protected override void SetupInputDisplayMemorySubsAnalogs()
-        {
             // Each stick is X then Y as big-endian floats. The callback gets the 8 bytes reversed,
             // so Y comes first.
-            api.SubMemory(pid, addr.analogLeft, 8, (value) =>
+            api.SubMemory(pid, pad + addr.padAnalogLeftOffset, 8, (value) =>
             {
                 Inputs.ly = BitConverter.ToSingle(value, 0);
                 Inputs.lx = BitConverter.ToSingle(value, 4);
             });
-            api.SubMemory(pid, addr.analogRight, 8, (value) =>
+            api.SubMemory(pid, pad + addr.padAnalogRightOffset, 8, (value) =>
             {
                 Inputs.ry = BitConverter.ToSingle(value, 0);
                 Inputs.rx = BitConverter.ToSingle(value, 4);

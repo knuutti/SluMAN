@@ -311,12 +311,12 @@ namespace SluMAN
                 camera["x"] = position[0];
                 camera["y"] = position[1];
                 camera["z"] = position[2];
-                camera["yaw"] = Sly4CameraPath.Degrees(yaw);
-                camera["pitch"] = Sly4CameraPath.Degrees(pitch);
-                camera["fov"] = Sly4CameraPath.Degrees(fov);
+                camera["yaw"] = CameraPath.Degrees(yaw);
+                camera["pitch"] = CameraPath.Degrees(pitch);
+                camera["fov"] = CameraPath.Degrees(fov);
             }
             camera["far"] = freeMove.FarDistance;
-            camera["gameFov"] = Sly4CameraPath.Degrees(freeMove.GameFov);
+            camera["gameFov"] = CameraPath.Degrees(freeMove.GameFov);
             camera["gameFar"] = freeMove.GameFar;
             return camera;
         }
@@ -339,9 +339,9 @@ namespace SluMAN
             position[0] = Value(values, "x", position[0]);
             position[1] = Value(values, "y", position[1]);
             position[2] = Value(values, "z", position[2]);
-            yaw = Sly4CameraPath.Radians(Value(values, "yaw", Sly4CameraPath.Degrees(yaw)));
-            pitch = Sly4CameraPath.Radians(Value(values, "pitch", Sly4CameraPath.Degrees(pitch)));
-            float fovDegrees = Value(values, "fov", Sly4CameraPath.Degrees(fov));
+            yaw = CameraPath.Radians(Value(values, "yaw", CameraPath.Degrees(yaw)));
+            pitch = CameraPath.Radians(Value(values, "pitch", CameraPath.Degrees(pitch)));
+            float fovDegrees = Value(values, "fov", CameraPath.Degrees(fov));
             if (fovDegrees <= 0)
             {
                 throw new FormatException("fov must be above 0.");
@@ -351,7 +351,7 @@ namespace SluMAN
             {
                 freeMove.FarDistance = Value(values, "far", 0);
             }
-            freeMove.SetCamera(position, yaw, pitch, Sly4CameraPath.Radians(fovDegrees));
+            freeMove.SetCamera(position, yaw, pitch, CameraPath.Radians(fovDegrees));
         }
 
         private static float Value(Dictionary<string, string> values, string key, float current)

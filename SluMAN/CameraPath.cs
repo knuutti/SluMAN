@@ -7,7 +7,8 @@ namespace SluMAN
 {
     /// <summary>
     /// A free camera animation: keyframes the camera passes through, each with the time it takes
-    /// to reach the next one. Saved per level in the user data folder's camera paths.
+    /// to reach the next one. Saved per level in the user data folder's camera paths, in a folder
+    /// for each game (Sly4Folder, Sly3Folder).
     /// <list type="bullet">
     /// <item>Per keyframe (the default): each segment runs on its own with its keyframe's easing.
     /// Positions follow a Catmull-Rom curve, so the path has no corners, but speed and turning
@@ -18,7 +19,7 @@ namespace SluMAN
     /// </list>
     /// Yaw always turns the short way round.
     /// </summary>
-    public class Sly4CameraPath
+    public class CameraPath
     {
         public enum Easing { Linear, EaseInOut, Hold }
 
@@ -259,7 +260,7 @@ namespace SluMAN
         }
 
         // --- Files ---
-        // camerapaths/<level>-<name>.txt, one keyframe per line:
+        // <folder>/<level>-<name>.txt, one keyframe per line:
         // x y z yaw pitch duration easing fov (angles in degrees, so the file is readable; fov 0
         // or missing is the game's).
         // A line "smooth" plays the path as one continuous curve.
@@ -268,28 +269,31 @@ namespace SluMAN
 
         private const string FileExtension = ".txt";
 
-        public static string Folder => UserData.Path("camerapaths");
+        /// <summary>Sly 4's paths: the camera paths folder itself, where they were first kept.</summary>
+        public static string Sly4Folder => UserData.Path("camerapaths");
+
+        public static string Sly3Folder => Path.Combine(UserData.Path("camerapaths"), "sly3");
 
         private static string FilePrefix(string levelName)
         {
             return SafeFileName(levelName) + "-";
         }
 
-        public static string FilePath(string levelName, string pathName)
+        public static string FilePath(string folder, string levelName, string pathName)
         {
-            return Path.Combine(Folder, FilePrefix(levelName) + pathName + FileExtension);
+            return Path.Combine(folder, FilePrefix(levelName) + pathName + FileExtension);
         }
 
         /// <summary>The names of the paths saved for a level.</summary>
-        public static List<string> SavedNames(string levelName)
+        public static List<string> SavedNames(string folder, string levelName)
         {
             List<string> names = new List<string>();
-            if (!Directory.Exists(Folder))
+            if (!Directory.Exists(folder))
             {
                 return names;
             }
             string prefix = FilePrefix(levelName);
-            foreach (string file in Directory.GetFiles(Folder, prefix + "*" + FileExtension))
+            foreach (string file in Directory.GetFiles(folder, prefix + "*" + FileExtension))
             {
                 string name = Path.GetFileNameWithoutExtension(file);
                 names.Add(name.Substring(prefix.Length));
@@ -303,11 +307,11 @@ namespace SluMAN
             return pathName.Trim() != "" && pathName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
         }
 
-        public void Save(string levelName, string pathName)
+        public void Save(string folder, string levelName, string pathName)
         {
-            Directory.CreateDirectory(Folder);
+            Directory.CreateDirectory(folder);
             List<string> lines = new List<string>();
-            lines.Add("# SluMAN Sly 4 camera path: x y z yaw pitch duration easing fov (degrees, seconds)");
+            lines.Add("# SluMAN camera path: x y z yaw pitch duration easing fov (degrees, seconds)");
             if (Smooth)
             {
                 lines.Add(SmoothLine);
@@ -319,13 +323,13 @@ namespace SluMAN
                     Format(Degrees(key.yaw)), Format(Degrees(key.pitch)),
                     Format(key.duration), key.easing.ToString(), Format(Degrees(key.fov))));
             }
-            File.WriteAllLines(FilePath(levelName, pathName), lines);
+            File.WriteAllLines(FilePath(folder, levelName, pathName), lines);
         }
 
-        public static Sly4CameraPath Load(string levelName, string pathName)
+        public static CameraPath Load(string folder, string levelName, string pathName)
         {
-            Sly4CameraPath path = new Sly4CameraPath();
-            foreach (string line in File.ReadAllLines(FilePath(levelName, pathName)))
+            CameraPath path = new CameraPath();
+            foreach (string line in File.ReadAllLines(FilePath(folder, levelName, pathName)))
             {
                 string trimmed = line.Trim();
                 if (trimmed == "" || trimmed.StartsWith("#"))
@@ -363,9 +367,9 @@ namespace SluMAN
             return path;
         }
 
-        public static void Delete(string levelName, string pathName)
+        public static void Delete(string folder, string levelName, string pathName)
         {
-            File.Delete(FilePath(levelName, pathName));
+            File.Delete(FilePath(folder, levelName, pathName));
         }
 
         public static float Degrees(float radians)

@@ -15,9 +15,11 @@ namespace SluMAN
     public static class FirewallHelper
     {
         private const string RuleName = "SluMAN";
+        private const string DisableWarningKey = "DisableFirewallWarning";
 
-        // Asked at most once per session, so a "No" isn't asked again on every attach.
+        // Asked at most once per session; declining also persists the choice in config.txt.
         private static bool offeredThisSession = false;
+        private static int offerQueued = 0;
 
         /// <summary>
         /// Called when the PS3 is connected but no live data arrives. Asks once per session
@@ -25,9 +27,22 @@ namespace SluMAN
         /// </summary>
         public static void OnDataChannelSilent(Ratchetron api)
         {
+            if (offeredThisSession || WarningDisabled())
+            {
+                return;
+            }
+
+            // A reconnect can raise the event again before the UI thread handles the first one.
+            // Queue only one dialog, otherwise each queued callback can show its own prompt.
+            if (Interlocked.Exchange(ref offerQueued, 1) != 0)
+            {
+                return;
+            }
+
             Form owner = Program.AttachPS3Form;
             if (owner == null || owner.IsDisposed || !owner.IsHandleCreated)
             {
+                Interlocked.Exchange(ref offerQueued, 0);
                 return;
             }
 
@@ -38,14 +53,14 @@ namespace SluMAN
             catch
             {
                 // Closing.
+                Interlocked.Exchange(ref offerQueued, 0);
             }
         }
 
         private static void Offer(Ratchetron api)
         {
-            if (offeredThisSession)
+            if (offeredThisSession || WarningDisabled())
             {
-                func.Status("No live data is arriving from the PS3. Windows Firewall is probably blocking SluMAN.", true);
                 return;
             }
             offeredThisSession = true;
@@ -54,14 +69,16 @@ namespace SluMAN
                 "SluMAN is connected to the PS3, but no live data is arriving, so the input display, combos, " +
                 "autosplitter and memory watches won't update.\n\n" +
                 "Windows Firewall is probably blocking it. This happens when its prompt was cancelled the first time SluMAN ran.\n\n" +
-                "Add a firewall rule that allows SluMAN now? Windows will ask for administrator permission.",
+                "Add a firewall rule that allows SluMAN now? Windows will ask for administrator permission.\n\n" +
+                "Choose No to disable this warning in the future.",
                 "Live data blocked",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
             if (answer != DialogResult.Yes)
             {
-                func.Status("Live data stays blocked. Restart SluMAN to be asked again.", true);
+                func.ChangeFileLines("config.txt", "true", DisableWarningKey);
+                func.Status("Live data warning disabled. Remove \"DisableFirewallWarning\" from config.txt to enable it again.", true);
                 return;
             }
 
@@ -74,6 +91,11 @@ namespace SluMAN
 
             func.Status("Added a firewall rule for SluMAN. Checking for live data...");
             ConfirmDataArrives(api);
+        }
+
+        private static bool WarningDisabled()
+        {
+            return string.Equals(func.GetConfigData("config.txt", DisableWarningKey), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
