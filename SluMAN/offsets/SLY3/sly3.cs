@@ -773,14 +773,12 @@ namespace SluMAN
                 throw new InvalidOperationException("The camera is attached to something, so the camera hook can't drive it.");
             }
 
-            // The stub goes over the never-called function, as it is in the game or with the stub
-            // already written; the data in unused memory: zeros, or what SluMAN put there before.
+            // Both go in unused memory: zeros, or what SluMAN put there before.
             byte[] code = CameraHookStub();
             byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
-            byte[] original = WordsToBytes(addr.cameraHookStubOriginal).Take(code.Length).ToArray();
-            if (!codeThere.SequenceEqual(code) && !codeThere.SequenceEqual(original))
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
             {
-                throw new InvalidOperationException($"The code at 0x{stub:X} SluMAN puts its camera code over isn't what it expects. Restart the game, or the camera hook isn't available on this version.");
+                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in isn't empty. Restart the game, or the camera hook isn't available on this version.");
             }
             byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
             if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))

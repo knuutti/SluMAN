@@ -84,17 +84,15 @@ namespace SluMAN
         public uint cameraDrawMatrix { get; private set; }
         // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
         // updated from its local one (+0x50) by one function, when the object is marked changed
-        // (+0x44 negative) and has no parent (+0x40). Every call to it is pointed at a stub,
-        // written over a function the game never calls, which for the camera SluMAN drives first
+        // (+0x44 negative) and has no parent (+0x40). Every call to it is pointed at a stub, in
+        // unused bytes of the code segment, which for the camera SluMAN drives first
         // copies in SluMAN's matrix from the stub's data (unused end of the data segment), then
         // carries on into the function. RPCS3's static interpreter keeps the kind of instruction
-        // it first ran at an address, so only calls (bl to bl) can be patched, and the stub must
-        // be code that hasn't run.
+        // it found at an address, so only calls (bl to bl) can be patched, and the stub must go
+        // where there was no code.
         public uint worldMatrixUpdateFunction { get; private set; }
         public uint[] worldMatrixUpdateCalls { get; private set; }
         public uint cameraHookStub { get; private set; }
-        // The never-called function's first words, which the stub may only be written over.
-        public uint[] cameraHookStubOriginal { get; private set; }
         public uint cameraHookData { get; private set; }
         public uint objectParentOffset { get; private set; }
         public uint objectChangedOffset { get; private set; }
@@ -215,17 +213,12 @@ namespace SluMAN
 
                 worldMatrixUpdateFunction = 0x220118,
                 worldMatrixUpdateCalls = new uint[] { 0x5DA38, 0x5FBA0, 0x15D0F4, 0x15D69C, 0x1AC8E8, 0x220250 },
-                // A small math function (0x80 bytes) nothing calls, branches into or points to.
-                // Not past the code segment's end: RPCS3's static interpreter can only run code
-                // inside the segment, and jumped to 0 there.
-                cameraHookStub = 0x22C2D4,
-                cameraHookStubOriginal = new uint[]
-                {
-                    0xF821FF51, 0x7C0802A6, 0xDBA10098, 0xFFA00890, 0xEC230828, 0xDBC100A0,
-                    0xDBE100A8, 0xFFC02090, 0xFFE01090, 0xF80100C0, 0xFB810078, 0xFBA10080,
-                    0x7D1C4378, 0x7CFD3B78, 0x4BFFFF6D, 0x7BA70020, 0xFC600890, 0x7B880020,
-                    0xFC40F890, 0xC022051C, 0xFC80F090, 0x4BFFFBA1,
-                },
+                // Padding between two ELF sections (0x3CE588 to 0x3CE600), zeros that aren't code
+                // or data. RPCS3's static interpreter fixes an instruction's kind wherever it found
+                // code when the game loaded (even code that never runs) and has none past the code
+                // segment's end, so the stub can only go in bytes inside the segment that were
+                // never code.
+                cameraHookStub = 0x3CE590,
                 // The data segment ends at 0x8ABAC8, in a page the game has mapped.
                 cameraHookData = 0x8ABB00,
                 objectParentOffset = 0x40,
