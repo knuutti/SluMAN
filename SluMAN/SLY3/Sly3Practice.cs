@@ -20,6 +20,7 @@ namespace SluMAN
         private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
         private const string RunFilesTab = "Run Files";
+        private const string CameraTab = "Camera";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
 
@@ -42,6 +43,9 @@ namespace SluMAN
         private JobPicker jobPicker;
         private MapPicker mapPicker;
         private GameSession session;
+
+        /// <summary>The free camera, kept running whichever tab shows.</summary>
+        public Sly3FreeCamera FreeCamera;
 
         public Sly3Practice(sly3 game)
         {
@@ -88,16 +92,26 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
+            FreeCamera = new Sly3FreeCamera(game);
+            FreeCamera.Stopped += (message) =>
+            {
+                if (!IsDisposed)
+                {
+                    statusLine.Error($"Free camera stopped: {message}");
+                }
+            };
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
             practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
+            practiceTabs.AddTool(CameraTab, () => new Sly3CameraForm(game, FreeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
+            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -403,6 +417,7 @@ namespace SluMAN
         {
             // The tools' own cleanup (subscriptions, timers) runs when they close.
             practiceTabs.CloseAll();
+            FreeCamera.Stop();
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();

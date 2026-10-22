@@ -70,6 +70,48 @@ namespace SluMAN
         public uint deathBarriersPointer { get; private set; }
         public uint cameraPointer { get; private set; }
 
+        // Cameras (the CM struct). cameraPointer is the main one; the game also keeps a count and
+        // an array of pointers to all of them.
+        public uint cameraCount { get; private set; }
+        public uint cameraArray { get; private set; }
+        // 4x4: X, Y, Z axes, then position. Where the PS2 version has it; the free camera checks
+        // it holds a camera matrix and searches the struct when it doesn't (sly3.FindCameraMatrix).
+        public uint cameraMatrixOffset { get; private set; }
+        // Copies of the camera matrix the game draws from, which it copies the one above into
+        // every frame: one in the camera struct and one in the game's data. Writing only the
+        // matrix above doesn't move the view, so without the camera hook the free camera writes
+        // these too.
+        public uint cameraDrawMatrixOffset { get; private set; }
+        public uint cameraDrawMatrix { get; private set; }
+        // Camera hook (free camera without flicker): every object's world matrix (+0x90) is
+        // updated from its local one (+0x50) by one function, when the object is marked changed
+        // (+0x44 negative) and has no parent (+0x40). Every call to it is pointed at a stub, in
+        // unused bytes of the code segment, which for the camera SluMAN drives first
+        // copies in SluMAN's matrix from the stub's data (unused end of the data segment), then
+        // carries on into the function. RPCS3's static interpreter keeps the kind of instruction
+        // it found at an address, so only calls (bl to bl) can be patched, and the stub must go
+        // where there was no code.
+        public uint worldMatrixUpdateFunction { get; private set; }
+        public uint[] worldMatrixUpdateCalls { get; private set; }
+        public uint cameraHookStub { get; private set; }
+        public uint cameraHookData { get; private set; }
+
+        // The HUD's scale (stretch) and position, 1.0 and 0.0 normally. A scale X of 0 hides it.
+        public uint hudScaleX { get; private set; }
+        public uint hudScaleY { get; private set; }
+        public uint hudPositionX { get; private set; }
+        public uint hudPositionY { get; private set; }
+
+        // The fog: 0 turns it off.
+        public uint fog { get; private set; }
+        public uint objectParentOffset { get; private set; }
+        public uint objectChangedOffset { get; private set; }
+        public uint cameraFarClipOffset { get; private set; }
+        public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
+        public uint levelFogAmount { get; private set; } // set to 0.0 to remove fog
+        public uint infoboxPointer { get; private set; }
+        public uint infoboxYPositionOffset { get; private set; }
+
         // Episode 1 specific addresses
         public uint veniceStarted { get; private set; }
         public uint outbackStarted { get; private set; }
@@ -172,6 +214,38 @@ namespace SluMAN
                 guardAIAddress = 0x5EC6CC,
                 deathBarriersPointer = 0x78C6E4,
                 cameraPointer = 0x78CE2C,
+
+                cameraCount = 0x7DA530,
+                cameraArray = 0x7DA534,
+                cameraMatrixOffset = 0x50,
+                // Raising either one's position moved the view; 0x7D6590, another copy, didn't.
+                cameraDrawMatrixOffset = 0x90,
+                cameraDrawMatrix = 0x7DA890,
+                cameraFarClipOffset = 0x114,
+
+                worldMatrixUpdateFunction = 0x220118,
+                worldMatrixUpdateCalls = new uint[] { 0x5DA38, 0x5FBA0, 0x15D0F4, 0x15D69C, 0x1AC8E8, 0x220250 },
+                // Padding between two ELF sections (0x3CE588 to 0x3CE600), zeros that aren't code
+                // or data. RPCS3's static interpreter fixes an instruction's kind wherever it found
+                // code when the game loaded (even code that never runs) and has none past the code
+                // segment's end, so the stub can only go in bytes inside the segment that were
+                // never code.
+                cameraHookStub = 0x3CE590,
+                // The data segment ends at 0x8ABAC8, in a page the game has mapped.
+                cameraHookData = 0x8ABB00,
+
+                hudScaleX = 0x509050,
+                hudScaleY = 0x50905C,
+                hudPositionX = 0x509060,
+                hudPositionY = 0x509064,
+
+                fog = 0x58993C,
+                objectParentOffset = 0x40,
+                objectChangedOffset = 0x44,
+                cameraFovTargetOffset = 0x11C,
+                levelFogAmount = 0x58993C,
+                infoboxPointer = 0x6D3838,
+                infoboxYPositionOffset = 0x90,
 
                 veniceStarted = 0x6CE0B4,
                 outbackStarted = 0x6CEA80,
