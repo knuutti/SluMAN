@@ -76,6 +76,7 @@ namespace SluMAN
 
             freeCamera = new Sly2FreeCamera(game);
             freeCamera.Stopped += freeCamera_Stopped;
+            freeCamera.Notice += freeCamera_Notice;
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
@@ -347,6 +348,7 @@ namespace SluMAN
             if (freeCamera != null)
             {
                 freeCamera.Stopped -= freeCamera_Stopped;
+                freeCamera.Notice -= freeCamera_Notice;
                 freeCamera.Stop();
             }
             // The tools' own cleanup (subscriptions, timers) runs when they close.
@@ -356,6 +358,15 @@ namespace SluMAN
             reapplyTimer.Stop();
             game.SetAutoSkip(false);
             // The session closes the other windows and disconnects after this.
+        }
+
+        private void freeCamera_Notice(string message, bool isError)
+        {
+            // Raised on the camera's thread; the status line takes messages from any thread.
+            if (!IsDisposed)
+            {
+                statusLine.Show(message, isError);
+            }
         }
 
         private void freeCamera_Stopped(string message)

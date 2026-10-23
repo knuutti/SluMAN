@@ -5,12 +5,18 @@ using System.Threading;
 namespace SluMAN
 {
     /// <summary>
-    /// Direct-render-matrix free camera for the researched Sly 2 KOR build. The renderer matrix
-    /// is rewritten continuously because the game can replace it during a frame.
+    /// Free camera for the researched Sly 2 KOR build. It runs through the camera hook
+    /// (sly2.StartCameraHook): whenever the game sets its camera, SluMAN's matrix goes into the
+    /// camera before everything drawn (view matrices, culling) is rebuilt from it, so SluMAN only
+    /// writes the hook's data each tick. When the hook can't run (RPCS3 needs the Interpreter PPU
+    /// decoder), the camera and render matrices are written directly instead, on RPCS3 nonstop,
+    /// and objects far from where the camera started may not draw.
     /// </summary>
     public class Sly2FreeCamera
     {
         private const int PS3IntervalMs = 30;
+        // How often the sticks move the camera on RPCS3 while the hook drives it.
+        private const int Rpcs3HookedIntervalMs = 5;
         private const float DeadZone = 0.2f;
         private const float MaxPitch = 1.5586f;
         private const float MaxStep = 0.1f;
@@ -28,6 +34,12 @@ namespace SluMAN
         private float[] rowW;
         private float[] playerPosition;
         private bool characterControl;
+        // Whether the camera hook drives the camera, and whether it has been seen running.
+        private bool hooked;
+        private bool hookConfirmed;
+        private readonly Stopwatch sinceHook = new Stopwatch();
+        // How long the hook gets to show it runs before SluMAN falls back to direct writes.
+        private const int HookCheckMs = 500;
 
         public float CameraSpeed = 1600f;
         public float LookSpeed = 2f;
@@ -40,6 +52,9 @@ namespace SluMAN
         }
 
         public event Action<string> Stopped;
+
+        /// <summary>Raised with news about the camera hook: the message, and whether it's a problem.</summary>
+        public event Action<string, bool> Notice;
         public event Action ModeChanged;
 
         public bool IsOn
@@ -104,7 +119,7 @@ namespace SluMAN
             {
                 throw new InvalidOperationException("The camera cannot start during a load.");
             }
-            float[] matrix = game.ReadRenderCameraMatrix();
+            float[] matrix = game.ReadCameraMatrix();
             float[] position = new float[] { matrix[12], matrix[13], matrix[14] };
             float[] forward = Axis(matrix, 0);
             float[] left = Axis(matrix, 1);
@@ -119,21 +134,9 @@ namespace SluMAN
                 on = true;
                 running = true;
             }
-            if (rewriteNonstop)
+            lock (stateLock)
             {
-                try
-                {
-                    game.StartCameraHook();
-                }
-                catch
-                {
-                    lock (stateLock)
-                    {
-                        on = false;
-                        running = false;
-                    }
-                    throw;
-                }
+                Hook();
             }
             worker = new Thread(Work);
             worker.IsBackground = true;
@@ -162,11 +165,67 @@ namespace SluMAN
                     playerPosition = null;
                 }
             }
-            if (rewriteNonstop)
+            lock (stateLock)
             {
-                game.StopCameraHook();
+                Unhook();
             }
             Raise(ModeChanged);
+        }
+        /// <summary>Starts the camera hook, or leaves it off (writing directly) and says why.</summary>
+        private void Hook()
+        {
+            hooked = false;
+            hookConfirmed = false;
+            try
+            {
+                game.StartCameraHook(BuildMatrix());
+                hooked = true;
+                sinceHook.Restart();
+            }
+            catch (Exception ex)
+            {
+                RaiseNotice($"{ex.Message} The camera is written directly instead.", true);
+            }
+        }
+
+        private void Unhook()
+        {
+            if (hooked)
+            {
+                try { game.StopCameraHook(); } catch { }
+                hooked = false;
+            }
+        }
+
+        /// <summary>
+        /// Once the hook has had time to run, checks that it did; if not, takes it out and falls
+        /// back to writing the camera directly.
+        /// </summary>
+        private void CheckHook()
+        {
+            if (!hooked || hookConfirmed || sinceHook.ElapsedMilliseconds < HookCheckMs)
+            {
+                return;
+            }
+            if (game.CameraHookCount() > 0)
+            {
+                hookConfirmed = true;
+                RaiseNotice("Free camera on, through the camera hook.", false);
+                return;
+            }
+            Unhook();
+            RaiseNotice(game.api is Memory.RPCS3
+                ? "The camera hook isn't running: set RPCS3's PPU decoder to Interpreter (static). Until then the camera is written directly."
+                : "The camera hook isn't running, so the camera is written directly.", true);
+        }
+
+        private void RaiseNotice(string message, bool isError)
+        {
+            Action<string, bool> handler = Notice;
+            if (handler != null)
+            {
+                handler(message, isError);
+            }
         }
 
         private void Work()
@@ -191,14 +250,12 @@ namespace SluMAN
                             running = false;
                             on = false;
                             playerPosition = null;
-                            if (rewriteNonstop)
-                            {
-                                game.StopCameraHook();
-                            }
+                            Unhook();
                             Raise(Stopped, "The camera stopped because the game started loading.");
                             Raise(ModeChanged);
                             return;
                         }
+                        CheckHook();
                         Move(step);
                         WriteCamera();
                         if (!characterControl && playerPosition != null)
@@ -206,9 +263,9 @@ namespace SluMAN
                             game.SetPlayerPosition(playerPosition);
                         }
                     }
-                    if (!rewriteNonstop)
+                    if (!rewriteNonstop || hooked)
                     {
-                        Thread.Sleep(intervalMs);
+                        Thread.Sleep(hooked && rewriteNonstop ? Rpcs3HookedIntervalMs : intervalMs);
                     }
                 }
             }
@@ -220,9 +277,9 @@ namespace SluMAN
                     running = false;
                     playerPosition = null;
                 }
-                if (rewriteNonstop)
+                lock (stateLock)
                 {
-                    try { game.StopCameraHook(); } catch { }
+                    Unhook();
                 }
                 Raise(Stopped, ex.Message);
                 Raise(ModeChanged);
@@ -248,7 +305,7 @@ namespace SluMAN
             }
         }
 
-        private void WriteCamera()
+        private float[] BuildMatrix()
         {
             float[] forward = Forward();
             float[] left = Left();
@@ -263,8 +320,19 @@ namespace SluMAN
                 }
                 matrix[row * 4 + 3] = rowW[row];
             }
-            // The renderer matrix is rebuilt from the global camera matrix. Rewrite both layers
-            // continuously; writing only the renderer copy produces occasional flashes.
+            return matrix;
+        }
+
+        private void WriteCamera()
+        {
+            float[] matrix = BuildMatrix();
+            if (hooked)
+            {
+                game.SetCameraHookMatrix(matrix);
+                return;
+            }
+            // Without the hook: the renderer matrix is rebuilt from the camera's, so both are
+            // rewritten continuously; writing only the renderer copy produces occasional flashes.
             game.WriteCameraMatrix(matrix);
             game.WriteRenderCameraMatrix(matrix);
         }

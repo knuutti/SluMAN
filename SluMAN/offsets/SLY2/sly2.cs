@@ -565,84 +565,158 @@ namespace SluMAN
             WriteCameraMatrixAt(sly2.addr.cameraMatrixAddress, matrix);
         }
 
-        public void StartCameraHook()
+        // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
+        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix.
+        private const uint CameraHookMark = 0x534C4D32; // "SLM2"
+        private const uint CameraHookDataSize = 0x50;
+
+        /// <summary>
+        /// Starts the camera hook: from the next time the game sets its camera, the matrix given
+        /// to SetCameraHookMatrix goes into the camera before everything drawn is rebuilt from it.
+        /// Throws when this version has no hook or the game's code isn't what's expected.
+        /// </summary>
+        public void StartCameraHook(float[] matrix)
         {
-            if (!(api is Memory.RPCS3) || sly2.addr.cameraHookCaveAddress == 0)
+            uint stub = sly2.addr.cameraHookCaveAddress;
+            uint data = sly2.addr.cameraHookData;
+            uint function = sly2.addr.cameraRebuildFunction;
+            if (stub == 0)
             {
-                return;
+                throw new InvalidOperationException("The camera hook isn't available on this version.");
+            }
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
+            {
+                uint instruction = ReadUInt(site);
+                bool link = (instruction & 1) != 0;
+                if (instruction != Branch(site, function, link) && instruction != Branch(site, stub, link))
+                {
+                    throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+                }
             }
 
-            uint[] callAddresses = new uint[]
+            // Both go in unused memory: zeros, or what SluMAN put there before.
+            byte[] code = CameraHookStub();
+            byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
             {
-                sly2.addr.cameraHookCallAddress,
-                sly2.addr.cameraHookSecondCallAddress,
-            };
-            uint[] expected = new uint[] { 0x4BFFF919, 0x4BED3C0D };
-            uint[] hooked = new uint[] { 0x48304FF9, 0x481D92ED };
-            byte[] cave = new byte[]
-            {
-                0x3D, 0x80, 0x00, 0x49, // lis r12, 0x49
-                0x61, 0x8C, 0xE0, 0x30, // ori r12, r12, 0xe030
-                0x7C, 0x03, 0x60, 0x40, // cmplw r3, r12
-                0x40, 0x82, 0x00, 0x08, // bne original branch
-                0x4E, 0x80, 0x00, 0x20, // blr for the camera object
-                0x4B, 0xCF, 0xA9, 0x0C, // b 0x003f2b0
-            };
-            byte[] zeros = new byte[cave.Length];
-            byte[] existingCave = api.ReadMemory(pid, sly2.addr.cameraHookCaveAddress, (uint)cave.Length);
-            if (!existingCave.SequenceEqual(zeros) && !existingCave.SequenceEqual(cave))
-            {
-                throw new InvalidOperationException(
-                    $"The Sly 2 camera hook cave at 0x{sly2.addr.cameraHookCaveAddress:X8} is not unused.");
+                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in isn't empty. Restart the game, or the camera hook isn't available on this version.");
             }
-            for (int i = 0; i < callAddresses.Length; i++)
+            byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
+            if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
             {
-                byte[] bytes = api.ReadMemory(pid, callAddresses[i], 4);
-                if (!bytes.SequenceEqual(UInt32Bytes(expected[i])) && !bytes.SequenceEqual(UInt32Bytes(hooked[i])))
-                {
-                    throw new InvalidOperationException($"Unexpected Sly 2 camera call instruction at 0x{callAddresses[i]:X8}.");
-                }
+                throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
             }
-            api.WriteMemory(pid, sly2.addr.cameraHookCaveAddress, cave);
-            VerifyBytes(sly2.addr.cameraHookCaveAddress, cave, "camera hook stub");
-            try
+            // Off while the stub and matrix are written, then on.
+            byte[] header = new byte[0x10];
+            Array.Copy(UInt32Bytes(sly2.addr.cameraObject), 0, header, 4, 4);
+            Array.Copy(UInt32Bytes(CameraHookMark), 0, header, 0xC, 4);
+            api.WriteMemory(pid, data, header);
+            SetCameraHookMatrix(matrix);
+            if (!codeThere.SequenceEqual(code))
             {
-                for (int i = 0; i < callAddresses.Length; i++)
-                {
-                    api.WriteMemory(pid, callAddresses[i], UInt32Bytes(hooked[i]));
-                    VerifyBytes(callAddresses[i], UInt32Bytes(hooked[i]), "camera hook call");
-                }
+                api.WriteMemory(pid, stub, code);
+                VerifyBytes(stub, code, "camera hook stub");
             }
-            catch
+            api.WriteMemory(pid, data, UInt32Bytes(1));
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
             {
-                for (int i = 0; i < callAddresses.Length; i++)
-                {
-                    api.WriteMemory(pid, callAddresses[i], UInt32Bytes(expected[i]));
-                }
-                api.WriteMemory(pid, sly2.addr.cameraHookCaveAddress, zeros);
-                throw;
+                bool link = (ReadUInt(site) & 1) != 0;
+                api.WriteMemory(pid, site, UInt32Bytes(Branch(site, stub, link)));
             }
         }
+        /// <summary>The matrix (laid out as the camera's) the camera hook puts in. One write.</summary>
+        public void SetCameraHookMatrix(float[] matrix)
+        {
+            WriteCameraMatrixAt(sly2.addr.cameraHookData + 0x10, matrix);
+        }
 
+        /// <summary>How many times the camera hook has put the matrix in since it started.</summary>
+        public uint CameraHookCount()
+        {
+            return ReadUInt(sly2.addr.cameraHookData + 8);
+        }
+
+        /// <summary>Lets the game's own camera through again, and points the game's calls back.</summary>
         public void StopCameraHook()
         {
-            if (!(api is Memory.RPCS3) || sly2.addr.cameraHookCaveAddress == 0)
+            if (sly2.addr.cameraHookCaveAddress == 0)
             {
                 return;
             }
-            uint[] addresses = new uint[] { sly2.addr.cameraHookCallAddress, sly2.addr.cameraHookSecondCallAddress };
-            uint[] expected = new uint[] { 0x4BFFF919, 0x4BED3C0D };
-            for (int i = 0; i < addresses.Length; i++)
+            api.WriteMemory(pid, sly2.addr.cameraHookData, new byte[4]);
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
             {
-                byte[] current = api.ReadMemory(pid, addresses[i], 4);
-                if (current.SequenceEqual(UInt32Bytes(expected[i])))
+                uint instruction = ReadUInt(site);
+                bool link = (instruction & 1) != 0;
+                if (instruction == Branch(site, sly2.addr.cameraHookCaveAddress, link))
                 {
-                    continue;
+                    api.WriteMemory(pid, site, UInt32Bytes(Branch(site, sly2.addr.cameraRebuildFunction, link)));
                 }
-                api.WriteMemory(pid, addresses[i], UInt32Bytes(expected[i]));
-                VerifyBytes(addresses[i], UInt32Bytes(expected[i]), "camera hook restore");
             }
-            api.WriteMemory(pid, sly2.addr.cameraHookCaveAddress, new byte[0x18]);
+        }
+        /// <summary>
+        /// The camera hook's stub, branched to instead of the rebuild with the camera object in
+        /// r3. The rebuild only takes r3, so the stub uses r4 to r7, r11, r12, the count register
+        /// and cr0, then branches on into the rebuild, which returns to whoever called it.
+        /// </summary>
+        private byte[] CameraHookStub()
+        {
+            uint stub = sly2.addr.cameraHookCaveAddress;
+            uint data = sly2.addr.cameraHookData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
+            uint[] words =
+            {
+                0x3D600000 | high,      //  0 lis r11, data@ha
+                0x396B0000 | low,       //  1 addi r11, r11, data@l
+                0x818B0000,             //  2 lwz r12, 0(r11) (on)
+                0x2C0C0000,             //  3 cmpwi r12, 0
+                0x41820038,             //  4 beq +0x38 (to 18: off)
+                0x818B0004,             //  5 lwz r12, 4(r11) (the camera)
+                0x7C036000,             //  6 cmpw r3, r12
+                0x4082002C,             //  7 bne +0x2C (to 18: another camera)
+                0x38C00010,             //  8 li r6, 16 (words)
+                0x7CC903A6,             //  9 mtctr r6
+                0x38AB000C,             // 10 addi r5, r11, matrix - 4
+                0x3883005C,             // 11 addi r4, r3, 0x60 - 4
+                0x84E50004,             // 12 lwzu r7, 4(r5)
+                0x94E40004,             // 13 stwu r7, 4(r4)
+                0x4200FFF8,             // 14 bdnz -8
+                0x80EB0008,             // 15 lwz r7, 8(r11)
+                0x38E70001,             // 16 addi r7, r7, 1
+                0x90EB0008,             // 17 stw r7, 8(r11) (count)
+                Branch(stub + 18 * 4, sly2.addr.cameraRebuildFunction, false), // 18 b to the rebuild
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(UInt32Bytes(words[i]), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        private static uint Branch(uint from, uint to, bool link)
+        {
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
+        }
+
+        private uint ReadUInt(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 4);
+            return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
+        /// <summary>The camera object's matrix (+0x60), laid out as the render matrix.</summary>
+        public float[] ReadCameraMatrix()
+        {
+            byte[] bytes = api.ReadMemory(pid, sly2.addr.cameraMatrixAddress, 0x40);
+            float[] matrix = new float[16];
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
         }
 
         private void VerifyBytes(uint address, byte[] expected, string operation)

@@ -45,11 +45,18 @@ namespace SluMAN
         public uint cameraMatrixAddress { get; private set; }
         // The matrix the renderer consumes directly, confirmed on the KOR build.
         public uint cameraRenderMatrix { get; private set; }
-        // Existing calls to the camera matrix builder. These remain bl instructions so
-        // RPCS3's static interpreter can safely redirect them to the hook cave.
-        public uint cameraHookCallAddress { get; private set; }
-        public uint cameraHookSecondCallAddress { get; private set; }
+        // Camera hook (free camera): the camera object (static, its matrix at +0x60, the
+        // position at +0x90) is set by a look-at and a matrix setter, which both end in one
+        // function that rebuilds everything drawn from the matrix (view matrices, the frustum
+        // culling uses). Its call (bl) and the two jumps to it (b) are pointed at a stub in
+        // padding between two ELF sections, which for the camera first copies in SluMAN's matrix
+        // from the stub's data (past the data segment's end). RPCS3's static interpreter keeps
+        // the kind of instruction it found at an address, so the sites stay bl and b.
+        public uint cameraObject { get; private set; }
+        public uint cameraRebuildFunction { get; private set; }
+        public uint[] cameraRebuildCalls { get; private set; }
         public uint cameraHookCaveAddress { get; private set; }
+        public uint cameraHookData { get; private set; }
         public uint loadingState { get; private set; }
         public uint currentJobId { get; private set; }
         public uint currentCheckpointId { get; private set; }
@@ -164,9 +171,12 @@ namespace SluMAN
                 cameraParameter = 0x49E07C,
                 cameraMatrixAddress = 0x49E090,
                 cameraRenderMatrix = 0x008C2210,
-                cameraHookCallAddress = 0x0003F998,
-                cameraHookSecondCallAddress = 0x0016B6A4,
-                cameraHookCaveAddress = 0x00344990,
+                cameraObject = 0x49E030,
+                cameraRebuildFunction = 0x3ECCC,
+                cameraRebuildCalls = new uint[] { 0x3F36C, 0x3F3D4, 0x3F718 },
+                // Padding from 0x344988 to 0x344A00; the data segment ends at 0x975548.
+                cameraHookCaveAddress = 0x344990,
+                cameraHookData = 0x975580,
                 loadingState = 0x7A7200,
                 currentJobId = 0x4FEBF4,
                 currentCheckpointId = 0x4FEBF8,
@@ -251,9 +261,11 @@ namespace SluMAN
             palDigital.cameraFov = 0x49DFD4;
             palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
             palDigital.cameraMatrixAddress = 0; // Not researched; the current camera research targets KOR.
-            palDigital.cameraHookCallAddress = 0;
-            palDigital.cameraHookSecondCallAddress = 0;
+            palDigital.cameraObject = 0;
+            palDigital.cameraRebuildFunction = 0;
+            palDigital.cameraRebuildCalls = new uint[0];
             palDigital.cameraHookCaveAddress = 0;
+            palDigital.cameraHookData = 0;
 
             // The episodes' save data is the Korean address - 0x80, like the rest of the save
             // data: a new game's prologue state lines up with the recorded one at 0x7A9510. The
