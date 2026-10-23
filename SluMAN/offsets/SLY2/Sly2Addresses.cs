@@ -40,6 +40,11 @@ namespace SluMAN
         public uint currentCharacter { get; private set; }
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
+        public uint hudScaleX { get; private set; }
+        public uint hudScaleY { get; private set; }
+        public uint hudPositionX { get; private set; }
+        public uint hudPositionY { get; private set; }
+        public uint fogAmount { get; private set; }
         // A camera matrix copy found in the global camera region. The rendered camera may be
         // made from another copy; the Camera research tab searches for that source.
         public uint cameraMatrixAddress { get; private set; }
@@ -169,6 +174,11 @@ namespace SluMAN
                 currentCharacter = 0x7A830C,
                 cameraFov = 0x49E054,
                 cameraParameter = 0x49E07C,
+                hudScaleX = 0x45DB40,
+                hudScaleY = 0x45DB4C,
+                hudPositionX = 0x45DB50,
+                hudPositionY = 0x45DB54,
+                fogAmount = 0x49E278,
                 cameraMatrixAddress = 0x49E090,
                 cameraRenderMatrix = 0x008C2210,
                 cameraObject = 0x49E030,
@@ -260,6 +270,11 @@ namespace SluMAN
             palDigital.currentMapId = 0x7B4C60;
             palDigital.cameraFov = 0x49DFD4;
             palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
+            palDigital.hudScaleX = 0;
+            palDigital.hudScaleY = 0;
+            palDigital.hudPositionX = 0;
+            palDigital.hudPositionY = 0;
+            palDigital.fogAmount = 0;
             palDigital.cameraMatrixAddress = 0; // Not researched; the current camera research targets KOR.
             palDigital.cameraObject = 0;
             palDigital.cameraRebuildFunction = 0;

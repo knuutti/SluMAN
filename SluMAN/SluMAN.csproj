@@ -234,9 +234,6 @@
     <Compile Include="SLY2\Sly2Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\Sly2CameraResearchForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="SLY2\Sly2CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>

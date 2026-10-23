@@ -923,6 +923,77 @@ namespace SluMAN
             return ReadMapIndicator(sly2.addr.mapAOB);
         }
 
+        private float hudScaleXBeforeHiding = 1f;
+        private float hudScaleYBeforeHiding = 1f;
+        private float hudPositionXBeforeHiding;
+        private float hudPositionYBeforeHiding;
+        public void SetHudHidden(bool hidden)
+        {
+            float currentX = ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0);
+            float currentY = ToFloat(api.ReadMemory(pid, addr.hudScaleY, 4), 0);
+            if (hidden)
+            {
+                if (currentX != 0) hudScaleXBeforeHiding = currentX;
+                if (currentY != 0) hudScaleYBeforeHiding = currentY;
+                hudPositionXBeforeHiding = ToFloat(api.ReadMemory(pid, addr.hudPositionX, 4), 0);
+                hudPositionYBeforeHiding = ToFloat(api.ReadMemory(pid, addr.hudPositionY, 4), 0);
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudScaleY, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudPositionX, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudPositionY, ConvertFloatToBytes(0));
+            }
+            else if (currentX == 0 || currentY == 0)
+            {
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(hudScaleXBeforeHiding));
+                api.WriteMemory(pid, addr.hudScaleY, ConvertFloatToBytes(hudScaleYBeforeHiding));
+                api.WriteMemory(pid, addr.hudPositionX, ConvertFloatToBytes(hudPositionXBeforeHiding));
+                api.WriteMemory(pid, addr.hudPositionY, ConvertFloatToBytes(hudPositionYBeforeHiding));
+            }
+        }
+
+        public bool IsHudHidden()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0) == 0;
+        }
+
+        private float fogBeforeNoFog;
+        private bool fogSaved;
+
+        public bool SetFogDisabled(bool disabled)
+        {
+            if (addr.fogAmount == 0) return false;
+            if (disabled)
+            {
+                if (!fogSaved)
+                {
+                    fogBeforeNoFog = ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0);
+                    fogSaved = true;
+                }
+                api.WriteMemory(pid, addr.fogAmount, ConvertFloatToBytes(0));
+            }
+            else if (fogSaved)
+            {
+                api.WriteMemory(pid, addr.fogAmount, ConvertFloatToBytes(fogBeforeNoFog));
+                fogSaved = false;
+            }
+            return true;
+        }
+
+        public bool IsFogDisabled()
+        {
+            return addr.fogAmount != 0 && ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0) == 0;
+        }
+
+        public float ReadCameraFov()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.cameraFov, 4), 0);
+        }
+
+        public void WriteCameraFov(float fov)
+        {
+            api.WriteMemory(pid, addr.cameraFov, ConvertFloatToBytes(fov));
+        }
+
         /// <summary>The spawn point the player last arrived at (the game sets it through doors and loads).</summary>
         public uint GetSpawnLocation()
         {

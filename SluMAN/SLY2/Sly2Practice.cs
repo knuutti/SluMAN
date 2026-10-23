@@ -21,7 +21,6 @@ namespace SluMAN
         private const string GadgetsTab = "Gadgets";
         private const string RunFilesTab = "Run Files";
         private const string CameraTab = "Camera";
-        private const string CameraResearchTab = "Camera Research";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         public sly2 game;
@@ -84,12 +83,11 @@ namespace SluMAN
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
             practiceTabs.AddTool(CameraTab, () => new Sly2CameraForm(game, freeCamera));
-            practiceTabs.AddTool(CameraResearchTab, () => new Sly2CameraResearchForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab, CameraResearchTab);
+            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
