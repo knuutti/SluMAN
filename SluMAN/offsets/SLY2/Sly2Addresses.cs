@@ -40,6 +40,16 @@ namespace SluMAN
         public uint currentCharacter { get; private set; }
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
+        // A camera matrix copy found in the global camera region. The rendered camera may be
+        // made from another copy; the Camera research tab searches for that source.
+        public uint cameraMatrixAddress { get; private set; }
+        // The matrix the renderer consumes directly, confirmed on the KOR build.
+        public uint cameraRenderMatrix { get; private set; }
+        // Existing calls to the camera matrix builder. These remain bl instructions so
+        // RPCS3's static interpreter can safely redirect them to the hook cave.
+        public uint cameraHookCallAddress { get; private set; }
+        public uint cameraHookSecondCallAddress { get; private set; }
+        public uint cameraHookCaveAddress { get; private set; }
         public uint loadingState { get; private set; }
         public uint currentJobId { get; private set; }
         public uint currentCheckpointId { get; private set; }
@@ -152,6 +162,11 @@ namespace SluMAN
                 currentCharacter = 0x7A830C,
                 cameraFov = 0x49E054,
                 cameraParameter = 0x49E07C,
+                cameraMatrixAddress = 0x49E090,
+                cameraRenderMatrix = 0x008C2210,
+                cameraHookCallAddress = 0x0003F998,
+                cameraHookSecondCallAddress = 0x0016B6A4,
+                cameraHookCaveAddress = 0x00344990,
                 loadingState = 0x7A7200,
                 currentJobId = 0x4FEBF4,
                 currentCheckpointId = 0x4FEBF8,
@@ -235,6 +250,10 @@ namespace SluMAN
             palDigital.currentMapId = 0x7B4C60;
             palDigital.cameraFov = 0x49DFD4;
             palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
+            palDigital.cameraMatrixAddress = 0; // Not researched; the current camera research targets KOR.
+            palDigital.cameraHookCallAddress = 0;
+            palDigital.cameraHookSecondCallAddress = 0;
+            palDigital.cameraHookCaveAddress = 0;
 
             // The episodes' save data is the Korean address - 0x80, like the rest of the save
             // data: a new game's prologue state lines up with the recorded one at 0x7A9510. The
