@@ -20,6 +20,8 @@ namespace SluMAN
         private const string PositionTab = "Player";
         private const string GadgetsTab = "Gadgets";
         private const string RunFilesTab = "Run Files";
+        private const string CameraTab = "Camera";
+        private const string CameraResearchTab = "Camera Research";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         public sly2 game;
@@ -29,6 +31,7 @@ namespace SluMAN
         private JobPicker jobPicker;
         private MapPicker mapPicker;
         private GameSession session;
+        private Sly2FreeCamera freeCamera;
 
         public Sly2Practice(sly2 game)
         {
@@ -71,16 +74,22 @@ namespace SluMAN
             game.LoadStarted += game_LoadStarted;
             game.SetupLoadWatcher();
 
+            freeCamera = new Sly2FreeCamera(game);
+            freeCamera.Stopped += freeCamera_Stopped;
+            freeCamera.Notice += freeCamera_Notice;
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
+            practiceTabs.AddTool(CameraTab, () => new Sly2CameraForm(game, freeCamera));
+            practiceTabs.AddTool(CameraResearchTab, () => new Sly2CameraResearchForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab);
+            practiceTabs.AddViewMenu("sly2_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab, CameraResearchTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -121,6 +130,10 @@ namespace SluMAN
 
         private void game_LoadStarted()
         {
+            if (freeCamera != null)
+            {
+                freeCamera.Stop();
+            }
             // Raised on the subscription thread. Position freezes hold coordinates from the old
             // map, so drop them as soon as the load begins rather than writing them all through it.
             if (IsDisposed || !IsHandleCreated)
@@ -332,6 +345,12 @@ namespace SluMAN
 
         private void Sly2Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (freeCamera != null)
+            {
+                freeCamera.Stopped -= freeCamera_Stopped;
+                freeCamera.Notice -= freeCamera_Notice;
+                freeCamera.Stop();
+            }
             // The tools' own cleanup (subscriptions, timers) runs when they close.
             practiceTabs.CloseAll();
             game.LoadFinished -= game_LoadFinished;
@@ -339,6 +358,23 @@ namespace SluMAN
             reapplyTimer.Stop();
             game.SetAutoSkip(false);
             // The session closes the other windows and disconnects after this.
+        }
+
+        private void freeCamera_Notice(string message, bool isError)
+        {
+            // Raised on the camera's thread; the status line takes messages from any thread.
+            if (!IsDisposed)
+            {
+                statusLine.Show(message, isError);
+            }
+        }
+
+        private void freeCamera_Stopped(string message)
+        {
+            if (!IsDisposed)
+            {
+                statusLine.Error($"Free camera stopped: {message}");
+            }
         }
 
         private void skipCinematicsButton_Click(object sender, EventArgs e)
