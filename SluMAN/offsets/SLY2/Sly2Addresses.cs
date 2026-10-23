@@ -180,7 +180,7 @@ namespace SluMAN
                 hudPositionY = 0x45DB54,
                 fogAmount = 0x49E278,
                 cameraMatrixAddress = 0x49E090,
-                cameraRenderMatrix = 0x008C2210,
+                cameraRenderMatrix = 0x8C2210,
                 cameraObject = 0x49E030,
                 cameraRebuildFunction = 0x3ECCC,
                 cameraRebuildCalls = new uint[] { 0x3F36C, 0x3F3D4, 0x3F718 },
@@ -224,7 +224,6 @@ namespace SluMAN
                     0x7AB4CC, 0x7ABCC4, 0x7AC264, 0x7ACBEC,
                 },
 
-                // From SluMAN-EXT (utility.lua)
                 healthSly = 0x7A8360,
                 healthBentley = 0x7A8378,
                 healthMurray = 0x7A8390,
@@ -264,27 +263,21 @@ namespace SluMAN
             palDigital.pauseMenuState = 0x4FFE04;
             palDigital.fmvState = 0x90667C;
             palDigital.rajanHealth = 0x35C2E4EC;
-            // The dialogue state (1 during dialogue) and its frame counter are at the Korean
-            // addresses, so they're inherited.
             palDigital.loadingState = 0x7A7180;
             palDigital.currentMapId = 0x7B4C60;
             palDigital.cameraFov = 0x49DFD4;
-            palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
-            palDigital.hudScaleX = 0;
-            palDigital.hudScaleY = 0;
-            palDigital.hudPositionX = 0;
-            palDigital.hudPositionY = 0;
-            palDigital.fogAmount = 0;
-            palDigital.cameraMatrixAddress = 0; // Not researched; the current camera research targets KOR.
-            palDigital.cameraObject = 0;
-            palDigital.cameraRebuildFunction = 0;
-            palDigital.cameraRebuildCalls = new uint[0];
-            palDigital.cameraHookCaveAddress = 0;
-            palDigital.cameraHookData = 0;
+            palDigital.cameraParameter = 0x49DFFC;
+            palDigital.hudScaleX = 0x45DAC0;
+            palDigital.hudScaleY = 0x45DACC;
+            palDigital.hudPositionX = 0x45DAE0;
+            palDigital.hudPositionY = 0x45DAE4;
+            palDigital.fogAmount = 0x49E1F8;
+            palDigital.cameraMatrixAddress = 0x49E010;
+            palDigital.cameraRenderMatrix = 0x8C2190;
+            palDigital.cameraObject = 0x49DFB0;
+            palDigital.cameraHookCaveAddress = 0x344310;
+            // palDigital.cameraHookData = 0;
 
-            // The episodes' save data is the Korean address - 0x80, like the rest of the save
-            // data: a new game's prologue state lines up with the recorded one at 0x7A9510. The
-            // flags inside it move with it.
             palDigital.episodeData = new uint[]
             {
                 0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,
