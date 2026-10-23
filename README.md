@@ -29,7 +29,11 @@ Then all you need to do is run a game, and click Attach!
 ### RPCS3 setup
 Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` button. 
 
-Some features may unfortunately not be supported on RPCS3.
+Some features require you to run RPCS3 on Interpreter (static) mode. These features include
+- Freecam for Sly 2, Sly 3 and Sly 4
+- Loading and game-state related functions in Sly 4, such as loading maps or jobs.
+
+You can change the mode to Interpreter by going `Configuration -> CPU -> PPU Decoder -> Select Interpreter (static) -> Apply & Save`. The default mode is the `Recompiler (LLVM)` which is recommended option if you don't need the functionalities mentioned above.
 
 ## Run files
 A run file sets up the save a Sly 2 or Sly 3 run starts from. You make it once, in Practice Mode's **Run Files** tab, and keep it in an anchor file slot; during a run you load the anchor file in game, not from SluMAN.
