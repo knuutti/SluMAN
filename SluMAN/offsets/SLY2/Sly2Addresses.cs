@@ -30,6 +30,8 @@ namespace SluMAN
 
         // Offsets
         public uint transformOffset { get; private set; }
+        public uint vjoyComponentOffset { get; private set; }
+        public uint entityIsControllableOffset { get; private set; }
         public uint coordsOffsetX { get; private set; }
         public uint coordsOffsetY { get; private set; }
         public uint coordsOffsetZ { get; private set; }
@@ -166,6 +168,8 @@ namespace SluMAN
                 activeCharacterPtr = 0x49E290,
 
                 transformOffset = 0x44,
+                vjoyComponentOffset = 0x140,
+                entityIsControllableOffset = 0x80, // 0 = not controllable, 1 = controllable
                 coordsOffsetX = 0x130,
                 coordsOffsetY = 0x134,
                 coordsOffsetZ = 0x138,
