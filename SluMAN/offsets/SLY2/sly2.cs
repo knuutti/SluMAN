@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -455,6 +456,404 @@ namespace SluMAN
         }
 
         /// <summary>
+        /// Finds exact copies of a camera position in RPCS3 memory. The ranges cover the game's
+        /// mapped main and user memory; unmapped chunks are skipped.
+        /// </summary>
+        public List<uint> FindMemory(byte[] pattern, uint[][] ranges)
+        {
+            const uint chunk = 0x100000;
+            List<uint> found = new List<uint>();
+            foreach (uint[] range in ranges)
+            {
+                for (uint start = range[0]; start < range[1]; start += chunk)
+                {
+                    uint size = Math.Min(chunk + (uint)pattern.Length, range[1] - start);
+                    byte[] data;
+                    try
+                    {
+                        data = api.ReadMemory(pid, start, size);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i + pattern.Length <= data.Length && i < chunk; i += 4)
+                    {
+                        if (data[i] != pattern[0])
+                        {
+                            continue;
+                        }
+                        int j = 1;
+                        while (j < pattern.Length && data[i + j] == pattern[j])
+                        {
+                            j++;
+                        }
+                        if (j == pattern.Length)
+                        {
+                            found.Add(start + (uint)i);
+                        }
+                    }
+                }
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// Raises a candidate position's Z value for visual testing. Sly 2 does not necessarily
+        /// copy the rendered camera back into the known camera struct, so the caller must observe
+        /// the game view rather than relying on a memory value.
+        /// </summary>
+        public void TestCameraCopy(uint address, float raise, int milliseconds)
+        {
+            byte[] original = api.ReadMemory(pid, address, 12);
+            byte[] raised = (byte[])original.Clone();
+            Array.Copy(ConvertFloatToBytes(ToFloat(original, 8) + raise), 0, raised, 8, 4);
+            Stopwatch clock = Stopwatch.StartNew();
+            try
+            {
+                while (clock.ElapsedMilliseconds < milliseconds)
+                {
+                    api.WriteMemory(pid, address, raised);
+                }
+            }
+            finally
+            {
+                api.WriteMemory(pid, address, original);
+            }
+        }
+
+        /// <summary>Raises the position row of a candidate's complete matrix for visual testing.</summary>
+        public void TestCameraMatrix(uint positionAddress, float raise, int milliseconds)
+        {
+            uint matrixAddress = positionAddress - 0x30;
+            byte[] original = api.ReadMemory(pid, matrixAddress, 0x40);
+            byte[] raised = (byte[])original.Clone();
+            Array.Copy(ConvertFloatToBytes(ToFloat(original, 0x38) + raise), 0, raised, 0x38, 4);
+            Stopwatch clock = Stopwatch.StartNew();
+            try
+            {
+                while (clock.ElapsedMilliseconds < milliseconds)
+                {
+                    api.WriteMemory(pid, matrixAddress, raised);
+                }
+            }
+
+            finally
+            {
+                api.WriteMemory(pid, matrixAddress, original);
+            }
+        }
+
+        public float[] ReadRenderCameraMatrix()
+        {
+            byte[] bytes = api.ReadMemory(pid, sly2.addr.cameraRenderMatrix, 0x40);
+            float[] matrix = new float[16];
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
+        }
+
+        public void WriteRenderCameraMatrix(float[] matrix)
+        {
+            WriteCameraMatrixAt(sly2.addr.cameraRenderMatrix, matrix);
+        }
+
+        public void WriteCameraMatrix(float[] matrix)
+        {
+            WriteCameraMatrixAt(sly2.addr.cameraMatrixAddress, matrix);
+        }
+
+        // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
+        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix.
+        private const uint CameraHookMark = 0x534C4D32; // "SLM2"
+        private const uint CameraHookDataSize = 0x50;
+
+        /// <summary>
+        /// Starts the camera hook: from the next time the game sets its camera, the matrix given
+        /// to SetCameraHookMatrix goes into the camera before everything drawn is rebuilt from it.
+        /// Throws when this version has no hook or the game's code isn't what's expected.
+        /// </summary>
+        public void StartCameraHook(float[] matrix)
+        {
+            uint stub = sly2.addr.cameraHookCaveAddress;
+            uint data = sly2.addr.cameraHookData;
+            uint function = sly2.addr.cameraRebuildFunction;
+            if (stub == 0)
+            {
+                throw new InvalidOperationException("The camera hook isn't available on this version.");
+            }
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
+            {
+                uint instruction = ReadUInt(site);
+                bool link = (instruction & 1) != 0;
+                if (instruction != Branch(site, function, link) && instruction != Branch(site, stub, link))
+                {
+                    throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+                }
+            }
+
+            // Both go in unused memory: zeros, or what SluMAN put there before.
+            byte[] code = CameraHookStub();
+            byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in isn't empty. Restart the game, or the camera hook isn't available on this version.");
+            }
+            byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
+            if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
+            }
+            // Off while the stub and matrix are written, then on.
+            byte[] header = new byte[0x10];
+            Array.Copy(UInt32Bytes(sly2.addr.cameraObject), 0, header, 4, 4);
+            Array.Copy(UInt32Bytes(CameraHookMark), 0, header, 0xC, 4);
+            api.WriteMemory(pid, data, header);
+            SetCameraHookMatrix(matrix);
+            if (!codeThere.SequenceEqual(code))
+            {
+                api.WriteMemory(pid, stub, code);
+                VerifyBytes(stub, code, "camera hook stub");
+            }
+            api.WriteMemory(pid, data, UInt32Bytes(1));
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
+            {
+                bool link = (ReadUInt(site) & 1) != 0;
+                api.WriteMemory(pid, site, UInt32Bytes(Branch(site, stub, link)));
+            }
+        }
+        /// <summary>The matrix (laid out as the camera's) the camera hook puts in. One write.</summary>
+        public void SetCameraHookMatrix(float[] matrix)
+        {
+            WriteCameraMatrixAt(sly2.addr.cameraHookData + 0x10, matrix);
+        }
+
+        /// <summary>How many times the camera hook has put the matrix in since it started.</summary>
+        public uint CameraHookCount()
+        {
+            return ReadUInt(sly2.addr.cameraHookData + 8);
+        }
+
+        /// <summary>Lets the game's own camera through again, and points the game's calls back.</summary>
+        public void StopCameraHook()
+        {
+            if (sly2.addr.cameraHookCaveAddress == 0)
+            {
+                return;
+            }
+            api.WriteMemory(pid, sly2.addr.cameraHookData, new byte[4]);
+            foreach (uint site in sly2.addr.cameraRebuildCalls)
+            {
+                uint instruction = ReadUInt(site);
+                bool link = (instruction & 1) != 0;
+                if (instruction == Branch(site, sly2.addr.cameraHookCaveAddress, link))
+                {
+                    api.WriteMemory(pid, site, UInt32Bytes(Branch(site, sly2.addr.cameraRebuildFunction, link)));
+                }
+            }
+        }
+        /// <summary>
+        /// The camera hook's stub, branched to instead of the rebuild with the camera object in
+        /// r3. The rebuild only takes r3, so the stub uses r4 to r7, r11, r12, the count register
+        /// and cr0, then branches on into the rebuild, which returns to whoever called it.
+        /// </summary>
+        private byte[] CameraHookStub()
+        {
+            uint stub = sly2.addr.cameraHookCaveAddress;
+            uint data = sly2.addr.cameraHookData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
+            uint[] words =
+            {
+                0x3D600000 | high,      //  0 lis r11, data@ha
+                0x396B0000 | low,       //  1 addi r11, r11, data@l
+                0x818B0000,             //  2 lwz r12, 0(r11) (on)
+                0x2C0C0000,             //  3 cmpwi r12, 0
+                0x41820038,             //  4 beq +0x38 (to 18: off)
+                0x818B0004,             //  5 lwz r12, 4(r11) (the camera)
+                0x7C036000,             //  6 cmpw r3, r12
+                0x4082002C,             //  7 bne +0x2C (to 18: another camera)
+                0x38C00010,             //  8 li r6, 16 (words)
+                0x7CC903A6,             //  9 mtctr r6
+                0x38AB000C,             // 10 addi r5, r11, matrix - 4
+                0x3883005C,             // 11 addi r4, r3, 0x60 - 4
+                0x84E50004,             // 12 lwzu r7, 4(r5)
+                0x94E40004,             // 13 stwu r7, 4(r4)
+                0x4200FFF8,             // 14 bdnz -8
+                0x80EB0008,             // 15 lwz r7, 8(r11)
+                0x38E70001,             // 16 addi r7, r7, 1
+                0x90EB0008,             // 17 stw r7, 8(r11) (count)
+                Branch(stub + 18 * 4, sly2.addr.cameraRebuildFunction, false), // 18 b to the rebuild
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(UInt32Bytes(words[i]), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        private static uint Branch(uint from, uint to, bool link)
+        {
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
+        }
+
+        private uint ReadUInt(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 4);
+            return BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
+        /// <summary>The camera object's matrix (+0x60), laid out as the render matrix.</summary>
+        public float[] ReadCameraMatrix()
+        {
+            byte[] bytes = api.ReadMemory(pid, sly2.addr.cameraMatrixAddress, 0x40);
+            float[] matrix = new float[16];
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                matrix[i] = ToFloat(bytes, i * 4);
+            }
+            return matrix;
+        }
+
+        private void VerifyBytes(uint address, byte[] expected, string operation)
+        {
+            if (!api.ReadMemory(pid, address, (uint)expected.Length).SequenceEqual(expected))
+            {
+                throw new InvalidOperationException($"Couldn't verify Sly 2 {operation} at 0x{address:X8}.");
+            }
+        }
+
+        private static byte[] UInt32Bytes(uint value)
+        {
+            return new byte[]
+            {
+                (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value,
+            };
+        }
+
+        private static string FormatBytes(byte[] bytes)
+        {
+            return BitConverter.ToString(bytes).Replace("-", " ");
+        }
+
+        private static byte[] Flatten(byte[][] arrays)
+        {
+            List<byte> bytes = new List<byte>();
+            for (int i = 0; i < arrays.Length; i++)
+            {
+                bytes.AddRange(arrays[i]);
+            }
+            return bytes.ToArray();
+        }
+
+        private void WriteCameraMatrixAt(uint address, float[] matrix)
+        {
+            byte[] bytes = new byte[0x40];
+            for (int i = 0; i < matrix.Length; i++)
+            {
+                Array.Copy(ConvertFloatToBytes(matrix[i]), 0, bytes, i * 4, 4);
+            }
+            api.WriteMemory(pid, address, bytes);
+        }
+
+        public float[] GetPlayerPosition()
+        {
+            byte[] entityBytes = api.ReadMemory(pid, sly2.addr.activeCharacterPtr, 4);
+            uint entity = BitConverter.ToUInt32(entityBytes.Reverse().ToArray(), 0);
+            if (entity == 0)
+            {
+                return null;
+            }
+            byte[] transformBytes = api.ReadMemory(pid, entity + sly2.addr.transformOffset, 4);
+            uint transform = BitConverter.ToUInt32(transformBytes.Reverse().ToArray(), 0);
+            if (transform == 0)
+            {
+                return null;
+            }
+            byte[] bytes = api.ReadMemory(pid, transform + sly2.addr.coordsOffsetX, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        public bool SetPlayerPosition(float[] position)
+        {
+            float[] current = GetPlayerPosition();
+            if (current == null)
+            {
+                return false;
+            }
+            byte[] entityBytes = api.ReadMemory(pid, sly2.addr.activeCharacterPtr, 4);
+            uint entity = BitConverter.ToUInt32(entityBytes.Reverse().ToArray(), 0);
+            byte[] transformBytes = api.ReadMemory(pid, entity + sly2.addr.transformOffset, 4);
+            uint transform = BitConverter.ToUInt32(transformBytes.Reverse().ToArray(), 0);
+            byte[] bytes = new byte[12];
+            for (int axis = 0; axis < 3; axis++)
+            {
+                Array.Copy(ConvertFloatToBytes(position[axis]), 0, bytes, axis * 4, 4);
+            }
+            api.WriteMemory(pid, transform + sly2.addr.coordsOffsetX, bytes);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks whether the 0x40 bytes before a position candidate look like a camera matrix:
+        /// three unit, perpendicular axes followed by a finite position row.
+        /// </summary>
+        public bool IsCameraMatrixAt(uint positionAddress)
+        {
+            if (positionAddress < 0x30)
+            {
+                return false;
+            }
+            byte[] bytes = api.ReadMemory(pid, positionAddress - 0x30, 0x40);
+            float[][] axes = new float[3][];
+            for (int row = 0; row < 3; row++)
+            {
+                axes[row] = new float[]
+                {
+                    ToFloat(bytes, row * 0x10),
+                    ToFloat(bytes, row * 0x10 + 4),
+                    ToFloat(bytes, row * 0x10 + 8),
+                };
+                float length = axes[row][0] * axes[row][0] +
+                    axes[row][1] * axes[row][1] + axes[row][2] * axes[row][2];
+                if (float.IsNaN(length) || float.IsInfinity(length) || Math.Abs(length - 1) > 0.02f)
+                {
+                    return false;
+                }
+            }
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float[] first = axes[axis];
+                float[] second = axes[(axis + 1) % 3];
+                float dot = first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
+                if (Math.Abs(dot) > 0.02f)
+                {
+                    return false;
+                }
+            }
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float position = ToFloat(bytes, 0x30 + axis * 4);
+                if (float.IsNaN(position) || float.IsInfinity(position))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static float ToFloat(byte[] bytes, int offset)
+        {
+            byte[] value = new byte[4];
+            Array.Copy(bytes, offset, value, 0, 4);
+            return BitConverter.ToSingle(value.Reverse().ToArray(), 0);
+        }
+
+        /// <summary>
         /// The readable name of a map such as "Y$KFf_nightclub_exterior", or null when it isn't in
         /// the list.
         /// </summary>
@@ -522,6 +921,77 @@ namespace SluMAN
         public string GetMapIndicator()
         {
             return ReadMapIndicator(sly2.addr.mapAOB);
+        }
+
+        private float hudScaleXBeforeHiding = 1f;
+        private float hudScaleYBeforeHiding = 1f;
+        private float hudPositionXBeforeHiding;
+        private float hudPositionYBeforeHiding;
+        public void SetHudHidden(bool hidden)
+        {
+            float currentX = ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0);
+            float currentY = ToFloat(api.ReadMemory(pid, addr.hudScaleY, 4), 0);
+            if (hidden)
+            {
+                if (currentX != 0) hudScaleXBeforeHiding = currentX;
+                if (currentY != 0) hudScaleYBeforeHiding = currentY;
+                hudPositionXBeforeHiding = ToFloat(api.ReadMemory(pid, addr.hudPositionX, 4), 0);
+                hudPositionYBeforeHiding = ToFloat(api.ReadMemory(pid, addr.hudPositionY, 4), 0);
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudScaleY, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudPositionX, ConvertFloatToBytes(0));
+                api.WriteMemory(pid, addr.hudPositionY, ConvertFloatToBytes(0));
+            }
+            else if (currentX == 0 || currentY == 0)
+            {
+                api.WriteMemory(pid, addr.hudScaleX, ConvertFloatToBytes(hudScaleXBeforeHiding));
+                api.WriteMemory(pid, addr.hudScaleY, ConvertFloatToBytes(hudScaleYBeforeHiding));
+                api.WriteMemory(pid, addr.hudPositionX, ConvertFloatToBytes(hudPositionXBeforeHiding));
+                api.WriteMemory(pid, addr.hudPositionY, ConvertFloatToBytes(hudPositionYBeforeHiding));
+            }
+        }
+
+        public bool IsHudHidden()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.hudScaleX, 4), 0) == 0;
+        }
+
+        private float fogBeforeNoFog;
+        private bool fogSaved;
+
+        public bool SetFogDisabled(bool disabled)
+        {
+            if (addr.fogAmount == 0) return false;
+            if (disabled)
+            {
+                if (!fogSaved)
+                {
+                    fogBeforeNoFog = ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0);
+                    fogSaved = true;
+                }
+                api.WriteMemory(pid, addr.fogAmount, ConvertFloatToBytes(0));
+            }
+            else if (fogSaved)
+            {
+                api.WriteMemory(pid, addr.fogAmount, ConvertFloatToBytes(fogBeforeNoFog));
+                fogSaved = false;
+            }
+            return true;
+        }
+
+        public bool IsFogDisabled()
+        {
+            return addr.fogAmount != 0 && ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0) == 0;
+        }
+
+        public float ReadCameraFov()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.cameraFov, 4), 0);
+        }
+
+        public void WriteCameraFov(float fov)
+        {
+            api.WriteMemory(pid, addr.cameraFov, ConvertFloatToBytes(fov));
         }
 
         /// <summary>The spawn point the player last arrived at (the game sets it through doors and loads).</summary>

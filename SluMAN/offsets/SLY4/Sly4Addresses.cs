@@ -33,6 +33,7 @@ namespace SluMAN
 
         // Game manager offsets
         public uint coinCountOffset { get; private set; }
+        public uint gadgetOffset { get; private set; }
         public uint playerRefOffset { get; private set; }
         public uint loadPhaseOffset { get; private set; }
         public uint inGameOffset { get; private set; }
@@ -230,6 +231,7 @@ namespace SluMAN
                 episodeManagerPtr = 0xF64C20,
 
                 coinCountOffset = 0x70,
+                gadgetOffset = 0xFBC,
                 playerRefOffset = 0x1078,
                 loadPhaseOffset = 0x32,
                 inGameOffset = 0x2F,

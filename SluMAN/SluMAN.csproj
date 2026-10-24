@@ -172,6 +172,7 @@
     <Compile Include="offsets\SLY1\Sly1Addresses.cs" />
     <Compile Include="offsets\SLY2\sly2.cs" />
     <Compile Include="offsets\SLY2\Sly2Addresses.cs" />
+    <Compile Include="offsets\SLY2\Sly2FreeCamera.cs" />
     <Compile Include="offsets\SLY3\sly3.cs" />
     <Compile Include="offsets\SLY3\Sly3Addresses.cs" />
     <Compile Include="offsets\SLY3\Sly3FreeCamera.cs" />
@@ -231,6 +232,9 @@
       <DependentUpon>Sly2Gadgets.cs</DependentUpon>
     </Compile>
     <Compile Include="SLY2\Sly2Practice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SLY2\Sly2CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY2\Sly2Practice.Designer.cs">

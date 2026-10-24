@@ -40,6 +40,28 @@ namespace SluMAN
         public uint currentCharacter { get; private set; }
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
+        public uint hudScaleX { get; private set; }
+        public uint hudScaleY { get; private set; }
+        public uint hudPositionX { get; private set; }
+        public uint hudPositionY { get; private set; }
+        public uint fogAmount { get; private set; }
+        // A camera matrix copy found in the global camera region. The rendered camera may be
+        // made from another copy; the Camera research tab searches for that source.
+        public uint cameraMatrixAddress { get; private set; }
+        // The matrix the renderer consumes directly, confirmed on the KOR build.
+        public uint cameraRenderMatrix { get; private set; }
+        // Camera hook (free camera): the camera object (static, its matrix at +0x60, the
+        // position at +0x90) is set by a look-at and a matrix setter, which both end in one
+        // function that rebuilds everything drawn from the matrix (view matrices, the frustum
+        // culling uses). Its call (bl) and the two jumps to it (b) are pointed at a stub in
+        // padding between two ELF sections, which for the camera first copies in SluMAN's matrix
+        // from the stub's data (past the data segment's end). RPCS3's static interpreter keeps
+        // the kind of instruction it found at an address, so the sites stay bl and b.
+        public uint cameraObject { get; private set; }
+        public uint cameraRebuildFunction { get; private set; }
+        public uint[] cameraRebuildCalls { get; private set; }
+        public uint cameraHookCaveAddress { get; private set; }
+        public uint cameraHookData { get; private set; }
         public uint loadingState { get; private set; }
         public uint currentJobId { get; private set; }
         public uint currentCheckpointId { get; private set; }
@@ -152,6 +174,19 @@ namespace SluMAN
                 currentCharacter = 0x7A830C,
                 cameraFov = 0x49E054,
                 cameraParameter = 0x49E07C,
+                hudScaleX = 0x45DB40,
+                hudScaleY = 0x45DB4C,
+                hudPositionX = 0x45DB50,
+                hudPositionY = 0x45DB54,
+                fogAmount = 0x49E278,
+                cameraMatrixAddress = 0x49E090,
+                cameraRenderMatrix = 0x8C2210,
+                cameraObject = 0x49E030,
+                cameraRebuildFunction = 0x3ECCC,
+                cameraRebuildCalls = new uint[] { 0x3F36C, 0x3F3D4, 0x3F718 },
+                // Padding from 0x344988 to 0x344A00; the data segment ends at 0x975548.
+                cameraHookCaveAddress = 0x344990,
+                cameraHookData = 0x975580,
                 loadingState = 0x7A7200,
                 currentJobId = 0x4FEBF4,
                 currentCheckpointId = 0x4FEBF8,
@@ -189,7 +224,6 @@ namespace SluMAN
                     0x7AB4CC, 0x7ABCC4, 0x7AC264, 0x7ACBEC,
                 },
 
-                // From SluMAN-EXT (utility.lua)
                 healthSly = 0x7A8360,
                 healthBentley = 0x7A8378,
                 healthMurray = 0x7A8390,
@@ -229,16 +263,21 @@ namespace SluMAN
             palDigital.pauseMenuState = 0x4FFE04;
             palDigital.fmvState = 0x90667C;
             palDigital.rajanHealth = 0x35C2E4EC;
-            // The dialogue state (1 during dialogue) and its frame counter are at the Korean
-            // addresses, so they're inherited.
             palDigital.loadingState = 0x7A7180;
             palDigital.currentMapId = 0x7B4C60;
             palDigital.cameraFov = 0x49DFD4;
-            palDigital.cameraParameter = 0x49DFFC; // Assumed: - 0x80 like cameraFov
+            palDigital.cameraParameter = 0x49DFFC;
+            palDigital.hudScaleX = 0x45DAC0;
+            palDigital.hudScaleY = 0x45DACC;
+            palDigital.hudPositionX = 0x45DAE0;
+            palDigital.hudPositionY = 0x45DAE4;
+            palDigital.fogAmount = 0x49E1F8;
+            palDigital.cameraMatrixAddress = 0x49E010;
+            palDigital.cameraRenderMatrix = 0x8C2190;
+            palDigital.cameraObject = 0x49DFB0;
+            palDigital.cameraHookCaveAddress = 0x344310;
+            // palDigital.cameraHookData = 0;
 
-            // The episodes' save data is the Korean address - 0x80, like the rest of the save
-            // data: a new game's prologue state lines up with the recorded one at 0x7A9510. The
-            // flags inside it move with it.
             palDigital.episodeData = new uint[]
             {
                 0x7A9510, 0x7A9658, 0x7A9E0C, 0x7AA54C, 0x7AABB4,

@@ -39,7 +39,7 @@ namespace SluMAN
         public const float MaxFov = 3.0f;
         private const float DefaultFov = 1.1f;
         // Just short of straight up and down, where the yaw would stop meaning anything.
-        private const float MaxPitch = 1.5586f;
+        private const float MaxPitch = 1.5706217f;
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
 
