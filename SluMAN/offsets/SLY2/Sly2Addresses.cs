@@ -236,6 +236,10 @@ namespace SluMAN
             Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
 
             ntscDigital.cameraHookCaveAddress = 0x344290;
+            ntscDigital.hudScaleX = 0x45DB60;
+            ntscDigital.hudScaleY = 0x45DB6C;
+            ntscDigital.hudPositionX = 0x45DB70;
+            ntscDigital.hudPositionY = 0x45DB74;
 
             palDigital.coinCount = 0x7A8330;
             palDigital.currentCharacter = 0x7A828C;
