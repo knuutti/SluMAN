@@ -9,7 +9,7 @@ namespace SluMAN
     /// The Sly 2 free camera, steered with the controller as read for the input display (so its
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
     /// L1 move up and down, R2 and L2 zoom, R3 asks for a keyframe (KeyframeRequested). The player
-    /// is held where they stood. It can also play a camera path instead of following the sticks.
+    /// is made uncontrollable. It can also play a camera path instead of following the sticks.
     /// <para>
     /// The camera is driven through the camera hook (sly2.StartCameraHook): the game's world
     /// matrix update puts SluMAN's matrix into the camera before working out the matrix that's
@@ -27,7 +27,7 @@ namespace SluMAN
     /// </summary>
     public class Sly2FreeCamera
     {
-        // How often the sticks move the camera (and the player is held). On RPCS3 the camera's
+        // How often the sticks move the camera. On RPCS3 the camera's
         // matrices are also rewritten nonstop in between: the game copies its own camera into
         // them just before drawing, and only writing over and over wins against that (a sleep
         // between writes lasts about 15 ms on Windows, and the game's camera shows through).
@@ -72,8 +72,9 @@ namespace SluMAN
         private float leftSign = 1;
         private float upSign = 1;
         private float[] rowW;
-        // Where the player is held, or null when there was none.
-        private float[] playerPosition;
+        // The active character's controllable value before the camera changed it.
+        private int playerControllable;
+        private bool playerControllableKnown;
         private bool characterControl;
 
         // The path being played (a copy, so editing the list doesn't touch it), or null.
@@ -235,8 +236,8 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// While on, the camera stays where it is and the player isn't held: the controller moves
-        /// the character as usual. Turning it off holds the player where they are then.
+        /// While on, the camera stays where it is and the controller moves the character as usual.
+        /// Turning it off makes the character uncontrollable.
         /// </summary>
         public bool CharacterControl
         {
@@ -256,11 +257,20 @@ namespace SluMAN
                     {
                         try
                         {
-                            playerPosition = game.GetPlayerPosition();
+                            game.SetPlayerControllable(false);
                         }
                         catch
                         {
-                            playerPosition = null;
+                        }
+                    }
+                    else if (value && on)
+                    {
+                        try
+                        {
+                            game.SetPlayerControllable(true);
+                        }
+                        catch
+                        {
                         }
                     }
                 }
@@ -326,11 +336,13 @@ namespace SluMAN
                 StartCamera();
                 try
                 {
-                    playerPosition = game.GetPlayerPosition();
+                    playerControllable = game.GetPlayerControllable();
+                    playerControllableKnown = true;
+                    game.SetPlayerControllable(characterControl);
                 }
                 catch
                 {
-                    playerPosition = null;
+                    playerControllableKnown = false;
                 }
                 on = true;
             }
@@ -360,6 +372,7 @@ namespace SluMAN
                 {
                     GiveBackFov();
                     Unhook();
+                    RestorePlayerControllable();
                 }
                 on = false;
                 playingPath = null;
@@ -484,6 +497,7 @@ namespace SluMAN
                     {
                         GiveBackFov();
                         Unhook();
+                        RestorePlayerControllable();
                         on = false;
                         playingPath = null;
                     }
@@ -525,12 +539,7 @@ namespace SluMAN
                 {
                     TickSticks(step);
                 }
-                // With character control the camera stays put (or keeps playing its path).
-                // Otherwise the player is kept where they stood, so steering doesn't walk them off.
-                if (!characterControl && playerPosition != null)
-                {
-                    game.SetPlayerPosition(playerPosition);
-                }
+                game.SetPlayerControllable(characterControl);
                 CheckHook();
                 // The game writes its own camera every frame, so the free one is written every
                 // tick, also while it stays put.
@@ -544,6 +553,21 @@ namespace SluMAN
             catch (Exception ex)
             {
                 return ex.Message;
+            }
+        }
+
+        private void RestorePlayerControllable()
+        {
+            if (playerControllableKnown)
+            {
+                try
+                {
+                    game.SetPlayerControllable(playerControllable != 0);
+                }
+                catch
+                {
+                }
+                playerControllableKnown = false;
             }
         }
 
