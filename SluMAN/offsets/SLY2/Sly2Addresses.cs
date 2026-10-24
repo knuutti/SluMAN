@@ -235,6 +235,8 @@ namespace SluMAN
             Sly2Addresses ntscDigital = korDigital.CopyAs(GameIdNtscDigital, "SLY 2 (NTSC, PSN)");
             Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
 
+            ntscDigital.cameraHookCaveAddress = 0x344290;
+
             palDigital.coinCount = 0x7A8330;
             palDigital.currentCharacter = 0x7A828C;
             palDigital.healthSly = 0x7A82E0;
