@@ -30,6 +30,8 @@ namespace SluMAN
 
         // Offsets
         public uint transformOffset { get; private set; }
+        public uint vjoyComponentOffset { get; private set; }
+        public uint entityIsControllableOffset { get; private set; }
         public uint coordsOffsetX { get; private set; }
         public uint coordsOffsetY { get; private set; }
         public uint coordsOffsetZ { get; private set; }
@@ -166,6 +168,8 @@ namespace SluMAN
                 activeCharacterPtr = 0x49E290,
 
                 transformOffset = 0x44,
+                vjoyComponentOffset = 0x140,
+                entityIsControllableOffset = 0x80, // 0 = not controllable, 1 = controllable
                 coordsOffsetX = 0x130,
                 coordsOffsetY = 0x134,
                 coordsOffsetZ = 0x138,
@@ -234,6 +238,12 @@ namespace SluMAN
 
             Sly2Addresses ntscDigital = korDigital.CopyAs(GameIdNtscDigital, "SLY 2 (NTSC, PSN)");
             Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
+
+            ntscDigital.cameraHookCaveAddress = 0x344290;
+            ntscDigital.hudScaleX = 0x45DB60;
+            ntscDigital.hudScaleY = 0x45DB6C;
+            ntscDigital.hudPositionX = 0x45DB70;
+            ntscDigital.hudPositionY = 0x45DB74;
 
             palDigital.coinCount = 0x7A8330;
             palDigital.currentCharacter = 0x7A828C;

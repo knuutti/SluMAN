@@ -778,6 +778,39 @@ namespace SluMAN
             return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
         }
 
+        public int GetPlayerControllable()
+        {
+            uint entity = GetEntityAddress();
+            if (entity == 0)
+            {
+                throw new InvalidOperationException("The active character entity is unavailable.");
+            }
+            byte[] vjoyBytes = api.ReadMemory(pid, entity + sly2.addr.vjoyComponentOffset, 4);
+            uint vjoy = BitConverter.ToUInt32(vjoyBytes.Reverse().ToArray(), 0);
+            if (vjoy == 0)
+            {
+                throw new InvalidOperationException("The active character's vJoy component is unavailable.");
+            }
+            byte[] bytes = api.ReadMemory(pid, vjoy + sly2.addr.entityIsControllableOffset, 4);
+            return (int)BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+        }
+
+        public void SetPlayerControllable(bool controllable)
+        {
+            uint entity = GetEntityAddress();
+            if (entity == 0)
+            {
+                throw new InvalidOperationException("The active character entity is unavailable.");
+            }
+            byte[] vjoyBytes = api.ReadMemory(pid, entity + sly2.addr.vjoyComponentOffset, 4);
+            uint vjoy = BitConverter.ToUInt32(vjoyBytes.Reverse().ToArray(), 0);
+            if (vjoy == 0)
+            {
+                throw new InvalidOperationException("The active character's vJoy component is unavailable.");
+            }
+            api.WriteMemory(pid, vjoy + sly2.addr.entityIsControllableOffset, controllable ? 1u : 0u);
+        }
+
         public bool SetPlayerPosition(float[] position)
         {
             float[] current = GetPlayerPosition();
