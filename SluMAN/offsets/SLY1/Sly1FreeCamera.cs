@@ -9,7 +9,8 @@ namespace SluMAN
     /// The Sly 1 free camera, steered with the controller as read for the input display (so its
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
     /// L1 move up and down, R2 and L2 zoom, R3 asks for a keyframe (KeyframeRequested). The player
-    /// is held where they stood. It can also play a camera path instead of following the sticks.
+    /// is made uncontrollable (so R1 / L1 don't open the binocucom either) and held where they
+    /// stood. It can also play a camera path instead of following the sticks.
     /// <para>
     /// The camera is driven through the camera hook (sly1.StartCameraHook): the game's camera
     /// matrix update puts SluMAN's position, rotation, field of view and projection into the
@@ -244,9 +245,13 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     characterControl = value;
-                    if (!value && on)
+                    if (on)
                     {
-                        ReadPlayer();
+                        if (!value)
+                        {
+                            ReadPlayer();
+                        }
+                        try { game.SetPlayerControlBlocked(!value); } catch { }
                     }
                 }
             }
@@ -358,6 +363,7 @@ namespace SluMAN
         private void Unhook()
         {
             try { game.StopCameraHook(); } catch { }
+            try { game.SetPlayerControlBlocked(false); } catch { }
             try
             {
                 // After a reset the camera may be somewhere else.
@@ -489,10 +495,16 @@ namespace SluMAN
                     TickSticks(step);
                 }
                 // With character control the camera stays put (or keeps playing its path).
-                // Otherwise the player is kept where they stood, so steering doesn't walk them off.
-                if (!characterControl && playerPosition != null)
+                // Otherwise the controller doesn't reach the player, and they're kept where they
+                // stood. The game gives the controller back to the player whenever its state
+                // changes, so that's taken away again every tick.
+                if (!characterControl)
                 {
-                    game.HoldPlayerAt(playerPositionAddress, playerPosition);
+                    game.SetPlayerControlBlocked(true);
+                    if (playerPosition != null)
+                    {
+                        game.HoldPlayerAt(playerPositionAddress, playerPosition);
+                    }
                 }
                 CheckHook();
                 WriteCamera();

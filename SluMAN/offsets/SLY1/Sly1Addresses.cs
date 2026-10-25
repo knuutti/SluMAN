@@ -67,6 +67,12 @@ namespace SluMAN
         // +infiniteJumpOffset2 (the values SlyMultiTrainer freezes).
         public uint infiniteJumpOffset1 { get; private set; }
         public uint infiniteJumpOffset2 { get; private set; }
+        // Which parts of the game read the controller (g_grfjoyt): bit inputTargetPlayer is the
+        // player (Sly's moves and the binocucom). The game works it out from its state flags
+        // (g_grfusr) whenever they change: 0 if any of userStateOff, else 5 with
+        // userStateMenu, else 4 with userStateHandsOff (cutscenes), else 7.
+        public uint inputTargets { get; private set; }
+        public uint userState { get; private set; }
 
         // Save data. One world save per world (0 is Paris and the intro) from gameState +
         // worldSaveStart, each worldSaveSize long: first a level save per level, levelSaveSize
@@ -199,6 +205,9 @@ namespace SluMAN
                 velocityOffset = 0x80,
                 infiniteJumpOffset1 = 0x2218,
                 infiniteJumpOffset2 = 0x2488,
+                // From UpdateGrfjoytFromGrfusr (0x83B78)
+                inputTargets = 0x428B4C,
+                userState = 0x428B48,
                 // *0x3A4FC0; w3Keys above is world 3's key count in it
                 gameState = 0x3E660C,
                 worldSaveStart = 0x10,

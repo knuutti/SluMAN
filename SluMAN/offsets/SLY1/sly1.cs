@@ -593,6 +593,53 @@ namespace SluMAN
             api.WriteMemory(pid, positionAddress - sly1.addr.positionOffset + sly1.addr.velocityOffset, new byte[12]);
         }
 
+        // g_grfjoyt's bits and g_grfusr's, as UpdateGrfjoytFromGrfusr uses them.
+        private const int InputTargetPlayer = 0x2;
+        private const int UserStateMenu = 0x1;
+        private const int UserStateHandsOff = 0x2;
+        private const int UserStateOff = 0x84;
+
+        /// <summary>
+        /// Stops the controller from moving the player (Sly, and his binocucom), or gives it back
+        /// as the game would have it. The game works the targets out again when its state
+        /// changes (a cutscene, the pause menu), so keep blocking while it should hold.
+        /// </summary>
+        public void SetPlayerControlBlocked(bool blocked)
+        {
+            int targets = ReadInt(sly1.addr.inputTargets);
+            if (blocked)
+            {
+                if ((targets & InputTargetPlayer) != 0)
+                {
+                    api.WriteMemory(pid, sly1.addr.inputTargets, ConvertIntToBytes(targets & ~InputTargetPlayer));
+                }
+                return;
+            }
+
+            int state = ReadInt(sly1.addr.userState);
+            int gameTargets;
+            if ((state & UserStateOff) != 0)
+            {
+                gameTargets = 0;
+            }
+            else if ((state & UserStateMenu) != 0)
+            {
+                gameTargets = 5;
+            }
+            else if ((state & UserStateHandsOff) != 0)
+            {
+                gameTargets = 4;
+            }
+            else
+            {
+                gameTargets = 7;
+            }
+            if (targets != gameTargets)
+            {
+                api.WriteMemory(pid, sly1.addr.inputTargets, ConvertIntToBytes(gameTargets));
+            }
+        }
+
         // --- Camera ---
 
         /// <summary>

@@ -189,11 +189,20 @@ SluMAN's field of view into +0x1C4 and its target +0x1C8 (the game eases one to 
 hook runs they get SluMAN's. When the free camera stops, the game's field of view, target,
 projection, frustum and LOD scale from the start are written back.
 
+**Player control.** The sheet's "Control Sly" (PS2 NTSC `0x262C68`) is the decomp's `g_grfjoyt`:
+which parts of the game read the controller. `UpdateGrfjoytFromGrfusr` (PS3 `0x83B78`) sets it from
+`g_grfusr` whenever that changes: 0 if `g_grfusr & 0x84`, else 5 with the menu bit (1), else 4
+with the hands-off bit (2, cutscenes), else 7. On PS3, `g_grfusr` is `0x428B48`, `g_grfjoyt` is
+`0x428B4C`, and `g_joy` is `0x428B54` (its sticks at +0x40 are SluMAN's `analogOffsetLeft`).
+Bit 2 is tested by `0x2F7B0` and `0x32CD8` (both called from `0x35774`, Sly's update, and reading
+the camera's +0x478 for camera-relative moves), `0xD8180` (among the blot functions) and
+`0x142278`. Bit 4 is tested by `0x5AC18`, `0x92288`, `0xB6108`, `0xD8EA4` and `0x140C3C`, and bit 1
+by `0x4BF60` (camera). The controller is still read with bit 2 cleared, so the free camera keeps
+its sticks. While the free camera flies, SluMAN clears bit 2 every tick, so R1 / L1 don't open the
+binocucom. When it stops, it writes back what `0x83B78` would.
+
 ## Not done yet
 
-- **Player control** (making Sly uncontrollable instead of holding his position): PS2 patches the
-  `FReadJoy` / `GetJoyXYDeflection` stores, which have no same-kind PPC equivalent. Needs a flag
-  found on PS3 (the sheet's "Control Sly", PS2 NTSC `0x262C68`).
 - **Pause**: PS2 patches `MarkClockTick`; the PS3 clock hasn't been found yet. The decomp's
   `config/symbol_addrs.txt` (PS2 NTSC, data symbols included: `g_clock 0x261858`, `g_joy 0x262C70`,
   `g_ui 0x275BC0`) is the best place to start.

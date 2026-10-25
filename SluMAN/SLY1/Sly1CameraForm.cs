@@ -226,8 +226,8 @@ namespace SluMAN
 
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
-                "R2 / L2 zoom, R3 adds a keyframe. The player is held where\n" +
-                "they stood. The camera turns off when a level loads.\n" +
+                "R2 / L2 zoom, R3 adds a keyframe. The player is made\n" +
+                "uncontrollable. The camera turns off when a level loads.\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
             help.Location = new Point(8, 124);
             help.Size = new Size(270, 58);
