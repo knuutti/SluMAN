@@ -475,14 +475,10 @@ namespace SluMAN
             return api.ReadMemory(pid, GadgetArrayAddress(), (uint)Sly4Gadgets.Count);
         }
 
+        /// <summary>Writes every gadget's state. The game reads them on its next load.</summary>
         public void SetGadgetStates(byte[] states)
         {
             api.WriteMemory(pid, GadgetArrayAddress(), states);
-        }
-
-        public void SetGadgetState(int index, byte state)
-        {
-            api.WriteMemory(pid, GadgetArrayAddress() + (uint)index, new byte[] { state });
         }
 
         private uint GadgetArrayAddress()

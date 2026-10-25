@@ -6,9 +6,10 @@ using System.Windows.Forms;
 namespace SluMAN
 {
     /// <summary>
-    /// The Gadgets tab: every gadget's state (locked, in ThiefNet or owned), written to the game
-    /// as soon as it's picked, and the gadgets each run file loads with. The controls are built
-    /// in code.
+    /// The Gadgets tab: every gadget's state (locked, in ThiefNet or owned), and the gadgets each
+    /// run file loads with. The game only reads its gadgets on a load (a checkpoint or a level),
+    /// so changes stay in the list until Apply writes them and reloads. The controls are built in
+    /// code.
     /// </summary>
     public class Sly4GadgetsForm : Form, IRefreshOnShow
     {
@@ -23,19 +24,28 @@ namespace SluMAN
         private static readonly byte[] PickableStates = { Sly4Gadgets.Locked, Sly4Gadgets.InThiefNet, Sly4Gadgets.Owned };
 
         private readonly sly4 game;
+        private readonly Sly4Practice practice;
         private readonly ComboBox characterComboBox = new ComboBox();
         private readonly DataGridView grid = new DataGridView();
         private readonly ComboBox runFileComboBox = new ComboBox();
         private readonly GroupBox runFileGroupBox = new GroupBox();
         // Says which gadgets saving a run file left out, as they aren't available yet.
         private readonly Label runFileWarningLabel = new Label();
+        // How many changes the list has that aren't in the game yet.
+        private readonly Label changesLabel = new Label();
+        private Font changedFont;
         private StatusLine statusLine;
         // Set while states are put into the grid, so that doesn't count as an edit.
         private bool updating;
 
-        public Sly4GadgetsForm(sly4 game)
+        // The gadgets as last read from the game, and as the list has them; null until read.
+        private byte[] gameStates;
+        private byte[] states;
+
+        public Sly4GadgetsForm(sly4 game, Sly4Practice practice)
         {
             this.game = game;
+            this.practice = practice;
             Name = "Sly4GadgetsForm";
             Text = "SluMAN :: Gadgets";
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -43,13 +53,16 @@ namespace SluMAN
             Font = new Font("Microsoft Sans Serif", 8.25F);
 
             BuildControls();
-            ClientSize = new Size(grid.Right + 8, runFileGroupBox.Bottom + 8);
+            ClientSize = new Size(grid.Right + 8, Math.Max(runFileGroupBox.Bottom, runFileWarningLabel.Bottom) + 8);
             // The grid grows with the tab when the Practice window has a fixed size. Anchored
             // only now: an anchor keeps the distance to the window's edge it has when set.
             grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             runFileGroupBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             runFileWarningLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            changesLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             statusLine = new StatusLine(this, false);
+            changedFont = new Font(grid.Font, FontStyle.Bold);
+            FormClosed += (sender, e) => changedFont.Dispose();
 
             RefreshFromGame();
         }
@@ -86,8 +99,10 @@ namespace SluMAN
                 "Takes every gadget in the list away, but leaves it for sale in ThiefNet.");
             tip.SetToolTip(AddButton("Locked", 389, 60, (sender, e) => SetShown(Sly4Gadgets.Locked)),
                 "Takes every gadget in the list away, and out of ThiefNet.");
-            tip.SetToolTip(AddButton("Reload", 564, 60, (sender, e) => RefreshFromGame()),
-                "Reads the gadgets from the game again.");
+            tip.SetToolTip(AddButton("Discard", 470, 60, (sender, e) => ReadGame(false)),
+                "Drops the changes not applied and reads the gadgets from the game again.");
+            tip.SetToolTip(AddButton("Apply", 534, 90, (sender, e) => Apply()),
+                "Writes the changes to the game and reloads so they take effect: the checkpoint in a job, otherwise the level from its start.");
 
             BuildGrid();
 
@@ -111,7 +126,7 @@ namespace SluMAN
             loadButton.UseVisualStyleBackColor = true;
             loadButton.Click += loadRunFileButton_Click;
             runFileGroupBox.Controls.Add(loadButton);
-            tip.SetToolTip(loadButton, "Sets the game's gadgets to the ones saved for this run file.");
+            tip.SetToolTip(loadButton, "Puts the gadgets saved for this run file in the list. Apply to use them in game.");
 
             Button saveButton = new Button();
             saveButton.Text = "Save";
@@ -120,10 +135,15 @@ namespace SluMAN
             saveButton.UseVisualStyleBackColor = true;
             saveButton.Click += saveRunFileButton_Click;
             runFileGroupBox.Controls.Add(saveButton);
-            tip.SetToolTip(saveButton, "Saves the game's gadgets as they are now as this run file's. Gadgets that aren't in ThiefNet yet at the start of its episode are locked first.");
+            tip.SetToolTip(saveButton, "Saves the list's gadgets as this run file's. Gadgets that aren't in ThiefNet yet at the start of its episode are locked first.");
 
-            runFileWarningLabel.Location = new Point(328, runFileGroupBox.Top + 6);
-            runFileWarningLabel.Size = new Size(296, runFileGroupBox.Height - 6);
+            changesLabel.Location = new Point(328, runFileGroupBox.Top + 6);
+            changesLabel.Size = new Size(296, 16);
+            changesLabel.ForeColor = Color.DarkOrange;
+            Controls.Add(changesLabel);
+
+            runFileWarningLabel.Location = new Point(328, changesLabel.Bottom + 2);
+            runFileWarningLabel.Size = new Size(296, 30);
             runFileWarningLabel.ForeColor = Color.Firebrick;
             Controls.Add(runFileWarningLabel);
         }
@@ -211,26 +231,49 @@ namespace SluMAN
             Controls.Add(grid);
         }
 
-        /// <summary>Reads every gadget's state from the game and shows it.</summary>
+        /// <summary>Reads the gadgets from the game, keeping the changes not applied yet.</summary>
         public void RefreshFromGame()
         {
-            byte[] states;
+            ReadGame(true);
+        }
+
+        private void ReadGame(bool keepChanges)
+        {
+            byte[] read;
             try
             {
-                states = game.GetGadgetStates();
+                read = game.GetGadgetStates();
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't read the gadgets: {ex.Message}");
                 return;
             }
-            ShowStates(states);
+
+            if (keepChanges && states != null)
+            {
+                for (int i = 0; i < states.Length; i++)
+                {
+                    if (states[i] == gameStates[i])
+                    {
+                        states[i] = read[i];
+                    }
+                }
+            }
+            else
+            {
+                states = (byte[])read.Clone();
+            }
+            gameStates = read;
+            ShowStates();
         }
 
-        private void ShowStates(byte[] states)
+        /// <summary>Shows the list's states, the changed ones in bold.</summary>
+        private void ShowStates()
         {
             updating = true;
             grid.CancelEdit();
+            int changes = 0;
             foreach (DataGridViewRow row in grid.Rows)
             {
                 Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)row.Tag;
@@ -243,8 +286,29 @@ namespace SluMAN
                     cell.Items.Add(name);
                 }
                 cell.Value = name;
+
+                bool changed = states[gadget.index] != gameStates[gadget.index];
+                cell.Style.Font = changed ? changedFont : null;
+                if (changed)
+                {
+                    changes++;
+                }
             }
             updating = false;
+
+            changesLabel.Text = changes == 0 ? ""
+                : $"{changes} {(changes == 1 ? "change" : "changes")} not in game yet. Apply reloads to use them.";
+        }
+
+        /// <summary>Whether the gadgets have been read, so the list can be changed.</summary>
+        private bool HasStates()
+        {
+            if (states == null)
+            {
+                statusLine.Error("The gadgets haven't been read from the game. Click Discard to read them.");
+                return false;
+            }
+            return true;
         }
 
         private void ShowCharacter()
@@ -258,34 +322,68 @@ namespace SluMAN
             }
         }
 
-        /// <summary>Sets every gadget the list shows to one state, in one write.</summary>
+        /// <summary>Sets every gadget the list shows to one state.</summary>
         private void SetShown(byte state)
         {
+            if (!HasStates())
+            {
+                return;
+            }
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row.Visible)
+                {
+                    states[((Sly4Gadgets.Gadget)row.Tag).index] = state;
+                }
+            }
+            ShowStates();
+        }
+
+        /// <summary>Writes the list's changes to the game and reloads so they take effect.</summary>
+        private void Apply()
+        {
+            if (!HasStates())
+            {
+                return;
+            }
             try
             {
-                byte[] states = game.GetGadgetStates();
-                foreach (DataGridViewRow row in grid.Rows)
+                // Only the changed gadgets, over what the game has now: it may have changed others
+                // since they were read.
+                byte[] current = game.GetGadgetStates();
+                int changes = 0;
+                for (int i = 0; i < states.Length; i++)
                 {
-                    if (row.Visible)
+                    if (states[i] != gameStates[i])
                     {
-                        states[((Sly4Gadgets.Gadget)row.Tag).index] = state;
+                        current[i] = states[i];
+                        changes++;
                     }
                 }
-                game.SetGadgetStates(states);
-                ShowStates(states);
-                string which = characterComboBox.SelectedIndex == 0 ? "every gadget" : $"{characterComboBox.SelectedItem}'s gadgets";
-                statusLine.Info($"Set {which} to {Sly4Gadgets.StateName(state)}.");
+                if (changes == 0)
+                {
+                    statusLine.Info("There are no changes to apply.");
+                    return;
+                }
+
+                game.SetGadgetStates(current);
+                gameStates = current;
+                states = (byte[])current.Clone();
+                ShowStates();
+                statusLine.Info($"Applied {changes} {(changes == 1 ? "change" : "changes")}; reloading.");
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't set the gadgets: {ex.Message}");
+                statusLine.Error($"Couldn't apply the gadgets: {ex.Message}");
+                return;
             }
+            practice.ReloadForGadgets();
         }
 
         private void grid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
         {
             // A combo box cell only reports a change once committed, which normally waits for the
-            // cell to lose focus. Commit right away so picking a state takes effect.
+            // cell to lose focus. Commit right away so picking a state shows as a change.
             if (grid.IsCurrentCellDirty && grid.CurrentCell is DataGridViewComboBoxCell)
             {
                 grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
@@ -294,7 +392,7 @@ namespace SluMAN
 
         private void grid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
-            if (updating || e.RowIndex < 0 || e.ColumnIndex != StateColumn)
+            if (updating || e.RowIndex < 0 || e.ColumnIndex != StateColumn || states == null)
             {
                 return;
             }
@@ -303,38 +401,35 @@ namespace SluMAN
             string name = row.Cells[StateColumn].Value as string;
             foreach (byte state in PickableStates)
             {
-                if (name != Sly4Gadgets.StateName(state))
+                if (name == Sly4Gadgets.StateName(state))
                 {
-                    continue;
+                    states[gadget.index] = state;
+                    // Called later: the grid is still committing this cell.
+                    BeginInvoke((MethodInvoker)ShowStates);
+                    return;
                 }
-                try
-                {
-                    game.SetGadgetState(gadget.index, state);
-                    statusLine.Info($"{gadget.character}'s {gadget.name}: {name}.");
-                }
-                catch (Exception ex)
-                {
-                    statusLine.Error($"Couldn't set {gadget.name}: {ex.Message}");
-                }
-                return;
             }
         }
 
         private void loadRunFileButton_Click(object sender, EventArgs e)
         {
+            if (!HasStates())
+            {
+                return;
+            }
             string runFile = runFileComboBox.SelectedItem.ToString();
             try
             {
-                byte[] states = Sly4Gadgets.LoadRunFile(runFile);
-                if (states == null)
+                byte[] saved = Sly4Gadgets.LoadRunFile(runFile);
+                if (saved == null)
                 {
                     statusLine.Error($"No gadgets are saved for {runFile}. Set them here and click Save.");
                     return;
                 }
-                game.SetGadgetStates(states);
-                ShowStates(states);
+                states = saved;
+                ShowStates();
                 runFileWarningLabel.Text = "";
-                statusLine.Info($"Set the gadgets to {runFile}'s.");
+                statusLine.Info($"Put {runFile}'s gadgets in the list. Apply to use them in game.");
             }
             catch (Exception ex)
             {
@@ -344,20 +439,19 @@ namespace SluMAN
 
         private void saveRunFileButton_Click(object sender, EventArgs e)
         {
+            if (!HasStates())
+            {
+                return;
+            }
             string runFile = runFileComboBox.SelectedItem.ToString();
             try
             {
-                byte[] states = game.GetGadgetStates();
-                // Taken out of the game too, so the list shows what was saved.
+                // Locked in the list too, so it shows what was saved.
                 List<string> removed = Sly4Gadgets.RemoveUnavailable(runFile, states);
-                if (removed.Count > 0)
-                {
-                    game.SetGadgetStates(states);
-                }
                 Sly4Gadgets.SaveRunFile(runFile, states);
-                ShowStates(states);
+                ShowStates();
                 runFileWarningLabel.Text = GadgetAvailability.RemovedWarning(runFile, removed);
-                statusLine.Info($"Saved the game's gadgets as {runFile}'s.");
+                statusLine.Info($"Saved the list's gadgets as {runFile}'s.");
             }
             catch (Exception ex)
             {

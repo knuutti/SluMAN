@@ -149,7 +149,7 @@ namespace SluMAN
             practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
-            practiceTabs.AddTool(GadgetsTab, () => new Sly4GadgetsForm(game));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly4GadgetsForm(game, this));
             practiceTabs.AddTool(RunFilesTab, () => new Sly4RunFilesForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             practiceTabs.AddTool(GuiTab, () => new Sly4GuiForm(game));
@@ -608,6 +608,51 @@ namespace SluMAN
                 return;
             }
             WarpToGoal(null, checkpoint - 1);
+        }
+
+        /// <summary>
+        /// Reloads so the gadgets written to the game take effect, as the game only reads them on
+        /// a load: retries the checkpoint in a job (as Retry Checkpoint does), otherwise loads the
+        /// current level again from its start. Used by the Gadgets tab's Apply.
+        /// </summary>
+        public void ReloadForGadgets()
+        {
+            int checkpoint;
+            uint levelHash;
+            try
+            {
+                game.GetCheckpoint(out checkpoint, out int goalCount, out string goalName);
+                levelHash = game.GetLevelHash();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't reload: {ex.Message}");
+                return;
+            }
+
+            if (checkpoint > 0)
+            {
+                WarpToGoal(null, checkpoint - 1);
+                return;
+            }
+            if (levelHash == 0)
+            {
+                statusLine.Error("No level is loaded, so the gadgets take effect on the next load.");
+                return;
+            }
+
+            queuedGoalJob = null;
+            queuedLevel = null;
+            queuedJobStart = null;
+            try
+            {
+                game.LoadLevel(levelHash, null, null);
+                TrackGameCall($"Reloading {sly4.GetLevelName(levelHash)}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't reload the level: {ex.Message}");
+            }
         }
 
         private void loadLevelButton_Click(object sender, EventArgs e)
