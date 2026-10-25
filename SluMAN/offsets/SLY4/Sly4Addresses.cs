@@ -115,6 +115,30 @@ namespace SluMAN
         public uint calcRenderMatricesFunction { get; private set; }
         public uint viewOverrideStub { get; private set; }
         public uint viewOverrideData { get; private set; }
+        // The view's flag byte: bit 0x80 has CalcRenderMatrices rebuild it (the fov, near, far and
+        // aspect setters set it)
+        public uint viewFlagsOffset { get; private set; }
+        // The view's post effects: +viewEffectsOffset points to its effect list, whose
+        // +effectDofOffset is the depth of field (startingDistance at +0x18, range at +0x1C),
+        // switched on and off by the byte at +effectEnabledOffset. The camera manager sets the main
+        // view's every frame from the level's Dof settings.
+        public uint viewEffectsOffset { get; private set; }
+        public uint effectDofOffset { get; private set; }
+        public uint effectEnabledOffset { get; private set; }
+
+        // The hacking minigame mechanic draws the world through three layer views of its own (at
+        // +0x128, +0x12C and +0x130 of it, "SystemCracker: TopLayer", "BottomLayer" and
+        // "CompLayer"). Each frame, while the frame is put together and before the view copy the
+        // view override hooks, hackPreRenderCall calls hackPreRenderFunction(mechanic, main
+        // view), which copies the main view's matrix, fov, near and far into them, so they follow
+        // the game's camera, not the free camera. The bottom layer (+hackBottomLayerOffset),
+        // from the main view's depth of field distance on, gets its depth of field turned on every
+        // frame. The free camera points the call at hackPreRenderStub, which first puts SluMAN's
+        // camera into the main view, so the layers copy it, and turns those blurs off.
+        public uint hackPreRenderCall { get; private set; }
+        public uint hackPreRenderFunction { get; private set; }
+        public uint hackPreRenderStub { get; private set; }
+        public uint hackBottomLayerOffset { get; private set; }
 
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
@@ -285,6 +309,18 @@ namespace SluMAN
                 // since then may still call.
                 viewOverrideStub = 0xF05400,
                 viewOverrideData = 0x11F8A40,
+                viewFlagsOffset = 0x34,
+                viewEffectsOffset = 0x290,
+                effectDofOffset = 0xC,
+                effectEnabledOffset = 0x4,
+
+                // In the frame's render submission (0x45A208), which has the game manager in r31
+                // and the main view in r27.
+                hackPreRenderCall = 0x45A42C,
+                hackPreRenderFunction = 0x3DD2A0,
+                // After the code hook's stub (0xF05500, 0xB4 bytes); never used before.
+                hackPreRenderStub = 0xF05600,
+                hackBottomLayerOffset = 0x12C,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,

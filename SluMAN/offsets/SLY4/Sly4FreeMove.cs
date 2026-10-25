@@ -14,8 +14,10 @@ namespace SluMAN
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
     /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
     /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down,
-    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood. It can
-    /// also play a camera path instead of following the sticks.</item>
+    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood; in the
+    /// hacking minigames, which have no character to hold, the game's time is held nearly still
+    /// instead (sly4.SetTimeFrozen), so the ship, ball or avatar the sticks also drive stays put.
+    /// It can also play a camera path instead of following the sticks.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
     /// smoothly, and keeps going whichever tab shows. Sly4Practice owns the one instance. The free camera turns itself off when a load
@@ -50,6 +52,9 @@ namespace SluMAN
 
         // Where the player is held (fly: where they've flown to), or null until it's read.
         private float[] playerPosition;
+
+        // Whether the free camera started in a hacking minigame, where time is held instead.
+        private bool inHack;
 
         // The free camera: position, facing, and how the game's matrix rows relate to the facing.
         private float[] cameraPosition;
@@ -125,8 +130,8 @@ namespace SluMAN
 
         /// <summary>
         /// While on, the free camera stays where it is (or keeps playing its path) and the player
-        /// isn't held: the controller moves the character as usual. Turning it off holds the
-        /// player where they are then.
+        /// isn't held (nor, in the hacking minigames, time): the controller moves the character as
+        /// usual. Turning it off holds the player where they are then.
         /// </summary>
         public bool CharacterControl
         {
@@ -152,6 +157,14 @@ namespace SluMAN
                         {
                             playerPosition = null;
                         }
+                    }
+                    try
+                    {
+                        HoldHackTime();
+                    }
+                    catch
+                    {
+                        // Time runs as it was; the next change tries again.
                     }
                 }
             }
@@ -363,11 +376,20 @@ namespace SluMAN
             {
                 float[] position = game.GetPosition();
                 playerPosition = position;
+                inHack = game.IsInHack();
                 if (newMode == Mode.FreeCamera)
                 {
                     StartCamera(position);
                 }
                 mode = newMode;
+                try
+                {
+                    HoldHackTime();
+                }
+                catch
+                {
+                    // The camera works without it; the minigame just keeps running.
+                }
             }
 
             clock.Restart();
@@ -391,6 +413,7 @@ namespace SluMAN
 
             lock (stateLock)
             {
+                try { game.SetTimeFrozen(false); } catch { }
                 if (mode == Mode.FreeCamera)
                 {
                     try { game.StopViewOverride(); } catch { }
@@ -399,6 +422,15 @@ namespace SluMAN
                 playingPath = null;
             }
             RaiseModeChanged();
+        }
+
+        /// <summary>
+        /// In a hacking minigame, holds the game's time nearly still while the free camera is
+        /// steered, and lets it run with character control (or once the camera is off).
+        /// </summary>
+        private void HoldHackTime()
+        {
+            game.SetTimeFrozen(inHack && mode == Mode.FreeCamera && !characterControl);
         }
 
         private void RaiseModeChanged()
@@ -433,6 +465,7 @@ namespace SluMAN
                     running = false;
                     lock (stateLock)
                     {
+                        try { game.SetTimeFrozen(false); } catch { }
                         if (mode == Mode.FreeCamera)
                         {
                             try { game.StopViewOverride(); } catch { }

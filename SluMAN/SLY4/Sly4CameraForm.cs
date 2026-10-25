@@ -235,7 +235,7 @@ namespace SluMAN
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
                 "R2 / L2 zoom, R3 adds a keyframe. The player is held where\n" +
-                "they stood. The camera turns off when a level loads.\n" +
+                "they stood; in hacks, time stands still. Loads turn it off.\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
             help.Location = new Point(8, 124);
             help.Size = new Size(270, 58);
@@ -250,7 +250,8 @@ namespace SluMAN
             ToolTip controlTip = new ToolTip();
             controlTip.SetToolTip(characterControlCheckBox,
                 "The free camera stays where it is, or keeps playing its path, and the controller\n" +
-                "moves the character as usual. Untick to fly the camera again.");
+                "moves the character as usual (in hacks, the minigame runs again). Untick to fly\n" +
+                "the camera again.");
             FormClosed += (sender, e) => controlTip.Dispose();
 
             return group;
