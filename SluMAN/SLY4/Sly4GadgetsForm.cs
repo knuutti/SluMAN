@@ -196,7 +196,7 @@ namespace SluMAN
             availableColumn.HeaderText = "Available from";
             availableColumn.ToolTipText = "The first episode whose run file may have the gadget.";
             availableColumn.ReadOnly = true;
-            availableColumn.Width = 90;
+            availableColumn.Width = 100;
             availableColumn.DefaultCellStyle.ForeColor = SystemColors.GrayText;
             availableColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
             grid.Columns.Add(availableColumn);
@@ -219,7 +219,7 @@ namespace SluMAN
                 row.Cells[CharacterColumn].Value = gadget.character;
                 row.Cells[NameColumn].Value = gadget.name;
                 row.Cells[NameColumn].ToolTipText = $"Byte 0x{gadget.index:X2} of the gadget array";
-                row.Cells[AvailableColumn].Value = gadget.availableFrom == 0 ? "Start" : $"Episode {gadget.availableFrom}";
+                row.Cells[AvailableColumn].Value = GadgetAvailability.EpisodeName(gadget.availableFrom);
                 row.Tag = gadget;
                 grid.Rows.Add(row);
             }
