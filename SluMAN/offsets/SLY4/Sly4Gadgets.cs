@@ -11,11 +11,17 @@ namespace SluMAN
     public static class Sly4Gadgets
     {
         // The state values SluMAN writes. Buying a powerup in game sets 3. The bits look like
-        // seen / bought / available; 5 is a gadget ThiefNet shows as new. Other values are kept
-        // as they are.
+        // seen / bought / available; 5 is a gadget ThiefNet shows as new. A gadget is bought when
+        // its bought bit (Purchased) is set.
         public const byte Locked = 0;
         public const byte InThiefNet = 1;
         public const byte Owned = 3;
+        private const byte PurchasedBit = 0x2;
+
+        public static bool IsPurchased(byte state)
+        {
+            return (state & PurchasedBit) != 0;
+        }
 
         public class Gadget
         {
@@ -24,6 +30,11 @@ namespace SluMAN
             public string character;
             // The first episode whose run file may have it (GadgetAvailability).
             public int availableFrom;
+
+            public override string ToString()
+            {
+                return name;
+            }
         }
 
         public const string Sly = "Sly";
@@ -93,8 +104,7 @@ namespace SluMAN
                 G("Shrink Ammo", Bentley, 4),
                 G("Scorching Hover Pack", Bentley, 5),
                 G("Bomb Drop v2.0", Bentley, 5),
-                // Not known yet: in no run file until it is.
-                G("Bend it like Bentley", Bentley, GadgetAvailability.NotInRunFiles),
+                G("Bend it like Bentley", Bentley, 5),
                 G("Homing Darts", Bentley, 5),
                 G("Meter Recharger", Bentley, GadgetAvailability.NotInRunFiles),
                 G("Adrenaline Burst Plus", Bentley, GadgetAvailability.NotInRunFiles),
@@ -116,18 +126,6 @@ namespace SluMAN
         private static Gadget G(string name, string character, int availableFrom)
         {
             return new Gadget { name = name, character = character, availableFrom = availableFrom };
-        }
-
-        /// <summary>The state's name as the Gadgets tab shows it.</summary>
-        public static string StateName(byte state)
-        {
-            switch (state)
-            {
-                case Locked: return "Locked";
-                case InThiefNet: return "In ThiefNet";
-                case Owned: return "Owned";
-                default: return $"Other ({state})";
-            }
         }
 
         // Run files: each one's gadgets are kept in config.txt as hex, one byte per gadget, under
@@ -163,17 +161,20 @@ namespace SluMAN
 
         /// <summary>
         /// Locks the gadgets in states that aren't available yet at the start of the run file, and
-        /// returns their names.
+        /// returns the names of the bought ones among them.
         /// </summary>
         public static List<string> RemoveUnavailable(string runFile, byte[] states)
         {
             List<string> removed = new List<string>();
             foreach (Gadget gadget in All)
             {
-                if (states[gadget.index] != Locked && !GadgetAvailability.IsAvailable(gadget.availableFrom, runFile))
+                if (!GadgetAvailability.IsAvailable(gadget.availableFrom, runFile))
                 {
+                    if (IsPurchased(states[gadget.index]))
+                    {
+                        removed.Add($"{gadget.name} ({gadget.character})");
+                    }
                     states[gadget.index] = Locked;
-                    removed.Add($"{gadget.name} ({gadget.character})");
                 }
             }
             return removed;

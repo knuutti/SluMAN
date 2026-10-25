@@ -6,39 +6,35 @@ using System.Windows.Forms;
 namespace SluMAN
 {
     /// <summary>
-    /// The Gadgets tab: every gadget's state (locked, in ThiefNet or owned), and the gadgets each
-    /// run file loads with. The game only reads its gadgets on a load (a checkpoint or a level),
-    /// so changes stay in the list until Apply writes them and reloads. The controls are built in
-    /// code.
+    /// The Gadgets tab: a list of each character's gadgets, ticked if bought, and the gadgets each
+    /// run file loads with. Ticking one buys it; unticking a bought one puts it back in ThiefNet.
+    /// The game only reads its gadgets on a load (a checkpoint or a level), so changes stay in
+    /// the lists until Apply writes them and reloads. The controls are built in code.
     /// </summary>
     public class Sly4GadgetsForm : Form, IRefreshOnShow
     {
-        private const int CharacterColumn = 0;
-        private const int NameColumn = 1;
-        private const int AvailableColumn = 2;
-        private const int StateColumn = 3;
-
-        private const string AllCharacters = "All characters";
-
-        // The states the State column offers, in order.
-        private static readonly byte[] PickableStates = { Sly4Gadgets.Locked, Sly4Gadgets.InThiefNet, Sly4Gadgets.Owned };
+        // One column per character, in Sly4Gadgets.CharacterNames' order. Carmelita's short list
+        // leaves room below it for Apply and Discard.
+        private const int ColumnWidth = 151;
+        private const int ColumnGap = 4;
+        private const int ListTop = 30;
 
         private readonly sly4 game;
         private readonly Sly4Practice practice;
-        private readonly ComboBox characterComboBox = new ComboBox();
-        private readonly DataGridView grid = new DataGridView();
+        private readonly Dictionary<string, CheckedListBox> lists = new Dictionary<string, CheckedListBox>();
+        // Above each list: ticks or unticks the character's every gadget.
+        private readonly Dictionary<string, CheckBox> allCheckBoxes = new Dictionary<string, CheckBox>();
         private readonly ComboBox runFileComboBox = new ComboBox();
         private readonly GroupBox runFileGroupBox = new GroupBox();
         // Says which gadgets saving a run file left out, as they aren't available yet.
         private readonly Label runFileWarningLabel = new Label();
-        // How many changes the list has that aren't in the game yet.
+        // How many changes the lists have that aren't in the game yet.
         private readonly Label changesLabel = new Label();
-        private Font changedFont;
         private StatusLine statusLine;
-        // Set while states are put into the grid, so that doesn't count as an edit.
+        // Set while states are put into the lists, so that doesn't count as an edit.
         private bool updating;
 
-        // The gadgets as last read from the game, and as the list has them; null until read.
+        // The gadgets as last read from the game, and as the lists have them; null until read.
         private byte[] gameStates;
         private byte[] states;
 
@@ -53,16 +49,8 @@ namespace SluMAN
             Font = new Font("Microsoft Sans Serif", 8.25F);
 
             BuildControls();
-            ClientSize = new Size(grid.Right + 8, Math.Max(runFileGroupBox.Bottom, runFileWarningLabel.Bottom) + 8);
-            // The grid grows with the tab when the Practice window has a fixed size. Anchored
-            // only now: an anchor keeps the distance to the window's edge it has when set.
-            grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            runFileGroupBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            runFileWarningLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            changesLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            ClientSize = new Size(runFileWarningLabel.Right + 8, runFileGroupBox.Bottom + 8);
             statusLine = new StatusLine(this, false);
-            changedFont = new Font(grid.Font, FontStyle.Bold);
-            FormClosed += (sender, e) => changedFont.Dispose();
 
             RefreshFromGame();
         }
@@ -72,42 +60,55 @@ namespace SluMAN
             ToolTip tip = new ToolTip();
             FormClosed += (sender, e) => tip.Dispose();
 
-            Label showLabel = new Label();
-            showLabel.Text = "Show:";
-            showLabel.AutoSize = true;
-            showLabel.Location = new Point(8, 13);
-            Controls.Add(showLabel);
+            int listsBottom = 0;
+            for (int column = 0; column < Sly4Gadgets.CharacterNames.Length; column++)
+            {
+                string character = Sly4Gadgets.CharacterNames[column];
+                int x = 8 + column * (ColumnWidth + ColumnGap);
 
-            characterComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            characterComboBox.Location = new Point(48, 9);
-            characterComboBox.Size = new Size(110, 21);
-            characterComboBox.Items.Add(AllCharacters);
-            characterComboBox.Items.AddRange(Sly4Gadgets.CharacterNames);
-            characterComboBox.SelectedIndex = 0;
-            characterComboBox.SelectedIndexChanged += (sender, e) => ShowCharacter();
-            Controls.Add(characterComboBox);
+                CheckBox allCheckBox = new CheckBox();
+                allCheckBox.Text = character;
+                allCheckBox.Font = new Font(Font, FontStyle.Bold);
+                allCheckBox.AutoSize = true;
+                allCheckBox.Location = new Point(x + 2, 8);
+                allCheckBox.CheckedChanged += (sender, e) => SetCharacter(character, allCheckBox.Checked);
+                Controls.Add(allCheckBox);
+                allCheckBoxes[character] = allCheckBox;
+                tip.SetToolTip(allCheckBox, $"Ticks or unticks every one of {character}'s gadgets.");
 
-            Label setLabel = new Label();
-            setLabel.Text = "Set shown to:";
-            setLabel.AutoSize = true;
-            setLabel.Location = new Point(170, 13);
-            Controls.Add(setLabel);
+                CheckedListBox list = new CheckedListBox();
+                list.Location = new Point(x, ListTop);
+                list.CheckOnClick = true;
+                list.IntegralHeight = false;
+                foreach (Sly4Gadgets.Gadget gadget in Sly4Gadgets.All)
+                {
+                    if (gadget.character == character)
+                    {
+                        list.Items.Add(gadget);
+                    }
+                }
+                list.ItemCheck += list_ItemCheck;
+                // Sized once on the form: the item height follows the font it takes from it.
+                Controls.Add(list);
+                list.Size = new Size(ColumnWidth, list.ItemHeight * list.Items.Count + 4);
+                lists[character] = list;
+                listsBottom = Math.Max(listsBottom, list.Bottom);
+            }
 
-            tip.SetToolTip(AddButton("Owned", 246, 60, (sender, e) => SetShown(Sly4Gadgets.Owned)),
-                "Gives every gadget in the list, as buying it in ThiefNet does.");
-            tip.SetToolTip(AddButton("In ThiefNet", 310, 75, (sender, e) => SetShown(Sly4Gadgets.InThiefNet)),
-                "Takes every gadget in the list away, but leaves it for sale in ThiefNet.");
-            tip.SetToolTip(AddButton("Locked", 389, 60, (sender, e) => SetShown(Sly4Gadgets.Locked)),
-                "Takes every gadget in the list away, and out of ThiefNet.");
-            tip.SetToolTip(AddButton("Discard", 470, 60, (sender, e) => ReadGame(false)),
-                "Drops the changes not applied and reads the gadgets from the game again.");
-            tip.SetToolTip(AddButton("Apply", 534, 90, (sender, e) => Apply()),
-                "Writes the changes to the game and reloads so they take effect: the checkpoint in a job, otherwise the level from its start.");
+            // Below Carmelita's list.
+            CheckedListBox lastList = lists[Sly4Gadgets.CharacterNames[Sly4Gadgets.CharacterNames.Length - 1]];
+            Button applyButton = AddButton("Apply", lastList.Left, lastList.Bottom + 10, (sender, e) => Apply());
+            tip.SetToolTip(applyButton, "Writes the changes to the game and reloads so they take effect: the checkpoint in a job, otherwise the level from its start.");
+            Button discardButton = AddButton("Discard", lastList.Left, applyButton.Bottom + 4, (sender, e) => ReadGame(false));
+            tip.SetToolTip(discardButton, "Drops the changes not applied and reads the gadgets from the game again.");
 
-            BuildGrid();
+            changesLabel.Location = new Point(lastList.Left, discardButton.Bottom + 6);
+            changesLabel.Size = new Size(ColumnWidth, 44);
+            changesLabel.ForeColor = Color.DarkOrange;
+            Controls.Add(changesLabel);
 
             runFileGroupBox.Text = "Run file gadgets";
-            runFileGroupBox.Location = new Point(8, grid.Bottom + 6);
+            runFileGroupBox.Location = new Point(8, Math.Max(listsBottom, changesLabel.Bottom) + 8);
             runFileGroupBox.Size = new Size(312, 54);
             Controls.Add(runFileGroupBox);
 
@@ -126,7 +127,7 @@ namespace SluMAN
             loadButton.UseVisualStyleBackColor = true;
             loadButton.Click += loadRunFileButton_Click;
             runFileGroupBox.Controls.Add(loadButton);
-            tip.SetToolTip(loadButton, "Puts the gadgets saved for this run file in the list. Apply to use them in game.");
+            tip.SetToolTip(loadButton, "Puts the gadgets saved for this run file in the lists. Apply to use them in game.");
 
             Button saveButton = new Button();
             saveButton.Text = "Save";
@@ -135,100 +136,24 @@ namespace SluMAN
             saveButton.UseVisualStyleBackColor = true;
             saveButton.Click += saveRunFileButton_Click;
             runFileGroupBox.Controls.Add(saveButton);
-            tip.SetToolTip(saveButton, "Saves the list's gadgets as this run file's. Gadgets that aren't in ThiefNet yet at the start of its episode are locked first.");
+            tip.SetToolTip(saveButton, "Saves the lists' gadgets as this run file's. Gadgets that aren't in ThiefNet yet at the start of its episode are left out.");
 
-            changesLabel.Location = new Point(328, runFileGroupBox.Top + 6);
-            changesLabel.Size = new Size(296, 16);
-            changesLabel.ForeColor = Color.DarkOrange;
-            Controls.Add(changesLabel);
-
-            runFileWarningLabel.Location = new Point(328, changesLabel.Bottom + 2);
-            runFileWarningLabel.Size = new Size(296, 30);
+            runFileWarningLabel.Location = new Point(328, runFileGroupBox.Top + 6);
+            runFileWarningLabel.Size = new Size(lastList.Right - 328, runFileGroupBox.Height - 6);
             runFileWarningLabel.ForeColor = Color.Firebrick;
             Controls.Add(runFileWarningLabel);
         }
 
-        private Button AddButton(string text, int x, int width, EventHandler click)
+        private Button AddButton(string text, int x, int y, EventHandler click)
         {
             Button button = new Button();
             button.Text = text;
-            button.Location = new Point(x, 8);
-            button.Size = new Size(width, 23);
+            button.Location = new Point(x, y);
+            button.Size = new Size(ColumnWidth, 23);
             button.UseVisualStyleBackColor = true;
             button.Click += click;
             Controls.Add(button);
             return button;
-        }
-
-        private void BuildGrid()
-        {
-            grid.Location = new Point(8, 38);
-            grid.Size = new Size(616, 380);
-            grid.AllowUserToAddRows = false;
-            grid.AllowUserToDeleteRows = false;
-            grid.AllowUserToResizeRows = false;
-            grid.AllowUserToOrderColumns = false;
-            grid.RowHeadersVisible = false;
-            grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            grid.MultiSelect = false;
-            grid.EditMode = DataGridViewEditMode.EditOnEnter;
-            grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            grid.RowTemplate.Height = 20;
-            grid.BackgroundColor = SystemColors.Window;
-
-            DataGridViewTextBoxColumn characterColumn = new DataGridViewTextBoxColumn();
-            characterColumn.HeaderText = "Character";
-            characterColumn.ReadOnly = true;
-            characterColumn.Width = 80;
-            characterColumn.DefaultCellStyle.ForeColor = SystemColors.GrayText;
-            characterColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
-            grid.Columns.Add(characterColumn);
-
-            DataGridViewTextBoxColumn nameColumn = new DataGridViewTextBoxColumn();
-            nameColumn.HeaderText = "Gadget";
-            nameColumn.ReadOnly = true;
-            // Takes whatever width the other columns leave.
-            nameColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-            nameColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
-            grid.Columns.Add(nameColumn);
-
-            DataGridViewTextBoxColumn availableColumn = new DataGridViewTextBoxColumn();
-            availableColumn.HeaderText = "Available from";
-            availableColumn.ToolTipText = "The first episode whose run file may have the gadget.";
-            availableColumn.ReadOnly = true;
-            availableColumn.Width = 100;
-            availableColumn.DefaultCellStyle.ForeColor = SystemColors.GrayText;
-            availableColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
-            grid.Columns.Add(availableColumn);
-
-            DataGridViewComboBoxColumn stateColumn = new DataGridViewComboBoxColumn();
-            stateColumn.HeaderText = "State";
-            stateColumn.Width = 120;
-            stateColumn.FlatStyle = FlatStyle.Flat;
-            stateColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
-            foreach (byte state in PickableStates)
-            {
-                stateColumn.Items.Add(Sly4Gadgets.StateName(state));
-            }
-            grid.Columns.Add(stateColumn);
-
-            foreach (Sly4Gadgets.Gadget gadget in Sly4Gadgets.All)
-            {
-                DataGridViewRow row = new DataGridViewRow();
-                row.CreateCells(grid);
-                row.Cells[CharacterColumn].Value = gadget.character;
-                row.Cells[NameColumn].Value = gadget.name;
-                row.Cells[NameColumn].ToolTipText = $"Byte 0x{gadget.index:X2} of the gadget array";
-                row.Cells[AvailableColumn].Value = GadgetAvailability.EpisodeName(gadget.availableFrom);
-                row.Tag = gadget;
-                grid.Rows.Add(row);
-            }
-
-            grid.CurrentCellDirtyStateChanged += grid_CurrentCellDirtyStateChanged;
-            grid.CellValueChanged += grid_CellValueChanged;
-            // A cell the grid can't draw shows blank instead of a dialog.
-            grid.DataError += (sender, e) => e.ThrowException = false;
-            Controls.Add(grid);
         }
 
         /// <summary>Reads the gadgets from the game, keeping the changes not applied yet.</summary>
@@ -268,39 +193,50 @@ namespace SluMAN
             ShowStates();
         }
 
-        /// <summary>Shows the list's states, the changed ones in bold.</summary>
+        /// <summary>Ticks the bought gadgets and counts the changes.</summary>
         private void ShowStates()
         {
             updating = true;
-            grid.CancelEdit();
-            int changes = 0;
-            foreach (DataGridViewRow row in grid.Rows)
+            foreach (CheckedListBox list in lists.Values)
             {
-                Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)row.Tag;
-                DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)row.Cells[StateColumn];
-                string name = Sly4Gadgets.StateName(states[gadget.index]);
-                // A value SluMAN doesn't offer (such as 5, new in ThiefNet) still shows, in this
-                // row only.
-                if (!cell.Items.Contains(name))
+                for (int i = 0; i < list.Items.Count; i++)
                 {
-                    cell.Items.Add(name);
+                    Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)list.Items[i];
+                    list.SetItemChecked(i, Sly4Gadgets.IsPurchased(states[gadget.index]));
                 }
-                cell.Value = name;
+            }
+            ShowAllCheckBoxes();
+            updating = false;
+            ShowChanges();
+        }
 
-                bool changed = states[gadget.index] != gameStates[gadget.index];
-                cell.Style.Font = changed ? changedFont : null;
-                if (changed)
+        /// <summary>Ticks each character's box when all their gadgets are ticked.</summary>
+        private void ShowAllCheckBoxes()
+        {
+            bool wasUpdating = updating;
+            updating = true;
+            foreach (KeyValuePair<string, CheckedListBox> entry in lists)
+            {
+                allCheckBoxes[entry.Key].Checked = entry.Value.CheckedItems.Count == entry.Value.Items.Count;
+            }
+            updating = wasUpdating;
+        }
+
+        private void ShowChanges()
+        {
+            int changes = 0;
+            for (int i = 0; i < states.Length; i++)
+            {
+                if (states[i] != gameStates[i])
                 {
                     changes++;
                 }
             }
-            updating = false;
-
             changesLabel.Text = changes == 0 ? ""
                 : $"{changes} {(changes == 1 ? "change" : "changes")} not in game yet. Apply reloads to use them.";
         }
 
-        /// <summary>Whether the gadgets have been read, so the list can be changed.</summary>
+        /// <summary>Whether the gadgets have been read, so the lists can be changed.</summary>
         private bool HasStates()
         {
             if (states == null)
@@ -311,35 +247,51 @@ namespace SluMAN
             return true;
         }
 
-        private void ShowCharacter()
+        /// <summary>
+        /// A gadget's state when ticked (bought) or not: as the game has it if that matches, so
+        /// ticking it back is no change; otherwise bought, or back in ThiefNet.
+        /// </summary>
+        private byte StateFor(Sly4Gadgets.Gadget gadget, bool purchased)
         {
-            string character = characterComboBox.SelectedItem.ToString();
-            grid.CurrentCell = null;
-            foreach (DataGridViewRow row in grid.Rows)
+            byte inGame = gameStates[gadget.index];
+            if (Sly4Gadgets.IsPurchased(inGame) == purchased)
             {
-                Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)row.Tag;
-                row.Visible = character == AllCharacters || gadget.character == character;
+                return inGame;
             }
+            return purchased ? Sly4Gadgets.Owned : Sly4Gadgets.InThiefNet;
         }
 
-        /// <summary>Sets every gadget the list shows to one state.</summary>
-        private void SetShown(byte state)
+        private void list_ItemCheck(object sender, ItemCheckEventArgs e)
         {
-            if (!HasStates())
+            if (updating || states == null)
             {
                 return;
             }
-            foreach (DataGridViewRow row in grid.Rows)
+            CheckedListBox list = (CheckedListBox)sender;
+            Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)list.Items[e.Index];
+            states[gadget.index] = StateFor(gadget, e.NewValue == CheckState.Checked);
+            // The item is only ticked once this returns.
+            BeginInvoke((MethodInvoker)(() =>
             {
-                if (row.Visible)
-                {
-                    states[((Sly4Gadgets.Gadget)row.Tag).index] = state;
-                }
+                ShowAllCheckBoxes();
+                ShowChanges();
+            }));
+        }
+
+        private void SetCharacter(string character, bool purchased)
+        {
+            if (updating || !HasStates())
+            {
+                return;
+            }
+            foreach (Sly4Gadgets.Gadget gadget in lists[character].Items)
+            {
+                states[gadget.index] = StateFor(gadget, purchased);
             }
             ShowStates();
         }
 
-        /// <summary>Writes the list's changes to the game and reloads so they take effect.</summary>
+        /// <summary>Writes the lists' changes to the game and reloads so they take effect.</summary>
         private void Apply()
         {
             if (!HasStates())
@@ -380,37 +332,6 @@ namespace SluMAN
             practice.ReloadForGadgets();
         }
 
-        private void grid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
-        {
-            // A combo box cell only reports a change once committed, which normally waits for the
-            // cell to lose focus. Commit right away so picking a state shows as a change.
-            if (grid.IsCurrentCellDirty && grid.CurrentCell is DataGridViewComboBoxCell)
-            {
-                grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            }
-        }
-
-        private void grid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
-        {
-            if (updating || e.RowIndex < 0 || e.ColumnIndex != StateColumn || states == null)
-            {
-                return;
-            }
-            DataGridViewRow row = grid.Rows[e.RowIndex];
-            Sly4Gadgets.Gadget gadget = (Sly4Gadgets.Gadget)row.Tag;
-            string name = row.Cells[StateColumn].Value as string;
-            foreach (byte state in PickableStates)
-            {
-                if (name == Sly4Gadgets.StateName(state))
-                {
-                    states[gadget.index] = state;
-                    // Called later: the grid is still committing this cell.
-                    BeginInvoke((MethodInvoker)ShowStates);
-                    return;
-                }
-            }
-        }
-
         private void loadRunFileButton_Click(object sender, EventArgs e)
         {
             if (!HasStates())
@@ -429,7 +350,7 @@ namespace SluMAN
                 states = saved;
                 ShowStates();
                 runFileWarningLabel.Text = "";
-                statusLine.Info($"Put {runFile}'s gadgets in the list. Apply to use them in game.");
+                statusLine.Info($"Put {runFile}'s gadgets in the lists. Apply to use them in game.");
             }
             catch (Exception ex)
             {
@@ -446,12 +367,12 @@ namespace SluMAN
             string runFile = runFileComboBox.SelectedItem.ToString();
             try
             {
-                // Locked in the list too, so it shows what was saved.
+                // Locked in the lists too, so they show what was saved.
                 List<string> removed = Sly4Gadgets.RemoveUnavailable(runFile, states);
                 Sly4Gadgets.SaveRunFile(runFile, states);
                 ShowStates();
                 runFileWarningLabel.Text = GadgetAvailability.RemovedWarning(runFile, removed);
-                statusLine.Info($"Saved the list's gadgets as {runFile}'s.");
+                statusLine.Info($"Saved the lists' gadgets as {runFile}'s.");
             }
             catch (Exception ex)
             {

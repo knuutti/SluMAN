@@ -15,16 +15,6 @@ namespace SluMAN
         /// <summary>For a gadget no run file may have: it's only in ThiefNet after the last one.</summary>
         public const int NotInRunFiles = 99;
 
-        /// <summary>The episode a gadget is available from, as the Gadgets tabs show it.</summary>
-        public static string EpisodeName(int availableFromEpisode)
-        {
-            if (availableFromEpisode == NotInRunFiles)
-            {
-                return "Not in run files";
-            }
-            return availableFromEpisode == 0 ? "Start" : $"Episode {availableFromEpisode}";
-        }
-
         // How many removed gadgets the warning names before "and N more".
         private const int NamedInWarning = 5;
 
