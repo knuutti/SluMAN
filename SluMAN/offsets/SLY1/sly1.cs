@@ -610,6 +610,7 @@ namespace SluMAN
             public float[] projection = new float[16];
             public float lodFov;
             public float fov;
+            public float fovTarget;
             public float aspect;
             // tan(fov / 2) * aspect, tan(fov / 2)
             public float[] frustum = new float[2];
@@ -643,6 +644,7 @@ namespace SluMAN
                 frustum = new float[] { tanX, tanY };
                 lodScale = Math.Max(1, from.lodFov / newFov);
                 fov = newFov;
+                fovTarget = newFov;
                 return true;
             }
         }
@@ -670,13 +672,18 @@ namespace SluMAN
             state.lodScale = ToFloat(bytes, at(sly1.addr.cameraLodScaleOffset));
             state.lodFov = ToFloat(bytes, at(sly1.addr.cameraLodFovOffset));
             state.fov = ToFloat(bytes, at(sly1.addr.cameraFovOffset));
+            state.fovTarget = ToFloat(bytes, at(sly1.addr.cameraFovTargetOffset));
             state.aspect = ToFloat(bytes, at(sly1.addr.cameraAspectOffset));
             return state;
         }
 
-        /// <summary>Writes a camera's projection, frustum and LOD scale (to give the game back its field of view).</summary>
-        public void WriteCameraProjection(uint camera, CameraState state)
+        /// <summary>
+        /// Writes a camera's field of view, its target, projection, frustum and LOD scale (to give
+        /// the game back its own).
+        /// </summary>
+        public void WriteCameraFov(uint camera, CameraState state)
         {
+            api.WriteMemory(pid, camera + sly1.addr.cameraFovOffset, FloatsToBytes(new float[] { state.fov, state.fovTarget }));
             api.WriteMemory(pid, camera + sly1.addr.cameraProjectionOffset, FloatsToBytes(state.projection));
             api.WriteMemory(pid, camera + sly1.addr.cameraFrustumOffset, FloatsToBytes(state.frustum));
             api.WriteMemory(pid, camera + sly1.addr.cameraLodScaleOffset, ConvertFloatToBytes(state.lodScale));
@@ -689,7 +696,10 @@ namespace SluMAN
         private const uint CameraHookMark = 0x534C4D31; // "SLM1"
         private const uint CameraHookListOffset = 0x200;
 
-        /// <summary>The camera's word offsets the stub copies: the position, rotation, LOD scale, projection and frustum.</summary>
+        /// <summary>
+        /// The camera's word offsets the stub copies: the position, rotation, LOD scale,
+        /// projection, field of view and its target, and frustum.
+        /// </summary>
         private static List<uint> CameraHookOffsets()
         {
             List<uint> offsets = new List<uint>();
@@ -704,6 +714,8 @@ namespace SluMAN
             add(sly1.addr.cameraRotationOffset, 12);
             add(sly1.addr.cameraLodScaleOffset, 1);
             add(sly1.addr.cameraProjectionOffset, 16);
+            add(sly1.addr.cameraFovOffset, 1);
+            add(sly1.addr.cameraFovTargetOffset, 1);
             add(sly1.addr.cameraFrustumOffset, 2);
             return offsets;
         }
@@ -798,6 +810,8 @@ namespace SluMAN
             put(sly1.addr.cameraRotationOffset, state.rotation);
             put(sly1.addr.cameraLodScaleOffset, new float[] { state.lodScale });
             put(sly1.addr.cameraProjectionOffset, state.projection);
+            put(sly1.addr.cameraFovOffset, new float[] { state.fov });
+            put(sly1.addr.cameraFovTargetOffset, new float[] { state.fovTarget });
             put(sly1.addr.cameraFrustumOffset, state.frustum);
             api.WriteMemory(pid, sly1.addr.cameraHookData + start, bytes);
         }

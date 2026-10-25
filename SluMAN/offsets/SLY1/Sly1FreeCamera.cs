@@ -12,7 +12,8 @@ namespace SluMAN
     /// is held where they stood. It can also play a camera path instead of following the sticks.
     /// <para>
     /// The camera is driven through the camera hook (sly1.StartCameraHook): the game's camera
-    /// matrix update puts SluMAN's position, rotation and projection into the camera before
+    /// matrix update puts SluMAN's position, rotation, field of view and projection into the
+    /// camera before
     /// working out the matrices it's drawn with, so the game's own camera never shows. SluMAN only
     /// writes them to the hook's data each tick. Every place the game sets the camera calls that
     /// update just after, so without the hook (on RPCS3 it needs the Interpreter PPU decoder)
@@ -350,32 +351,24 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Takes the camera hook out and gives the game back a projection for its own field of
-        /// view: the game only works that out again when its field of view changes.
+        /// Takes the camera hook out and gives the game back its field of view as it was when the
+        /// free camera started: the hook had put SluMAN's in, and the game only works out its
+        /// projection again when its field of view changes.
         /// </summary>
         private void Unhook()
         {
             try { game.StopCameraHook(); } catch { }
-            if (fovKnown)
+            try
             {
-                try
+                // After a reset the camera may be somewhere else.
+                if (game.GetMainCamera() == camera)
                 {
-                    // After a reset the camera may be somewhere else.
-                    if (game.GetMainCamera() != camera)
-                    {
-                        return;
-                    }
-                    float current = game.ReadCamera(camera).fov;
-                    sly1.CameraState restored = gameState.Clone();
-                    if (current >= MinFov && current <= MaxFov && restored.SetFov(gameState, current))
-                    {
-                        game.WriteCameraProjection(camera, restored);
-                    }
+                    game.WriteCameraFov(camera, gameState);
                 }
-                catch
-                {
-                    // Not connected; the game works out its own once its field of view changes.
-                }
+            }
+            catch
+            {
+                // Not connected; the game sets its field of view again when it next changes it.
             }
         }
 

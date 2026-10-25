@@ -180,6 +180,15 @@ Checked offline: the C# hook code was run against the EBOOT's memory image throu
 `IPS3API`, and the patched call sites and stub were run in an emulator (PPC32 mode; every
 instruction SluMAN adds behaves the same as in 64-bit mode) up to `UpdateCmMat4`'s entry.
 
+**Field of view.** Copying only the projection and frustum didn't change the view on hardware. The
+render setup (`0x49250`, and the context builders `0x18F574` / `0x18F5B4`) uploads +0x100/+0x140, and
+also hands the renderer the raw aspect, field of view (+0x1C4), near and far. So the stub also puts
+SluMAN's field of view into +0x1C4 and its target +0x1C8 (the game eases one to the other).
+`SetCmFov` is `0x4BF48`: it sets both, then calls `RecalcCmFrustrum`. Two special passes
+(`0xC4374`, `0x13B864`) set a fixed field of view around a render and then put it back. While the
+hook runs they get SluMAN's. When the free camera stops, the game's field of view, target,
+projection, frustum and LOD scale from the start are written back.
+
 ## Not done yet
 
 - **Player control** (making Sly uncontrollable instead of holding his position): PS2 patches the

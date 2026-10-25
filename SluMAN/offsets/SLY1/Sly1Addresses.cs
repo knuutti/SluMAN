@@ -86,7 +86,8 @@ namespace SluMAN
         // up rows, each a vector) at +cameraRotationOffset, the LOD scale the game works out from
         // the field of view (max(1, *(+cameraLodFovOffset) / fov)) at +cameraLodScaleOffset, the
         // projection matrix at +cameraProjectionOffset, the field of view (radians, vertical) at
-        // +cameraFovOffset, the aspect ratio at +cameraAspectOffset, and the frustum (tan of half
+        // +cameraFovOffset (eased to +cameraFovTargetOffset; the renderer is also handed it, not
+        // only the matrices), the aspect ratio at +cameraAspectOffset, and the frustum (tan of half
         // the field of view times the aspect ratio, then tan of half the field of view) at
         // +cameraFrustumOffset. The fog amount (0 to 1) is at +cameraFogOffset.
         public uint cameraPointer { get; private set; }
@@ -96,13 +97,15 @@ namespace SluMAN
         public uint cameraProjectionOffset { get; private set; }
         public uint cameraLodFovOffset { get; private set; }
         public uint cameraFovOffset { get; private set; }
+        public uint cameraFovTargetOffset { get; private set; }
         public uint cameraAspectOffset { get; private set; }
         public uint cameraFrustumOffset { get; private set; }
         public uint cameraFogOffset { get; private set; }
 
         // Camera hook (free camera): the game's camera matrix update (UpdateCmMat4, the camera in
         // r3) works out the matrices everything is drawn with from the camera's position,
-        // rotation, projection and frustum, and every place that sets the camera calls it just
+        // rotation, projection and frustum, and every place that sets the camera (its field of
+        // view too) calls it just
         // after. Every call to it (bl, and one tail call with b) is pointed at a stub in padding
         // between two ELF sections, which for the camera SluMAN drives first copies SluMAN's
         // values in from the stub's data (past the end of BSS, in a page the game has mapped).
@@ -213,6 +216,7 @@ namespace SluMAN
                 cameraProjectionOffset = 0xC0,
                 cameraLodFovOffset = 0x1C0,
                 cameraFovOffset = 0x1C4,
+                cameraFovTargetOffset = 0x1C8,
                 cameraAspectOffset = 0x1E0,
                 cameraFrustumOffset = 0x1F0,
                 cameraFogOffset = 0x200,
