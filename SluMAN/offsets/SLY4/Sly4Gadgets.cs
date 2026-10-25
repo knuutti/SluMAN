@@ -93,6 +93,7 @@ namespace SluMAN
                 G("Shrink Ammo", Bentley, 4),
                 G("Scorching Hover Pack", Bentley, 5),
                 G("Bomb Drop v2.0", Bentley, 5),
+                // Not known yet: in no run file until it is.
                 G("Bend it like Bentley", Bentley, GadgetAvailability.NotInRunFiles),
                 G("Homing Darts", Bentley, 5),
                 G("Meter Recharger", Bentley, GadgetAvailability.NotInRunFiles),
