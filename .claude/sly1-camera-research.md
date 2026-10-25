@@ -158,18 +158,39 @@ fallback would have to write the derived matrices (+0x100/+0x140/+0x180/+0x50), 
 reimplementing `UpdateCmMat4`'s math. Writing only pos/rot nonstop barely works here, because the game
 rebuilds the matrices straight after its own writes.
 
-## Not done yet (for parity with the Sly 3 Camera tab)
+## Implemented
 
-- **No fog**: write 0 to CM +0x200. It's set per level (`0x4C1B0`) and copied to the render state each
-  frame, so it probably sticks until the next load.
-- **Hide HUD**: the PS2 freecam returns early from the `Draw*` HUD functions. On PS3, overwriting a
-  function's first instruction with `blr` breaks RPCS3's rule. HUD draws are virtual calls through
-  descriptors, so pointing a vtable's descriptor at an existing empty function would work on every
-  decoder. The PS3 `Draw*` functions haven't been identified yet.
-- **Player control** (freeze Sly while flying, or "Control character"): PS2 patches `FReadJoy` /
-  `GetJoyXYDeflection` stores, which have no same-kind PPC equivalent. Needs a flag (the sheet's
-  "Control Sly", PS2 NTSC `0x262C68`) found on PS3.
-- **Pause**: PS2 patches `MarkClockTick`; the PS3 clock hasn't been found yet.
+The hook above is `sly1.StartCameraHook` / `Sly1FreeCamera`, on the Camera tab (`Sly1CameraForm`).
+SluMAN builds the projection from the game's own one at start: only m[0][0] and m[1][1] depend on
+the field of view, so they're scaled by the ratio of the frustum values, with no screen constants.
+The player is held by writing their position (and zero velocity) each tick, as Sly 3 does.
+
+**Hide HUD.** Every HUD element is a blot (see the [decomp](https://github.com/TheOnlyZac/sly1)'s
+`screen.h`), drawn by `DrawUi → DrawBlots` through `VTBLOT::pfnDrawBlot`, slot 9. PS3 vtables are
+arrays of 4-byte pointers to function descriptors. The blot vtables were found by their shared base
+slots, `DtAppearBlot` / `DtVisibleBlot` / `DtDisappearBlot` (`0xD5CAC` / `0xD5CB4` / `0xD5CBC`,
+returning BLOT +0x550/+0x554/+0x558). There are 36 vtables (`0x3ABE70` – `0x3B522C`, listed in
+`Sly1Addresses.blotVtableDraws` with their Draw descriptors). Hide HUD writes the descriptor of the
+lone-`blr` function `0x10750` (`0x383588`) into each one's +0x24. That's a data write, so it works on
+every RPCS3 decoder. It hides every blot, the pause menu's included.
+
+**No fog.** Writes 0 to the camera's +0x200, per level, and puts the old value back.
+
+Checked offline: the C# hook code was run against the EBOOT's memory image through a fake
+`IPS3API`, and the patched call sites and stub were run in an emulator (PPC32 mode; every
+instruction SluMAN adds behaves the same as in 64-bit mode) up to `UpdateCmMat4`'s entry.
+
+## Not done yet
+
+- **Player control** (making Sly uncontrollable instead of holding his position): PS2 patches the
+  `FReadJoy` / `GetJoyXYDeflection` stores, which have no same-kind PPC equivalent. Needs a flag
+  found on PS3 (the sheet's "Control Sly", PS2 NTSC `0x262C68`).
+- **Pause**: PS2 patches `MarkClockTick`; the PS3 clock hasn't been found yet. The decomp's
+  `config/symbol_addrs.txt` (PS2 NTSC, data symbols included: `g_clock 0x261858`, `g_joy 0x262C70`,
+  `g_ui 0x275BC0`) is the best place to start.
+- **Live checks**: that +0x200 = 0 really removes the fog, and that the free camera keeps working
+  while the game's paused menu shows (if the game doesn't update the camera then, the hook doesn't
+  run and the view stays put until it's unpaused).
 
 ## Verify live
 

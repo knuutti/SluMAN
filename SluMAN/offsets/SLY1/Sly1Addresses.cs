@@ -81,6 +81,48 @@ namespace SluMAN
         public uint worldSprintsOffset { get; private set; }
         public uint worldFlagsOffset { get; private set; }
 
+        // The camera (the CM struct, laid out as on the PS2 version). *cameraPointer is the main
+        // one: its position (a vector) at +cameraPositionOffset, its rotation (forward, left and
+        // up rows, each a vector) at +cameraRotationOffset, the LOD scale the game works out from
+        // the field of view (max(1, *(+cameraLodFovOffset) / fov)) at +cameraLodScaleOffset, the
+        // projection matrix at +cameraProjectionOffset, the field of view (radians, vertical) at
+        // +cameraFovOffset, the aspect ratio at +cameraAspectOffset, and the frustum (tan of half
+        // the field of view times the aspect ratio, then tan of half the field of view) at
+        // +cameraFrustumOffset. The fog amount (0 to 1) is at +cameraFogOffset.
+        public uint cameraPointer { get; private set; }
+        public uint cameraPositionOffset { get; private set; }
+        public uint cameraRotationOffset { get; private set; }
+        public uint cameraLodScaleOffset { get; private set; }
+        public uint cameraProjectionOffset { get; private set; }
+        public uint cameraLodFovOffset { get; private set; }
+        public uint cameraFovOffset { get; private set; }
+        public uint cameraAspectOffset { get; private set; }
+        public uint cameraFrustumOffset { get; private set; }
+        public uint cameraFogOffset { get; private set; }
+
+        // Camera hook (free camera): the game's camera matrix update (UpdateCmMat4, the camera in
+        // r3) works out the matrices everything is drawn with from the camera's position,
+        // rotation, projection and frustum, and every place that sets the camera calls it just
+        // after. Every call to it (bl, and one tail call with b) is pointed at a stub in padding
+        // between two ELF sections, which for the camera SluMAN drives first copies SluMAN's
+        // values in from the stub's data (past the end of BSS, in a page the game has mapped).
+        // RPCS3's static interpreter fixes the kind of instruction at every address it found code
+        // at, so only bl to bl and b to b, and the stub must be in bytes of the code segment that
+        // were never code.
+        public uint cameraMatrixUpdateFunction { get; private set; }
+        public uint[] cameraMatrixUpdateCalls { get; private set; }
+        public uint[] cameraMatrixUpdateTailCalls { get; private set; }
+        public uint cameraHookStub { get; private set; }
+        public uint cameraHookData { get; private set; }
+
+        // Hide HUD: every HUD element is a blot, drawn through its vtable's Draw entry (a function
+        // descriptor's address) at +blotDrawSlotOffset. Each row is a blot vtable and the Draw
+        // entry it has; Hide HUD points them all at emptyFunctionDescriptor (a function that only
+        // returns). The vtables are data, so this works with every RPCS3 PPU decoder.
+        public uint[,] blotVtableDraws { get; private set; }
+        public uint blotDrawSlotOffset { get; private set; }
+        public uint emptyFunctionDescriptor { get; private set; }
+
         private Sly1Addresses()
         {
         }
@@ -163,6 +205,43 @@ namespace SluMAN
                 worldVaultsOffset = 0x43C,
                 worldSprintsOffset = 0x440,
                 worldFlagsOffset = 0x448,
+
+                cameraPointer = 0x3E6340,
+                cameraPositionOffset = 0x40,
+                cameraRotationOffset = 0x80,
+                cameraLodScaleOffset = 0xB0,
+                cameraProjectionOffset = 0xC0,
+                cameraLodFovOffset = 0x1C0,
+                cameraFovOffset = 0x1C4,
+                cameraAspectOffset = 0x1E0,
+                cameraFrustumOffset = 0x1F0,
+                cameraFogOffset = 0x200,
+
+                cameraMatrixUpdateFunction = 0x4B0CC,
+                // SetCm, SetCmLookAtSmooth, SetCmPosMat, UpdateCplook
+                cameraMatrixUpdateCalls = new uint[] { 0x4B78C, 0x4B954, 0x4BD3C, 0x52088 },
+                // RecalcCmFrustrum
+                cameraMatrixUpdateTailCalls = new uint[] { 0x4BE74 },
+                // Padding between two ELF sections (0x2FA298 to 0x2FA300), zeros that aren't code.
+                cameraHookStub = 0x2FA298,
+                // BSS ends at 0xFC02C8.
+                cameraHookData = 0xFC0300,
+
+                blotVtableDraws = new uint[,]
+                {
+                    { 0x3ABE70, 0x388540 }, { 0x3ABEBC, 0x388530 }, { 0x3ABF08, 0x388530 }, { 0x3ABF54, 0x388530 },
+                    { 0x3ABFA0, 0x388530 }, { 0x3ABFEC, 0x388530 }, { 0x3AC038, 0x388530 }, { 0x3AC084, 0x388530 },
+                    { 0x3AC0D0, 0x388530 }, { 0x3AC11C, 0x388530 }, { 0x3AC168, 0x388530 }, { 0x3AC1B4, 0x388530 },
+                    { 0x3AC200, 0x388530 }, { 0x3AC24C, 0x388530 }, { 0x3AC298, 0x388530 }, { 0x3AC2E4, 0x388530 },
+                    { 0x3AC330, 0x388530 }, { 0x3AC37C, 0x388580 }, { 0x3AC3C8, 0x388550 }, { 0x3AC414, 0x388548 },
+                    { 0x3AC460, 0x3885A0 }, { 0x3AC4AC, 0x388568 }, { 0x3AC4F8, 0x388590 }, { 0x3AC544, 0x388578 },
+                    { 0x3AC590, 0x388558 }, { 0x3AC5DC, 0x388598 }, { 0x3AC628, 0x388520 }, { 0x3AC674, 0x388540 },
+                    { 0x3AC73C, 0x387760 }, { 0x3AC788, 0x3850F0 }, { 0x3AE3C8, 0x38A920 }, { 0x3B4AC0, 0x386AB8 },
+                    { 0x3B4FB0, 0x38B308 }, { 0x3B5194, 0x386388 }, { 0x3B51E0, 0x386380 }, { 0x3B522C, 0x38A618 },
+                },
+                blotDrawSlotOffset = 0x24,
+                // The descriptor of 0x10750, a lone blr.
+                emptyFunctionDescriptor = 0x383588,
             };
 
             return new Dictionary<string, Sly1Addresses>(StringComparer.OrdinalIgnoreCase)

@@ -8,7 +8,7 @@ namespace SluMAN
     /// <summary>
     /// A free camera animation: keyframes the camera passes through, each with the time it takes
     /// to reach the next one. Saved per level in the user data folder's camera paths, in a folder
-    /// for each game (Sly4Folder, Sly3Folder, Sly2Folder).
+    /// for each game (Sly4Folder, Sly3Folder, Sly2Folder, Sly1Folder).
     /// <list type="bullet">
     /// <item>Per keyframe (the default): each segment runs on its own with its keyframe's easing.
     /// Positions follow a Catmull-Rom curve, so the path has no corners, but speed and turning
@@ -275,6 +275,8 @@ namespace SluMAN
         public static string Sly3Folder => Path.Combine(UserData.Path("camerapaths"), "sly3");
 
         public static string Sly2Folder => Path.Combine(UserData.Path("camerapaths"), "sly2");
+
+        public static string Sly1Folder => Path.Combine(UserData.Path("camerapaths"), "sly1");
 
         private static string FilePrefix(string levelName)
         {
