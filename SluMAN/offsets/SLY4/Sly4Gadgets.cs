@@ -22,6 +22,8 @@ namespace SluMAN
             public int index;
             public string name;
             public string character;
+            // The first episode whose run file may have it (GadgetAvailability).
+            public int availableFrom;
         }
 
         public const string Sly = "Sly";
@@ -38,75 +40,81 @@ namespace SluMAN
 
         private static Gadget[] CreateGadgets()
         {
-            string[,] gadgets = new string[,]
+            // The third value is the episode each gadget is available from (GadgetAvailability):
+            // 0 until they're filled in.
+            Gadget[] all = new Gadget[]
             {
-                { "Paraglider", Sly },
-                { "Cane Swat Combo", Sly },
-                { "Mega Charge Attack", Sly },
-                { "Silent Obliteration", Sly },
-                { "Rail Sprint", Sly },
-                { "Steerable Cane Spin", Sly },
-                { "Smoke Bomb", Sly },
-                { "Meter Recharger", Sly },
-                { "Run While Charging", Sly },
-                { "Flash Bomb", Sly },
-                { "Moving Pickpocket", Sly },
-                { "Sprint While Charging", Sly },
-                { "Cane Push", Sly },
-                { "Paraglider Dive Attack", Sly },
-                { "Silent Sprint", Sly },
-                { "Air Smash", Sly },
-                { "Elbo El Drop'o Combo", Murray },
-                { "Mega Charge Attack", Murray },
-                { "El Drop'o", Murray },
-                { "Looty Shake", Murray },
-                { "Steerable Fist Spin", Murray },
-                { "Clothesline", Murray },
-                { "Juggernaut Throw", Murray },
-                { "Fists of Flame", Murray },
-                { "Run While Charging", Murray },
-                { "Raging Inferno Flop", Murray },
-                { "Light as a Feather", Murray },
-                { "Dukes of Dynamite", Murray },
-                { "Sprint While Charging", Murray },
-                { "Clothesline a lo Macho", Murray },
-                { "Diablo Fire Slam", Murray },
-                { "Licks of Lightning", Murray },
-                { "Cuffs of Confusion", Murray },
-                { "Meter Recharger", Murray },
-                { "Mega Stomp", Murray },
-                { "El Drop'o a lo Macho", Murray },
-                { "Sleep Ammo", Bentley },
-                { "Adrenaline Burst", Bentley },
-                { "Bomb Kick", Bentley },
-                { "Shock Ammo", Bentley },
-                { "Trigger Bomb", Bentley },
-                { "Heat Seeking", Bentley },
-                { "Confusion Ammo", Bentley },
-                { "Multi Bomb", Bentley },
-                { "Throwing Shield", Bentley },
-                { "Bomb Blast v2.0", Bentley },
-                { "Shrink Ammo", Bentley },
-                { "Scorching Hover Pack", Bentley },
-                { "Bomb Drop v2.0", Bentley },
-                { "Bend it like Bentley", Bentley },
-                { "Homing Darts", Bentley },
-                { "Meter Recharger", Bentley },
-                { "Adrenaline Burst Plus", Bentley },
-                { "Moving Pickpocket", Bentley },
-                { "Auto Fire", Carmelita },
-                { "Charge Shot", Carmelita },
-                { "Stun Shot", Carmelita },
-                { "Triple Shot", Carmelita },
-                { "Super Jump", Carmelita },
+                G("Paraglider", Sly, 0),
+                G("Cane Swat Combo", Sly, 0),
+                G("Mega Charge Attack", Sly, 0),
+                G("Silent Obliteration", Sly, 0),
+                G("Rail Sprint", Sly, 0),
+                G("Steerable Cane Spin", Sly, 0),
+                G("Smoke Bomb", Sly, 0),
+                G("Meter Recharger", Sly, 0),
+                G("Run While Charging", Sly, 0),
+                G("Flash Bomb", Sly, 0),
+                G("Moving Pickpocket", Sly, 0),
+                G("Sprint While Charging", Sly, 0),
+                G("Cane Push", Sly, 0),
+                G("Paraglider Dive Attack", Sly, 0),
+                G("Silent Sprint", Sly, 0),
+                G("Air Smash", Sly, 0),
+                G("Elbo El Drop'o Combo", Murray, 0),
+                G("Mega Charge Attack", Murray, 0),
+                G("El Drop'o", Murray, 0),
+                G("Looty Shake", Murray, 0),
+                G("Steerable Fist Spin", Murray, 0),
+                G("Clothesline", Murray, 0),
+                G("Juggernaut Throw", Murray, 0),
+                G("Fists of Flame", Murray, 0),
+                G("Run While Charging", Murray, 0),
+                G("Raging Inferno Flop", Murray, 0),
+                G("Light as a Feather", Murray, 0),
+                G("Dukes of Dynamite", Murray, 0),
+                G("Sprint While Charging", Murray, 0),
+                G("Clothesline a lo Macho", Murray, 0),
+                G("Diablo Fire Slam", Murray, 0),
+                G("Licks of Lightning", Murray, 0),
+                G("Cuffs of Confusion", Murray, 0),
+                G("Meter Recharger", Murray, 0),
+                G("Mega Stomp", Murray, 0),
+                G("El Drop'o a lo Macho", Murray, 0),
+                G("Sleep Ammo", Bentley, 0),
+                G("Adrenaline Burst", Bentley, 0),
+                G("Bomb Kick", Bentley, 0),
+                G("Shock Ammo", Bentley, 0),
+                G("Trigger Bomb", Bentley, 0),
+                G("Heat Seeking", Bentley, 0),
+                G("Confusion Ammo", Bentley, 0),
+                G("Multi Bomb", Bentley, 0),
+                G("Throwing Shield", Bentley, 0),
+                G("Bomb Blast v2.0", Bentley, 0),
+                G("Shrink Ammo", Bentley, 0),
+                G("Scorching Hover Pack", Bentley, 0),
+                G("Bomb Drop v2.0", Bentley, 0),
+                G("Bend it like Bentley", Bentley, 0),
+                G("Homing Darts", Bentley, 0),
+                G("Meter Recharger", Bentley, 0),
+                G("Adrenaline Burst Plus", Bentley, 0),
+                G("Moving Pickpocket", Bentley, 0),
+                G("Auto Fire", Carmelita, 0),
+                G("Charge Shot", Carmelita, 0),
+                G("Stun Shot", Carmelita, 0),
+                G("Triple Shot", Carmelita, 0),
+                G("Super Jump", Carmelita, 0),
             };
 
-            Gadget[] all = new Gadget[gadgets.GetLength(0)];
             for (int i = 0; i < all.Length; i++)
             {
-                all[i] = new Gadget { index = i, name = gadgets[i, 0], character = gadgets[i, 1] };
+                all[i].index = i;
             }
             return all;
+        }
+
+        private static Gadget G(string name, string character, int availableFrom)
+        {
+            return new Gadget { name = name, character = character, availableFrom = availableFrom };
         }
 
         /// <summary>The state's name as the Gadgets tab shows it.</summary>
@@ -127,7 +135,7 @@ namespace SluMAN
         /// <summary>The run files, as the Gadgets and Run Files tabs list them.</summary>
         public static readonly string[] RunFiles =
         {
-            "Episode 1", "Episode 2", "Episode 3", "Episode 4", "Episode 5", "Epilogue",
+            "Episode 1", "Episode 2", "Episode 3", "Episode 4", "Episode 5",
         };
 
         private static string RunFileKey(string runFile)
@@ -150,6 +158,24 @@ namespace SluMAN
                 throw new FormatException($"The saved gadgets for {runFile} are {states.Length} bytes, not {Count}.");
             }
             return states;
+        }
+
+        /// <summary>
+        /// Locks the gadgets in states that aren't available yet at the start of the run file, and
+        /// returns their names.
+        /// </summary>
+        public static List<string> RemoveUnavailable(string runFile, byte[] states)
+        {
+            List<string> removed = new List<string>();
+            foreach (Gadget gadget in All)
+            {
+                if (states[gadget.index] != Locked && !GadgetAvailability.IsAvailable(gadget.availableFrom, runFile))
+                {
+                    states[gadget.index] = Locked;
+                    removed.Add($"{gadget.name} ({gadget.character})");
+                }
+            }
+            return removed;
         }
 
         public static void SaveRunFile(string runFile, byte[] states)

@@ -128,6 +128,7 @@
     </Compile>
     <Compile Include="GameReconnect.cs" />
     <Compile Include="GameLanguages.cs" />
+    <Compile Include="GadgetAvailability.cs" />
     <Compile Include="GameSession.cs" />
     <Compile Include="JobPicker.cs" />
     <Compile Include="MapPicker.cs" />

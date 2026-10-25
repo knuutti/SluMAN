@@ -14,7 +14,8 @@ namespace SluMAN
     {
         private const int CharacterColumn = 0;
         private const int NameColumn = 1;
-        private const int StateColumn = 2;
+        private const int AvailableColumn = 2;
+        private const int StateColumn = 3;
 
         private const string AllCharacters = "All characters";
 
@@ -26,6 +27,8 @@ namespace SluMAN
         private readonly DataGridView grid = new DataGridView();
         private readonly ComboBox runFileComboBox = new ComboBox();
         private readonly GroupBox runFileGroupBox = new GroupBox();
+        // Says which gadgets saving a run file left out, as they aren't available yet.
+        private readonly Label runFileWarningLabel = new Label();
         private StatusLine statusLine;
         // Set while states are put into the grid, so that doesn't count as an edit.
         private bool updating;
@@ -45,6 +48,7 @@ namespace SluMAN
             // only now: an anchor keeps the distance to the window's edge it has when set.
             grid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             runFileGroupBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            runFileWarningLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             statusLine = new StatusLine(this, false);
 
             RefreshFromGame();
@@ -97,6 +101,7 @@ namespace SluMAN
             runFileComboBox.Size = new Size(120, 21);
             runFileComboBox.Items.AddRange(Sly4Gadgets.RunFiles);
             runFileComboBox.SelectedIndex = 0;
+            runFileComboBox.SelectedIndexChanged += (sender, e) => runFileWarningLabel.Text = "";
             runFileGroupBox.Controls.Add(runFileComboBox);
 
             Button loadButton = new Button();
@@ -115,7 +120,12 @@ namespace SluMAN
             saveButton.UseVisualStyleBackColor = true;
             saveButton.Click += saveRunFileButton_Click;
             runFileGroupBox.Controls.Add(saveButton);
-            tip.SetToolTip(saveButton, "Saves the game's gadgets as they are now as this run file's.");
+            tip.SetToolTip(saveButton, "Saves the game's gadgets as they are now as this run file's. Gadgets that aren't in ThiefNet yet at the start of its episode are locked first.");
+
+            runFileWarningLabel.Location = new Point(328, runFileGroupBox.Top + 6);
+            runFileWarningLabel.Size = new Size(296, runFileGroupBox.Height - 6);
+            runFileWarningLabel.ForeColor = Color.Firebrick;
+            Controls.Add(runFileWarningLabel);
         }
 
         private Button AddButton(string text, int x, int width, EventHandler click)
@@ -162,6 +172,15 @@ namespace SluMAN
             nameColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
             grid.Columns.Add(nameColumn);
 
+            DataGridViewTextBoxColumn availableColumn = new DataGridViewTextBoxColumn();
+            availableColumn.HeaderText = "Available from";
+            availableColumn.ToolTipText = "The first episode whose run file may have the gadget.";
+            availableColumn.ReadOnly = true;
+            availableColumn.Width = 90;
+            availableColumn.DefaultCellStyle.ForeColor = SystemColors.GrayText;
+            availableColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
+            grid.Columns.Add(availableColumn);
+
             DataGridViewComboBoxColumn stateColumn = new DataGridViewComboBoxColumn();
             stateColumn.HeaderText = "State";
             stateColumn.Width = 120;
@@ -180,6 +199,7 @@ namespace SluMAN
                 row.Cells[CharacterColumn].Value = gadget.character;
                 row.Cells[NameColumn].Value = gadget.name;
                 row.Cells[NameColumn].ToolTipText = $"Byte 0x{gadget.index:X2} of the gadget array";
+                row.Cells[AvailableColumn].Value = gadget.availableFrom == 0 ? "Start" : $"Episode {gadget.availableFrom}";
                 row.Tag = gadget;
                 grid.Rows.Add(row);
             }
@@ -313,6 +333,7 @@ namespace SluMAN
                 }
                 game.SetGadgetStates(states);
                 ShowStates(states);
+                runFileWarningLabel.Text = "";
                 statusLine.Info($"Set the gadgets to {runFile}'s.");
             }
             catch (Exception ex)
@@ -327,8 +348,15 @@ namespace SluMAN
             try
             {
                 byte[] states = game.GetGadgetStates();
+                // Taken out of the game too, so the list shows what was saved.
+                List<string> removed = Sly4Gadgets.RemoveUnavailable(runFile, states);
+                if (removed.Count > 0)
+                {
+                    game.SetGadgetStates(states);
+                }
                 Sly4Gadgets.SaveRunFile(runFile, states);
                 ShowStates(states);
+                runFileWarningLabel.Text = GadgetAvailability.RemovedWarning(runFile, removed);
                 statusLine.Info($"Saved the game's gadgets as {runFile}'s.");
             }
             catch (Exception ex)

@@ -17,7 +17,6 @@ namespace SluMAN
             { "Episode 3", "IceAge" },
             { "Episode 4", "England" },
             { "Episode 5", "Arabia" },
-            { "Epilogue", "ParisEpilogue" },
         };
 
         private readonly sly4 game;

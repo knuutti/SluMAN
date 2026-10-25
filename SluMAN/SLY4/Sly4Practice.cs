@@ -64,15 +64,6 @@ namespace SluMAN
 
         private sly4.SpawnPointEntry queuedSpawnPoint = null;
 
-        // A run file's gadgets, written again once its hideout has loaded (see ApplyQueuedGadgets):
-        // starting a job can make more gadgets available. If no load starts in a while, the
-        // hideout was already loaded, and they're written then.
-        private static readonly TimeSpan QueuedGadgetsLoadStartTimeout = TimeSpan.FromSeconds(10);
-        private static readonly TimeSpan QueuedGadgetsTimeout = TimeSpan.FromSeconds(60);
-        private byte[] queuedGadgets = null;
-        private DateTime queuedGadgetsSince;
-        private bool queuedGadgetsSawLoad;
-
         private const string LevelCharacter = "Level's own character";
         private const string LevelStart = "Level start";
 
@@ -237,10 +228,6 @@ namespace SluMAN
             {
                 CheckQueuedGoalWarp();
             }
-            else if (queuedGadgets != null)
-            {
-                ApplyQueuedGadgets();
-            }
         }
 
         /// <summary>
@@ -311,37 +298,6 @@ namespace SluMAN
             {
                 queuedGoalJob = null;
                 statusLine.Error($"Couldn't warp to the goal: {ex.Message}");
-            }
-        }
-
-        /// <summary>Writes the queued run file gadgets once the hideout has loaded.</summary>
-        private void ApplyQueuedGadgets()
-        {
-            TimeSpan waited = DateTime.Now - queuedGadgetsSince;
-            try
-            {
-                if (game.IsLoading())
-                {
-                    queuedGadgetsSawLoad = true;
-                    if (waited < QueuedGadgetsTimeout)
-                    {
-                        return;
-                    }
-                }
-                else if (!queuedGadgetsSawLoad && waited < QueuedGadgetsLoadStartTimeout)
-                {
-                    return;
-                }
-
-                byte[] gadgets = queuedGadgets;
-                queuedGadgets = null;
-                game.SetGadgetStates(gadgets);
-                practiceTabs.RefreshShownTool();
-            }
-            catch (Exception ex)
-            {
-                queuedGadgets = null;
-                statusLine.Error($"Couldn't set the run file's gadgets after the load: {ex.Message}");
             }
         }
 
@@ -476,7 +432,6 @@ namespace SluMAN
             queuedGoalJob = null;
             queuedLevel = null;
             queuedJobStart = null;
-            queuedGadgets = null;
             try
             {
                 if (!toHub && !toHideout && game.IsJobRunning(job.index))
@@ -503,10 +458,10 @@ namespace SluMAN
             queuedGoalJob = null;
             queuedLevel = null;
             queuedJobStart = null;
-            queuedGadgets = null;
 
-            // Started first, so a job the game won't start leaves the gadgets alone. The game
-            // runs the call on a later frame and loads after that, so writing them now is in time.
+            // Started first, so a job the game won't start leaves the gadgets alone. Starting a
+            // job never resets gadgets; it can make more available, but a run file's gadgets
+            // only hold ones available by its episode (GadgetAvailability).
             game.StartJob(job.index, false, true);
             TrackGameCall($"Loading the {runFile} run file.");
             game.api.Notify($"SluMAN {func.VersionText}: Loading {runFile} run file.");
@@ -514,9 +469,6 @@ namespace SluMAN
             if (gadgets != null)
             {
                 game.SetGadgetStates(gadgets);
-                queuedGadgets = gadgets;
-                queuedGadgetsSince = DateTime.Now;
-                queuedGadgetsSawLoad = false;
             }
         }
 
@@ -541,7 +493,6 @@ namespace SluMAN
             queuedGoalJob = null;
             queuedLevel = null;
             queuedJobStart = null;
-            queuedGadgets = null;
             try
             {
                 if (job == null && reloadJobCheckBox.Checked)
@@ -673,7 +624,6 @@ namespace SluMAN
             queuedGoalJob = null;
             queuedLevel = null;
             queuedJobStart = null;
-            queuedGadgets = null;
             try
             {
                 // A running job would load its own level instead, so end it first and load the
