@@ -151,6 +151,14 @@ namespace SluMAN
         // points at a stub (drawListGuardStubs + i * DrawListGuardStubSize) that drops the item
         // when the list is full (the padding entries the game adds, item 0, still fit) and
         // otherwise continues into the push.
+        // How far from the main view's camera entities are drawn (a float): each frame the
+        // renderer culls them at cullDistance when it's 0 or more, otherwise at the
+        // Entity.CullDistDefault tunable's value (entityCullDistDefault, 70 by default). The level
+        // setup sets it from the level's settings (-1 in most levels; Alter Ego's are short), and
+        // the free camera's far distance raises it.
+        public uint cullDistance { get; private set; }
+        public uint entityCullDistDefault { get; private set; }
+
         public uint drawListCapacityOffset { get; private set; }
         public uint[] drawListPushDescriptors { get; private set; }
         public uint[] drawListPushFunctions { get; private set; }
@@ -338,6 +346,9 @@ namespace SluMAN
                 // After the code hook's stub (0xF05500, 0xB4 bytes); never used before.
                 hackPreRenderStub = 0xF05600,
                 hackBottomLayerOffset = 0x12C,
+
+                cullDistance = 0xF64734,
+                entityCullDistDefault = 0x1021C84,
 
                 drawListCapacityOffset = 0x9C,
                 drawListPushDescriptors = new uint[] { 0xF3B408, 0xF3B410, 0xF3BA08, 0xF3BA18, 0xF3BA28 },

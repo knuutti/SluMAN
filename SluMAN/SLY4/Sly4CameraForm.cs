@@ -474,7 +474,7 @@ namespace SluMAN
 
             ToolTip tip = new ToolTip();
             tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees.");
-            tip.SetToolTip(farUpDown, "How far the free camera draws. Distance fog may follow it.");
+            tip.SetToolTip(farUpDown, "How far the free camera draws, and draws the level's objects out to. Distance fog may follow it.");
             tip.SetToolTip(gameFarButton, "Back to the game's own far distance.");
             tip.SetToolTip(noFogCheckBox, "Moves the level's fog out of sight, and keeps it there after loads. Untick to put it back.");
             FormClosed += (sender, e) => tip.Dispose();
