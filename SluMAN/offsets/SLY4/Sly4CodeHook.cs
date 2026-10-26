@@ -104,8 +104,10 @@ namespace SluMAN
         private void Install()
         {
             // SluMAN 1.1.1 and earlier hooked the render thread's call: put it back, so game
-            // functions only run on the main thread. Its stub stays, unused.
-            if (ReadUInt(sly4.addr.legacyHookCallSite) == Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCodeCave, true))
+            // functions only run on the main thread. Its stub stays, unused. (0 on versions no
+            // earlier SluMAN hooked.)
+            bool hasLegacyHook = sly4.addr.legacyHookCallSite != 0;
+            if (hasLegacyHook && ReadUInt(sly4.addr.legacyHookCallSite) == Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCodeCave, true))
             {
                 game.api.WriteMemory(game.pid, sly4.addr.legacyHookCallSite,
                     ToBytes(Branch(sly4.addr.legacyHookCallSite, sly4.addr.legacyHookCallTarget, true)));
@@ -114,7 +116,7 @@ namespace SluMAN
             uint callSite = ReadUInt(sly4.addr.hookCallSite);
             // A development build briefly hooked this call with a stub at the old address. It's
             // replaced by pointing the call at the new stub, which is written first.
-            if (callSite == Branch(sly4.addr.hookCallSite, sly4.addr.legacyHookCodeCave, true))
+            if (hasLegacyHook && callSite == Branch(sly4.addr.hookCallSite, sly4.addr.legacyHookCodeCave, true))
             {
                 callSite = OriginalCall();
             }

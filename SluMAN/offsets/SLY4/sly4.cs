@@ -1273,10 +1273,15 @@ namespace SluMAN
 
         /// <summary>
         /// Whether a level is one of the hacking minigames (System Cracker, Spark Runner, Alter
-        /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers.
+        /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers. Every
+        /// Hackpack level is one but the hub (FrontEnd).
         /// </summary>
         public static bool IsHackLevel(uint levelHash)
         {
+            if (addr.IsHackpack)
+            {
+                return levelHash != MainMenuLevelHash;
+            }
             string name;
             if (!levelNames.TryGetValue(levelHash, out name))
             {
@@ -1301,6 +1306,11 @@ namespace SluMAN
         public static string GetLevelName(uint levelHash)
         {
             string name;
+            if (addr.IsHackpack)
+            {
+                name = HackpackLevels.GetName(levelHash);
+                return name == null ? levelHash.ToString("X8") : name;
+            }
             if (levelNames.TryGetValue(levelHash, out name))
             {
                 return name;
@@ -1320,6 +1330,18 @@ namespace SluMAN
                 }
             }
             return levels;
+        }
+
+        /// <summary>The folder this game's camera paths are saved in.</summary>
+        public static string CameraPathFolder => addr.IsHackpack ? CameraPath.HackpackFolder : CameraPath.Sly4Folder;
+
+        /// <summary>
+        /// The level's part of its saved camera paths' file names: its name, or for the Hackpack,
+        /// whose level names aren't all known yet, its hash, so paths stay put once it's named.
+        /// </summary>
+        public static string CameraPathLevelKey(uint levelHash)
+        {
+            return addr.IsHackpack ? levelHash.ToString("X8") : GetLevelName(levelHash);
         }
 
         /// <summary>
@@ -1596,8 +1618,12 @@ namespace SluMAN
         /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
         /// another level doesn't have yet. To start later, warp to the goal once the job runs,
         /// or pass the ID of one of the running job's goals (GetGoalId) to restart it there.
+        /// With <paramref name="restart"/>, the running job may be started again: the 6th argument
+        /// is 1, as the Hackpack's own restart (0x357684) passes it. Where the game's RequestJob is
+        /// known (the Hackpack), jobs are queued through it instead, as the game's own job triggers
+        /// do, so the job's goals are set up.
         /// </remarks>
-        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0)
+        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0, bool restart = false)
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
             if (episodeManager == 0)
@@ -1608,13 +1634,18 @@ namespace SluMAN
 
             uint job = ReadUInt(episodeManager + addr.jobArrayOffset) + (uint)jobIndex * Sly4Addresses.JobStride;
             uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
-            if (!toHub && !toHideout && currentJob == job)
+            if (!toHub && !toHideout && !restart && currentJob == job)
             {
                 throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
             }
 
+            if (addr.requestJobFunction != 0 && !toHub && !toHideout)
+            {
+                codeHook.Call(addr.requestJobFunction, episodeManager, 0, job, goalId, 0, 0);
+                return;
+            }
             codeHook.Call(addr.startJobByInstFunction, episodeManager, job, goalId,
-                toHub ? 1u : 0u, toHideout ? 1u : 0u, 0, 0, 0, 1);
+                toHub ? 1u : 0u, toHideout ? 1u : 0u, restart ? 1u : 0u, 0, 0, 1);
         }
 
         /// <summary>The ID of one of the running job's goals (0-based), for StartJob.</summary>
@@ -2078,6 +2109,11 @@ namespace SluMAN
         /// </summary>
         private uint GetPlayerRef()
         {
+            // The Hackpack has no character anywhere: its hub is only looked at.
+            if (addr.IsHackpack)
+            {
+                return 0;
+            }
             uint gameManager = ReadUInt(addr.gameManagerPtr);
             if (gameManager == 0)
             {

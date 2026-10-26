@@ -1,0 +1,71 @@
+# Bentley's Hackpack levels: level | English name
+#
+# Names for the levels Practice Mode shows (current level, camera paths). The level is its name as
+# Scripts/Sly4HackPackLevels.xml (in Sly4HackPack.psarc) writes it, which SluMAN hashes the way the
+# game does, or its hash as 0x and 8 hex digits (the hash a level without a name shows as). Write
+# the English name after the |; without one, the level's own name shows.
+
+FrontEnd | Hub
+
+SystemCrackerA | System Cracker A
+SystemCrackerB | System Cracker B
+SystemCrackerC | System Cracker C
+SystemCrackerD | System Cracker D
+SystemCrackerE | System Cracker E
+SystemCrackerF | System Cracker F
+SystemCrackerG | System Cracker G
+SystemCrackerH | System Cracker H
+SystemCrackerI | System Cracker I
+SystemCrackerJ | System Cracker J
+SystemCrackerK | System Cracker K
+SystemCrackerL | System Cracker L
+SystemCrackerM | System Cracker M
+SystemCrackerN | System Cracker N
+SystemCrackerO | System Cracker O
+SystemCrackerP | System Cracker P
+SystemCrackerQ | System Cracker Q
+SystemCrackerR | System Cracker R
+SystemCrackerS | System Cracker S
+SystemCrackerT | System Cracker T
+
+SparkRunnerA | Spark Runner A
+SparkRunnerB | Spark Runner B
+SparkRunnerC | Spark Runner C
+SparkRunnerD | Spark Runner D
+SparkRunnerE | Spark Runner E
+SparkRunnerF | Spark Runner F
+SparkRunnerG | Spark Runner G
+SparkRunnerH | Spark Runner H
+SparkRunnerI | Spark Runner I
+SparkRunnerJ | Spark Runner J
+SparkRunnerK | Spark Runner K
+SparkRunnerL | Spark Runner L
+SparkRunnerM | Spark Runner M
+SparkRunnerN | Spark Runner N
+SparkRunnerO | Spark Runner O
+SparkRunnerP | Spark Runner P
+SparkRunnerQ | Spark Runner Q
+SparkRunnerR | Spark Runner R
+SparkRunnerS | Spark Runner S
+SparkRunnerT | Spark Runner T
+
+AlterEgoA | Alter Ego A
+AlterEgoB | Alter Ego B
+AlterEgoC | Alter Ego C
+AlterEgoD | Alter Ego D
+AlterEgoE | Alter Ego E
+AlterEgoF | Alter Ego F
+AlterEgoG | Alter Ego G
+AlterEgoH | Alter Ego H
+AlterEgoI | Alter Ego I
+AlterEgoJ | Alter Ego J
+AlterEgoK | Alter Ego K
+AlterEgoL | Alter Ego L
+AlterEgoM | Alter Ego M
+AlterEgoN | Alter Ego N
+AlterEgoO | Alter Ego O
+AlterEgoP | Alter Ego P
+AlterEgoQ | Alter Ego Q
+AlterEgoR | Alter Ego R
+AlterEgoS | Alter Ego S
+AlterEgoT | Alter Ego T
