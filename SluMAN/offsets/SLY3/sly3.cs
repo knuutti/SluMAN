@@ -173,40 +173,47 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The config key a position slot is stored under, per map so each map keeps its own slots.
+        /// The map position slots are stored under, so each map keeps its own slots.
         /// </summary>
-        private string SavedPositionKey()
+        private string CurrentPositionMap()
         {
             string mapIndicator = ReadMapIndicator(sly3.addr.mapAOB);
             if (mapIndicator == "")
             {
                 throw new InvalidOperationException("Couldn't read the current map.");
             }
-            return SavedPositionKey(mapIndicator, selectedPositionIndex);
+            return mapIndicator;
         }
 
         public override void SavePosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
             uint coordsAddress = GetPlayerCoordsAddress();
 
             string position = api.ReadMemoryStr(pid, coordsAddress, 12);
-            func.ChangeFileLines("config.txt", position, key);
+            func.ChangeFileLines("config.txt", position, SavedPositionKey(map, selectedPositionIndex));
+            func.ChangeFileLines("config.txt", FacingToHex(ReadFacing()), SavedFacingKey(map, selectedPositionIndex));
             OnPositionSaved();
         }
 
         public override void LoadPosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
+            string key = SavedPositionKey(map, selectedPositionIndex);
             string position = func.GetConfigData("config.txt", key);
             if (position == "")
             {
                 Console.WriteLine($"No saved position for {key}");
                 return;
             }
+            byte[] facing = FacingFromHex(func.GetConfigData("config.txt", SavedFacingKey(map, selectedPositionIndex)));
 
             uint coordsAddress = GetPlayerCoordsAddress();
-            Warp(() => api.WriteMemory(pid, coordsAddress, 12, position));
+            Warp(() =>
+            {
+                api.WriteMemory(pid, coordsAddress, 12, position);
+                WriteFacing(facing);
+            });
         }
 
         /// <summary>
@@ -220,6 +227,63 @@ namespace SluMAN
                 uint entity = GetEntityAddress();
                 return entity == 0 ? 0 : entity + 0x17C;
             }, write);
+        }
+
+        // The player's rotation: three rows (forward, left, up) just before the position in the
+        // transform, as in the PS2 games' transforms.
+        private const uint RotationRowsSize = 0x30;
+
+        private uint GetPlayerRotationAddress()
+        {
+            return GetPlayerCoordsAddress() - RotationRowsSize;
+        }
+
+        // The character's heading (shown as Rotation in the Position Editor), which is saved with
+        // the rotation rows in case the game turns the character from it.
+        private const uint HeadingOffset = 0x1AC;
+
+        public override byte[] ReadFacing()
+        {
+            try
+            {
+                byte[] rows = api.ReadMemory(pid, GetPlayerRotationAddress(), RotationRowsSize);
+                uint entity = GetEntityAddress();
+                if (!IsRotationRows(rows) || entity == 0)
+                {
+                    return null;
+                }
+                byte[] heading = api.ReadMemory(pid, entity + HeadingOffset, 4);
+                return rows.Concat(heading).ToArray();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public override void WriteFacing(byte[] facing)
+        {
+            if (facing == null || facing.Length != RotationRowsSize + 4)
+            {
+                return;
+            }
+            byte[] rows = facing.Take((int)RotationRowsSize).ToArray();
+            if (!IsRotationRows(rows))
+            {
+                return;
+            }
+            try
+            {
+                uint rotationAddress = GetPlayerRotationAddress();
+                uint entity = GetEntityAddress();
+                if (entity == 0 || !IsRotationRows(api.ReadMemory(pid, rotationAddress, RotationRowsSize)))
+                {
+                    return;
+                }
+                api.WriteMemory(pid, rotationAddress, rows);
+                api.WriteMemory(pid, entity + HeadingOffset, facing.Skip((int)RotationRowsSize).ToArray());
+            }
+            catch { }
         }
 
         public override void LoadGame()

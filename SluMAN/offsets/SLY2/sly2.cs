@@ -205,40 +205,47 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The config key a position slot is stored under, per map so each map keeps its own slots.
+        /// The map position slots are stored under, so each map keeps its own slots.
         /// </summary>
-        private string SavedPositionKey()
+        private string CurrentPositionMap()
         {
             string mapIndicator = ReadMapIndicator(sly2.addr.mapAOB);
             if (mapIndicator == "")
             {
                 throw new InvalidOperationException("Couldn't read the current map.");
             }
-            return SavedPositionKey(mapIndicator, selectedPositionIndex);
+            return mapIndicator;
         }
 
         public override void SavePosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
             uint coordsAddress = GetPlayerCoordsAddress();
 
             string position = api.ReadMemoryStr(pid, coordsAddress, 12);
-            func.ChangeFileLines("config.txt", position, key);
+            func.ChangeFileLines("config.txt", position, SavedPositionKey(map, selectedPositionIndex));
+            func.ChangeFileLines("config.txt", FacingToHex(ReadFacing()), SavedFacingKey(map, selectedPositionIndex));
             OnPositionSaved();
         }
 
         public override void LoadPosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
+            string key = SavedPositionKey(map, selectedPositionIndex);
             string position = func.GetConfigData("config.txt", key);
             if (position == "")
             {
                 Console.WriteLine($"No saved position for {key}");
                 return;
             }
+            byte[] facing = FacingFromHex(func.GetConfigData("config.txt", SavedFacingKey(map, selectedPositionIndex)));
 
             uint coordsAddress = GetPlayerCoordsAddress();
-            Warp(() => api.WriteMemory(pid, coordsAddress, 12, position));
+            Warp(() =>
+            {
+                api.WriteMemory(pid, coordsAddress, 12, position);
+                WriteFacing(facing);
+            });
         }
 
         /// <summary>
@@ -252,6 +259,45 @@ namespace SluMAN
                 uint entity = GetEntityAddress();
                 return entity == 0 ? 0 : entity + 0x27C;
             }, write);
+        }
+
+        // The player's rotation: three rows (forward, left, up) just before the position in the
+        // transform, as in the PS2 games' transforms.
+        private const uint RotationRowsSize = 0x30;
+
+        private uint GetPlayerRotationAddress()
+        {
+            return GetPlayerCoordsAddress() - RotationRowsSize;
+        }
+
+        public override byte[] ReadFacing()
+        {
+            try
+            {
+                byte[] rows = api.ReadMemory(pid, GetPlayerRotationAddress(), RotationRowsSize);
+                return IsRotationRows(rows) ? rows : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public override void WriteFacing(byte[] facing)
+        {
+            if (facing == null || !IsRotationRows(facing))
+            {
+                return;
+            }
+            try
+            {
+                uint rotationAddress = GetPlayerRotationAddress();
+                if (IsRotationRows(api.ReadMemory(pid, rotationAddress, RotationRowsSize)))
+                {
+                    api.WriteMemory(pid, rotationAddress, facing);
+                }
+            }
+            catch { }
         }
 
         public override void LoadGame()

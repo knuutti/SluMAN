@@ -37,6 +37,8 @@ namespace SluMAN
             public string Name;
             public string MapIndicator;
             public float X, Y, Z;
+            // Which way the player faced (IGame.ReadFacing), null if not saved.
+            public byte[] Facing;
             public bool IsUserDefined;
         }
 
@@ -659,6 +661,7 @@ namespace SluMAN
 
             func.ChangeFileLines("config.txt", "", IGame.SavedPositionKey(currentMapIndicator, slot));
             func.ChangeFileLines("config.txt", "", IGame.SavedPositionNameKey(currentMapIndicator, slot));
+            func.ChangeFileLines("config.txt", "", IGame.SavedFacingKey(currentMapIndicator, slot));
             RefreshSlots();
             statusLine.Info($"Cleared slot {slot + 1}.");
         }
@@ -750,6 +753,7 @@ namespace SluMAN
                     WritePosition(transformPtr, 0, loc.X);
                     WritePosition(transformPtr, 1, loc.Y);
                     WritePosition(transformPtr, 2, loc.Z);
+                    game.WriteFacing(loc.Facing);
                 });
                 if (FlyModeEnabled) flyFrozenZ = loc.Z;
             }
@@ -772,9 +776,10 @@ namespace SluMAN
                 float x = ReadFloat(PositionAddress(transformPtr, 0));
                 float y = ReadFloat(PositionAddress(transformPtr, 1));
                 float z = ReadFloat(PositionAddress(transformPtr, 2));
+                byte[] facing = game.ReadFacing();
 
                 userWarps.RemoveAll(w => w.MapIndicator == currentMapIndicator && w.Name == name);
-                userWarps.Add(new WarpLocation { Name = name, MapIndicator = currentMapIndicator, X = x, Y = y, Z = z, IsUserDefined = true });
+                userWarps.Add(new WarpLocation { Name = name, MapIndicator = currentMapIndicator, X = x, Y = y, Z = z, Facing = facing, IsUserDefined = true });
                 SaveUserWarps();
                 RefreshWarpDropdown(currentMapIndicator);
 
@@ -819,14 +824,17 @@ namespace SluMAN
                 string trimmed = line.Trim();
                 if (trimmed.StartsWith("#") || string.IsNullOrEmpty(trimmed)) continue;
 
+                // Map|Name|X|Y|Z, then optionally the facing in hex.
                 string[] parts = trimmed.Split('|');
-                if (parts.Length != 5) continue;
+                if (parts.Length != 5 && parts.Length != 6) continue;
 
                 if (!float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)) continue;
                 if (!float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)) continue;
                 if (!float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float z)) continue;
 
-                warps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, IsUserDefined = isUserDefined });
+                byte[] facing = parts.Length == 6 ? IGame.FacingFromHex(parts[5]) : null;
+
+                warps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, Facing = facing, IsUserDefined = isUserDefined });
             }
             return warps;
         }
@@ -848,6 +856,10 @@ namespace SluMAN
             {
                 WarpLocation w = userWarps[i];
                 lines[i] = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}", w.MapIndicator, w.Name, w.X, w.Y, w.Z);
+                if (w.Facing != null)
+                {
+                    lines[i] += "|" + IGame.FacingToHex(w.Facing);
+                }
             }
             File.WriteAllLines(userWarpFile, lines);
         }

@@ -86,6 +86,85 @@ namespace SluMAN
             return ConfigKeyForMap(mapIndicator) + "SavedPosName" + slot;
         }
 
+        /// <summary>The config key holding which way the player faced in a slot on a map.</summary>
+        public static string SavedFacingKey(string mapIndicator, int slot)
+        {
+            return ConfigKeyForMap(mapIndicator) + "SavedFacing" + slot;
+        }
+
+        /// <summary>
+        /// Which way the player faces, saved with a position or warp and put back when warping
+        /// there. Null when the game doesn't know it or it can't be read.
+        /// </summary>
+        public virtual byte[] ReadFacing()
+        {
+            return null;
+        }
+
+        /// <summary>Turns the player the way ReadFacing read. Does nothing with null.</summary>
+        public virtual void WriteFacing(byte[] facing) { }
+
+        /// <summary>Hex for a saved facing, "" for null.</summary>
+        public static string FacingToHex(byte[] facing)
+        {
+            return facing == null ? "" : BitConverter.ToString(facing).Replace("-", "");
+        }
+
+        /// <summary>A saved facing from its hex, null when there's none or it's unreadable.</summary>
+        public static byte[] FacingFromHex(string hex)
+        {
+            if (string.IsNullOrEmpty(hex) || hex.Length % 2 != 0)
+            {
+                return null;
+            }
+            try
+            {
+                return IPS3API.HexToBytes(hex);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Whether 0x30 bytes are three 16-byte rows (x, y, z, padding) of a rotation: each row
+        /// one long and at right angles to the others. Checked before reading or writing a
+        /// player's rotation, so memory that isn't one is never overwritten.
+        /// </summary>
+        protected static bool IsRotationRows(byte[] rows)
+        {
+            if (rows == null || rows.Length != 0x30)
+            {
+                return false;
+            }
+            float[,] m = new float[3, 3];
+            for (int row = 0; row < 3; row++)
+            {
+                for (int col = 0; col < 3; col++)
+                {
+                    float value = BitConverter.ToSingle(rows.Skip(row * 16 + col * 4).Take(4).Reverse().ToArray(), 0);
+                    if (float.IsNaN(value) || float.IsInfinity(value))
+                    {
+                        return false;
+                    }
+                    m[row, col] = value;
+                }
+            }
+            for (int a = 0; a < 3; a++)
+            {
+                for (int b = a; b < 3; b++)
+                {
+                    float dot = m[a, 0] * m[b, 0] + m[a, 1] * m[b, 1] + m[a, 2] * m[b, 2];
+                    if (Math.Abs(dot - (a == b ? 1f : 0f)) > 0.01f)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
         /// <summary>
         /// Raised after a position is saved, from a combo or the Position Editor, so open views can
         /// refresh. Raised on the thread that saved, which is the UI thread for both.
