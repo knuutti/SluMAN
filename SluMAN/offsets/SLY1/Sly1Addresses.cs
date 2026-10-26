@@ -86,6 +86,12 @@ namespace SluMAN
         public uint worldVaultsOffset { get; private set; }
         public uint worldSprintsOffset { get; private set; }
         public uint worldFlagsOffset { get; private set; }
+        // Powerups (thief moves): the unlocked ones as bits at gameState + powerupsOffset (on PS3
+        // 4 further on than on PS2), the last one equipped at gameState + lastPowerupOffset (-1
+        // for none), and the one equipped now at equippedPowerup (0 Dive to 6 Stun, -1 none).
+        public uint powerupsOffset { get; private set; }
+        public uint lastPowerupOffset { get; private set; }
+        public uint equippedPowerup { get; private set; }
 
         // The camera (the CM struct, laid out as on the PS2 version). *cameraPointer is the main
         // one: its position (a vector) at +cameraPositionOffset, its rotation (forward, left and
@@ -217,6 +223,10 @@ namespace SluMAN
                 worldVaultsOffset = 0x43C,
                 worldSprintsOffset = 0x440,
                 worldFlagsOffset = 0x448,
+                // From InitGameState (0x704CC) and UpdateJtActivePowerUp (0x1218E0)
+                powerupsOffset = 0x19F4,
+                lastPowerupOffset = 0x1A00,
+                equippedPowerup = 0x39F9B0,
 
                 cameraPointer = 0x3E6340,
                 cameraPositionOffset = 0x40,

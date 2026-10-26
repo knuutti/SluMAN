@@ -9,9 +9,9 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 1 Practice Mode: load a level at an entrance, reload, set or hold coins, lives and charms,
-    /// and skip cutscenes, with the player (position editor), world states, the camera (free camera
-    /// and camera paths) and the memory tools on tabs. The controls are built in code, in the
-    /// other games' two-column layout.
+    /// and skip cutscenes, with the player (position editor), world states, powerups, the camera
+    /// (free camera and camera paths) and the memory tools on tabs. The controls are built in
+    /// code, in the other games' two-column layout.
     /// </summary>
     public class Sly1Practice : Form, IPositionEditorHost
     {
@@ -20,6 +20,7 @@ namespace SluMAN
 
         private const string PlayerTab = "Player";
         private const string WorldStatesTab = "World States";
+        private const string PowerupsTab = "Powerups";
         private const string CameraTab = "Camera";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
@@ -129,12 +130,13 @@ namespace SluMAN
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
+            practiceTabs.AddTool(PowerupsTab, () => new Sly1PowerupsForm(game, statusLine));
             practiceTabs.AddTool(CameraTab, () => new Sly1CameraForm(game, freeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab, CameraTab);
+            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab, PowerupsTab, CameraTab);
         }
 
         private void BuildMenu()
