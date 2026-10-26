@@ -1279,13 +1279,13 @@ namespace SluMAN
         /// <summary>
         /// Whether a level is one of the hacking minigames (System Cracker, Spark Runner, Alter
         /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers. Every
-        /// Hackpack level counts: they're all minigames, or the hub, where nobody is controlled.
+        /// Hackpack level is one but the hub (FrontEnd).
         /// </summary>
         public static bool IsHackLevel(uint levelHash)
         {
             if (addr.IsHackpack)
             {
-                return true;
+                return levelHash != MainMenuLevelHash;
             }
             string name;
             if (!levelNames.TryGetValue(levelHash, out name))
@@ -2191,6 +2191,11 @@ namespace SluMAN
         /// </summary>
         private uint GetPlayerRef()
         {
+            // The Hackpack has no character anywhere: its hub is only looked at.
+            if (addr.IsHackpack)
+            {
+                return 0;
+            }
             uint gameManager = ReadUInt(addr.gameManagerPtr);
             if (gameManager == 0)
             {
