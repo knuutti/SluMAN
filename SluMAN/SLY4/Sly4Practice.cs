@@ -456,10 +456,11 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
-        /// given), otherwise by starting the job and warping once it has loaded. With Reload Job
-        /// on Warp, a running job is started again instead, as if coming from another job, for
-        /// goals whose setup (such as a cutscene) a warp in place skips.
+        /// Warps to a goal (0-based) of a job (the running one if no job is given): a running
+        /// job is started again, as if coming from another job, since a warp in place skips the
+        /// goal's setup (such as a cutscene) and leaves the state of later goals behind; a job
+        /// that isn't running is started and warped once it has loaded. Only when the running
+        /// job can't be found does it warp in place.
         /// </summary>
         public void WarpToGoal(sly4.JobEntry job, int goal)
         {
@@ -468,12 +469,12 @@ namespace SluMAN
             queuedJobStart = null;
             try
             {
-                if (job == null && reloadJobCheckBox.Checked)
+                if (job == null)
                 {
                     job = RunningJob();
                 }
 
-                if (job == null || (game.IsJobRunning(job.index) && !reloadJobCheckBox.Checked))
+                if (job == null)
                 {
                     game.WarpToGoal(goal);
                     TrackGameCall($"Warping to goal {goal + 1}.");
