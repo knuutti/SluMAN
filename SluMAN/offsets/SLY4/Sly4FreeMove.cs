@@ -606,8 +606,10 @@ namespace SluMAN
                 // doesn't tell the yaw, but the camera's X axis (horizontal) still does. Taking it
                 // from the facing there put the camera at yaw 0 whichever way it was turned, which
                 // could also mirror it: the view turned around and its lit faces went dark.
+                // The right is the X axis times the forward sign, as it is for every camera facing
+                // anywhere else, so the sticks work the same way round as everywhere else.
                 float[] x = Axis(m, 0);
-                yaw = (float)Math.Atan2(-x[2], x[0]);
+                yaw = (float)Math.Atan2(-x[2] * forwardSign, x[0] * forwardSign);
             }
 
             // The right from the yaw, which is defined looking straight up or down too.
