@@ -1619,7 +1619,9 @@ namespace SluMAN
         /// another level doesn't have yet. To start later, warp to the goal once the job runs,
         /// or pass the ID of one of the running job's goals (GetGoalId) to restart it there.
         /// With <paramref name="restart"/>, the running job may be started again: the 6th argument
-        /// is 1, as the Hackpack's own restart (0x357684) passes it.
+        /// is 1, as the Hackpack's own restart (0x357684) passes it. Where the game's RequestJob is
+        /// known (the Hackpack), jobs are queued through it instead, as the game's own job triggers
+        /// do, so the job's goals are set up.
         /// </remarks>
         public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0, bool restart = false)
         {
@@ -1637,6 +1639,11 @@ namespace SluMAN
                 throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
             }
 
+            if (addr.requestJobFunction != 0 && !toHub && !toHideout)
+            {
+                codeHook.Call(addr.requestJobFunction, episodeManager, 0, job, goalId, 0, 0);
+                return;
+            }
             codeHook.Call(addr.startJobByInstFunction, episodeManager, job, goalId,
                 toHub ? 1u : 0u, toHideout ? 1u : 0u, restart ? 1u : 0u, 0, 0, 1);
         }

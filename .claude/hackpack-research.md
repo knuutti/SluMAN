@@ -59,8 +59,18 @@ RestartJob, QuitEpisode / QuitJob / QuitLevel by their hashes).
 Starting a job (`0x24843C`) loads its goals (job + 0x214) into the goal list at gm + 0x1670 with
 `0x241F2C`: array at +0x50 (gm + 0x16C0), 16-bit count at +0x58 (gm + 0x16C8). Goals keep their state
 at +0x12 (5 = done, as Sly 4) and their ID at +0x9EC (Sly 4: +0xA00). `TeleportToGoal(em, goal, 1,
-0)` is `0x2481FC`; the minigame code calls it to move between challenges. A minigame's challenges
-are its job's goals.
+0)` is `0x2481FC`; the minigame code calls it too. A stage's challenges (score targets, collectibles,
+finishing) are not its goals.
+
+The game starts a stage's job with `RequestJob(em, entity, job, goal ID, flag, flag)` (`0x249594`,
+called by the job trigger entity code at `0x1D82FC` with the job and goal ID from the trigger at
++0x1A8 / +0x1AC). It stores the request in the episode manager (+0x4 entity, +0x8 job, +0xC goal ID,
++0x10 flags) and sets its state (+0x0) to 1. The episode manager's update (`0x2489A0`, called from
+the game manager's update at `0x360754`) then waits (state 1), starts the job with StartJobByInst
+and a 9th argument of 0 (state 2), and finally calls `0x262EE4(goal, i)` for i < 5 on the first goal,
+teleports to it with `TeleportToGoal(em, goal, 0, 0)` and resets every goal (state 3). Calling
+StartJobByInst directly (as Sly 4's debug menu does) skips that, and the stage's challenge menu stays
+empty.
 
 ## Level table
 

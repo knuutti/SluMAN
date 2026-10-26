@@ -74,6 +74,10 @@ namespace SluMAN
 
         // Game functions, called through the code hook
         public uint startJobByInstFunction { get; private set; }
+        // RequestJob(episode manager, entity, job, goal ID, flag, flag): queues a job the way the
+        // game's job triggers do; the episode manager's update starts it and sets its goals up.
+        // 0 where it isn't known (Sly 4), and StartJob calls StartJobByInst directly.
+        public uint requestJobFunction { get; private set; }
         public uint teleportToGoalFunction { get; private set; }
         public uint loadLevelFunction { get; private set; }
         public uint abandonCurrentJobFunction { get; private set; }

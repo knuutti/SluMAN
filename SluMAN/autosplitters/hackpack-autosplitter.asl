@@ -2,8 +2,8 @@ state("SluMAN") {}
 
 // Bentley's Hackpack. SluMAN (Speedrun Mode, Autosplitter ticked) shares the game state through
 // the "SluMAN-autosplitter" memory-mapped file, laid out as Sly 4's (see
-// Sly4AutosplitterValues.cs). A minigame's challenges are its job's goals. Every value is a
-// little-endian 32-bit int.
+// Sly4AutosplitterValues.cs). Each minigame stage runs as a job. Every value is a little-endian
+// 32-bit int.
 
 startup
 {
@@ -11,7 +11,7 @@ startup
     settings.Add("START_JOB", false, "Start when a job starts");
     settings.Add("SPLIT_JOB", true, "Split when a job ends without failing");
     settings.Add("SPLIT_HUB", false, "Split when a level returns to the hub");
-    settings.Add("SPLIT_GOAL", false, "Split on every challenge (goal) completed");
+    settings.Add("SPLIT_GOAL", false, "Split on every goal (job checkpoint) completed");
     settings.Add("LOAD_REMOVAL", true, "Pause the timer during loads");
 
     // The hub's level, "FrontEnd".

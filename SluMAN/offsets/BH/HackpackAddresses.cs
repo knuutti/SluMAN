@@ -70,6 +70,12 @@ namespace SluMAN
                 // 9 arguments like Sly 4's; it clears the current job and reads the job's episode
                 // (job + 0x1F4) from the episode array.
                 startJobByInstFunction = 0x248698,
+                // The stage triggers (0x1D82FC) start a minigame's job through RequestJob, which
+                // puts it in the episode manager (+0x4 entity, +0x8 job, +0xC goal ID, +0x10
+                // flags) and sets its state (+0x0) to 1. The manager's update (0x2489A0) starts it
+                // with StartJobByInst, then sets each goal's challenges up and teleports to the
+                // goal. Started any other way, the minigame's challenge menu stays empty.
+                requestJobFunction = 0x249594,
                 // TeleportToGoal(episode manager, goal, 1, 0), which the minigames call to move
                 // to a challenge.
                 teleportToGoalFunction = 0x2481FC,

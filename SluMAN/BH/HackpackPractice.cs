@@ -7,10 +7,10 @@ using Timer = System.Windows.Forms.Timer;
 namespace SluMAN
 {
     /// <summary>
-    /// Bentley's Hackpack Practice Mode: start or restart a job (each minigame's challenges run in
-    /// one) or go back to the hub, slow motion and cutscene skipping, with the jobs and their
-    /// challenges (goals), the camera (free camera and camera paths), the tunables and the memory
-    /// tools on tabs. The game runs on Sly 4's engine, so this drives the sly4 class and Sly 4's
+    /// Bentley's Hackpack Practice Mode: start or restart a job (each minigame stage runs in one,
+    /// with its challenges) or go back to the hub, slow motion and cutscene skipping, with the
+    /// jobs and their goals, the camera (free camera and camera paths), the tunables and the
+    /// memory tools on tabs. The game runs on Sly 4's engine, so this drives the sly4 class and Sly 4's
     /// tools. The controls are built in code, in the other games' two-column layout.
     /// </summary>
     public class HackpackPractice : Form, ISly4JobHost
@@ -47,7 +47,7 @@ namespace SluMAN
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
         private readonly Label jobValueLabel = new Label();
-        private readonly Label challengeValueLabel = new Label();
+        private readonly Label goalValueLabel = new Label();
         private readonly Timer refreshTimer = new Timer();
         private readonly Timer gameCallTimer = new Timer();
 
@@ -196,8 +196,8 @@ namespace SluMAN
             AddValueLabel(statusGroupBox, levelValueLabel, 70, 20);
             AddLabel(statusGroupBox, "Job:", 10, 42);
             AddValueLabel(statusGroupBox, jobValueLabel, 70, 42);
-            AddLabel(statusGroupBox, "Challenge:", 10, 64);
-            AddValueLabel(statusGroupBox, challengeValueLabel, 70, 64);
+            AddLabel(statusGroupBox, "Goal:", 10, 64);
+            AddValueLabel(statusGroupBox, goalValueLabel, 70, 64);
 
             GroupBox togglesGroupBox = AddGroup("Toggles", 336, 128, 70);
             AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
@@ -206,8 +206,8 @@ namespace SluMAN
 
             ToolTip tip = new ToolTip();
             tip.SetToolTip(jobComboBox,
-                "Every job in the game's job list. A minigame's challenges only work when it's\n" +
-                "started as a job. The Jobs tab also shows each running job's challenges.");
+                "Every job in the game's job list: each minigame stage is one. Jobs start the way the\n" +
+                "arcade machines start them, so the stage's challenges are set up.");
             FormClosed += (sender, e) => tip.Dispose();
         }
 
@@ -375,7 +375,7 @@ namespace SluMAN
                 {
                     queuedGoalJob = null;
                     game.WarpToGoal(goal);
-                    TrackGameCall($"Warping to challenge {goal + 1}.");
+                    TrackGameCall($"Warping to goal {goal + 1}.");
                 }
                 else
                 {
@@ -389,20 +389,23 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Starts a job (again, if it runs) and queues the warp to one of its goals (0-based) for
-        /// once it runs. The warp to the first goal matters too: the game's own job start
-        /// teleports to the goal after starting the job, which sets the goal (and the minigame's
-        /// challenge menu) up.
+        /// Starts a job (again, if it runs), the way the arcade machines do (see
+        /// sly4.StartJob), and for a later goal (0-based) queues the warp to it for once the job
+        /// runs: the game starts jobs at their first goal.
         /// </summary>
         private void StartJobAtGoal(sly4.JobEntry job, int goal, bool restart)
         {
             game.StartJob(job.index, false, false, 0, restart);
-            queuedGoalJob = job;
-            queuedGoal = goal;
-            queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
-            queuedGoalReadySince = DateTime.MaxValue;
+            queuedGoalJob = null;
+            if (goal > 0)
+            {
+                queuedGoalJob = job;
+                queuedGoal = goal;
+                queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+                queuedGoalReadySince = DateTime.MaxValue;
+            }
             string verb = restart ? "Restarting" : "Starting";
-            TrackGameCall(goal > 0 ? $"{verb} {job.Title}; it warps to challenge {goal + 1} once loaded." : $"{verb} {job.Title}.");
+            TrackGameCall(goal > 0 ? $"{verb} {job.Title}; it warps to goal {goal + 1} once loaded." : $"{verb} {job.Title}.");
         }
 
         /// <summary>The running job's entry, or null outside jobs.</summary>
@@ -493,7 +496,7 @@ namespace SluMAN
         {
             if (DateTime.Now > queuedGoalDeadline)
             {
-                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to challenge {queuedGoal + 1}.");
+                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
                 queuedGoalJob = null;
                 return;
             }
@@ -518,12 +521,12 @@ namespace SluMAN
                 int goal = queuedGoal;
                 queuedGoalJob = null;
                 game.WarpToGoal(goal);
-                TrackGameCall(goal > 0 ? $"Warped to challenge {goal + 1}." : "Job started.");
+                TrackGameCall($"Warped to goal {goal + 1}.");
             }
             catch (Exception ex)
             {
                 queuedGoalJob = null;
-                statusLine.Error($"Couldn't warp to the challenge: {ex.Message}");
+                statusLine.Error($"Couldn't warp to the goal: {ex.Message}");
             }
         }
 
@@ -543,16 +546,16 @@ namespace SluMAN
                 jobValueLabel.Text = job == null ? "-" : job;
 
                 game.GetCheckpoint(out int checkpoint, out int goalCount, out string goalName);
-                string challenge = goalCount == 0 ? "-" : $"{checkpoint} / {goalCount}";
+                string goal = goalCount == 0 ? "-" : $"{checkpoint} / {goalCount}";
                 if (goalCount > 0 && !string.IsNullOrEmpty(goalName))
                 {
-                    challenge += $" ({goalName})";
+                    goal += $" ({goalName})";
                 }
                 if (game.IsJobFailed())
                 {
-                    challenge += " (failed)";
+                    goal += " (failed)";
                 }
-                challengeValueLabel.Text = challenge;
+                goalValueLabel.Text = goal;
 
                 ShowPopUpAfterLoad(loading);
             }
@@ -560,7 +563,7 @@ namespace SluMAN
             {
                 levelValueLabel.Text = "-";
                 jobValueLabel.Text = "-";
-                challengeValueLabel.Text = "-";
+                goalValueLabel.Text = "-";
             }
         }
 
