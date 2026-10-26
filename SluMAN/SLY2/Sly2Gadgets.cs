@@ -25,6 +25,7 @@ namespace SluMAN
             this.game = game;
             InitializeComponent();
             statusLine = new StatusLine(this, false);
+            AddRunFileWarningLabel();
             LoadGadgets();
             PopulateBindingComboBoxes();
             LoadGadgetBindings();
@@ -127,9 +128,57 @@ namespace SluMAN
             murrayGadgetsCheckedList.ItemCheck += murrayItemCheckHandler;
         }
 
+        // Says which gadgets saving a run file left out, as they aren't available yet.
+        private readonly Label runFileWarningLabel = new Label();
+
+        private void AddRunFileWarningLabel()
+        {
+            runFileWarningLabel.Location = new Point(12, ClientSize.Height);
+            runFileWarningLabel.Size = new Size(ClientSize.Width - 24, 30);
+            runFileWarningLabel.ForeColor = Color.Firebrick;
+            Controls.Add(runFileWarningLabel);
+            ClientSize = new Size(ClientSize.Width, runFileWarningLabel.Bottom + 4);
+            runFileComboBox.SelectedIndexChanged += (sender, e) => runFileWarningLabel.Text = "";
+        }
+
+        /// <summary>
+        /// Unticks the gadgets the run file can't have yet, as they aren't in ThiefNet at the
+        /// start of its episode, and returns their names. Their bindings go with them.
+        /// </summary>
+        private List<string> RemoveUnavailableGadgets(string runFile)
+        {
+            List<string> removed = new List<string>();
+            SuspendComboBoxUpdates();
+            try
+            {
+                foreach (CheckedListBox list in new CheckedListBox[] { slyGadgetsCheckedList, bentleyGadgetsCheckedList, murrayGadgetsCheckedList, vaultGadgetsCheckedList })
+                {
+                    for (int i = 0; i < list.Items.Count; i++)
+                    {
+                        string gadgetName = list.Items[i].ToString();
+                        if (list.GetItemChecked(i) && AllGadgets.ContainsKey(gadgetName)
+                            && !GadgetAvailability.IsAvailable(AllGadgets[gadgetName].AvailableFromEpisode, runFile))
+                        {
+                            list.SetItemChecked(i, false);
+                            removed.Add(gadgetName);
+                        }
+                    }
+                }
+                PopulateBindingComboBoxes();
+            }
+            finally
+            {
+                ResumeComboBoxUpdates();
+            }
+            return removed;
+        }
+
         private void SaveGadgetsToRunFile()
         {
-            string episodeKey = GetEpisodeKey(runFileComboBox.SelectedItem.ToString());
+            string runFile = runFileComboBox.SelectedItem.ToString();
+            string episodeKey = GetEpisodeKey(runFile);
+            List<string> removed = RemoveUnavailableGadgets(runFile);
+            runFileWarningLabel.Text = GadgetAvailability.RemovedWarning(runFile, removed);
 
             // Get current gadget states (same logic as SaveGadgets())
             var gadgetBytes = GetCurrentGadgetBytes();
@@ -317,45 +366,47 @@ namespace SluMAN
             public string Name { get; set; }
             public int UnlockBitIndex { get; set; }
             public int? ButtonBindingIndex { get; set; }
+            // The first episode whose run file may have it (GadgetAvailability).
+            public int AvailableFromEpisode { get; set; }
         }
 
         private static readonly Dictionary<string, GadgetInfo> AllGadgets = new Dictionary<string, GadgetInfo>
         {
-            { "Smoke Bomb", new GadgetInfo { Name = "Smoke Bomb", UnlockBitIndex = 17, ButtonBindingIndex = 23 } },
-            { "Combat Dodge", new GadgetInfo { Name = "Combat Dodge", UnlockBitIndex = 32, ButtonBindingIndex = 24 } },
-            { "Stealth Slide", new GadgetInfo { Name = "Stealth Slide", UnlockBitIndex = 31, ButtonBindingIndex = 25 } },
-            { "Alarm Clock", new GadgetInfo { Name = "Alarm Clock", UnlockBitIndex = 30, ButtonBindingIndex = 26 } },
-            { "Paraglider", new GadgetInfo { Name = "Paraglider", UnlockBitIndex = 29, ButtonBindingIndex = null } },
-            { "Silent Obliteration", new GadgetInfo { Name = "Silent Obliteration", UnlockBitIndex = 28, ButtonBindingIndex = null } },
-            { "Thief Reflexes", new GadgetInfo { Name = "Thief Reflexes", UnlockBitIndex = 27, ButtonBindingIndex = 29 } },
-            { "Feral Pounce", new GadgetInfo { Name = "Feral Pounce", UnlockBitIndex = 26, ButtonBindingIndex = 30 } },
+            { "Smoke Bomb", new GadgetInfo { Name = "Smoke Bomb", UnlockBitIndex = 17, ButtonBindingIndex = 23, AvailableFromEpisode = 1 } },
+            { "Combat Dodge", new GadgetInfo { Name = "Combat Dodge", UnlockBitIndex = 32, ButtonBindingIndex = 24, AvailableFromEpisode = 2 } },
+            { "Stealth Slide", new GadgetInfo { Name = "Stealth Slide", UnlockBitIndex = 31, ButtonBindingIndex = 25, AvailableFromEpisode = 3 } },
+            { "Alarm Clock", new GadgetInfo { Name = "Alarm Clock", UnlockBitIndex = 30, ButtonBindingIndex = 26, AvailableFromEpisode = 4 } },
+            { "Paraglider", new GadgetInfo { Name = "Paraglider", UnlockBitIndex = 29, ButtonBindingIndex = null, AvailableFromEpisode = 5 } },
+            { "Silent Obliteration", new GadgetInfo { Name = "Silent Obliteration", UnlockBitIndex = 28, ButtonBindingIndex = null, AvailableFromEpisode = 6 } },
+            { "Thief Reflexes", new GadgetInfo { Name = "Thief Reflexes", UnlockBitIndex = 27, ButtonBindingIndex = 29, AvailableFromEpisode = 7 } },
+            { "Feral Pounce", new GadgetInfo { Name = "Feral Pounce", UnlockBitIndex = 26, ButtonBindingIndex = 30, AvailableFromEpisode = 8 } },
 
-            { "Trigger Bomb", new GadgetInfo { Name = "Trigger Bomb", UnlockBitIndex = 8, ButtonBindingIndex = 7 } },
-            { "Size Destabilizer", new GadgetInfo { Name = "Size Destabilizer", UnlockBitIndex = 16, ButtonBindingIndex = 8 } },
-            { "Snooze Bomb", new GadgetInfo { Name = "Snooze Bomb", UnlockBitIndex = 15, ButtonBindingIndex = 9 } },
-            { "Adrenaline Burst", new GadgetInfo { Name = "Adrenaline Burst", UnlockBitIndex = 14, ButtonBindingIndex = 10 } },
-            { "Health Extractor", new GadgetInfo { Name = "Health Extractor", UnlockBitIndex = 13, ButtonBindingIndex = 11 } },
-            { "Hoverpack", new GadgetInfo { Name = "Hoverpack", UnlockBitIndex = 12, ButtonBindingIndex = 12 } },
-            { "Reduction Bomb", new GadgetInfo { Name = "Reduction Bomb", UnlockBitIndex = 11, ButtonBindingIndex = 13 } },
-            { "Temporal Lock", new GadgetInfo { Name = "Temporal Lock", UnlockBitIndex = 10, ButtonBindingIndex = 14 } },
+            { "Trigger Bomb", new GadgetInfo { Name = "Trigger Bomb", UnlockBitIndex = 8, ButtonBindingIndex = 7, AvailableFromEpisode = 1 } },
+            { "Size Destabilizer", new GadgetInfo { Name = "Size Destabilizer", UnlockBitIndex = 16, ButtonBindingIndex = 8, AvailableFromEpisode = 2 } },
+            { "Snooze Bomb", new GadgetInfo { Name = "Snooze Bomb", UnlockBitIndex = 15, ButtonBindingIndex = 9, AvailableFromEpisode = 3 } },
+            { "Adrenaline Burst", new GadgetInfo { Name = "Adrenaline Burst", UnlockBitIndex = 14, ButtonBindingIndex = 10, AvailableFromEpisode = 4 } },
+            { "Health Extractor", new GadgetInfo { Name = "Health Extractor", UnlockBitIndex = 13, ButtonBindingIndex = 11, AvailableFromEpisode = 5 } },
+            { "Hoverpack", new GadgetInfo { Name = "Hoverpack", UnlockBitIndex = 12, ButtonBindingIndex = 12, AvailableFromEpisode = 6 } },
+            { "Reduction Bomb", new GadgetInfo { Name = "Reduction Bomb", UnlockBitIndex = 11, ButtonBindingIndex = 13, AvailableFromEpisode = 7 } },
+            { "Temporal Lock", new GadgetInfo { Name = "Temporal Lock", UnlockBitIndex = 10, ButtonBindingIndex = 14, AvailableFromEpisode = 8 } },
 
-            { "Fists of Flame", new GadgetInfo { Name = "Fists of Flame", UnlockBitIndex = 9, ButtonBindingIndex = 15 } },
-            { "Turnbuckle Launch", new GadgetInfo { Name = "Turnbuckle Launch", UnlockBitIndex = 24, ButtonBindingIndex = 16 } },
-            { "Juggernaut Throw", new GadgetInfo { Name = "Juggernaut Throw", UnlockBitIndex = 23, ButtonBindingIndex = null } },
-            { "Atlas Strength", new GadgetInfo { Name = "Atlas Strength", UnlockBitIndex = 22, ButtonBindingIndex = null } },
-            { "Raging Inferno Flop", new GadgetInfo { Name = "Raging Inferno Flop", UnlockBitIndex = 18, ButtonBindingIndex = 22 } },
-            { "Berserker Charge", new GadgetInfo { Name = "Berserker Charge", UnlockBitIndex = 20, ButtonBindingIndex = 20 } },
-            { "Guttural Roar", new GadgetInfo { Name = "Guttural Roar", UnlockBitIndex = 19, ButtonBindingIndex = 21 } },
-            { "Diablo Fire Slam", new GadgetInfo { Name = "Diablo Fire Slam", UnlockBitIndex = 21, ButtonBindingIndex = 19 } },
+            { "Fists of Flame", new GadgetInfo { Name = "Fists of Flame", UnlockBitIndex = 9, ButtonBindingIndex = 15, AvailableFromEpisode = 1 } },
+            { "Turnbuckle Launch", new GadgetInfo { Name = "Turnbuckle Launch", UnlockBitIndex = 24, ButtonBindingIndex = 16, AvailableFromEpisode = 2 } },
+            { "Juggernaut Throw", new GadgetInfo { Name = "Juggernaut Throw", UnlockBitIndex = 23, ButtonBindingIndex = null, AvailableFromEpisode = 3 } },
+            { "Atlas Strength", new GadgetInfo { Name = "Atlas Strength", UnlockBitIndex = 22, ButtonBindingIndex = null, AvailableFromEpisode = 4 } },
+            { "Raging Inferno Flop", new GadgetInfo { Name = "Raging Inferno Flop", UnlockBitIndex = 18, ButtonBindingIndex = 22, AvailableFromEpisode = 5 } },
+            { "Berserker Charge", new GadgetInfo { Name = "Berserker Charge", UnlockBitIndex = 20, ButtonBindingIndex = 20, AvailableFromEpisode = 6 } },
+            { "Guttural Roar", new GadgetInfo { Name = "Guttural Roar", UnlockBitIndex = 19, ButtonBindingIndex = 21, AvailableFromEpisode = 7 } },
+            { "Diablo Fire Slam", new GadgetInfo { Name = "Diablo Fire Slam", UnlockBitIndex = 21, ButtonBindingIndex = 19, AvailableFromEpisode = 8 } },
 
-            { "Knockout Dive", new GadgetInfo { Name = "Knockout Dive", UnlockBitIndex = 39, ButtonBindingIndex = 33 } },
-            { "Insanity Strike", new GadgetInfo { Name = "Insanity Strike", UnlockBitIndex = 38, ButtonBindingIndex = 34 } },
-            { "Voltage Attack", new GadgetInfo { Name = "Voltage Attack", UnlockBitIndex = 37, ButtonBindingIndex = 35 } },
-            { "Long Toss", new GadgetInfo { Name = "Long Toss", UnlockBitIndex = 36, ButtonBindingIndex = null } },
-            { "Rage Bomb", new GadgetInfo { Name = "Rage Bomb", UnlockBitIndex = 35, ButtonBindingIndex = 37 } },
-            { "Music Box", new GadgetInfo { Name = "Music Box", UnlockBitIndex = 34, ButtonBindingIndex = 38 } },
-            { "Lightning Spin", new GadgetInfo { Name = "Lightning Spin", UnlockBitIndex = 33, ButtonBindingIndex = 39 } },
-            { "Shadow Power", new GadgetInfo { Name = "Shadow Power", UnlockBitIndex = 48, ButtonBindingIndex = 40 } }
+            { "Knockout Dive", new GadgetInfo { Name = "Knockout Dive", UnlockBitIndex = 39, ButtonBindingIndex = 33, AvailableFromEpisode = 2 } },
+            { "Insanity Strike", new GadgetInfo { Name = "Insanity Strike", UnlockBitIndex = 38, ButtonBindingIndex = 34, AvailableFromEpisode = 3 } },
+            { "Voltage Attack", new GadgetInfo { Name = "Voltage Attack", UnlockBitIndex = 37, ButtonBindingIndex = 35, AvailableFromEpisode = 4 } },
+            { "Long Toss", new GadgetInfo { Name = "Long Toss", UnlockBitIndex = 36, ButtonBindingIndex = null, AvailableFromEpisode = 5 } },
+            { "Rage Bomb", new GadgetInfo { Name = "Rage Bomb", UnlockBitIndex = 35, ButtonBindingIndex = 37, AvailableFromEpisode = 6 } },
+            { "Music Box", new GadgetInfo { Name = "Music Box", UnlockBitIndex = 34, ButtonBindingIndex = 38, AvailableFromEpisode = 7 } },
+            { "Lightning Spin", new GadgetInfo { Name = "Lightning Spin", UnlockBitIndex = 33, ButtonBindingIndex = 39, AvailableFromEpisode = 8 } },
+            { "Shadow Power", new GadgetInfo { Name = "Shadow Power", UnlockBitIndex = 48, ButtonBindingIndex = 40, AvailableFromEpisode = GadgetAvailability.NotInRunFiles } }
         };
 
         private bool GetBit(byte[] bytes, int bitIndex)
@@ -578,6 +629,7 @@ namespace SluMAN
                 ResumeComboBoxUpdates();
             }
 
+            runFileWarningLabel.Text = "";
             statusLine.Info($"Loaded the {runFile} run file. Save to apply it in game.");
         }
 
