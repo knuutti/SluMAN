@@ -22,6 +22,8 @@ namespace SluMAN
         private const int ValueColumn = 2;
         private const int KeepColumn = 3;
 
+        private const string DirectOnlyKey = "tunablesDirectOnly";
+
         private readonly sly4 game;
 
         private readonly TextBox searchBox = new TextBox();
@@ -29,6 +31,7 @@ namespace SluMAN
         private readonly Button importButton = new Button();
         private readonly Button resetButton = new Button();
         private readonly Label countLabel = new Label();
+        private readonly CheckBox directOnlyCheckBox = new CheckBox();
         private readonly TreeView categoryTree = new TreeView();
         private readonly DataGridView grid = new DataGridView();
         private readonly Timer refreshTimer = new Timer();
@@ -142,8 +145,25 @@ namespace SluMAN
 
         private void BuildTree()
         {
-            categoryTree.Location = new Point(8, 38);
-            categoryTree.Size = new Size(210, 420);
+            directOnlyCheckBox.Text = "Only this level";
+            directOnlyCheckBox.AutoSize = true;
+            directOnlyCheckBox.Location = new Point(10, 38);
+            directOnlyCheckBox.Checked = string.Equals(func.GetConfigData("config.txt", DirectOnlyKey), "true", StringComparison.OrdinalIgnoreCase);
+            directOnlyCheckBox.CheckedChanged += (sender, e) =>
+            {
+                func.ChangeFileLines("config.txt", directOnlyCheckBox.Checked ? "true" : "false", DirectOnlyKey);
+                ShowTunables();
+            };
+            Controls.Add(directOnlyCheckBox);
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(directOnlyCheckBox,
+                "Shows only the tunables directly in the selected category, e.g. Audio.MasterVolume\n" +
+                "for Audio but not Audio.Optimization.SomeTunable.");
+            FormClosed += (sender, e) => tip.Dispose();
+
+            categoryTree.Location = new Point(8, 60);
+            categoryTree.Size = new Size(210, 398);
             categoryTree.HideSelection = false;
             categoryTree.AfterSelect += categoryTree_AfterSelect;
             Controls.Add(categoryTree);
@@ -278,8 +298,11 @@ namespace SluMAN
         {
             string search = searchBox.Text.Trim();
             string prefix = category.Length > 0 ? category + "." : "";
+            bool directOnly = directOnlyCheckBox.Checked;
             return game.tunables.GetAll()
                 .Where(t => t.name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                // Not in a deeper category, i.e. no dot after the selected one.
+                .Where(t => !directOnly || t.name.IndexOf('.', prefix.Length) < 0)
                 .Where(t => search.Length == 0 || t.name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
         }
