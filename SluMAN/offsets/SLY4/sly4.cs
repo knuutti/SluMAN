@@ -324,6 +324,11 @@ namespace SluMAN
             StopComputedValues();
             autosplitterValues = new Sly4AutosplitterValues(this, write);
             autosplitterValues.Start();
+            // The Hackpack's goals aren't read: its autosplitter goes by levels and jobs.
+            if (addr.IsHackpack)
+            {
+                return;
+            }
             GoalsChanged += WriteAutosplitterGoal;
             if (goalWatcher == null)
             {
@@ -1273,10 +1278,15 @@ namespace SluMAN
 
         /// <summary>
         /// Whether a level is one of the hacking minigames (System Cracker, Spark Runner, Alter
-        /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers.
+        /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers. Every
+        /// Hackpack level counts: they're all minigames, or the hub, where nobody is controlled.
         /// </summary>
         public static bool IsHackLevel(uint levelHash)
         {
+            if (addr.IsHackpack)
+            {
+                return true;
+            }
             string name;
             if (!levelNames.TryGetValue(levelHash, out name))
             {
@@ -1301,6 +1311,11 @@ namespace SluMAN
         public static string GetLevelName(uint levelHash)
         {
             string name;
+            if (addr.IsHackpack)
+            {
+                name = HackpackLevels.GetName(levelHash);
+                return name == null ? levelHash.ToString("X8") : name;
+            }
             if (levelNames.TryGetValue(levelHash, out name))
             {
                 return name;
@@ -1320,6 +1335,99 @@ namespace SluMAN
                 }
             }
             return levels;
+        }
+
+        // More nodes than this is a bad read, not the level table.
+        private const int MaxLevelTableNodes = 1000;
+
+        /// <summary>
+        /// The Hackpack's levels, from the game's level table (see HackpackAddresses): every
+        /// level LoadLevel can load, named from data/hackpack_levels.txt where it's listed and
+        /// otherwise shown as its hash and the path the game keeps for it.
+        /// </summary>
+        public List<LevelEntry> ReadHackpackLevels()
+        {
+            uint rootPointer = ReadUInt(addr.levelTable + addr.levelTableRootOffset);
+            uint root = rootPointer == 0 ? 0 : ReadUInt(rootPointer);
+            if (root == 0)
+            {
+                throw new InvalidOperationException("The game hasn't read its level list yet.");
+            }
+
+            List<LevelEntry> levels = new List<LevelEntry>();
+            HashSet<uint> seen = new HashSet<uint>();
+            Stack<uint> nodes = new Stack<uint>();
+            nodes.Push(root);
+            while (nodes.Count > 0)
+            {
+                uint node = nodes.Pop();
+                // 0 ends a branch; anything outside user memory is a bad read.
+                if (node < 0x10000 || node >= 0x40000000 || node % 4 != 0 || !seen.Add(node))
+                {
+                    continue;
+                }
+                if (seen.Count > MaxLevelTableNodes)
+                {
+                    throw new InvalidOperationException("The level list isn't what SluMAN expects.");
+                }
+
+                byte[] bytes = api.ReadMemory(pid, node, Sly4Addresses.LevelNodeRightOffset + 4);
+                uint hash = BigEndianUInt(bytes, Sly4Addresses.LevelNodeHashOffset);
+                uint record = BigEndianUInt(bytes, Sly4Addresses.LevelNodeRecordOffset);
+                nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeRightOffset));
+                nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeLeftOffset));
+
+                string name = HackpackLevels.GetName(hash);
+                if (name == null)
+                {
+                    name = hash.ToString("X8");
+                    string path = record == 0 ? "" : ReadPrintableString(record + addr.levelRecordPathOffset);
+                    if (path.Length > 0)
+                    {
+                        name += $" ({path})";
+                    }
+                }
+                levels.Add(new LevelEntry { hash = hash, name = name });
+            }
+
+            // Named levels first, in the file's order, then the rest by hash.
+            levels.Sort((a, b) =>
+            {
+                int aOrder = HackpackLevels.OrderOf(a.hash);
+                int bOrder = HackpackLevels.OrderOf(b.hash);
+                if (aOrder != bOrder)
+                {
+                    return aOrder.CompareTo(bOrder);
+                }
+                return a.hash.CompareTo(b.hash);
+            });
+            return levels;
+        }
+
+        /// <summary>A string as ReadString reads it, or "" when it isn't all printable ASCII.</summary>
+        private string ReadPrintableString(uint address)
+        {
+            string text = ReadString(address);
+            foreach (char c in text)
+            {
+                if (c < 0x20 || c > 0x7E)
+                {
+                    return "";
+                }
+            }
+            return text;
+        }
+
+        /// <summary>The folder this game's camera paths are saved in.</summary>
+        public static string CameraPathFolder => addr.IsHackpack ? CameraPath.HackpackFolder : CameraPath.Sly4Folder;
+
+        /// <summary>
+        /// The level's part of its saved camera paths' file names: its name, or for the Hackpack,
+        /// whose level names aren't all known yet, its hash, so paths stay put once it's named.
+        /// </summary>
+        public static string CameraPathLevelKey(uint levelHash)
+        {
+            return addr.IsHackpack ? levelHash.ToString("X8") : GetLevelName(levelHash);
         }
 
         /// <summary>

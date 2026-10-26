@@ -5,8 +5,10 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 4 addresses. Each supported game version is one instance, created in CreateVersions.
+    /// Bentley's Hackpack runs on Sly 4's engine, so its versions are instances too (see
+    /// offsets/BH/HackpackAddresses.cs), with IsHackpack set.
     /// </summary>
-    public class Sly4Addresses
+    public partial class Sly4Addresses
     {
         public const string GameIdPALDisc = "BCES01284";
         public const string GameIdPALDigital = "NPEA00429";
@@ -16,6 +18,10 @@ namespace SluMAN
 
         public string GameId { get; private set; }
         public string DisplayName { get; private set; }
+
+        // Bentley's Hackpack: every level is a hacking minigame or the hub, so nothing has a
+        // character, and the levels come from the game's level table instead of a list.
+        public bool IsHackpack { get; private set; }
 
         // Inputs: the game's pad object, which holds the controller data the game read this frame.
         // It's on the heap, so it moves when the heap layout does (with the archive replaced by
@@ -81,7 +87,8 @@ namespace SluMAN
         // The call SluMAN 1.1.1 and earlier hooked instead, and the stub it ran (the start of
         // SluMAN's code in the cave). The call is made on AglRenderThread, and game logic run
         // there races the render thread: starting a job in the current episode crashes the game.
-        // Put back on install, in case a game is still hooked there.
+        // Put back on install, in case a game is still hooked there. 0 on versions no earlier
+        // SluMAN hooked.
         public uint legacyHookCallSite { get; private set; }
         public uint legacyHookCallTarget { get; private set; }
         public uint legacyHookCodeCave { get; private set; }
@@ -239,7 +246,8 @@ namespace SluMAN
 
         public static bool IsSupportedGameId(string gameId)
         {
-            return gameId != null && versions.ContainsKey(gameId.Trim());
+            Sly4Addresses found;
+            return gameId != null && versions.TryGetValue(gameId.Trim(), out found) && !found.IsHackpack;
         }
 
         /// <summary>
@@ -387,11 +395,16 @@ namespace SluMAN
 
             Sly4Addresses palDigital = palDisc.CopyAs(GameIdPALDigital, "SLY 4 (PAL, Digital)");
 
-            return new Dictionary<string, Sly4Addresses>(StringComparer.OrdinalIgnoreCase)
+            Dictionary<string, Sly4Addresses> all = new Dictionary<string, Sly4Addresses>(StringComparer.OrdinalIgnoreCase)
             {
                 { palDisc.GameId, palDisc },
                 { palDigital.GameId, palDigital },
             };
+            foreach (Sly4Addresses hackpack in CreateHackpackVersions())
+            {
+                all.Add(hackpack.GameId, hackpack);
+            }
+            return all;
         }
     }
 }

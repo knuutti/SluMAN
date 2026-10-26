@@ -59,7 +59,7 @@ namespace SluMAN
         // Anything above this is a bad read, not the registry.
         private const uint MaxTunableCount = 10000;
 
-        private const string SavedFile = "sly4_tunables.cfg";
+        private static string SavedFile => sly4.addr.IsHackpack ? "hackpack_tunables.cfg" : "sly4_tunables.cfg";
 
         private readonly IGame game;
         private List<Tunable> tunables;

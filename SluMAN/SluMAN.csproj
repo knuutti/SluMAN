@@ -167,7 +167,8 @@
     <Compile Include="ModLoaderForm.Designer.cs">
       <DependentUpon>ModLoaderForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="offsets\BH\hackpack.cs" />
+    <Compile Include="offsets\BH\HackpackAddresses.cs" />
+    <Compile Include="offsets\BH\HackpackLevels.cs" />
     <Compile Include="offsets\SLY1\sly1.cs" />
     <Compile Include="offsets\SLY1\Sly1Addresses.cs" />
     <Compile Include="offsets\SLY1\Sly1FreeCamera.cs" />
@@ -308,6 +309,12 @@
     <Compile Include="SLY4\Sly4TunablesForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="BH\HackpackPractice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="BH\HackpackSpeedrun.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="func.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -384,6 +391,7 @@
     <Content Include="sluman_icon.ico" />
     <None Include="autosplitters\sly3-autosplitter.asl" />
     <None Include="autosplitters\sly4-autosplitter.asl" />
+    <None Include="autosplitters\hackpack-autosplitter.asl" />
     <Content Include="defaultSkin.txt" />
     <Content Include="..\data\s3_run_file_config.txt">
       <Link>data/s3_run_file_config.txt</Link>
@@ -415,6 +423,10 @@
     </Content>
     <Content Include="..\data\sly3_warp_locations.txt">
       <Link>data/sly3_warp_locations.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\data\hackpack_levels.txt">
+      <Link>data/hackpack_levels.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="ds3drip.ico" />

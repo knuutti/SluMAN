@@ -64,6 +64,8 @@ namespace SluMAN
         // Set while the selected keyframe's values are put into the controls.
         private bool updating;
         private string levelName = "";
+        // The level's name in the saved paths' file names (see sly4.CameraPathLevelKey).
+        private string levelKey = "";
         private StatusLine statusLine;
 
         public Sly4CameraForm(sly4 game, Sly4FreeMove freeMove, Sly4CameraApi api)
@@ -1025,27 +1027,30 @@ namespace SluMAN
         private void ReadLevel()
         {
             string level = "";
+            string key = "";
             try
             {
                 uint levelHash = game.GetLevelHash();
                 level = levelHash == 0 ? "" : sly4.GetLevelName(levelHash);
+                key = levelHash == 0 ? "" : sly4.CameraPathLevelKey(levelHash);
             }
             catch
             {
                 // Shown as no level; saving asks for one.
             }
-            if (level == levelName)
+            if (level == levelName && key == levelKey)
             {
                 return;
             }
 
             levelName = level;
+            levelKey = key;
             savedGroupBox.Text = level == "" ? "Saved Paths" : $"Saved Paths ({level})";
             string typed = pathNameComboBox.Text;
             pathNameComboBox.Items.Clear();
-            if (level != "")
+            if (key != "")
             {
-                foreach (string name in CameraPath.SavedNames(CameraPath.Sly4Folder, level))
+                foreach (string name in CameraPath.SavedNames(sly4.CameraPathFolder, key))
                 {
                     pathNameComboBox.Items.Add(name);
                 }
@@ -1084,7 +1089,7 @@ namespace SluMAN
             }
             try
             {
-                path.Save(CameraPath.Sly4Folder, levelName, name);
+                path.Save(sly4.CameraPathFolder, levelKey, name);
                 if (!pathNameComboBox.Items.Contains(name))
                 {
                     pathNameComboBox.Items.Add(name);
@@ -1107,7 +1112,7 @@ namespace SluMAN
             }
             try
             {
-                CameraPath loaded = CameraPath.Load(CameraPath.Sly4Folder, levelName, name);
+                CameraPath loaded = CameraPath.Load(sly4.CameraPathFolder, levelKey, name);
                 StopPlayback();
                 path = loaded;
                 smoothCheckBox.Checked = path.Smooth;
@@ -1135,7 +1140,7 @@ namespace SluMAN
             }
             try
             {
-                CameraPath.Delete(CameraPath.Sly4Folder, levelName, name);
+                CameraPath.Delete(sly4.CameraPathFolder, levelKey, name);
                 pathNameComboBox.Items.Remove(name);
                 pathNameComboBox.Text = "";
                 statusLine.Info($"Deleted \"{name}\". The keyframes stay in the list until you change them.");

@@ -430,7 +430,8 @@ namespace SluMAN
             return Sly1Addresses.IsSupportedGameId(titleId)
                 || Sly2Addresses.IsSupportedGameId(titleId)
                 || Sly3Addresses.IsSupportedGameId(titleId)
-                || Sly4Addresses.IsSupportedGameId(titleId);
+                || Sly4Addresses.IsSupportedGameId(titleId)
+                || Sly4Addresses.IsHackpackGameId(titleId);
         }
 
         /// <summary>
@@ -540,6 +541,26 @@ namespace SluMAN
                     Sly4Practice sly4Practice = new Sly4Practice(new sly4(func.api, game));
                     gameName = sly4.addr.DisplayName;
                     sly4Practice.ShowDialog();
+                }
+            }
+            else if (Sly4Addresses.IsHackpackGameId(game))
+            {
+                // Sly 4's engine, so the sly4 class runs it with the Hackpack's addresses.
+                if (speedrunMode)
+                {
+                    Hide();
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Speedrun Mode)");
+                    HackpackSpeedrun hackpackSpeedrun = new HackpackSpeedrun(new sly4(func.api, game));
+                    gameName = sly4.addr.DisplayName;
+                    hackpackSpeedrun.ShowDialog();
+                }
+                else
+                {
+                    Hide();
+                    func.api.Notify($"SluMAN {func.VersionText} connected (Practice Mode)");
+                    HackpackPractice hackpackPractice = new HackpackPractice(new sly4(func.api, game));
+                    gameName = sly4.addr.DisplayName;
+                    hackpackPractice.ShowDialog();
                 }
             }
             else

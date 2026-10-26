@@ -11,6 +11,7 @@ SluMAN also provides a Speedrun Mode, that provides the runners with an input di
 - Sly 2: Band of Thieves (NPHA80175, NPEA00342; NPUA80664)
 - Sly 3: Honor Among Thieves (NPEA00343)
 - Sly Cooper: Thieves in Time (BCES01284, NPEA00429)
+- Bentley's Hackpack (NPEA00427)
 
 ## Setup
 To use SluMAN, follow these steps:
@@ -30,8 +31,8 @@ Then all you need to do is run a game, and click Attach!
 Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` button. 
 
 Some features require you to run RPCS3 on Interpreter (static) mode. These features include
-- Freecam for Sly 2, Sly 3 and Sly 4
-- Loading and game-state related functions in Sly 4, such as loading maps or jobs.
+- Freecam for Sly 2, Sly 3, Sly 4 and Bentley's Hackpack
+- Loading and game-state related functions in Sly 4 and Bentley's Hackpack, such as loading maps or jobs.
 
 You can change the mode to Interpreter by going `Configuration -> CPU -> PPU Decoder -> Select Interpreter (static) -> Apply & Save`. The default mode is the `Recompiler (LLVM)` which is recommended option if you don't need the functionalities mentioned above.
 
