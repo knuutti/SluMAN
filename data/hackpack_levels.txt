@@ -1,0 +1,56 @@
+# Bentley's Hackpack levels: level | English name
+#
+# Practice Mode's level list comes from the game's own level table, so it always has every level;
+# this file only names them. The level is its name as Scripts/Sly4HackPackLevels.xml (in
+# Sly4HackPack.psarc) writes it, which SluMAN hashes the way the game does, or its hash as 0x and
+# 8 hex digits (the hash a level without a name shows as in Practice Mode). Write the English name
+# after the |; without one, the level's own name shows. Named levels are listed in this file's order.
+
+FrontEnd | Hub (Front End)
+
+# Sly 4's hacking minigame levels. The Hackpack may share some of these names; any it doesn't
+# have never show up.
+Spark Runner01 | Spark Runner 01
+Spark Runner02 | Spark Runner 02
+Spark Runner03 | Spark Runner 03
+Spark Runner04 | Spark Runner 04
+Spark Runner05 | Spark Runner 05
+Spark Runner06 | Spark Runner 06
+Spark Runner07 | Spark Runner 07
+Alter Ego01 | Alter Ego 01
+Alter Ego02 | Alter Ego 02
+Alter Ego03 | Alter Ego 03
+Alter Ego04 | Alter Ego 04
+Alter Ego05 | Alter Ego 05
+Alter Ego06 | Alter Ego 06
+Alter Ego06b | Alter Ego 06b
+Alter Ego06c | Alter Ego 06c
+Alter Ego06d | Alter Ego 06d
+Alter Ego06x | Alter Ego 06x
+Alter Ego06Multi | Alter Ego 06 Multi
+Alter Ego06bMulti | Alter Ego 06b Multi
+Alter Ego06cMulti | Alter Ego 06c Multi
+Alter Ego06dMulti | Alter Ego 06d Multi
+Alter Ego06xMulti | Alter Ego 06x Multi
+Alter Ego07 | Alter Ego 07
+Alter Ego07b | Alter Ego 07b
+Alter Ego07c | Alter Ego 07c
+Alter Ego07d | Alter Ego 07d
+Alter Ego07x | Alter Ego 07x
+Alter Ego07Multi | Alter Ego 07 Multi
+Alter Ego07bMulti | Alter Ego 07b Multi
+Alter Ego07cMulti | Alter Ego 07c Multi
+Alter Ego07dMulti | Alter Ego 07d Multi
+Alter Ego07xMulti | Alter Ego 07x Multi
+Alter Ego08 | Alter Ego 08
+System Cracker02 | System Cracker 02
+System Cracker03 | System Cracker 03
+System Cracker04 | System Cracker 04
+System Cracker05 | System Cracker 05
+System Cracker07 | System Cracker 07
+System Cracker08 | System Cracker 08
+System Cracker08b | System Cracker 08b
+System Cracker08c | System Cracker 08c
+System Cracker08d | System Cracker 08d
+System Cracker09 | System Cracker 09
+System Cracker09Multi | System Cracker 09 Multi
