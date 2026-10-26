@@ -670,7 +670,10 @@ namespace SluMAN
             }
             r3WasPressed = r3;
 
-            yaw -= Stick(Inputs.rx) * LookSpeed * step;
+            // The view turns towards the screen's right as the yaw drops only while the camera's
+            // X axis and its facing agree in sign, as in every unmirrored camera. Spark Runner's
+            // is mirrored (fixed axes the game builds it from), which turned the stick around.
+            yaw -= Stick(Inputs.rx) * LookSpeed * step * rightSign * forwardSign;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
 
