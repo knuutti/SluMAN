@@ -813,52 +813,6 @@ namespace SluMAN
             Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
             lastOverride = data;
-            ApplyCullDistance(far);
-        }
-
-        // The cull distance before the free camera's far distance raised it, and what it was set to.
-        private byte[] cullDistanceBefore;
-        private float cullDistanceSet;
-
-        /// <summary>
-        /// Draws entities out to at least the far distance (0: as the game does), so a far
-        /// distance beyond the game's cull distance shows the level there too. Only writes when
-        /// the distance changes.
-        /// </summary>
-        private void ApplyCullDistance(float far)
-        {
-            if (far <= 0)
-            {
-                RestoreCullDistance();
-                return;
-            }
-            if (cullDistanceBefore == null)
-            {
-                cullDistanceBefore = api.ReadMemory(pid, addr.cullDistance, 4);
-                cullDistanceSet = float.NaN;
-            }
-            float game = ToFloat(cullDistanceBefore, 0);
-            if (game < 0)
-            {
-                game = ToFloat(api.ReadMemory(pid, addr.entityCullDistDefault, 4), 0);
-            }
-            float distance = Math.Max(game, far);
-            if (distance != cullDistanceSet)
-            {
-                api.WriteMemory(pid, addr.cullDistance, ConvertFloatToBytes(distance));
-                cullDistanceSet = distance;
-            }
-        }
-
-        /// <summary>Puts back the game's cull distance, unless a level load has set its own since.</summary>
-        private void RestoreCullDistance()
-        {
-            byte[] before = cullDistanceBefore;
-            cullDistanceBefore = null;
-            if (before != null && ToFloat(api.ReadMemory(pid, addr.cullDistance, 4), 0) == cullDistanceSet)
-            {
-                api.WriteMemory(pid, addr.cullDistance, before);
-            }
         }
 
         // The main view the free camera draws, its matrices, field of view and far distance before
@@ -956,7 +910,6 @@ namespace SluMAN
                 api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
             }
             StopDrawListGuard();
-            RestoreCullDistance();
             RestoreViewAfterOverride();
         }
 
