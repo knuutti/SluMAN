@@ -52,8 +52,12 @@ slots of 0x218 at +0x1C, current episode +0x24, current job +0x28, failed goal +
 `Scripts/Sly4HackPackLevels.xml` is read at boot (`0x3B6010`) into the map at `0xEBA94C`: root
 node at `*(*(0xEBA94C + 0xC))`, nodes with the level hash at +4, the record at +8 and children at
 +0xC / +0x10 (`LoadLevel`'s lookup at `0x34A084` walks it). The record has a path at +0x80 (the boot
-code skips levels whose path starts with `Dev/`). Level names aren't in the EBOOT: they're in the
-XML inside `Sly4HackPack.psarc.edat`.
+code skips levels whose path starts with `Dev/`). Level names aren't in the EBOOT: they're in
+`Scripts/Sly4HackPackLevels.xmb` inside `Sly4HackPack.psarc.edat`, which RPCS3's Decrypt PS3
+Binaries decrypts with the klicensee the game passes to `sceNpDrmIsAvailable2`
+(`8D13952E4ABDCD0C058E8B9DC87696EC`, at `0x8AD244`). The levels are `FrontEnd` (path `UI/Frontend`),
+`SystemCrackerA`-`T`, `SparkRunnerA`-`T` and `AlterEgoA`-`T` (paths like `AlterEgo/AlterEgoA`),
+plus development levels under `Dev/`; the XMB stores each name's hash (`sly4.Hash`) next to it.
 
 ## Views and free camera
 
