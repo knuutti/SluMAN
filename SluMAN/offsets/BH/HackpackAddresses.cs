@@ -12,19 +12,6 @@ namespace SluMAN
     {
         public const string GameIdHackpackPALDigital = "NPEA00427";
 
-        // The game's level table (Scripts/Sly4HackPackLevels.xml, read at boot): a binary tree
-        // whose root is at *(*(levelTable + levelTableRootOffset)). Each node holds a level's hash
-        // at +LevelNodeHashOffset, its record at +LevelNodeRecordOffset and its two children at
-        // +LevelNodeLeftOffset and +LevelNodeRightOffset. LoadLevel looks the hash it's given up
-        // here. The record has a path at +levelRecordPathOffset (the game checks it for "Dev/").
-        public uint levelTable { get; private set; }
-        public uint levelTableRootOffset { get; private set; }
-        public uint levelRecordPathOffset { get; private set; }
-        public const uint LevelNodeHashOffset = 0x4;
-        public const uint LevelNodeRecordOffset = 0x8;
-        public const uint LevelNodeLeftOffset = 0xC;
-        public const uint LevelNodeRightOffset = 0x10;
-
         public static bool IsHackpackGameId(string gameId)
         {
             Sly4Addresses found;
@@ -51,15 +38,23 @@ namespace SluMAN
                 gameManagerPtr = 0xD05B0C,
                 episodeManagerPtr = 0xCDEBD4,
 
-                // The game manager's fields past 0x128000 are 0x600 later than Sly 4's. Its player
-                // and goal fields weren't looked for: nothing in the Hackpack has a character, and
-                // the goals aren't read.
+                // The game manager's fields past 0x1000 are 0x600 later than Sly 4's. Its player
+                // fields weren't looked for: nothing in the Hackpack has a character.
                 loadPhaseOffset = 0x32,
                 inGameOffset = 0x2F,
                 currentLevelHashOffset = 0x128714,
                 loadingLevelHashOffset = 0x128718,
                 spawnCharacterOffset = 0x12871C,
                 spawnPointOffset = 0x128760,
+                // The running job's goals (the minigame's challenges), loaded by 0x241F2C from the
+                // job (+0x214) into the goal list at gm + 0x1670: the array at +0x50, the count (16
+                // bits) at +0x58. A goal's state and name are where Sly 4 has them; its ID is 0x14
+                // earlier.
+                goalArrayOffset = 0x16C0,
+                goalCountOffset = 0x16C8,
+                goalStateOffset = 0x12,
+                goalNameOffset = 0x1C,
+                goalIdOffset = 0x9EC,
 
                 // The episode manager is Sly 4's: 4 episodes and 128 job slots.
                 episodeArrayOffset = 0x14,
@@ -75,6 +70,9 @@ namespace SluMAN
                 // 9 arguments like Sly 4's; it clears the current job and reads the job's episode
                 // (job + 0x1F4) from the episode array.
                 startJobByInstFunction = 0x248698,
+                // TeleportToGoal(episode manager, goal, 1, 0), which the minigames call to move
+                // to a challenge.
+                teleportToGoalFunction = 0x2481FC,
 
                 loadLevelFunction = 0x336384,
 
@@ -134,10 +132,6 @@ namespace SluMAN
                 tunableVtableColor = 0x8D26CC,
                 tunableVtableString = 0x8DB780,
                 tunableVtableStringHash = 0x8D7ED0,
-
-                levelTable = 0xEBA94C,
-                levelTableRootOffset = 0xC,
-                levelRecordPathOffset = 0x80,
             };
 
             return new List<Sly4Addresses> { palDigital };

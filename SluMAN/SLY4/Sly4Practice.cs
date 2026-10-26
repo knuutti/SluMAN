@@ -4,7 +4,7 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class Sly4Practice : Form
+    public partial class Sly4Practice : Form, ISly4JobHost
     {
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;

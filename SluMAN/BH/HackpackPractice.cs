@@ -7,39 +7,47 @@ using Timer = System.Windows.Forms.Timer;
 namespace SluMAN
 {
     /// <summary>
-    /// Bentley's Hackpack Practice Mode: start a job (each minigame's challenges run in one) or
-    /// load any level from the game's level table, slow motion
-    /// and cutscene skipping, with the camera (free camera and camera paths), the tunables and
-    /// the memory tools on tabs. The game runs on Sly 4's engine, so this drives the sly4 class
-    /// and Sly 4's tools. The controls are built in code, in the other games' two-column layout.
+    /// Bentley's Hackpack Practice Mode: start or restart a job (each minigame's challenges run in
+    /// one) or go back to the hub, slow motion and cutscene skipping, with the jobs and their
+    /// challenges (goals), the camera (free camera and camera paths), the tunables and the memory
+    /// tools on tabs. The game runs on Sly 4's engine, so this drives the sly4 class and Sly 4's
+    /// tools. The controls are built in code, in the other games' two-column layout.
     /// </summary>
-    public class HackpackPractice : Form
+    public class HackpackPractice : Form, ISly4JobHost
     {
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
+        private const string JobsTab = "Jobs";
         private const string CameraTab = "Camera";
         private const string TunablesTab = "Tunables";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
 
+        // The hub's level, "FrontEnd".
+        private const uint HubLevelHash = 0xE4927E12;
+
         // The status refreshes every second; on a PS3 every read is a network round trip.
         private const int RefreshIntervalMs = 1000;
-        // How often a queued job start or load is checked for having run.
+        // How often a queued game call, and a goal warp waiting for its job, is checked.
         private const int GameCallCheckMs = 100;
 
-        // How long a queued job start or load may wait for the game's next frame before it's dropped.
+        // How long a queued call may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
+
+        // A goal warp waits this long for its job to start and load, and for it to have stayed
+        // that way this long, so the warp doesn't land in the job's setup.
+        private static readonly TimeSpan QueuedGoalWarpTimeout = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan QueuedGoalWarpSettleTime = TimeSpan.FromSeconds(1);
 
         private readonly MenuStrip menuStrip = new MenuStrip();
         private readonly ComboBox jobComboBox = new ComboBox();
-        private readonly ComboBox levelComboBox = new ComboBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
-        private readonly Label episodeValueLabel = new Label();
         private readonly Label jobValueLabel = new Label();
+        private readonly Label challengeValueLabel = new Label();
         private readonly Timer refreshTimer = new Timer();
         private readonly Timer gameCallTimer = new Timer();
 
@@ -54,8 +62,15 @@ namespace SluMAN
         private PracticeTabs practiceTabs;
         // Whether the last refresh saw a load, for the Practice Mode popup after it.
         private bool wasLoading;
+        private bool gameCallPending;
         private DateTime gameCallDeadline;
         private string gameCallDoneMessage;
+
+        // A goal to warp to once the job started for it runs (see CheckQueuedGoalWarp).
+        private sly4.JobEntry queuedGoalJob;
+        private int queuedGoal;
+        private DateTime queuedGoalDeadline;
+        private DateTime queuedGoalReadySince = DateTime.MaxValue;
 
         public HackpackPractice(sly4 game)
         {
@@ -74,7 +89,6 @@ namespace SluMAN
             statusLine = new StatusLine(this, true);
 
             FillJobs(false);
-            FillLevels(false);
 
             // Before the toggles below read the game, so they show any kept tunables.
             ApplyKeptTunables();
@@ -99,12 +113,15 @@ namespace SluMAN
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
 
+            // The Jobs tab colours the running job's goals as they change.
+            game.StartGoalWatcher();
+
             refreshTimer.Interval = RefreshIntervalMs;
             refreshTimer.Tick += (sender, e) => RefreshStatus();
             refreshTimer.Start();
             RefreshStatus();
             gameCallTimer.Interval = GameCallCheckMs;
-            gameCallTimer.Tick += (sender, e) => CheckGameCall();
+            gameCallTimer.Tick += (sender, e) => CheckQueuedWork();
 
             FormClosing += HackpackPractice_FormClosing;
 
@@ -121,13 +138,14 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
+            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("hackpack_visible_tabs", CameraTab);
+            practiceTabs.AddViewMenu("hackpack_visible_tabs", JobsTab, CameraTab);
         }
 
         private void BuildMenu()
@@ -166,32 +184,20 @@ namespace SluMAN
                 }
             };
             jobGroupBox.Controls.Add(jobComboBox);
-            AddButton(jobGroupBox, "Start Job", 10, 48, 292, (sender, e) => StartSelectedJob());
+            AddButton(jobGroupBox, "Start Job", 10, 48, 143, (sender, e) => StartSelectedJob());
+            AddButton(jobGroupBox, "Restart Job", 159, 48, 143, (sender, e) => RestartRunningJob());
 
-            GroupBox levelGroupBox = AddGroup("Level", 12, 118, 80);
-            levelComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            levelComboBox.Location = new Point(10, 20);
-            levelComboBox.Size = new Size(292, 21);
-            // The game reads its level list while it boots, so it's read again when still empty.
-            levelComboBox.DropDown += (sender, e) =>
-            {
-                if (levelComboBox.Items.Count == 0)
-                {
-                    FillLevels(true);
-                }
-            };
-            levelGroupBox.Controls.Add(levelComboBox);
-            AddButton(levelGroupBox, "Load", 10, 48, 143, (sender, e) => LoadSelectedLevel());
-            AddButton(levelGroupBox, "Reload Level", 159, 48, 143, (sender, e) => ReloadLevel());
+            GroupBox hubGroupBox = AddGroup("Hub", 12, 118, 54);
+            AddButton(hubGroupBox, "Load Hub", 10, 19, 292, (sender, e) => LoadHub());
 
             // Right column
             GroupBox statusGroupBox = AddGroup("Game", 336, 32, 90);
             AddLabel(statusGroupBox, "Level:", 10, 20);
             AddValueLabel(statusGroupBox, levelValueLabel, 70, 20);
-            AddLabel(statusGroupBox, "Episode:", 10, 42);
-            AddValueLabel(statusGroupBox, episodeValueLabel, 70, 42);
-            AddLabel(statusGroupBox, "Job:", 10, 64);
-            AddValueLabel(statusGroupBox, jobValueLabel, 70, 64);
+            AddLabel(statusGroupBox, "Job:", 10, 42);
+            AddValueLabel(statusGroupBox, jobValueLabel, 70, 42);
+            AddLabel(statusGroupBox, "Challenge:", 10, 64);
+            AddValueLabel(statusGroupBox, challengeValueLabel, 70, 64);
 
             GroupBox togglesGroupBox = AddGroup("Toggles", 336, 128, 70);
             AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
@@ -201,10 +207,7 @@ namespace SluMAN
             ToolTip tip = new ToolTip();
             tip.SetToolTip(jobComboBox,
                 "Every job in the game's job list. A minigame's challenges only work when it's\n" +
-                "started as a job; loading its level on its own doesn't set them up.");
-            tip.SetToolTip(levelComboBox,
-                "Every level in the game's level table. Names come from data/hackpack_levels.txt\n" +
-                "(level | English name); the others show as their hash and the path the game keeps.");
+                "started as a job. The Jobs tab also shows each running job's challenges.");
             FormClosed += (sender, e) => tip.Dispose();
         }
 
@@ -323,10 +326,36 @@ namespace SluMAN
                 statusLine.Error("Pick a job first.");
                 return;
             }
+            StartJob(job, false, false);
+        }
+
+        private void RestartRunningJob()
+        {
             try
             {
-                game.StartJob(job.index, false, false);
-                TrackGameCall($"Starting {job.Title}.");
+                sly4.JobEntry job = RunningJob();
+                if (job == null)
+                {
+                    statusLine.Error("No job is running.");
+                    return;
+                }
+                StartJobAtGoal(job, 0, true);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't restart the job: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Starts a job, from the Job controls or the Jobs tab; a running job starts again. The
+        /// Hackpack has no hubs or hideouts per episode, so those are ignored.
+        /// </summary>
+        public void StartJob(sly4.JobEntry job, bool toHub, bool toHideout)
+        {
+            try
+            {
+                StartJobAtGoal(job, 0, game.IsJobRunning(job.index));
             }
             catch (Exception ex)
             {
@@ -334,88 +363,103 @@ namespace SluMAN
             }
         }
 
-        /// <summary>Lists the game's levels, keeping the selection.</summary>
-        private void FillLevels(bool reportError)
+        /// <summary>
+        /// Warps to a goal (0-based) of a job, from the Jobs tab: in place if the job is running
+        /// (or no job is given), otherwise by starting the job and warping once it has loaded.
+        /// </summary>
+        public void WarpToGoal(sly4.JobEntry job, int goal)
         {
-            sly4.LevelEntry selected = levelComboBox.SelectedItem as sly4.LevelEntry;
-            List<sly4.LevelEntry> levels;
             try
             {
-                levels = game.ReadHackpackLevels();
-            }
-            catch (Exception ex)
-            {
-                if (reportError)
+                if (job == null || game.IsJobRunning(job.index))
                 {
-                    statusLine.Error($"Couldn't read the level list: {ex.Message}");
+                    queuedGoalJob = null;
+                    game.WarpToGoal(goal);
+                    TrackGameCall($"Warping to challenge {goal + 1}.");
                 }
-                return;
-            }
-
-            levelComboBox.BeginUpdate();
-            levelComboBox.Items.Clear();
-            foreach (sly4.LevelEntry level in levels)
-            {
-                levelComboBox.Items.Add(level);
-                if (selected != null && level.hash == selected.hash)
+                else
                 {
-                    levelComboBox.SelectedItem = level;
+                    StartJobAtGoal(job, goal, false);
                 }
             }
-            levelComboBox.EndUpdate();
-        }
-
-        private void LoadSelectedLevel()
-        {
-            sly4.LevelEntry level = levelComboBox.SelectedItem as sly4.LevelEntry;
-            if (level == null)
+            catch (Exception ex)
             {
-                statusLine.Error("Pick a level first.");
-                return;
+                statusLine.Error($"Couldn't warp: {ex.Message}");
             }
-            QueueLoad(level.hash, $"Loading {level.name}.");
         }
 
-        private void ReloadLevel()
+        /// <summary>
+        /// Starts a job (again, if it runs) and queues the warp to one of its goals (0-based) for
+        /// once it runs. The warp to the first goal matters too: the game's own job start
+        /// teleports to the goal after starting the job, which sets the goal (and the minigame's
+        /// challenge menu) up.
+        /// </summary>
+        private void StartJobAtGoal(sly4.JobEntry job, int goal, bool restart)
         {
-            uint levelHash;
+            game.StartJob(job.index, false, false, 0, restart);
+            queuedGoalJob = job;
+            queuedGoal = goal;
+            queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
+            queuedGoalReadySince = DateTime.MaxValue;
+            string verb = restart ? "Restarting" : "Starting";
+            TrackGameCall(goal > 0 ? $"{verb} {job.Title}; it warps to challenge {goal + 1} once loaded." : $"{verb} {job.Title}.");
+        }
+
+        /// <summary>The running job's entry, or null outside jobs.</summary>
+        private sly4.JobEntry RunningJob()
+        {
+            int index = game.GetRunningJobIndex();
+            if (index < 0)
+            {
+                return null;
+            }
+            foreach (sly4.JobEntry job in game.GetJobs())
+            {
+                if (job.index == index)
+                {
+                    return job;
+                }
+            }
+            return null;
+        }
+
+        private void LoadHub()
+        {
             try
             {
-                levelHash = game.GetLevelHash();
+                queuedGoalJob = null;
+                game.LoadLevel(HubLevelHash, null, null);
+                TrackGameCall("Loading the hub.");
             }
             catch (Exception ex)
             {
-                statusLine.Error($"Couldn't read the level: {ex.Message}");
-                return;
-            }
-            if (levelHash == 0)
-            {
-                statusLine.Error("No level is loaded yet.");
-                return;
-            }
-            QueueLoad(levelHash, $"Reloading {sly4.GetLevelName(levelHash)}.");
-        }
-
-        /// <summary>Queues the load through the code hook and reports once the game has run it.</summary>
-        private void QueueLoad(uint levelHash, string doneMessage)
-        {
-            try
-            {
-                game.LoadLevel(levelHash, null, null);
-                TrackGameCall(doneMessage);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't load the level: {ex.Message}");
+                statusLine.Error($"Couldn't load the hub: {ex.Message}");
             }
         }
 
         /// <summary>Waits for a call queued through the code hook, reporting the message once it has run.</summary>
         private void TrackGameCall(string doneMessage)
         {
+            gameCallPending = true;
             gameCallDeadline = DateTime.Now + GameCallTimeout;
             gameCallDoneMessage = doneMessage;
             gameCallTimer.Start();
+        }
+
+        private void CheckQueuedWork()
+        {
+            if (gameCallPending)
+            {
+                CheckGameCall();
+            }
+            else if (queuedGoalJob != null)
+            {
+                CheckQueuedGoalWarp();
+            }
+            else
+            {
+                gameCallTimer.Stop();
+            }
         }
 
         private void CheckGameCall()
@@ -424,12 +468,13 @@ namespace SluMAN
             {
                 if (!game.IsGameCallPending())
                 {
-                    gameCallTimer.Stop();
+                    gameCallPending = false;
                     statusLine.Info(gameCallDoneMessage);
                 }
                 else if (DateTime.Now > gameCallDeadline)
                 {
-                    gameCallTimer.Stop();
+                    gameCallPending = false;
+                    queuedGoalJob = null;
                     game.CancelGameCall();
                     statusLine.Error("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
                 }
@@ -437,6 +482,48 @@ namespace SluMAN
             catch
             {
                 // Checked again on the next tick.
+            }
+        }
+
+        /// <summary>
+        /// Warps to the queued goal once its job is running, done loading and has the goal loaded,
+        /// and has stayed that way for a moment, so the warp doesn't land in the job's setup.
+        /// </summary>
+        private void CheckQueuedGoalWarp()
+        {
+            if (DateTime.Now > queuedGoalDeadline)
+            {
+                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to challenge {queuedGoal + 1}.");
+                queuedGoalJob = null;
+                return;
+            }
+
+            try
+            {
+                bool ready = !game.IsLoading() && game.IsJobRunning(queuedGoalJob.index) && game.GetGoalCount() > queuedGoal;
+                if (!ready)
+                {
+                    queuedGoalReadySince = DateTime.MaxValue;
+                    return;
+                }
+                if (queuedGoalReadySince == DateTime.MaxValue)
+                {
+                    queuedGoalReadySince = DateTime.Now;
+                }
+                if (DateTime.Now - queuedGoalReadySince < QueuedGoalWarpSettleTime)
+                {
+                    return;
+                }
+
+                int goal = queuedGoal;
+                queuedGoalJob = null;
+                game.WarpToGoal(goal);
+                TrackGameCall(goal > 0 ? $"Warped to challenge {goal + 1}." : "Job started.");
+            }
+            catch (Exception ex)
+            {
+                queuedGoalJob = null;
+                statusLine.Error($"Couldn't warp to the challenge: {ex.Message}");
             }
         }
 
@@ -452,18 +539,28 @@ namespace SluMAN
                 bool loading = game.IsLoading();
                 string level = levelHash == 0 ? "-" : sly4.GetLevelName(levelHash);
                 levelValueLabel.Text = loading ? level + " (loading)" : level;
-                string episode = game.GetEpisodeName();
-                episodeValueLabel.Text = episode == null ? "-" : episode;
                 string job = game.GetJobName();
                 jobValueLabel.Text = job == null ? "-" : job;
+
+                game.GetCheckpoint(out int checkpoint, out int goalCount, out string goalName);
+                string challenge = goalCount == 0 ? "-" : $"{checkpoint} / {goalCount}";
+                if (goalCount > 0 && !string.IsNullOrEmpty(goalName))
+                {
+                    challenge += $" ({goalName})";
+                }
+                if (game.IsJobFailed())
+                {
+                    challenge += " (failed)";
+                }
+                challengeValueLabel.Text = challenge;
 
                 ShowPopUpAfterLoad(loading);
             }
             catch
             {
                 levelValueLabel.Text = "-";
-                episodeValueLabel.Text = "-";
                 jobValueLabel.Text = "-";
+                challengeValueLabel.Text = "-";
             }
         }
 
@@ -498,6 +595,8 @@ namespace SluMAN
                 Toggle(skipCutscenesCheckBox, () => game.SetSkipCutscenes(true));
             }
             ApplyKeptTunables();
+            // The console dropped the watcher's subscriptions with the reset.
+            game.StartGoalWatcher(true);
             practiceTabs.RefreshShownTool();
         }
 
@@ -507,6 +606,7 @@ namespace SluMAN
             practiceTabs.CloseAll();
             CameraApi.Stop();
             FreeMove.Stop();
+            game.StopGoalWatcher();
             refreshTimer.Stop();
             gameCallTimer.Stop();
 
@@ -520,7 +620,7 @@ namespace SluMAN
                 try { game.SetSkipCutscenes(false); } catch { }
             }
 
-            // Put the game's code back. Does nothing if no load was used.
+            // Put the game's code back. Does nothing if no job or load was started.
             try { game.RemoveCodeHook(); } catch { }
         }
     }

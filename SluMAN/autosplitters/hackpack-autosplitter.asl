@@ -2,7 +2,7 @@ state("SluMAN") {}
 
 // Bentley's Hackpack. SluMAN (Speedrun Mode, Autosplitter ticked) shares the game state through
 // the "SluMAN-autosplitter" memory-mapped file, laid out as Sly 4's (see
-// Sly4AutosplitterValues.cs); the goal values aren't filled in for the Hackpack. Every value is a
+// Sly4AutosplitterValues.cs). A minigame's challenges are its job's goals. Every value is a
 // little-endian 32-bit int.
 
 startup
@@ -11,6 +11,7 @@ startup
     settings.Add("START_JOB", false, "Start when a job starts");
     settings.Add("SPLIT_JOB", true, "Split when a job ends without failing");
     settings.Add("SPLIT_HUB", false, "Split when a level returns to the hub");
+    settings.Add("SPLIT_GOAL", false, "Split on every challenge (goal) completed");
     settings.Add("LOAD_REMOVAL", true, "Pause the timer during loads");
 
     // The hub's level, "FrontEnd".
@@ -24,6 +25,8 @@ startup
         state.levelHash = vars.reader.ReadUInt32();
         state.jobIndex = vars.reader.ReadInt32();
         state.jobFailed = vars.reader.ReadInt32();
+        state.goalIndex = vars.reader.ReadInt32();
+        state.goalCount = vars.reader.ReadInt32();
     });
 }
 
@@ -58,6 +61,13 @@ isLoading
 
 split
 {
+    // The current goal is the first one not done; only count it moving forward within a job.
+    bool sameJob = current.jobIndex >= 0 && current.jobIndex == old.jobIndex && current.goalCount == old.goalCount;
+    if (settings["SPLIT_GOAL"] && sameJob && old.goalIndex >= 0 && current.goalIndex > old.goalIndex)
+    {
+        return true;
+    }
+
     // A job that ends after failing is a retry or a quit, not a finish.
     bool jobEnded = old.jobIndex >= 0 && current.jobIndex != old.jobIndex && old.jobFailed == 0;
     if (settings["SPLIT_JOB"] && jobEnded)

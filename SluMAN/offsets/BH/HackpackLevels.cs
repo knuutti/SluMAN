@@ -9,16 +9,14 @@ namespace SluMAN
     /// Names for the Hackpack's levels, from data/hackpack_levels.txt: "level | English name"
     /// lines, the level as Scripts/Sly4HackPackLevels.xml names it (SluMAN hashes it the way the
     /// game does, see sly4.Hash) or its hash as 0x and 8 hex digits, and # starting a comment.
-    /// Without an English name the level's own name shows. The game's level table lists every
-    /// level (sly4.ReadHackpackLevels); the ones not in the file show as their hash.
+    /// Without an English name the level's own name shows; a level not in the file shows as its
+    /// hash.
     /// </summary>
     public static class HackpackLevels
     {
         private const string LevelFile = "data/hackpack_levels.txt";
 
         private static Dictionary<uint, string> names;
-        // Each named level's line in the file, so the level list keeps the file's order.
-        private static Dictionary<uint, int> order;
 
         /// <summary>The level's name, or null if the file doesn't name it.</summary>
         public static string GetName(uint levelHash)
@@ -28,14 +26,6 @@ namespace SluMAN
             return names.TryGetValue(levelHash, out name) ? name : null;
         }
 
-        /// <summary>Where the file lists the level; after every named level if it doesn't.</summary>
-        public static int OrderOf(uint levelHash)
-        {
-            Load();
-            int index;
-            return order.TryGetValue(levelHash, out index) ? index : int.MaxValue;
-        }
-
         private static void Load()
         {
             if (names != null)
@@ -43,7 +33,6 @@ namespace SluMAN
                 return;
             }
             names = new Dictionary<uint, string>();
-            order = new Dictionary<uint, int>();
 
             string[] lines;
             try
@@ -84,7 +73,6 @@ namespace SluMAN
                 if (!names.ContainsKey(hash))
                 {
                     names[hash] = name;
-                    order[hash] = order.Count;
                 }
             }
         }

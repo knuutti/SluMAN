@@ -52,7 +52,15 @@ A job's episode index is at +0x1F4.
 (from the caller's stack), with the episode manager in r3 and the job in r4. It clears the current
 job (+0x28) and looks up the job's episode (+0x1F4 into the episode array). Its callers at
 `0x248D14` and `0x249564` (a search of the job array by stride 0x218) pass the same arguments as
-Sly 4's debug menu.
+Sly 4's debug menu. Its 6th argument is 1 in the game's own restart (`0x357684`, a menu callback that
+starts the job whose hash is at `*(gm + 0x128764) + 0x541C0`; the fields there are named
+RestartJob, QuitEpisode / QuitJob / QuitLevel by their hashes).
+
+Starting a job (`0x24843C`) loads its goals (job + 0x214) into the goal list at gm + 0x1670 with
+`0x241F2C`: array at +0x50 (gm + 0x16C0), 16-bit count at +0x58 (gm + 0x16C8). Goals keep their state
+at +0x12 (5 = done, as Sly 4) and their ID at +0x9EC (Sly 4: +0xA00). `TeleportToGoal(em, goal, 1,
+0)` is `0x2481FC`; the minigame code calls it to move between challenges. A minigame's challenges
+are its job's goals.
 
 ## Level table
 
@@ -64,7 +72,7 @@ code skips levels whose path starts with `Dev/`). Level names aren't in the EBOO
 Binaries decrypts with the klicensee the game passes to `sceNpDrmIsAvailable2`
 (`8D13952E4ABDCD0C058E8B9DC87696EC`, at `0x8AD244`). The levels are `FrontEnd` (path `UI/Frontend`),
 `SystemCrackerA`-`T`, `SparkRunnerA`-`T` and `AlterEgoA`-`T` (paths like `AlterEgo/AlterEgoA`),
-plus development levels under `Dev/`, whose level data isn't in the archive (SluMAN leaves them, and nodes
+plus development levels under `Dev/`, whose level data isn't in the archive (an earlier SluMAN listed levels from this table and left them, and nodes
 without a path, out of the list); the XMB stores each name's hash (`sly4.Hash`) next to it.
 
 ## Views and free camera
@@ -90,5 +98,5 @@ Cheat.Invulnerable `0xDE45F0`, Cheat.Undetectable `0xD32268`.
 
 ## Not looked for yet
 
-GUI tree, job functions other than StartJobByInst (TeleportToGoal, AbandonCurrentJob), the goal array, the
+GUI tree, AbandonCurrentJob, the
 player and character controller.

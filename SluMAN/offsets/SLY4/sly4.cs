@@ -324,11 +324,6 @@ namespace SluMAN
             StopComputedValues();
             autosplitterValues = new Sly4AutosplitterValues(this, write);
             autosplitterValues.Start();
-            // The Hackpack's goals aren't read: its autosplitter goes by levels and jobs.
-            if (addr.IsHackpack)
-            {
-                return;
-            }
             GoalsChanged += WriteAutosplitterGoal;
             if (goalWatcher == null)
             {
@@ -1337,92 +1332,6 @@ namespace SluMAN
             return levels;
         }
 
-        // More nodes than this is a bad read, not the level table.
-        private const int MaxLevelTableNodes = 1000;
-        private const string DevLevelPathPrefix = "Dev/";
-
-        /// <summary>
-        /// The Hackpack's levels, from the game's level table (see HackpackAddresses): every
-        /// level LoadLevel can load (not the development levels), named from
-        /// data/hackpack_levels.txt where it's listed and otherwise shown as its hash and the path
-        /// the game keeps for it.
-        /// </summary>
-        public List<LevelEntry> ReadHackpackLevels()
-        {
-            uint rootPointer = ReadUInt(addr.levelTable + addr.levelTableRootOffset);
-            uint root = rootPointer == 0 ? 0 : ReadUInt(rootPointer);
-            if (root == 0)
-            {
-                throw new InvalidOperationException("The game hasn't read its level list yet.");
-            }
-
-            List<LevelEntry> levels = new List<LevelEntry>();
-            HashSet<uint> seen = new HashSet<uint>();
-            Stack<uint> nodes = new Stack<uint>();
-            nodes.Push(root);
-            while (nodes.Count > 0)
-            {
-                uint node = nodes.Pop();
-                // 0 ends a branch; anything outside user memory is a bad read.
-                if (node < 0x10000 || node >= 0x40000000 || node % 4 != 0 || !seen.Add(node))
-                {
-                    continue;
-                }
-                if (seen.Count > MaxLevelTableNodes)
-                {
-                    throw new InvalidOperationException("The level list isn't what SluMAN expects.");
-                }
-
-                byte[] bytes = api.ReadMemory(pid, node, Sly4Addresses.LevelNodeRightOffset + 4);
-                uint hash = BigEndianUInt(bytes, Sly4Addresses.LevelNodeHashOffset);
-                uint record = BigEndianUInt(bytes, Sly4Addresses.LevelNodeRecordOffset);
-                nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeRightOffset));
-                nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeLeftOffset));
-
-                // Development levels (paths under Dev/) have no level data in the game's archive,
-                // and a node without a path isn't a level, so neither loads anything.
-                string path = record == 0 ? "" : ReadPrintableString(record + addr.levelRecordPathOffset);
-                if (path.Length == 0 || path.StartsWith(DevLevelPathPrefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                string name = HackpackLevels.GetName(hash);
-                if (name == null)
-                {
-                    name = $"{hash:X8} ({path})";
-                }
-                levels.Add(new LevelEntry { hash = hash, name = name });
-            }
-
-            // Named levels first, in the file's order, then the rest by hash.
-            levels.Sort((a, b) =>
-            {
-                int aOrder = HackpackLevels.OrderOf(a.hash);
-                int bOrder = HackpackLevels.OrderOf(b.hash);
-                if (aOrder != bOrder)
-                {
-                    return aOrder.CompareTo(bOrder);
-                }
-                return a.hash.CompareTo(b.hash);
-            });
-            return levels;
-        }
-
-        /// <summary>A string as ReadString reads it, or "" when it isn't all printable ASCII.</summary>
-        private string ReadPrintableString(uint address)
-        {
-            string text = ReadString(address);
-            foreach (char c in text)
-            {
-                if (c < 0x20 || c > 0x7E)
-                {
-                    return "";
-                }
-            }
-            return text;
-        }
-
         /// <summary>The folder this game's camera paths are saved in.</summary>
         public static string CameraPathFolder => addr.IsHackpack ? CameraPath.HackpackFolder : CameraPath.Sly4Folder;
 
@@ -1709,8 +1618,10 @@ namespace SluMAN
         /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
         /// another level doesn't have yet. To start later, warp to the goal once the job runs,
         /// or pass the ID of one of the running job's goals (GetGoalId) to restart it there.
+        /// With <paramref name="restart"/>, the running job may be started again: the 6th argument
+        /// is 1, as the Hackpack's own restart (0x357684) passes it.
         /// </remarks>
-        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0)
+        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0, bool restart = false)
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
             if (episodeManager == 0)
@@ -1721,13 +1632,13 @@ namespace SluMAN
 
             uint job = ReadUInt(episodeManager + addr.jobArrayOffset) + (uint)jobIndex * Sly4Addresses.JobStride;
             uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
-            if (!toHub && !toHideout && currentJob == job)
+            if (!toHub && !toHideout && !restart && currentJob == job)
             {
                 throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
             }
 
             codeHook.Call(addr.startJobByInstFunction, episodeManager, job, goalId,
-                toHub ? 1u : 0u, toHideout ? 1u : 0u, 0, 0, 0, 1);
+                toHub ? 1u : 0u, toHideout ? 1u : 0u, restart ? 1u : 0u, 0, 0, 1);
         }
 
         /// <summary>The ID of one of the running job's goals (0-based), for StartJob.</summary>
