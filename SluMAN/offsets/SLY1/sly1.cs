@@ -533,6 +533,89 @@ namespace SluMAN
             api.WriteMemory(pid, WorldSave(world) + sly1.addr.worldFlagsOffset, ConvertIntToBytes(flags));
         }
 
+        // Powerups (thief moves): the game save's unlocked bits. The Nth vault opened gives the
+        // Nth vault powerup, whichever level it's in (every third vault of a world gives the
+        // world's blueprint instead); defeating Mz. Ruby gives Invisibility. The game only lets one
+        // be used where the level allows it too.
+
+        /// <summary>A powerup and its bit in the game save's unlocked powerups.</summary>
+        public class Powerup
+        {
+            public string name;
+            public int bit;
+
+            public override string ToString()
+            {
+                return name;
+            }
+        }
+
+        /// <summary>The vault powerups, in the order vaults give them.</summary>
+        public static readonly Powerup[] VaultPowerups = new Powerup[]
+        {
+            new Powerup { name = "Dive 1", bit = 0x2 },
+            new Powerup { name = "Roll 1", bit = 0x4 },
+            new Powerup { name = "Slow 1", bit = 0x8 },
+            new Powerup { name = "Dive 2", bit = 0x10 },
+            new Powerup { name = "Magnet", bit = 0x20 },
+            new Powerup { name = "Mine", bit = 0x40 },
+            new Powerup { name = "Fast", bit = 0x80 },
+            new Powerup { name = "Water Safety", bit = 0x100 },
+            new Powerup { name = "Decoy", bit = 0x200 },
+            new Powerup { name = "Roll 2", bit = 0x400 },
+            new Powerup { name = "Binoc Upgrade", bit = 0x800 },
+            new Powerup { name = "Slow 2", bit = 0x1000 },
+            new Powerup { name = "Sneaking", bit = 0x2000 },
+            new Powerup { name = "Void Safety", bit = 0x4000 },
+            new Powerup { name = "Stun", bit = 0x8000 },
+        };
+
+        /// <summary>The other unlocks kept with them: Mz. Ruby's powerup and each world's blueprint (GetBlueprintInfo, 0x70288).</summary>
+        public static readonly Powerup[] OtherPowerups = new Powerup[]
+        {
+            new Powerup { name = "Invisibility (Mz. Ruby)", bit = 0x10000 },
+            new Powerup { name = "Blueprint: Tide of Terror", bit = 0x20000000 },
+            new Powerup { name = "Blueprint: Sunset Snake Eyes", bit = 0x40000000 },
+            new Powerup { name = "Blueprint: Vicious Voodoo", bit = unchecked((int)0x80000000) },
+            new Powerup { name = "Blueprint: Fire in the Sky", bit = 0x10000000 },
+        };
+
+        /// <summary>
+        /// The powerups that can be equipped (Triangle uses one, L2 / R2 change it), by their
+        /// number in the game, and the unlocked bits each needs one of (s_mpfspgrfvault, 0x39F9B4).
+        /// </summary>
+        public static readonly string[] EquippablePowerups = new string[] { "Dive", "Roll", "Slow", "Mine", "Fast", "Decoy", "Stun" };
+        public static readonly int[] EquippablePowerupBits = new int[] { 0x12, 0x404, 0x1008, 0x40, 0x80, 0x200, 0x8000 };
+        public const int NoPowerup = -1;
+
+        public int GetPowerups()
+        {
+            return ReadInt(sly1.addr.gameState + sly1.addr.powerupsOffset);
+        }
+
+        public void SetPowerups(int powerups)
+        {
+            api.WriteMemory(pid, sly1.addr.gameState + sly1.addr.powerupsOffset, ConvertIntToBytes(powerups));
+        }
+
+        /// <summary>The equipped powerup's number (see EquippablePowerups), or NoPowerup.</summary>
+        public int GetEquippedPowerup()
+        {
+            int equipped = ReadInt(sly1.addr.equippedPowerup);
+            return equipped >= 0 && equipped < EquippablePowerups.Length ? equipped : NoPowerup;
+        }
+
+        /// <summary>
+        /// Equips a powerup (or NoPowerup), and keeps it as the last one equipped. The game takes
+        /// it off again if it isn't unlocked, or the level doesn't allow it.
+        /// </summary>
+        public void SetEquippedPowerup(int powerup)
+        {
+            byte[] value = ConvertIntToBytes(powerup);
+            api.WriteMemory(pid, sly1.addr.equippedPowerup, value);
+            api.WriteMemory(pid, sly1.addr.gameState + sly1.addr.lastPowerupOffset, value);
+        }
+
         // The last loading state the Practice Mode popup saw: 1 while loading, 0 once done.
         private volatile int popUpLoadingState = -1;
 
