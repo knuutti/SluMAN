@@ -109,6 +109,9 @@ namespace SluMAN
             game.combosActive = true;
             game.InputsTimer.Start();
 
+            // Before the session's own handler, which disconnects: this one still writes to the game.
+            FormClosing += HackpackPractice_FormClosing;
+
             session = new GameSession(this, game, gameNameId, "Hackpack", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
@@ -122,8 +125,6 @@ namespace SluMAN
             RefreshStatus();
             gameCallTimer.Interval = GameCallCheckMs;
             gameCallTimer.Tick += (sender, e) => CheckQueuedWork();
-
-            FormClosing += HackpackPractice_FormClosing;
 
             FreeMove = new Sly4FreeMove(game);
             FreeMove.Stopped += (message) =>
@@ -622,6 +623,9 @@ namespace SluMAN
             {
                 try { game.SetSkipCutscenes(false); } catch { }
             }
+
+            // Put back what the Tunables tab changed; kept tunables are written again next time.
+            try { game.tunables.ResetToDefaults(false); } catch { }
 
             // Put the game's code back. Does nothing if no job or load was started.
             try { game.RemoveCodeHook(); } catch { }
