@@ -115,6 +115,47 @@ namespace SluMAN
         public uint calcRenderMatricesFunction { get; private set; }
         public uint viewOverrideStub { get; private set; }
         public uint viewOverrideData { get; private set; }
+        // The view's flag byte: bit 0x80 has CalcRenderMatrices rebuild it (the fov, near, far and
+        // aspect setters set it)
+        public uint viewFlagsOffset { get; private set; }
+        // The view's post effects: +viewEffectsOffset points to its effect list, whose
+        // +effectDofOffset is the depth of field (startingDistance at +0x18, range at +0x1C),
+        // switched on and off by the byte at +effectEnabledOffset. The camera manager sets the main
+        // view's every frame from the level's Dof settings.
+        public uint viewEffectsOffset { get; private set; }
+        public uint effectDofOffset { get; private set; }
+        public uint effectEnabledOffset { get; private set; }
+
+        // The hacking minigame mechanic draws the world through three layer views of its own (at
+        // +0x128, +0x12C and +0x130 of it, "SystemCracker: TopLayer", "BottomLayer" and
+        // "CompLayer"). Each frame, while the frame is put together and before the view copy the
+        // view override hooks, hackPreRenderCall calls hackPreRenderFunction(mechanic, main
+        // view), which copies the main view's matrix, fov, near and far into them, so they follow
+        // the game's camera, not the free camera. The bottom layer (+hackBottomLayerOffset),
+        // from the main view's depth of field distance on, gets its depth of field turned on every
+        // frame. The free camera points the call at hackPreRenderStub, which first puts SluMAN's
+        // camera into the main view, so the layers copy it, and turns those blurs off.
+        public uint hackPreRenderCall { get; private set; }
+        public uint hackPreRenderFunction { get; private set; }
+        public uint hackPreRenderStub { get; private set; }
+        public uint hackBottomLayerOffset { get; private set; }
+
+        // The renderer's draw lists: begin and end of the entries (8 bytes each: sort key, item)
+        // at +4 and +8, and the number of entries their storage was allocated for at
+        // +drawListCapacityOffset (2048 by default). Items are added through one of
+        // drawListPushFunctions, called through its function descriptor (drawListPushDescriptors,
+        // same order), which writes at the end without checking the capacity. A list that gets more
+        // items in a frame than that (the free camera seeing a whole hacking minigame level) writes
+        // past its storage, and the game then sorts it as emptied, reading before its start: an
+        // access violation in the render thread. While the free camera is on, each descriptor
+        // points at a stub (drawListGuardStubs + i * DrawListGuardStubSize) that drops the item
+        // when the list is full (the padding entries the game adds, item 0, still fit) and
+        // otherwise continues into the push.
+        public uint drawListCapacityOffset { get; private set; }
+        public uint[] drawListPushDescriptors { get; private set; }
+        public uint[] drawListPushFunctions { get; private set; }
+        public uint drawListGuardStubs { get; private set; }
+        public const uint DrawListGuardStubSize = 0x30;
 
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
@@ -285,6 +326,24 @@ namespace SluMAN
                 // since then may still call.
                 viewOverrideStub = 0xF05400,
                 viewOverrideData = 0x11F8A40,
+                viewFlagsOffset = 0x34,
+                viewEffectsOffset = 0x290,
+                effectDofOffset = 0xC,
+                effectEnabledOffset = 0x4,
+
+                // In the frame's render submission (0x45A208), which has the game manager in r31
+                // and the main view in r27.
+                hackPreRenderCall = 0x45A42C,
+                hackPreRenderFunction = 0x3DD2A0,
+                // After the code hook's stub (0xF05500, 0xB4 bytes); never used before.
+                hackPreRenderStub = 0xF05600,
+                hackBottomLayerOffset = 0x12C,
+
+                drawListCapacityOffset = 0x9C,
+                drawListPushDescriptors = new uint[] { 0xF3B408, 0xF3B410, 0xF3BA08, 0xF3BA18, 0xF3BA28 },
+                drawListPushFunctions = new uint[] { 0x51384C, 0x513868, 0x7A1120, 0x7A1290, 0x7A1400 },
+                // After the hack stub (0xF05600, 0xE8 bytes); never used before.
+                drawListGuardStubs = 0xF05700,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,
