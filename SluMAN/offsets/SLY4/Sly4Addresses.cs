@@ -140,6 +140,23 @@ namespace SluMAN
         public uint hackPreRenderStub { get; private set; }
         public uint hackBottomLayerOffset { get; private set; }
 
+        // The renderer's draw lists: begin and end of the entries (8 bytes each: sort key, item)
+        // at +4 and +8, and the number of entries their storage was allocated for at
+        // +drawListCapacityOffset (2048 by default). Items are added through one of
+        // drawListPushFunctions, called through its function descriptor (drawListPushDescriptors,
+        // same order), which writes at the end without checking the capacity. A list that gets more
+        // items in a frame than that (the free camera seeing a whole hacking minigame level) writes
+        // past its storage, and the game then sorts it as emptied, reading before its start: an
+        // access violation in the render thread. While the free camera is on, each descriptor
+        // points at a stub (drawListGuardStubs + i * DrawListGuardStubSize) that drops the item
+        // when the list is full (the padding entries the game adds, item 0, still fit) and
+        // otherwise continues into the push.
+        public uint drawListCapacityOffset { get; private set; }
+        public uint[] drawListPushDescriptors { get; private set; }
+        public uint[] drawListPushFunctions { get; private set; }
+        public uint drawListGuardStubs { get; private set; }
+        public const uint DrawListGuardStubSize = 0x30;
+
         // Player offsets (from the player ref)
         public uint playerFlagsOffset { get; private set; }
         public uint characterControllerOffset { get; private set; }
@@ -321,6 +338,12 @@ namespace SluMAN
                 // After the code hook's stub (0xF05500, 0xB4 bytes); never used before.
                 hackPreRenderStub = 0xF05600,
                 hackBottomLayerOffset = 0x12C,
+
+                drawListCapacityOffset = 0x9C,
+                drawListPushDescriptors = new uint[] { 0xF3B408, 0xF3B410, 0xF3BA08, 0xF3BA18, 0xF3BA28 },
+                drawListPushFunctions = new uint[] { 0x51384C, 0x513868, 0x7A1120, 0x7A1290, 0x7A1400 },
+                // After the hack stub (0xF05600, 0xE8 bytes); never used before.
+                drawListGuardStubs = 0xF05700,
 
                 playerFlagsOffset = 0xC0,
                 characterControllerOffset = 0x18C,

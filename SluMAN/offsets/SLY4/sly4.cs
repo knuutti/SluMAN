@@ -680,7 +680,89 @@ namespace SluMAN
             }
             api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
             StartHackPreRenderHook();
+            StartDrawListGuard();
             api.WriteMemory(pid, addr.viewOverrideData, BitConverter.GetBytes(1u).Reverse().ToArray());
+        }
+
+        /// <summary>
+        /// Points the draw lists' push functions at stubs that drop an item when its list is full
+        /// (see Sly4Addresses), so a free camera that sees more than the game's cameras ever do
+        /// leaves some things undrawn rather than crashing the game. Each push whose code isn't
+        /// what this version should have is left as it is.
+        /// </summary>
+        private void StartDrawListGuard()
+        {
+            for (int i = 0; i < addr.drawListPushDescriptors.Length; i++)
+            {
+                uint descriptor = addr.drawListPushDescriptors[i];
+                uint push = addr.drawListPushFunctions[i];
+                uint guard = addr.drawListGuardStubs + (uint)i * Sly4Addresses.DrawListGuardStubSize;
+                uint code = ReadUInt(descriptor);
+                if (code != push && code != guard)
+                {
+                    continue;
+                }
+
+                byte[] stub = DrawListGuardStub(guard, push);
+                byte[] written = api.ReadMemory(pid, guard, (uint)stub.Length);
+                if (!written.SequenceEqual(stub))
+                {
+                    // Only into unused memory, never rewritten in place (see StartHackPreRenderHook).
+                    if (code == guard || written.Any(b => b != 0))
+                    {
+                        continue;
+                    }
+                    api.WriteMemory(pid, guard, stub);
+                    if (!api.ReadMemory(pid, guard, (uint)stub.Length).SequenceEqual(stub))
+                    {
+                        continue;
+                    }
+                }
+                api.WriteMemory(pid, descriptor, BitConverter.GetBytes(guard).Reverse().ToArray());
+            }
+        }
+
+        private void StopDrawListGuard()
+        {
+            for (int i = 0; i < addr.drawListPushDescriptors.Length; i++)
+            {
+                uint descriptor = addr.drawListPushDescriptors[i];
+                uint guard = addr.drawListGuardStubs + (uint)i * Sly4Addresses.DrawListGuardStubSize;
+                if (ReadUInt(descriptor) == guard)
+                {
+                    api.WriteMemory(pid, descriptor, BitConverter.GetBytes(addr.drawListPushFunctions[i]).Reverse().ToArray());
+                }
+            }
+        }
+
+        /// <summary>
+        /// A draw list push's guard, called with the list in r3 and the item in r4: returns without
+        /// adding anything when the list holds capacity - 1 entries (capacity for item 0, the
+        /// padding the game adds), otherwise continues into the push. r11 and r12 are free at a
+        /// call, and the pushes set them before reading them.
+        /// </summary>
+        private byte[] DrawListGuardStub(uint stub, uint push)
+        {
+            uint[] words =
+            {
+                0x81630004,             //  0 lwz r11, 4(r3) (begin)
+                0x81830008,             //  1 lwz r12, 8(r3) (end)
+                0x7D8B6050,             //  2 subf r12, r11, r12
+                0x558CE8FE,             //  3 srwi r12, r12, 3 (entries)
+                0x81630000 | addr.drawListCapacityOffset, // 4 lwz r11, capacity(r3)
+                0x2C040000,             //  5 cmpwi r4, 0
+                0x41820008,             //  6 beq +8 (padding: may fill the last entry)
+                0x396BFFFF,             //  7 addi r11, r11, -1
+                0x7C0C5840,             //  8 cmplw r12, r11
+                0x4C800020,             //  9 bgelr (full: drop it)
+                Branch(stub + 10 * 4, push, false), // 10 b push
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
         }
 
         /// <summary>
@@ -827,6 +909,7 @@ namespace SluMAN
             {
                 api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
             }
+            StopDrawListGuard();
             RestoreViewAfterOverride();
         }
 
