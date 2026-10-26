@@ -1,10 +1,11 @@
 # Bentley's Hackpack levels: level | English name
 #
-# Practice Mode's level list comes from the game's own level table, so it always has every level;
-# this file only names them. The level is its name as Scripts/Sly4HackPackLevels.xml (in
-# Sly4HackPack.psarc) writes it, which SluMAN hashes the way the game does, or its hash as 0x and
-# 8 hex digits (the hash a level without a name shows as in Practice Mode). Write the English name
-# after the |; without one, the level's own name shows. Named levels are listed in this file's order.
+# Practice Mode's level list comes from the game's own level table (without the development levels,
+# whose data isn't in the game), so it always has every level; this file only names them. The level
+# is its name as Scripts/Sly4HackPackLevels.xml (in Sly4HackPack.psarc) writes it, which SluMAN
+# hashes the way the game does, or its hash as 0x and 8 hex digits (the hash a level without a name
+# shows as in Practice Mode). Write the English name after the |; without one, the level's own name
+# shows. Named levels are listed in this file's order.
 
 FrontEnd | Hub
 
@@ -70,18 +71,3 @@ AlterEgoQ | Alter Ego Q
 AlterEgoR | Alter Ego R
 AlterEgoS | Alter Ego S
 AlterEgoT | Alter Ego T
-
-# Development levels (paths under Dev/). The game drops these from its table at boot, so they
-# normally don't show up.
-AlterEgoX | Alter Ego X (dev)
-AnimationViewer | Animation Viewer (dev)
-Bill Test | Bill Test (dev)
-Character Test | Character Test (dev)
-BrianK Test | BrianK Test (dev)
-Daniel Test | Daniel Test (dev)
-Gari Test | Gari Test (dev)
-Grace Test | Grace Test (dev)
-Jeremy Test | Jeremy Test (dev)
-Ken Test | Ken Test (dev)
-Kalyan Test | Kalyan Test (dev)
-Eli Test | Eli Test (dev)

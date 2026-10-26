@@ -1339,11 +1339,13 @@ namespace SluMAN
 
         // More nodes than this is a bad read, not the level table.
         private const int MaxLevelTableNodes = 1000;
+        private const string DevLevelPathPrefix = "Dev/";
 
         /// <summary>
         /// The Hackpack's levels, from the game's level table (see HackpackAddresses): every
-        /// level LoadLevel can load, named from data/hackpack_levels.txt where it's listed and
-        /// otherwise shown as its hash and the path the game keeps for it.
+        /// level LoadLevel can load (not the development levels), named from
+        /// data/hackpack_levels.txt where it's listed and otherwise shown as its hash and the path
+        /// the game keeps for it.
         /// </summary>
         public List<LevelEntry> ReadHackpackLevels()
         {
@@ -1377,15 +1379,18 @@ namespace SluMAN
                 nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeRightOffset));
                 nodes.Push(BigEndianUInt(bytes, Sly4Addresses.LevelNodeLeftOffset));
 
+                // Development levels (paths under Dev/) have no level data in the game's archive,
+                // and a node without a path isn't a level, so neither loads anything.
+                string path = record == 0 ? "" : ReadPrintableString(record + addr.levelRecordPathOffset);
+                if (path.Length == 0 || path.StartsWith(DevLevelPathPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 string name = HackpackLevels.GetName(hash);
                 if (name == null)
                 {
-                    name = hash.ToString("X8");
-                    string path = record == 0 ? "" : ReadPrintableString(record + addr.levelRecordPathOffset);
-                    if (path.Length > 0)
-                    {
-                        name += $" ({path})";
-                    }
+                    name = $"{hash:X8} ({path})";
                 }
                 levels.Add(new LevelEntry { hash = hash, name = name });
             }

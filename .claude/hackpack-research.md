@@ -57,7 +57,8 @@ code skips levels whose path starts with `Dev/`). Level names aren't in the EBOO
 Binaries decrypts with the klicensee the game passes to `sceNpDrmIsAvailable2`
 (`8D13952E4ABDCD0C058E8B9DC87696EC`, at `0x8AD244`). The levels are `FrontEnd` (path `UI/Frontend`),
 `SystemCrackerA`-`T`, `SparkRunnerA`-`T` and `AlterEgoA`-`T` (paths like `AlterEgo/AlterEgoA`),
-plus development levels under `Dev/`; the XMB stores each name's hash (`sly4.Hash`) next to it.
+plus development levels under `Dev/`, whose level data isn't in the archive (SluMAN leaves them, and nodes
+without a path, out of the list); the XMB stores each name's hash (`sly4.Hash`) next to it.
 
 ## Views and free camera
 
