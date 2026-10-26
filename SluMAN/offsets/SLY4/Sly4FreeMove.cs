@@ -37,6 +37,8 @@ namespace SluMAN
         private const float DefaultFov = 0.9338f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
         private const float MaxPitch = (float)(Math.PI / 2);
+        // A facing with less horizontal length than this counts as straight up or down.
+        private const float VerticalFacing = 0.05f;
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
 
@@ -593,10 +595,23 @@ namespace SluMAN
                 }
             }
             float[] forward = Scale(z, forwardSign);
-            yaw = (float)Math.Atan2(forward[0], forward[2]);
             pitch = (float)Math.Asin(Math.Max(-1, Math.Min(1, forward[1])));
+            if (forward[0] * forward[0] + forward[2] * forward[2] > VerticalFacing * VerticalFacing)
+            {
+                yaw = (float)Math.Atan2(forward[0], forward[2]);
+            }
+            else
+            {
+                // Looking (nearly) straight up or down, as Spark Runner's camera does, the facing
+                // doesn't tell the yaw, but the camera's X axis (horizontal) still does. Taking it
+                // from the facing there put the camera at yaw 0 whichever way it was turned, which
+                // could also mirror it: the view turned around and its lit faces went dark.
+                float[] x = Axis(m, 0);
+                yaw = (float)Math.Atan2(-x[2], x[0]);
+            }
 
-            float[] right = RightOf(forward);
+            // The right from the yaw, which is defined looking straight up or down too.
+            float[] right = RightOfYaw();
             float[] up = Cross(forward, right);
             rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
@@ -671,8 +686,8 @@ namespace SluMAN
             r3WasPressed = r3;
 
             // The view turns towards the screen's right as the yaw drops only while the camera's
-            // X axis and its facing agree in sign, as in every unmirrored camera. Spark Runner's
-            // is mirrored (fixed axes the game builds it from), which turned the stick around.
+            // X axis and its facing agree in sign, as in every unmirrored camera; for a mirrored
+            // one the stick turns the other way round.
             yaw -= Stick(Inputs.rx) * LookSpeed * step * rightSign * forwardSign;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
@@ -779,11 +794,6 @@ namespace SluMAN
         private float[] RightOfYaw()
         {
             return new float[] { (float)Math.Cos(yaw), 0, (float)-Math.Sin(yaw) };
-        }
-
-        private static float[] RightOf(float[] forward)
-        {
-            return Normalize(new float[] { forward[2], 0, -forward[0] });
         }
 
         private static float[] Flatten(float[] v)
