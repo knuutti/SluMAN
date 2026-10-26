@@ -382,7 +382,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 0, val);
+                game.Warp(() => WritePosition(transformPtr, 0, val));
                 if (freezePosXCheckBox.Checked) frozenPosX = val;
             }
             catch { }
@@ -394,7 +394,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 1, val);
+                game.Warp(() => WritePosition(transformPtr, 1, val));
                 if (freezePosYCheckBox.Checked) frozenPosY = val;
             }
             catch { }
@@ -406,7 +406,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 2, val);
+                game.Warp(() => WritePosition(transformPtr, 2, val));
                 if (freezePosZCheckBox.Checked) frozenPosZ = val;
                 if (FlyModeEnabled) flyFrozenZ = val;
             }
@@ -745,9 +745,12 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 0, loc.X);
-                WritePosition(transformPtr, 1, loc.Y);
-                WritePosition(transformPtr, 2, loc.Z);
+                game.Warp(() =>
+                {
+                    WritePosition(transformPtr, 0, loc.X);
+                    WritePosition(transformPtr, 1, loc.Y);
+                    WritePosition(transformPtr, 2, loc.Z);
+                });
                 if (FlyModeEnabled) flyFrozenZ = loc.Z;
             }
             catch { }

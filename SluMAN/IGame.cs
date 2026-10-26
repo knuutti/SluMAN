@@ -125,6 +125,102 @@ namespace SluMAN
         public abstract void LoadPosition();
 
         /// <summary>
+        /// Moves the player by running write, which sets the position. Games where moving across
+        /// a death plane kills the player even when the end point is safe override this.
+        /// </summary>
+        public virtual void Warp(Action write)
+        {
+            write();
+        }
+
+        // How long a warp keeps the player invulnerable, long enough for the game to have moved
+        // them before the flag goes back off.
+        private const int WarpInvulnerabilityMs = 500;
+
+        private Timer warpInvulnerabilityTimer;
+        private uint warpInvulnerabilityAddress;
+        private Func<uint> warpInvulnerabilityAddressReader;
+
+        /// <summary>
+        /// Runs write with the active character's invulnerability flag on, so a warp through a
+        /// death plane doesn't kill them. readFlagAddress gives the flag's address, 0 if there's
+        /// no character. A flag that is already on (Invulnerability checked) is left alone;
+        /// otherwise it goes back off shortly after the warp.
+        /// </summary>
+        protected void WarpWithInvulnerability(Func<uint> readFlagAddress, Action write)
+        {
+            uint flagAddress = 0;
+            try
+            {
+                flagAddress = readFlagAddress();
+            }
+            catch { }
+
+            bool alreadyTemporary = warpInvulnerabilityTimer != null && warpInvulnerabilityTimer.Enabled
+                && flagAddress == warpInvulnerabilityAddress;
+            bool turnedOn = false;
+            if (flagAddress != 0 && !alreadyTemporary)
+            {
+                try
+                {
+                    byte[] flag = api.ReadMemory(pid, flagAddress, 4);
+                    if (BitConverter.ToUInt32(flag.Reverse().ToArray(), 0) == 0)
+                    {
+                        // A pending restore belongs to another character, which a load replaced.
+                        CancelWarpInvulnerability();
+                        api.WriteMemory(pid, flagAddress, 1u);
+                        turnedOn = true;
+                    }
+                }
+                catch { }
+            }
+
+            write();
+
+            if (turnedOn || alreadyTemporary)
+            {
+                if (warpInvulnerabilityTimer == null)
+                {
+                    warpInvulnerabilityTimer = new Timer();
+                    warpInvulnerabilityTimer.Interval = WarpInvulnerabilityMs;
+                    warpInvulnerabilityTimer.Tick += warpInvulnerabilityTimer_Tick;
+                }
+                warpInvulnerabilityAddress = flagAddress;
+                warpInvulnerabilityAddressReader = readFlagAddress;
+                // Restarting it gives a second warp the full time too.
+                warpInvulnerabilityTimer.Stop();
+                warpInvulnerabilityTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// Leaves the flag a warp turned on as it is. Called when Invulnerability is toggled, which
+        /// then owns the flag.
+        /// </summary>
+        protected void CancelWarpInvulnerability()
+        {
+            if (warpInvulnerabilityTimer != null)
+            {
+                warpInvulnerabilityTimer.Stop();
+            }
+        }
+
+        private void warpInvulnerabilityTimer_Tick(object sender, EventArgs e)
+        {
+            warpInvulnerabilityTimer.Stop();
+            try
+            {
+                // After a load or a character switch the flag belongs to an entity that's gone,
+                // or to one that never had it turned on.
+                if (warpInvulnerabilityAddressReader() == warpInvulnerabilityAddress)
+                {
+                    api.WriteMemory(pid, warpInvulnerabilityAddress, 0u);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
         /// Reloads the game from the last checkpoint. Games without a reload leave this empty.
         /// </summary>
         public virtual void LoadGame() { }

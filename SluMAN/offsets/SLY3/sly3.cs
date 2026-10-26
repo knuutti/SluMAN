@@ -206,7 +206,20 @@ namespace SluMAN
             }
 
             uint coordsAddress = GetPlayerCoordsAddress();
-            api.WriteMemory(pid, coordsAddress, 12, position);
+            Warp(() => api.WriteMemory(pid, coordsAddress, 12, position));
+        }
+
+        /// <summary>
+        /// Moving across a death plane kills the player even when the end point is safe, so the
+        /// warp keeps them invulnerable while the game catches up.
+        /// </summary>
+        public override void Warp(Action write)
+        {
+            WarpWithInvulnerability(() =>
+            {
+                uint entity = GetEntityAddress();
+                return entity == 0 ? 0 : entity + 0x17C;
+            }, write);
         }
 
         public override void LoadGame()
@@ -439,6 +452,7 @@ namespace SluMAN
 
         public void SetInvulnerability(bool enabled)
         {
+            CancelWarpInvulnerability();
             uint entity = GetEntityAddress();
             api.WriteMemory(pid, entity + 0x17C, ConvertIntToBytes(enabled ? 1 : 0));
         }
