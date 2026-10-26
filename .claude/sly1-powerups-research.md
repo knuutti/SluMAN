@@ -64,44 +64,52 @@ The 7 equipped powerups each need any of these bits (`s_mpfspgrfvault`, `0x39F9B
 
 ## The bits
 
-From the vault order, the table above, and what the code testing each bit does. Names from the
-[Sly Cooper Wiki](https://slycooper.fandom.com/wiki/Category:Power-ups_in_Sly_Cooper_and_the_Thievius_Raccoonus):
+Every third vault opened in a world gives the world's blueprint (`GetBlueprintInfo`, `0x70288`),
+not a powerup. That leaves 15 powerup vaults (World 1 has 6 vaults, World 2 has 5, Worlds 3 and 4
+have 4 each, minus one blueprint per world), giving bits `0x2` to `0x8000` in this fixed order.
+Names and cutscene timings come from the user. Each timing is NTSC frames from the first frame of
+the final input on the final digit to the first frame Sly can act.
 
-| Bit | From | Powerup | How sure |
+| # | Bit | Powerup | Cutscene |
 |---|---|---|---|
-| `0x1` | ? (not a vault, not a boss) | ? | tested in `0xBF998` |
-| `0x2` | vault 1 | Dive | sure (table; the wiki says the first vault) |
-| `0x4` | vault 2 | Roll | sure (table; the wiki says the second vault) |
-| `0x8` | vault 3 | Slow (in the air) | sure (table) |
-| `0x10` | vault 4 | Dive upgrade (in mid-air too, collects coins) | sure (table; the wiki says the fourth vault) |
-| `0x20` | vault 5 | ? passive | tested in `0x4E2BC` |
-| `0x40` | vault 6 | Mine | sure (table) |
-| `0x80` | vault 7 | Fast | sure (table; the wiki says the seventh vault) |
-| `0x100` | vault 8 | ? passive | tested in Sly's code, `0x125388` |
-| `0x200` | vault 9 | Decoy | sure (table) |
-| `0x400` | vault 10 | Roll upgrade | sure (table) |
-| `0x800` | vault 11 | ? passive | tested in `0x2B95C`, `0x2EA98` (Sly's update) |
-| `0x1000` | vault 12 | Slow upgrade (on the ground too) | sure (table; the slow code tests it) |
-| `0x2000` | vault 13 | Shadow Power? (moving while invisible) | tested with `0x10000` in guard code |
-| `0x4000` | vault 14 | ? passive | tested in `0x125388` |
-| `0x8000` | vault 15 | Stun | sure (table; the wiki says it comes last) |
-| `0x10000` | Mz. Ruby | Invisibility? | sure it's her reward; the name is a guess |
-| `0x20000` | ? | ? | tested in `0xC0B6C` |
-| `0xF0000000` | ? | ? (`0xBE2E4` tests these together) | |
+| 1 | `0x2` | Dive 1 | 1533 frames (25.55 s) |
+| 2 | `0x4` | Roll 1 | 1885 (31.42 s) |
+| 3 | `0x8` | Slow 1 | 1862 (31.04 s) |
+| 4 | `0x10` | Dive 2 | 1809 (30.15 s) |
+| 5 | `0x20` | Magnet | 1899 (31.65 s) |
+| 6 | `0x40` | Mine | 1831 (30.52 s) |
+| 7 | `0x80` | Fast | 1727 (28.79 s) |
+| 8 | `0x100` | Water Safety | 1610 (26.84 s) |
+| 9 | `0x200` | Decoy | 1754 (29.24 s) |
+| 10 | `0x400` | Roll 2 | 1872 (31.20 s) |
+| 11 | `0x800` | Binoc Upgrade | 1813 (30.22 s) |
+| 12 | `0x1000` | Slow 2 | 1781 (29.69 s) |
+| 13 | `0x2000` | Sneaking | 1863 (31.05 s) |
+| 14 | `0x4000` | Void Safety | 1923 (32.05 s) |
+| 15 | `0x8000` | Stun | 1876 (31.27 s) |
 
-The other passives on the wiki are Coin Magnet, Water Safety, Computer Hacking and Defy Gravity.
-They're probably among `0x20`, `0x100`, `0x800` and `0x4000`. Telling which needs the game: set
-`0x3E8000` to one bit and look at the pause menu's Thievius Raccoonus.
+The other bits:
 
-## A Powerups tab
+| Bit | Unlock | Cutscene |
+|---|---|---|
+| `0x10000` | Invisibility (defeating Mz. Ruby) | |
+| `0x20000000` | Blueprint: Tide of Terror | 1857 (30.95 s) |
+| `0x40000000` | Blueprint: Sunset Snake Eyes | 1594 (26.57 s) |
+| `0x80000000` | Blueprint: Vicious Voodoo | 1491 (24.85 s) |
+| `0x10000000` | Blueprint: Fire in the Sky | 1265 (21.09 s) |
+| `0x1`, `0x20000` | unknown (tested in `0xBF998` and `0xC0B6C`) | |
 
-Like Sly 2-4's Gadgets tab:
+`0x2000` (Sneaking) and `0x10000` (Invisibility) are tested together in the guard code. The
+blueprint bits come from `GetBlueprintInfo`'s jump table on the current world.
+
+## The Powerups tab
+
+`Sly1PowerupsForm`, like Sly 2-4's Gadgets tab:
 
 - A checked list of the powerups (the bits above, named), with select all / none. Save writes
   `grfvault` (`0x3E8000`), and Discard reads it again. Bits SluMAN doesn't list are kept as they are.
 - An **Equipped** box listing the unlocked equippable powerups (and None). It writes `g_fsp`
   (`0x39F9B0`) and `fspLast` (`0x3E800C`). The game drops it if it isn't available.
-- Perhaps **Allow in every level**: write `0xFFFFFFFF` to the level's allowed mask
-  (`*0xE5E8D8 + 0x235C`) after each load, so unlocked powerups also work where the level would
-  block them. A load puts the level's own mask back.
-- Saving the set to the run-file config as Sly 3 does (`_GadgetUnlocks`) could come later.
+- Not done: **Allow in every level** (writing `0xFFFFFFFF` to the level's allowed mask,
+  `*0xE5E8D8 + 0x235C`, after each load), and saving the set to the run-file config as Sly 3 does
+  (`_GadgetUnlocks`).
