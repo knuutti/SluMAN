@@ -37,10 +37,32 @@ namespace SluMAN
             statusLine = new StatusLine(this, true);
 
             game.SetupInputDisplayMemorySubs();
+            ResetTunables();
 
             session = new GameSession(this, game, gameNameId, "Sly 4", true);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.BindAutosplitter(autosplitterCheckBox);
+        }
+
+        /// <summary>
+        /// Puts back tunables a Practice Mode that didn't get to close properly left changed, so
+        /// runs aren't done with them.
+        /// </summary>
+        private void ResetTunables()
+        {
+            if (game.tunables.ChangedCount == 0)
+            {
+                return;
+            }
+            try
+            {
+                int reset = game.tunables.ResetToDefaults(false);
+                statusLine.Info($"Put {reset} tunables changed in Practice Mode back to their defaults.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't reset the tunables changed in Practice Mode: {ex.Message}");
+            }
         }
 
         private void BuildMenu()

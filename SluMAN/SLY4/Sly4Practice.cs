@@ -843,6 +843,9 @@ namespace SluMAN
                 try { game.SetSkipCutscenes(false); } catch { }
             }
 
+            // Put back what the Tunables tab changed; kept tunables are written again next time.
+            try { game.tunables.ResetToDefaults(false); } catch { }
+
             // Put the game's code back. Does nothing if no warp was used.
             try { game.RemoveCodeHook(); } catch { }
         }
