@@ -562,6 +562,488 @@ namespace SluMAN
             });
         }
 
+        /// <summary>Whether a level is loading, or a load is about to start.</summary>
+        public bool IsLevelLoading()
+        {
+            return ReadInt(sly1.addr.loadingState) != 0 || ReadInt(sly1.addr.reloadBlock) != 0;
+        }
+
+        /// <summary>Where the player's position is (3 floats), or 0 when there's no player.</summary>
+        public uint GetPlayerPositionAddress()
+        {
+            uint entity = GetActiveEntity();
+            return entity == 0 ? 0 : entity + sly1.addr.transformOffset + sly1.addr.positionOffset;
+        }
+
+        public float[] ReadPositionAt(uint address)
+        {
+            byte[] bytes = api.ReadMemory(pid, address, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        /// <summary>Puts the player at a position (from GetPlayerPositionAddress) and stops them there.</summary>
+        public void HoldPlayerAt(uint positionAddress, float[] position)
+        {
+            byte[] bytes = new byte[12];
+            for (int axis = 0; axis < 3; axis++)
+            {
+                Array.Copy(ConvertFloatToBytes(position[axis]), 0, bytes, axis * 4, 4);
+            }
+            api.WriteMemory(pid, positionAddress, bytes);
+            api.WriteMemory(pid, positionAddress - sly1.addr.positionOffset + sly1.addr.velocityOffset, new byte[12]);
+        }
+
+        // g_grfjoyt's bits and g_grfusr's, as UpdateGrfjoytFromGrfusr uses them.
+        private const int InputTargetPlayer = 0x2;
+        private const int UserStateMenu = 0x1;
+        private const int UserStateHandsOff = 0x2;
+        private const int UserStateOff = 0x84;
+
+        /// <summary>
+        /// Stops the controller from moving the player (Sly, and his binocucom), or gives it back
+        /// as the game would have it. The game works the targets out again when its state
+        /// changes (a cutscene, the pause menu), so keep blocking while it should hold.
+        /// </summary>
+        public void SetPlayerControlBlocked(bool blocked)
+        {
+            int targets = ReadInt(sly1.addr.inputTargets);
+            if (blocked)
+            {
+                if ((targets & InputTargetPlayer) != 0)
+                {
+                    api.WriteMemory(pid, sly1.addr.inputTargets, ConvertIntToBytes(targets & ~InputTargetPlayer));
+                }
+                return;
+            }
+
+            int state = ReadInt(sly1.addr.userState);
+            int gameTargets;
+            if ((state & UserStateOff) != 0)
+            {
+                gameTargets = 0;
+            }
+            else if ((state & UserStateMenu) != 0)
+            {
+                gameTargets = 5;
+            }
+            else if ((state & UserStateHandsOff) != 0)
+            {
+                gameTargets = 4;
+            }
+            else
+            {
+                gameTargets = 7;
+            }
+            if (targets != gameTargets)
+            {
+                api.WriteMemory(pid, sly1.addr.inputTargets, ConvertIntToBytes(gameTargets));
+            }
+        }
+
+        // --- Camera ---
+
+        /// <summary>
+        /// The part of a camera the camera hook puts in, and what it's worked out from. Vectors
+        /// keep their W values.
+        /// </summary>
+        public class CameraState
+        {
+            // X, Y, Z, W
+            public float[] position = new float[4];
+            // The forward, left and up rows, each X, Y, Z, W. Z is up.
+            public float[] rotation = new float[12];
+            public float lodScale;
+            // 4x4, row by row
+            public float[] projection = new float[16];
+            public float lodFov;
+            public float fov;
+            public float fovTarget;
+            public float aspect;
+            // tan(fov / 2) * aspect, tan(fov / 2)
+            public float[] frustum = new float[2];
+
+            public CameraState Clone()
+            {
+                CameraState copy = (CameraState)MemberwiseClone();
+                copy.position = (float[])position.Clone();
+                copy.rotation = (float[])rotation.Clone();
+                copy.projection = (float[])projection.Clone();
+                copy.frustum = (float[])frustum.Clone();
+                return copy;
+            }
+
+            /// <summary>
+            /// The projection, frustum and LOD scale for another field of view (radians), worked
+            /// out as the game does (RecalcCmFrustrum) from these ones. False when these aren't a
+            /// camera's.
+            /// </summary>
+            public bool SetFov(CameraState from, float newFov)
+            {
+                if (from.frustum[0] <= 0 || from.frustum[1] <= 0 || newFov <= 0)
+                {
+                    return false;
+                }
+                float tanY = (float)Math.Tan(newFov / 2);
+                float tanX = tanY * from.aspect;
+                projection = (float[])from.projection.Clone();
+                projection[0] = from.projection[0] * from.frustum[0] / tanX;
+                projection[5] = from.projection[5] * from.frustum[1] / tanY;
+                frustum = new float[] { tanX, tanY };
+                lodScale = Math.Max(1, from.lodFov / newFov);
+                fov = newFov;
+                fovTarget = newFov;
+                return true;
+            }
+        }
+
+        /// <summary>The main camera (the CM struct), or 0 before the game has one.</summary>
+        public uint GetMainCamera()
+        {
+            return (uint)ReadInt(sly1.addr.cameraPointer);
+        }
+
+        // The camera is read from its position to the end of the frustum in one read.
+        private const uint CameraBlockSize = 0x1B8;
+
+        public CameraState ReadCamera(uint camera)
+        {
+            uint start = camera + sly1.addr.cameraPositionOffset;
+            byte[] bytes = api.ReadMemory(pid, start, CameraBlockSize);
+            Func<uint, int> at = (offset) => (int)(offset - sly1.addr.cameraPositionOffset);
+
+            CameraState state = new CameraState();
+            ReadFloats(bytes, at(sly1.addr.cameraPositionOffset), state.position);
+            ReadFloats(bytes, at(sly1.addr.cameraRotationOffset), state.rotation);
+            ReadFloats(bytes, at(sly1.addr.cameraProjectionOffset), state.projection);
+            ReadFloats(bytes, at(sly1.addr.cameraFrustumOffset), state.frustum);
+            state.lodScale = ToFloat(bytes, at(sly1.addr.cameraLodScaleOffset));
+            state.lodFov = ToFloat(bytes, at(sly1.addr.cameraLodFovOffset));
+            state.fov = ToFloat(bytes, at(sly1.addr.cameraFovOffset));
+            state.fovTarget = ToFloat(bytes, at(sly1.addr.cameraFovTargetOffset));
+            state.aspect = ToFloat(bytes, at(sly1.addr.cameraAspectOffset));
+            return state;
+        }
+
+        /// <summary>
+        /// Writes a camera's field of view, its target, projection, frustum and LOD scale (to give
+        /// the game back its own).
+        /// </summary>
+        public void WriteCameraFov(uint camera, CameraState state)
+        {
+            api.WriteMemory(pid, camera + sly1.addr.cameraFovOffset, FloatsToBytes(new float[] { state.fov, state.fovTarget }));
+            api.WriteMemory(pid, camera + sly1.addr.cameraProjectionOffset, FloatsToBytes(state.projection));
+            api.WriteMemory(pid, camera + sly1.addr.cameraFrustumOffset, FloatsToBytes(state.frustum));
+            api.WriteMemory(pid, camera + sly1.addr.cameraLodScaleOffset, ConvertFloatToBytes(state.lodScale));
+        }
+
+        // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
+        // the camera in (so SluMAN can tell it runs), +0xC SluMAN's mark. The values put in are
+        // at their offsets in the camera (+0x40 to +0x1F8), and the list of word offsets the stub
+        // copies (ending with 0) at +0x200.
+        private const uint CameraHookMark = 0x534C4D31; // "SLM1"
+        private const uint CameraHookListOffset = 0x200;
+
+        /// <summary>
+        /// The camera's word offsets the stub copies: the position, rotation, LOD scale,
+        /// projection, field of view and its target, and frustum.
+        /// </summary>
+        private static List<uint> CameraHookOffsets()
+        {
+            List<uint> offsets = new List<uint>();
+            Action<uint, int> add = (offset, words) =>
+            {
+                for (int i = 0; i < words; i++)
+                {
+                    offsets.Add(offset + (uint)i * 4);
+                }
+            };
+            add(sly1.addr.cameraPositionOffset, 4);
+            add(sly1.addr.cameraRotationOffset, 12);
+            add(sly1.addr.cameraLodScaleOffset, 1);
+            add(sly1.addr.cameraProjectionOffset, 16);
+            add(sly1.addr.cameraFovOffset, 1);
+            add(sly1.addr.cameraFovTargetOffset, 1);
+            add(sly1.addr.cameraFrustumOffset, 2);
+            return offsets;
+        }
+
+        private static uint CameraHookDataSize()
+        {
+            return CameraHookListOffset + (uint)(CameraHookOffsets().Count + 1) * 4;
+        }
+
+        /// <summary>
+        /// Starts the camera hook for a camera: from the next frame, the game's camera matrix
+        /// update puts the state given to SetCameraHookState into the camera before working out
+        /// the matrices it's drawn with.
+        /// </summary>
+        public void StartCameraHook(uint camera, CameraState state)
+        {
+            uint function = sly1.addr.cameraMatrixUpdateFunction;
+            uint stub = sly1.addr.cameraHookStub;
+            uint data = sly1.addr.cameraHookData;
+            foreach (uint call in sly1.addr.cameraMatrixUpdateCalls)
+            {
+                CheckCall(call, function, stub, true);
+            }
+            foreach (uint call in sly1.addr.cameraMatrixUpdateTailCalls)
+            {
+                CheckCall(call, function, stub, false);
+            }
+
+            // Both go in unused memory: zeros, or what SluMAN put there before.
+            byte[] code = CameraHookStub();
+            byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in isn't empty. Restart the game, or the camera hook isn't available on this version.");
+            }
+            uint dataSize = CameraHookDataSize();
+            byte[] dataThere = api.ReadMemory(pid, data, dataSize);
+            if ((uint)ReadInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
+            }
+
+            // Off while the stub and the values are written, then on.
+            byte[] header = new byte[0x10];
+            Array.Copy(BitConverter.GetBytes(camera).Reverse().ToArray(), 0, header, 4, 4);
+            Array.Copy(BitConverter.GetBytes(CameraHookMark).Reverse().ToArray(), 0, header, 0xC, 4);
+            api.WriteMemory(pid, data, header);
+            SetCameraHookState(state);
+            List<uint> offsets = CameraHookOffsets();
+            offsets.Add(0);
+            api.WriteMemory(pid, data + CameraHookListOffset, WordsToBytes(offsets.ToArray()));
+            if (!codeThere.SequenceEqual(code))
+            {
+                api.WriteMemory(pid, stub, code);
+                if (!api.ReadMemory(pid, stub, (uint)code.Length).SequenceEqual(code))
+                {
+                    throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
+                }
+            }
+            api.WriteMemory(pid, data, BitConverter.GetBytes(1u).Reverse().ToArray());
+            foreach (uint call in sly1.addr.cameraMatrixUpdateCalls)
+            {
+                api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, stub, true)).Reverse().ToArray());
+            }
+            foreach (uint call in sly1.addr.cameraMatrixUpdateTailCalls)
+            {
+                api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, stub, false)).Reverse().ToArray());
+            }
+        }
+
+        /// <summary>Throws unless a call goes to the function, or to the stub (SluMAN's hook from before).</summary>
+        private void CheckCall(uint call, uint function, uint stub, bool link)
+        {
+            uint instruction = (uint)ReadInt(call);
+            if (instruction != Branch(call, function, link) && instruction != Branch(call, stub, link))
+            {
+                throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the camera hook isn't available on this version.");
+            }
+        }
+
+        /// <summary>The state the camera hook puts in, from the next frame. One write.</summary>
+        public void SetCameraHookState(CameraState state)
+        {
+            uint start = sly1.addr.cameraPositionOffset;
+            byte[] bytes = new byte[CameraBlockSize];
+            Action<uint, float[]> put = (offset, values) =>
+            {
+                byte[] valueBytes = FloatsToBytes(values);
+                Array.Copy(valueBytes, 0, bytes, offset - start, valueBytes.Length);
+            };
+            put(sly1.addr.cameraPositionOffset, state.position);
+            put(sly1.addr.cameraRotationOffset, state.rotation);
+            put(sly1.addr.cameraLodScaleOffset, new float[] { state.lodScale });
+            put(sly1.addr.cameraProjectionOffset, state.projection);
+            put(sly1.addr.cameraFovOffset, new float[] { state.fov });
+            put(sly1.addr.cameraFovTargetOffset, new float[] { state.fovTarget });
+            put(sly1.addr.cameraFrustumOffset, state.frustum);
+            api.WriteMemory(pid, sly1.addr.cameraHookData + start, bytes);
+        }
+
+        /// <summary>How many times the camera hook has put the camera in since it started.</summary>
+        public uint CameraHookCount()
+        {
+            return (uint)ReadInt(sly1.addr.cameraHookData + 8);
+        }
+
+        /// <summary>Lets the game's own camera through again, and puts the game's calls back.</summary>
+        public void StopCameraHook()
+        {
+            api.WriteMemory(pid, sly1.addr.cameraHookData, new byte[4]);
+            uint function = sly1.addr.cameraMatrixUpdateFunction;
+            uint stub = sly1.addr.cameraHookStub;
+            foreach (uint call in sly1.addr.cameraMatrixUpdateCalls)
+            {
+                if ((uint)ReadInt(call) == Branch(call, stub, true))
+                {
+                    api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, function, true)).Reverse().ToArray());
+                }
+            }
+            foreach (uint call in sly1.addr.cameraMatrixUpdateTailCalls)
+            {
+                if ((uint)ReadInt(call) == Branch(call, stub, false))
+                {
+                    api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, function, false)).Reverse().ToArray());
+                }
+            }
+        }
+
+        /// <summary>
+        /// The camera hook's stub, called instead of the camera matrix update with the camera in
+        /// r3. It only uses registers a call may change (r5 to r7, r11, r12 and cr0), then
+        /// branches on into the function, which returns to the caller.
+        /// </summary>
+        private byte[] CameraHookStub()
+        {
+            uint stub = sly1.addr.cameraHookStub;
+            uint data = sly1.addr.cameraHookData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+
+            uint[] words =
+            {
+                0x3D600000 | high,                      //  0 lis r11, data@ha
+                0x396B0000 | low,                       //  1 addi r11, r11, data@l
+                0x818B0000,                             //  2 lwz r12, 0(r11) (on)
+                0x2C0C0000,                             //  3 cmpwi r12, 0
+                0x41820038,                             //  4 beq +0x38 (to 18: off)
+                0x818B0004,                             //  5 lwz r12, 4(r11) (the camera)
+                0x7C036000,                             //  6 cmpw r3, r12
+                0x4082002C,                             //  7 bne +0x2C (to 18: another camera)
+                0x38AB0000 | (CameraHookListOffset - 4), //  8 addi r5, r11, list - 4
+                0x84C50004,                             //  9 lwzu r6, 4(r5) (next offset)
+                0x2C060000,                             // 10 cmpwi r6, 0
+                0x41820010,                             // 11 beq +0x10 (to 15: done)
+                0x7CEB302E,                             // 12 lwzx r7, r11, r6
+                0x7CE3312E,                             // 13 stwx r7, r3, r6
+                0x4BFFFFEC,                             // 14 b -0x14 (to 9)
+                0x80EB0008,                             // 15 lwz r7, 8(r11)
+                0x38E70001,                             // 16 addi r7, r7, 1
+                0x90EB0008,                             // 17 stw r7, 8(r11) (count)
+                Branch(stub + 18 * 4, sly1.addr.cameraMatrixUpdateFunction, false), // 18 b to the function
+            };
+            return WordsToBytes(words);
+        }
+
+        private static byte[] WordsToBytes(uint[] words)
+        {
+            byte[] bytes = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, bytes, i * 4, 4);
+            }
+            return bytes;
+        }
+
+        private static uint Branch(uint from, uint to, bool link)
+        {
+            return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
+        }
+
+        // --- HUD and fog ---
+
+        /// <summary>Hides the HUD (every blot's Draw does nothing) or puts it back.</summary>
+        public void SetHudHidden(bool hidden)
+        {
+            uint[,] draws = sly1.addr.blotVtableDraws;
+            uint empty = sly1.addr.emptyFunctionDescriptor;
+            // All checked first, so the HUD is never left half hidden.
+            for (int i = 0; i < draws.GetLength(0); i++)
+            {
+                uint slot = (uint)ReadInt(draws[i, 0] + sly1.addr.blotDrawSlotOffset);
+                if (slot != draws[i, 1] && slot != empty)
+                {
+                    throw new InvalidOperationException("The game's HUD isn't what SluMAN expects, so Hide HUD isn't available on this version.");
+                }
+            }
+            for (int i = 0; i < draws.GetLength(0); i++)
+            {
+                uint value = hidden ? empty : draws[i, 1];
+                api.WriteMemory(pid, draws[i, 0] + sly1.addr.blotDrawSlotOffset, BitConverter.GetBytes(value).Reverse().ToArray());
+            }
+        }
+
+        public bool IsHudHidden()
+        {
+            uint[,] draws = sly1.addr.blotVtableDraws;
+            return (uint)ReadInt(draws[0, 0] + sly1.addr.blotDrawSlotOffset) == sly1.addr.emptyFunctionDescriptor;
+        }
+
+        private const float NoFogAmount = 0f;
+        private readonly Dictionary<string, float> levelFogBeforeNoFog = new Dictionary<string, float>();
+
+        /// <summary>
+        /// Turns the current level's fog off, or puts back the amount saved for that level. False
+        /// when there's no camera (a load). A load sets the amount again, so call it again after one.
+        /// </summary>
+        public bool SetFogDisabled(bool disabled)
+        {
+            uint camera = GetMainCamera();
+            string level = GetCurrentMapIndicator();
+            if (camera == 0 || level == "")
+            {
+                return false;
+            }
+
+            uint fog = camera + sly1.addr.cameraFogOffset;
+            if (disabled)
+            {
+                if (!levelFogBeforeNoFog.ContainsKey(level))
+                {
+                    float current = ToFloat(api.ReadMemory(pid, fog, 4), 0);
+                    if (current != NoFogAmount)
+                    {
+                        levelFogBeforeNoFog[level] = current;
+                    }
+                }
+                api.WriteMemory(pid, fog, ConvertFloatToBytes(NoFogAmount));
+            }
+            else
+            {
+                float original;
+                if (levelFogBeforeNoFog.TryGetValue(level, out original))
+                {
+                    api.WriteMemory(pid, fog, ConvertFloatToBytes(original));
+                    levelFogBeforeNoFog.Remove(level);
+                }
+            }
+            return true;
+        }
+
+        public bool IsFogDisabled()
+        {
+            uint camera = GetMainCamera();
+            return camera != 0 && ToFloat(api.ReadMemory(pid, camera + sly1.addr.cameraFogOffset, 4), 0) == NoFogAmount;
+        }
+
+        private static void ReadFloats(byte[] bytes, int offset, float[] values)
+        {
+            for (int i = 0; i < values.Length; i++)
+            {
+                values[i] = ToFloat(bytes, offset + i * 4);
+            }
+        }
+
+        private static byte[] FloatsToBytes(float[] values)
+        {
+            byte[] bytes = new byte[values.Length * 4];
+            for (int i = 0; i < values.Length; i++)
+            {
+                Array.Copy(ConvertFloatToBytes(values[i]), 0, bytes, i * 4, 4);
+            }
+            return bytes;
+        }
+
+        private static float ToFloat(byte[] bytes, int offset)
+        {
+            byte[] value = new byte[4];
+            Array.Copy(bytes, offset, value, 0, 4);
+            return BitConverter.ToSingle(value.Reverse().ToArray(), 0);
+        }
+
         private int ReadInt(uint address)
         {
             byte[] bytes = api.ReadMemory(pid, address, 4);
