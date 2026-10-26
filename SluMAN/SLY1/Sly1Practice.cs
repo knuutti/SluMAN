@@ -9,7 +9,8 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 1 Practice Mode: load a level at an entrance, reload, set or hold coins, lives and charms,
-    /// and skip cutscenes, with the player (position editor), world states and the memory tools on tabs. The controls are built in code, in the
+    /// and skip cutscenes, with the player (position editor), world states, the camera (free camera
+    /// and camera paths) and the memory tools on tabs. The controls are built in code, in the
     /// other games' two-column layout.
     /// </summary>
     public class Sly1Practice : Form, IPositionEditorHost
@@ -19,6 +20,7 @@ namespace SluMAN
 
         private const string PlayerTab = "Player";
         private const string WorldStatesTab = "World States";
+        private const string CameraTab = "Camera";
         private const string MemoryTab = "Memory";
         private const string ViewerTab = "Memory Viewer";
         private const string LevelStart = "Level start";
@@ -50,6 +52,8 @@ namespace SluMAN
         private StatusLine statusLine;
         private GameSession session;
         private PracticeTabs practiceTabs;
+        // The free camera, kept running whichever tab shows.
+        private Sly1FreeCamera freeCamera;
         private SpawnPoints namedEntrances;
         private SpawnPoints seenEntrances;
 
@@ -112,15 +116,25 @@ namespace SluMAN
 
             FormClosing += Sly1Practice_FormClosing;
 
+            freeCamera = new Sly1FreeCamera(game);
+            freeCamera.Stopped += (message) =>
+            {
+                if (!IsDisposed)
+                {
+                    statusLine.Error($"Free camera stopped: {message}");
+                }
+            };
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
+            practiceTabs.AddTool(CameraTab, () => new Sly1CameraForm(game, freeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab);
+            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab, CameraTab);
         }
 
         private void BuildMenu()
@@ -527,6 +541,7 @@ namespace SluMAN
                 // The connection may already be closing.
             }
             practiceTabs.CloseAll();
+            freeCamera.Stop();
         }
     }
 }
