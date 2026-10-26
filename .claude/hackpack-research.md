@@ -46,6 +46,13 @@ runs it with these addresses (`Sly4Addresses.IsHackpack`).
 
 Built by `0x24523C` (which reads `Scripts/Episodes.xml`): 4 episodes of 0x35C at +0x14, 128 job
 slots of 0x218 at +0x1C, current episode +0x24, current job +0x28, failed goal +0x4C, as Sly 4.
+A job's episode index is at +0x1F4.
+
+`StartJobByInst` is `0x248698`: the only function in the episode code that takes a 9th argument
+(from the caller's stack), with the episode manager in r3 and the job in r4. It clears the current
+job (+0x28) and looks up the job's episode (+0x1F4 into the episode array). Its callers at
+`0x248D14` and `0x249564` (a search of the job array by stride 0x218) pass the same arguments as
+Sly 4's debug menu.
 
 ## Level table
 
@@ -83,5 +90,5 @@ Cheat.Invulnerable `0xDE45F0`, Cheat.Undetectable `0xD32268`.
 
 ## Not looked for yet
 
-GUI tree, job functions (StartJobByInst, TeleportToGoal, AbandonCurrentJob), the goal array, the
+GUI tree, job functions other than StartJobByInst (TeleportToGoal, AbandonCurrentJob), the goal array, the
 player and character controller.

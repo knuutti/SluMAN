@@ -7,7 +7,8 @@ using Timer = System.Windows.Forms.Timer;
 namespace SluMAN
 {
     /// <summary>
-    /// Bentley's Hackpack Practice Mode: load any level from the game's level table, slow motion
+    /// Bentley's Hackpack Practice Mode: start a job (each minigame's challenges run in one) or
+    /// load any level from the game's level table, slow motion
     /// and cutscene skipping, with the camera (free camera and camera paths), the tunables and
     /// the memory tools on tabs. The game runs on Sly 4's engine, so this drives the sly4 class
     /// and Sly 4's tools. The controls are built in code, in the other games' two-column layout.
@@ -24,13 +25,14 @@ namespace SluMAN
 
         // The status refreshes every second; on a PS3 every read is a network round trip.
         private const int RefreshIntervalMs = 1000;
-        // How often a queued load is checked for having run.
+        // How often a queued job start or load is checked for having run.
         private const int GameCallCheckMs = 100;
 
-        // How long a queued load may wait for the game's next frame before it's dropped.
+        // How long a queued job start or load may wait for the game's next frame before it's dropped.
         private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
         private readonly MenuStrip menuStrip = new MenuStrip();
+        private readonly ComboBox jobComboBox = new ComboBox();
         private readonly ComboBox levelComboBox = new ComboBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
@@ -68,9 +70,10 @@ namespace SluMAN
 
             BuildMenu();
             BuildControls();
-            ClientSize = new Size(660, 210);
+            ClientSize = new Size(660, 220);
             statusLine = new StatusLine(this, true);
 
+            FillJobs(false);
             FillLevels(false);
 
             // Before the toggles below read the game, so they show any kept tunables.
@@ -150,7 +153,22 @@ namespace SluMAN
         private void BuildControls()
         {
             // Left column
-            GroupBox levelGroupBox = AddGroup("Level", 12, 32, 80);
+            GroupBox jobGroupBox = AddGroup("Job", 12, 32, 80);
+            jobComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            jobComboBox.Location = new Point(10, 20);
+            jobComboBox.Size = new Size(292, 21);
+            // The game reads its jobs while it boots, so they're read again when still empty.
+            jobComboBox.DropDown += (sender, e) =>
+            {
+                if (jobComboBox.Items.Count == 0)
+                {
+                    FillJobs(true);
+                }
+            };
+            jobGroupBox.Controls.Add(jobComboBox);
+            AddButton(jobGroupBox, "Start Job", 10, 48, 292, (sender, e) => StartSelectedJob());
+
+            GroupBox levelGroupBox = AddGroup("Level", 12, 118, 80);
             levelComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             levelComboBox.Location = new Point(10, 20);
             levelComboBox.Size = new Size(292, 21);
@@ -166,11 +184,6 @@ namespace SluMAN
             AddButton(levelGroupBox, "Load", 10, 48, 143, (sender, e) => LoadSelectedLevel());
             AddButton(levelGroupBox, "Reload Level", 159, 48, 143, (sender, e) => ReloadLevel());
 
-            GroupBox togglesGroupBox = AddGroup("Toggles", 12, 118, 84);
-            AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
-            AddCheckBox(togglesGroupBox, skipCutscenesCheckBox, "Skip Cutscenes", 10, 43);
-            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 160, 20);
-
             // Right column
             GroupBox statusGroupBox = AddGroup("Game", 336, 32, 90);
             AddLabel(statusGroupBox, "Level:", 10, 20);
@@ -180,7 +193,15 @@ namespace SluMAN
             AddLabel(statusGroupBox, "Job:", 10, 64);
             AddValueLabel(statusGroupBox, jobValueLabel, 70, 64);
 
+            GroupBox togglesGroupBox = AddGroup("Toggles", 336, 128, 70);
+            AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
+            AddCheckBox(togglesGroupBox, skipCutscenesCheckBox, "Skip Cutscenes", 10, 43);
+            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 160, 20);
+
             ToolTip tip = new ToolTip();
+            tip.SetToolTip(jobComboBox,
+                "Every job in the game's job list. A minigame's challenges only work when it's\n" +
+                "started as a job; loading its level on its own doesn't set them up.");
             tip.SetToolTip(levelComboBox,
                 "Every level in the game's level table. Names come from data/hackpack_levels.txt\n" +
                 "(level | English name); the others show as their hash and the path the game keeps.");
@@ -263,6 +284,56 @@ namespace SluMAN
             }
         }
 
+        /// <summary>Lists the game's jobs, keeping the selection.</summary>
+        private void FillJobs(bool reportError)
+        {
+            sly4.JobEntry selected = jobComboBox.SelectedItem as sly4.JobEntry;
+            List<sly4.JobEntry> jobs;
+            try
+            {
+                jobs = game.GetJobs();
+            }
+            catch (Exception ex)
+            {
+                if (reportError)
+                {
+                    statusLine.Error($"Couldn't read the job list: {ex.Message}");
+                }
+                return;
+            }
+
+            jobComboBox.BeginUpdate();
+            jobComboBox.Items.Clear();
+            foreach (sly4.JobEntry job in jobs)
+            {
+                jobComboBox.Items.Add(job);
+                if (selected != null && job.index == selected.index)
+                {
+                    jobComboBox.SelectedItem = job;
+                }
+            }
+            jobComboBox.EndUpdate();
+        }
+
+        private void StartSelectedJob()
+        {
+            sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
+            if (job == null)
+            {
+                statusLine.Error("Pick a job first.");
+                return;
+            }
+            try
+            {
+                game.StartJob(job.index, false, false);
+                TrackGameCall($"Starting {job.Title}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't start the job: {ex.Message}");
+            }
+        }
+
         /// <summary>Lists the game's levels, keeping the selection.</summary>
         private void FillLevels(bool reportError)
         {
@@ -331,14 +402,20 @@ namespace SluMAN
             try
             {
                 game.LoadLevel(levelHash, null, null);
-                gameCallDeadline = DateTime.Now + GameCallTimeout;
-                gameCallDoneMessage = doneMessage;
-                gameCallTimer.Start();
+                TrackGameCall(doneMessage);
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't load the level: {ex.Message}");
             }
+        }
+
+        /// <summary>Waits for a call queued through the code hook, reporting the message once it has run.</summary>
+        private void TrackGameCall(string doneMessage)
+        {
+            gameCallDeadline = DateTime.Now + GameCallTimeout;
+            gameCallDoneMessage = doneMessage;
+            gameCallTimer.Start();
         }
 
         private void CheckGameCall()
@@ -354,7 +431,7 @@ namespace SluMAN
                 {
                     gameCallTimer.Stop();
                     game.CancelGameCall();
-                    statusLine.Error("The game didn't run the load. On RPCS3, set the PPU decoder to Interpreter (static).");
+                    statusLine.Error("The game didn't run the call. On RPCS3, set the PPU decoder to Interpreter (static).");
                 }
             }
             catch

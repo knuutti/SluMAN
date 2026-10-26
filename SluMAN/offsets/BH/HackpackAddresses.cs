@@ -69,6 +69,12 @@ namespace SluMAN
                 currentEpisodeOffset = 0x24,
                 currentJobOffset = 0x28,
                 failedGoalOffset = 0x4C,
+                jobEpisodeIndexOffset = 0x1F4,
+
+                // StartJobByInst(episode manager, job, goal ID, to hub, to hideout, 0, 0, 0, 1):
+                // 9 arguments like Sly 4's; it clears the current job and reads the job's episode
+                // (job + 0x1F4) from the episode array.
+                startJobByInstFunction = 0x248698,
 
                 loadLevelFunction = 0x336384,
 
