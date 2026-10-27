@@ -565,9 +565,9 @@ namespace SluMAN
 
         /// <summary>
         /// The Camera tab, for Sly 4 and the Hackpack. Paths are saved under CameraPathLevelKey
-        /// and shown with the level's name; the free camera has a far distance and a script API.
+        /// and shown with the level's name; the free camera has a far distance.
         /// </summary>
-        public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove, Sly4CameraApi cameraApi)
+        public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove)
         {
             return new CameraTabLayout
             {
@@ -601,7 +601,6 @@ namespace SluMAN
                 getFarDistance = () => freeMove.FarDistance,
                 setFarDistance = (far) => freeMove.FarDistance = far,
                 getGameFar = () => freeMove.GameFar,
-                scriptApi = cameraApi,
             };
         }
 

@@ -77,6 +77,8 @@ namespace SluMAN
 
         /// <summary>The free camera, kept running whichever tab shows.</summary>
         public Sly3FreeCamera FreeCamera;
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        private CameraScriptApi cameraApi;
 
         public Sly3Practice(sly3 game)
         {
@@ -140,11 +142,14 @@ namespace SluMAN
                 }
             };
 
+            cameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeCamera));
+            cameraApi.StartFromConfig();
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
-            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(FreeCamera)));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(cameraApi.Layout));
             practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
@@ -482,6 +487,7 @@ namespace SluMAN
             refreshTimer.Stop();
             // The tools' own cleanup (subscriptions, timers) runs when they close.
             practiceTabs.CloseAll();
+            cameraApi.Stop();
             FreeCamera.Stop();
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;

@@ -654,7 +654,7 @@ namespace SluMAN
 
         private void BuildApiCheckBox(int top)
         {
-            ICameraScriptApi api = layout.scriptApi;
+            CameraScriptApi api = layout.scriptApi;
             apiCheckBox.Text = $"Script API on 127.0.0.1:{api.Port}";
             apiCheckBox.AutoSize = true;
             apiCheckBox.Location = new Point(14, top);

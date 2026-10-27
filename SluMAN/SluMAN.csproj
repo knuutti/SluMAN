@@ -189,6 +189,7 @@
     <Compile Include="offsets\SLY4\Sly4FreeMove.cs" />
     <Compile Include="CameraPath.cs" />
     <Compile Include="CameraTabLayout.cs" />
+    <Compile Include="CameraScriptApi.cs" />
     <Compile Include="offsets\SLY4\Sly4AutosplitterValues.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
@@ -290,7 +291,6 @@
     <Compile Include="SLY4\Sly4Speedrun.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY4\Sly4CameraApi.cs" />
     <Compile Include="SLY4\Sly4JobQueue.cs" />
     <Compile Include="SLY4\Sly4GadgetsForm.cs">
       <SubType>Form</SubType>

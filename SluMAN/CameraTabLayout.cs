@@ -36,17 +36,6 @@ namespace SluMAN
         bool SetCamera(float[] position, float cameraYaw, float cameraPitch, float cameraFov);
     }
 
-    /// <summary>A local HTTP API scripts drive the free camera through, shown as a checkbox on the Camera tab.</summary>
-    public interface ICameraScriptApi
-    {
-        int Port { get; }
-        bool Enabled { get; set; }
-        bool IsRunning { get; }
-        /// <summary>Why the API last failed to start, or "".</summary>
-        string LastError { get; }
-        string Url { get; }
-    }
-
     /// <summary>
     /// Reads where the game is, for saving camera paths: the name paths are saved under ("" when
     /// in no level), and the name to show for it.
@@ -105,7 +94,10 @@ namespace SluMAN
         public Action<float> setFarDistance;
         public Func<float> getGameFar;
 
-        /// <summary>Shown as a checkbox below Playback when set.</summary>
-        public ICameraScriptApi scriptApi;
+        /// <summary>
+        /// The local HTTP API scripts drive the free camera through, shown as a checkbox below
+        /// Playback when set. A CameraScriptApi made from the layout sets it.
+        /// </summary>
+        public CameraScriptApi scriptApi;
     }
 }

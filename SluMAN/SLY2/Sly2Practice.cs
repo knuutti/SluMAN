@@ -59,6 +59,8 @@ namespace SluMAN
         private MapPicker mapPicker;
         private GameSession session;
         private Sly2FreeCamera freeCamera;
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        private CameraScriptApi cameraApi;
 
         public Sly2Practice(sly2 game)
         {
@@ -113,11 +115,14 @@ namespace SluMAN
             freeCamera.Stopped += freeCamera_Stopped;
             freeCamera.Notice += freeCamera_Notice;
 
+            cameraApi = new CameraScriptApi(game.GetCameraTabLayout(freeCamera));
+            cameraApi.StartFromConfig();
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
-            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(freeCamera)));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(cameraApi.Layout));
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
             // The watch list and the hex viewer open each other's tabs.
@@ -443,6 +448,10 @@ namespace SluMAN
         private void Sly2Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
             refreshTimer.Stop();
+            if (cameraApi != null)
+            {
+                cameraApi.Stop();
+            }
             if (freeCamera != null)
             {
                 freeCamera.Stopped -= freeCamera_Stopped;

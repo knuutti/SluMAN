@@ -11,38 +11,49 @@ using Newtonsoft.Json;
 namespace SluMAN
 {
     /// <summary>
-    /// A small local HTTP API for scripts (e.g. Python) to drive the Sly 4 free camera, on
+    /// A small local HTTP API for scripts (e.g. Python) to drive a game's free camera, on
     /// 127.0.0.1 only, so nothing else on the network can reach it. Every request is a GET and
-    /// every answer is JSON; angles are in degrees.
+    /// every answer is JSON; angles are in degrees. It works from the game's CameraTabLayout, so
+    /// every game with a Camera tab has it; the Practice window owns it and keeps it running
+    /// whichever tab shows.
     /// <list type="bullet">
-    /// <item><c>/camera</c>: the free camera: on, x, y, z, yaw, pitch, fov, far, and the game's
-    /// own fov and far.</item>
+    /// <item><c>/</c>: the list of requests, and which axis is up.</item>
+    /// <item><c>/camera</c>: the free camera: on, x, y, z, yaw, pitch, fov, the game's own fov,
+    /// and far and gameFar for games with a far distance.</item>
     /// <item><c>/camera/set?x=&amp;y=&amp;z=&amp;yaw=&amp;pitch=&amp;fov=&amp;far=</c>: moves the free
     /// camera, turning it on first. Values left out stay as they are; far=0 is the game's.</item>
     /// <item><c>/camera/off</c>: turns the free camera off.</item>
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
     /// </list>
     /// </summary>
-    public class Sly4CameraApi : ICameraScriptApi
+    public class CameraScriptApi
     {
         public const int DefaultPort = 9675;
-        private const string EnabledKey = "sly4CameraApi";
-        private const string PortKey = "sly4CameraApiPort";
+        private const string EnabledKey = "cameraApi";
+        private const string PortKey = "cameraApiPort";
+        // Where Sly 4, the first game with the API, kept them.
+        private const string OldEnabledKey = "sly4CameraApi";
+        private const string OldPortKey = "sly4CameraApiPort";
         private const int MaxRequestLineLength = 8192;
 
-        private readonly sly4 game;
-        private readonly Sly4FreeMove freeMove;
+        private readonly CameraTabLayout layout;
+        private readonly IFreeCamera freeCamera;
         private readonly object sync = new object();
         // One request at a time: they all drive the same camera.
         private readonly object requestLock = new object();
         private TcpListener listener;
         private volatile bool running;
 
-        public Sly4CameraApi(sly4 game, Sly4FreeMove freeMove)
+        /// <summary>Drives the layout's free camera, and puts itself on the layout's Camera tab.</summary>
+        public CameraScriptApi(CameraTabLayout layout)
         {
-            this.game = game;
-            this.freeMove = freeMove;
+            this.layout = layout;
+            freeCamera = layout.freeCamera;
+            layout.scriptApi = this;
         }
+
+        /// <summary>The layout the API drives, for the Camera tab.</summary>
+        public CameraTabLayout Layout => layout;
 
         public int Port { get; private set; } = DefaultPort;
 
@@ -56,7 +67,7 @@ namespace SluMAN
         /// <summary>Whether the API is on, remembered in config.txt. Turning it on starts it.</summary>
         public bool Enabled
         {
-            get { return ReadConfig(EnabledKey) == "true"; }
+            get { return ReadConfig(EnabledKey, OldEnabledKey) == "true"; }
             set
             {
                 WriteConfig(value ? "true" : "false", EnabledKey);
@@ -81,11 +92,17 @@ namespace SluMAN
             }
         }
 
-        private static string ReadConfig(string key)
+        /// <summary>The setting, or the one it was kept under before if it isn't set.</summary>
+        private static string ReadConfig(string key, string oldKey)
         {
             try
             {
-                return func.GetConfigData("config.txt", key);
+                string value = func.GetConfigData("config.txt", key);
+                if (string.IsNullOrEmpty(value))
+                {
+                    value = func.GetConfigData("config.txt", oldKey);
+                }
+                return value == null ? "" : value;
             }
             catch
             {
@@ -108,7 +125,7 @@ namespace SluMAN
         public bool Start()
         {
             int port;
-            if (!int.TryParse(ReadConfig(PortKey), out port) || port <= 0 || port >= 65536)
+            if (!int.TryParse(ReadConfig(PortKey, OldPortKey), out port) || port <= 0 || port >= 65536)
             {
                 port = DefaultPort;
             }
@@ -135,7 +152,7 @@ namespace SluMAN
                 TcpListener current = listener;
                 Thread thread = new Thread(() => AcceptLoop(current));
                 thread.IsBackground = true;
-                thread.Name = "Sly 4 camera API";
+                thread.Name = "Camera API";
                 thread.Start();
                 return true;
             }
@@ -262,17 +279,26 @@ namespace SluMAN
             switch (path)
             {
                 case "":
+                    List<string> requests = new List<string>
+                    {
+                        "/camera",
+                        layout.setFarDistance != null
+                            ? "/camera/set?x=&y=&z=&yaw=&pitch=&fov=&far= (any of them; degrees; far=0 is the game's)"
+                            : "/camera/set?x=&y=&z=&yaw=&pitch=&fov= (any of them; degrees)",
+                        "/camera/off",
+                    };
+                    if (layout.setHudHidden != null)
+                    {
+                        requests.Add("/hud?hidden=1|0");
+                    }
+                    if (layout.setFogDisabled != null)
+                    {
+                        requests.Add("/fog?off=1|0");
+                    }
                     return new Dictionary<string, object>
                     {
-                        { "requests", new[]
-                            {
-                                "/camera",
-                                "/camera/set?x=&y=&z=&yaw=&pitch=&fov=&far= (any of them; degrees; far=0 is the game's)",
-                                "/camera/off",
-                                "/hud?hidden=1|0",
-                                "/fog?off=1|0",
-                            }
-                        },
+                        { "requests", requests },
+                        { "upAxis", layout.upAxis },
                     };
                 case "/camera":
                     return Camera();
@@ -280,14 +306,23 @@ namespace SluMAN
                     SetCamera(values);
                     return Camera();
                 case "/camera/off":
-                    freeMove.Stop();
+                    freeCamera.Stop();
                     return Camera();
                 case "/hud":
-                    game.SetHudHidden(Flag(values, "hidden"));
-                    return new Dictionary<string, object> { { "hidden", game.IsHudHidden() } };
+                    if (layout.setHudHidden == null)
+                    {
+                        throw new InvalidOperationException("This game can't hide the HUD.");
+                    }
+                    bool hidden = Flag(values, "hidden");
+                    layout.setHudHidden(hidden);
+                    return new Dictionary<string, object> { { "hidden", layout.isHudHidden != null ? layout.isHudHidden() : hidden } };
                 case "/fog":
+                    if (layout.setFogDisabled == null)
+                    {
+                        throw new InvalidOperationException("This game can't turn the fog off.");
+                    }
                     bool off = Flag(values, "off");
-                    if (!game.SetFogDisabled(off))
+                    if (!layout.setFogDisabled(off))
                     {
                         throw new InvalidOperationException("The game has no camera yet.");
                     }
@@ -304,7 +339,7 @@ namespace SluMAN
             float yaw;
             float pitch;
             float fov;
-            bool on = freeMove.GetCamera(out position, out yaw, out pitch, out fov);
+            bool on = freeCamera.GetCamera(out position, out yaw, out pitch, out fov);
             camera["on"] = on;
             if (on)
             {
@@ -315,24 +350,30 @@ namespace SluMAN
                 camera["pitch"] = CameraPath.Degrees(pitch);
                 camera["fov"] = CameraPath.Degrees(fov);
             }
-            camera["far"] = freeMove.FarDistance;
-            camera["gameFov"] = CameraPath.Degrees(freeMove.GameFov);
-            camera["gameFar"] = freeMove.GameFar;
+            if (freeCamera.FovKnown)
+            {
+                camera["gameFov"] = CameraPath.Degrees(freeCamera.GameFov);
+            }
+            if (layout.getFarDistance != null)
+            {
+                camera["far"] = layout.getFarDistance();
+                camera["gameFar"] = layout.getGameFar();
+            }
             return camera;
         }
 
         private void SetCamera(Dictionary<string, string> values)
         {
-            if (freeMove.Current != Sly4FreeMove.Mode.FreeCamera)
+            if (!freeCamera.IsOn)
             {
-                freeMove.Start(Sly4FreeMove.Mode.FreeCamera);
+                freeCamera.Start();
             }
 
             float[] position;
             float yaw;
             float pitch;
             float fov;
-            if (!freeMove.GetCamera(out position, out yaw, out pitch, out fov))
+            if (!freeCamera.GetCamera(out position, out yaw, out pitch, out fov))
             {
                 throw new InvalidOperationException("The free camera didn't start.");
             }
@@ -349,9 +390,13 @@ namespace SluMAN
 
             if (values.ContainsKey("far"))
             {
-                freeMove.FarDistance = Value(values, "far", 0);
+                if (layout.setFarDistance == null)
+                {
+                    throw new FormatException("This game has no far distance to set.");
+                }
+                layout.setFarDistance(Value(values, "far", 0));
             }
-            freeMove.SetCamera(position, yaw, pitch, CameraPath.Radians(fovDegrees));
+            freeCamera.SetCamera(position, yaw, pitch, CameraPath.Radians(fovDegrees));
         }
 
         private static float Value(Dictionary<string, string> values, string key, float current)

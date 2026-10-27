@@ -42,7 +42,7 @@ namespace SluMAN
         public Sly4FreeMove FreeMove;
 
         /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
-        public Sly4CameraApi CameraApi;
+        public CameraScriptApi CameraApi;
 
         private PracticeLayout layout;
         private ToolStripMenuItem toolsMenu;
@@ -108,14 +108,14 @@ namespace SluMAN
                     statusLine.Error($"Free camera stopped: {message}");
                 }
             };
-            CameraApi = new Sly4CameraApi(game, FreeMove);
+            CameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeMove));
             CameraApi.StartFromConfig();
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools;
             // the Hackpack has no player.
-            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(FreeMove, CameraApi)));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(CameraApi.Layout));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, jobQueue));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             // The watch list and the hex viewer open each other's tabs.

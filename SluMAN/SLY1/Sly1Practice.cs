@@ -56,6 +56,8 @@ namespace SluMAN
         private PracticeTabs practiceTabs;
         // The free camera, kept running whichever tab shows.
         private Sly1FreeCamera freeCamera;
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        private CameraScriptApi cameraApi;
         private SpawnPoints namedEntrances;
         private SpawnPoints seenEntrances;
 
@@ -120,11 +122,14 @@ namespace SluMAN
                 }
             };
 
+            cameraApi = new CameraScriptApi(game.GetCameraTabLayout(freeCamera));
+            cameraApi.StartFromConfig();
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
-            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(freeCamera)));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(cameraApi.Layout));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             practiceTabs.AddTool(PowerupsTab, () => new Sly1PowerupsForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.
@@ -446,6 +451,7 @@ namespace SluMAN
                 // The connection may already be closing.
             }
             practiceTabs.CloseAll();
+            cameraApi.Stop();
             freeCamera.Stop();
         }
     }

@@ -62,7 +62,7 @@ namespace SluMAN
         public Sly4FreeMove FreeMove;
 
         /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
-        public Sly4CameraApi CameraApi;
+        public CameraScriptApi CameraApi;
 
         private StatusLine statusLine;
         private GameSession session;
@@ -152,7 +152,7 @@ namespace SluMAN
                     statusLine.Error($"Fly / free camera stopped: {message}");
                 }
             };
-            CameraApi = new Sly4CameraApi(game, FreeMove);
+            CameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeMove));
             CameraApi.StartFromConfig();
             // The free camera stops the fly, and the fly the free camera.
             FreeMove.ModeChanged += ShowFlyMode;
@@ -163,7 +163,7 @@ namespace SluMAN
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(FreeMove), LevelDisplayName));
-            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(FreeMove, CameraApi)));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(CameraApi.Layout));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, jobQueue));
             practiceTabs.AddTool(GadgetsTab, () => new Sly4GadgetsForm(game, jobQueue));
             practiceTabs.AddTool(RunFilesTab, () => new Sly4RunFilesForm(game, jobQueue));
