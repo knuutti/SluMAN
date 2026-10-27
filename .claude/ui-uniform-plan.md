@@ -65,7 +65,7 @@ Practice, Player, Camera, then the game's own tabs, then Memory and Memory Viewe
 | Sly 1 | Practice, Player, Camera, World States, Powerups, Memory, Memory Viewer | Player, Camera, World States, Powerups |
 | Sly 2 | Practice, Player, Camera, Gadgets, Run Files, Memory, Memory Viewer | Player, Camera, Gadgets, Run Files |
 | Sly 3 | as Sly 2 | as Sly 2 |
-| Sly 4 | Practice, Player, Camera, Jobs, Tunables, GUI, Memory, Memory Viewer | Player, Camera, Jobs |
+| Sly 4 | Practice, Player, Camera, Jobs, Gadgets, Run Files, Tunables, GUI, Memory, Memory Viewer | Player, Camera, Jobs, Gadgets, Run Files |
 | Hackpack | Practice, Camera, Jobs, Tunables, Memory, Memory Viewer (no player) | Camera, Jobs |
 
 ### Tools menu
@@ -160,6 +160,13 @@ The shared tabs are one class each now, with what differs per game passed in. No
   (`ISly4JobHost` is gone). Where the games differ it checks `sly4.addr.IsHackpack`: the
   Hackpack restarts a running job through RequestJob and warps to a running job's goal in place,
   Sly 4 abandons the job first and starts it again at the goal.
+- Merged from master: Sly 4's Gadgets and Run Files tabs, and run files leaving out gadgets not
+  available yet in their episode (`GadgetAvailability`). The warning line is part of
+  `GadgetsForm`'s bar: `SaveRunFileGadgets` returns the gadgets it unticked. `Sly4GadgetsForm`
+  keeps its own layout (a column per character, Apply / Discard, as the game only reads gadgets on
+  a load); the run file load and Apply's reload are `Sly4JobQueue.LoadRunFile` /
+  `ReloadForGadgets`. Putting it on `GadgetsForm` too (four columns, the same bar) is left for
+  later.
 
 - One camera tab form with a small per-game adapter (path folder, level key and name, Hide HUD,
   No fog, field of view, Sly 4's Far distance) in place of `Sly1CameraForm`, `Sly2CameraForm`,

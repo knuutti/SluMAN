@@ -181,6 +181,70 @@ namespace SluMAN
             }
         }
 
+        /// <summary>
+        /// Loads a run file: goes to the hideout of its episode's first job with its gadgets, or
+        /// with the gadgets as they are if gadgets is null. Throws if the game can't start it.
+        /// </summary>
+        public void LoadRunFile(string runFile, sly4.JobEntry job, byte[] gadgets)
+        {
+            ClearQueue();
+
+            // Started first, so a job the game won't start leaves the gadgets alone. Starting a
+            // job never resets gadgets; it can make more available, but a run file's gadgets
+            // only hold ones available by its episode (GadgetAvailability).
+            game.StartJob(job.index, false, true);
+            Track($"Loading the {runFile} run file.");
+            game.api.Notify($"SluMAN {func.VersionText}: Loading {runFile} run file.");
+
+            if (gadgets != null)
+            {
+                game.SetGadgetStates(gadgets);
+            }
+        }
+
+        /// <summary>
+        /// Reloads so the gadgets written to the game take effect, as the game only reads them on
+        /// a load: retries the checkpoint in a job (as Retry Checkpoint does), otherwise loads the
+        /// current level again from its start. Used by the Gadgets tab's Apply.
+        /// </summary>
+        public void ReloadForGadgets()
+        {
+            int checkpoint;
+            uint levelHash;
+            try
+            {
+                game.GetCheckpoint(out checkpoint, out int goalCount, out string goalName);
+                levelHash = game.GetLevelHash();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't reload: {ex.Message}");
+                return;
+            }
+
+            if (checkpoint > 0)
+            {
+                WarpToGoal(null, checkpoint - 1);
+                return;
+            }
+            if (levelHash == 0)
+            {
+                statusLine.Error("No level is loaded, so the gadgets take effect on the next load.");
+                return;
+            }
+
+            ClearQueue();
+            try
+            {
+                game.LoadLevel(levelHash, null, null);
+                Track($"Reloading {sly4.GetLevelName(levelHash)}.");
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't reload the level: {ex.Message}");
+            }
+        }
+
         /// <summary>The running job's entry, or null outside jobs.</summary>
         public sly4.JobEntry RunningJob()
         {

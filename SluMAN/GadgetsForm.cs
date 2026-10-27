@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -9,7 +10,9 @@ namespace SluMAN
     /// bindings in three 152-wide columns (Sly, Bentley, Murray) and calls BuildButtonBar, which
     /// adds the same bar under the second and third columns in every game: run file gadgets
     /// (Load / Save) and Discard Changes, Save, Save and Reload. The space under the first column
-    /// is the game's own (Sly 2's vault gadgets, Sly 3's special moves).
+    /// is the game's own (Sly 2's vault gadgets, Sly 3's special moves). Under the bar, a warning
+    /// names the gadgets saving a run file left out, as they aren't available yet in its episode
+    /// (GadgetAvailability).
     /// </summary>
     public abstract class GadgetsForm : Form, IRefreshOnShow
     {
@@ -19,6 +22,7 @@ namespace SluMAN
 
         private readonly IGame game;
         protected readonly ComboBox runFileComboBox = new ComboBox();
+        private readonly Label runFileWarningLabel = new Label();
         protected StatusLine statusLine;
 
         protected GadgetsForm(IGame game)
@@ -42,6 +46,7 @@ namespace SluMAN
             runFileComboBox.Location = new Point(8, 19);
             runFileComboBox.Size = new Size(ColumnWidth - 16, 21);
             runFileComboBox.Items.AddRange(runFiles);
+            runFileComboBox.SelectedIndexChanged += (sender, e) => runFileWarningLabel.Text = "";
             runFileGroupBox.Controls.Add(runFileComboBox);
 
             AddButton(runFileGroupBox, "Load", new Point(8, 45), ColumnWidth - 16, (sender, e) => LoadRunFileClicked());
@@ -56,6 +61,11 @@ namespace SluMAN
             note.AutoSize = true;
             note.Location = new Point(SecondColumnX - 3, runFileGroupBox.Bottom + 6);
             Controls.Add(note);
+
+            runFileWarningLabel.Location = new Point(SecondColumnX - 3, note.Bottom + 4);
+            runFileWarningLabel.Size = new Size(ThirdColumnX + ColumnWidth - SecondColumnX + 3, 30);
+            runFileWarningLabel.ForeColor = Color.Firebrick;
+            Controls.Add(runFileWarningLabel);
 
             int bottom = 0;
             foreach (Control control in Controls)
@@ -89,8 +99,11 @@ namespace SluMAN
         /// <summary>Fills the form in from a run file's saved gadgets (not the game).</summary>
         protected abstract void LoadRunFileGadgets(string runFile);
 
-        /// <summary>Saves the form's gadgets to a run file.</summary>
-        protected abstract void SaveRunFileGadgets(string runFile);
+        /// <summary>
+        /// Saves the form's gadgets to a run file, first unticking the ones not available yet at
+        /// the start of its episode (GadgetAvailability), and returns their names.
+        /// </summary>
+        protected abstract List<string> SaveRunFileGadgets(string runFile);
 
         private void DiscardChanges()
         {
@@ -125,6 +138,7 @@ namespace SluMAN
                 statusLine.Error("Select a run file to load from first.");
                 return;
             }
+            runFileWarningLabel.Text = "";
             LoadRunFileGadgets(runFileComboBox.SelectedItem.ToString());
         }
 
@@ -136,7 +150,8 @@ namespace SluMAN
                 return;
             }
             string runFile = runFileComboBox.SelectedItem.ToString();
-            SaveRunFileGadgets(runFile);
+            List<string> removed = SaveRunFileGadgets(runFile);
+            runFileWarningLabel.Text = GadgetAvailability.RemovedWarning(runFile, removed);
             game.api.Notify($"SluMAN {func.VersionText}: Gadget settings saved to {runFile} run file.");
         }
     }

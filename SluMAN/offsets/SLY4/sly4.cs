@@ -472,6 +472,28 @@ namespace SluMAN
             api.WriteMemory(pid, gameManager + addr.coinCountOffset, ConvertIntToBytes(coins));
         }
 
+        /// <summary>Every gadget's state byte, in Sly4Gadgets.All's order.</summary>
+        public byte[] GetGadgetStates()
+        {
+            return api.ReadMemory(pid, GadgetArrayAddress(), (uint)Sly4Gadgets.Count);
+        }
+
+        /// <summary>Writes every gadget's state. The game reads them on its next load.</summary>
+        public void SetGadgetStates(byte[] states)
+        {
+            api.WriteMemory(pid, GadgetArrayAddress(), states);
+        }
+
+        private uint GadgetArrayAddress()
+        {
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            if (gameManager == 0)
+            {
+                throw new InvalidOperationException("The game isn't loaded.");
+            }
+            return gameManager + addr.gadgetOffset;
+        }
+
         /// <summary>
         /// The player's X, Y and Z (Y is up), or null when the player isn't loaded. Read from the
         /// Havok body, which Teleport writes: the controller's copy sits lower, so teleporting the
