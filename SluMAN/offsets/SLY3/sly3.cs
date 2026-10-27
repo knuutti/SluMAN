@@ -385,6 +385,22 @@ namespace SluMAN
             api.WriteMemory(pid, sly3.addr.coinCount, ConvertIntToBytes(coins));
         }
 
+        public int GetCoins()
+        {
+            return (int)ReadUInt(sly3.addr.coinCount);
+        }
+
+        /// <summary>The active character's health, or -1 without one.</summary>
+        public int GetHealth()
+        {
+            uint entityPtr = ReadUInt(sly3.addr.activeCharacterPtr);
+            if (entityPtr == 0)
+            {
+                return -1;
+            }
+            return (int)ReadUInt(entityPtr + sly3.addr.healthEntityOffset);
+        }
+
         public void SetHealth(int health)
         {
             byte[] entityPtrBytes = api.ReadMemory(pid, sly3.addr.activeCharacterPtr, 4);

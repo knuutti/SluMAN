@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -245,9 +245,6 @@
     <Compile Include="SLY2\Sly2CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\Sly2Practice.Designer.cs">
-      <DependentUpon>Sly2Practice.cs</DependentUpon>
-    </Compile>
     <Compile Include="SLY2\Sly2RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -257,9 +254,6 @@
     <Compile Include="SLY3\Sly3Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3Practice.Designer.cs">
-      <DependentUpon>Sly3Practice.cs</DependentUpon>
-    </Compile>
     <Compile Include="SLY3\Sly3Gadgets.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -267,7 +261,10 @@
       <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
+    <Compile Include="PracticeLayout.cs" />
     <Compile Include="PracticeTabs.cs" />
+    <Compile Include="SLY2\Sly2Jobs.cs" />
+    <Compile Include="SLY3\Sly3Jobs.cs" />
     <Compile Include="RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -289,9 +286,6 @@
     </Compile>
     <Compile Include="SLY4\Sly4Practice.cs">
       <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SLY4\Sly4Practice.Designer.cs">
-      <DependentUpon>Sly4Practice.cs</DependentUpon>
     </Compile>
     <Compile Include="SLY4\Sly4Speedrun.cs">
       <SubType>Form</SubType>
@@ -363,20 +357,11 @@
     <EmbeddedResource Include="SLY2\Sly2Gadgets.resx">
       <DependentUpon>Sly2Gadgets.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY2\Sly2Practice.resx">
-      <DependentUpon>Sly2Practice.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\Sly3Practice.resx">
-      <DependentUpon>Sly3Practice.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="SLY3\Sly3Gadgets.resx">
       <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PositionEditor.resx">
       <DependentUpon>PositionEditor.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY4\Sly4Practice.resx">
-      <DependentUpon>Sly4Practice.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

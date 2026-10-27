@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
@@ -33,8 +32,7 @@ namespace SluMAN
         // The status refreshes every second; on a PS3 every read is a network round trip.
         private const int RefreshIntervalMs = 1000;
 
-        private readonly MenuStrip menuStrip = new MenuStrip();
-        private readonly ToolStripMenuItem toolsMenu = new ToolStripMenuItem("Tools");
+        private readonly ComboBox slotComboBox = new ComboBox();
         private readonly ComboBox levelComboBox = new ComboBox();
         private readonly ComboBox entranceComboBox = new ComboBox();
         private readonly TextBox coinsTextBox = new TextBox();
@@ -51,6 +49,8 @@ namespace SluMAN
         private readonly Label coinsValueLabel = new Label();
         private readonly Timer refreshTimer = new Timer();
 
+        private PracticeLayout layout;
+        private ToolStripMenuItem toolsMenu;
         private StatusLine statusLine;
         private GameSession session;
         private PracticeTabs practiceTabs;
@@ -77,18 +77,12 @@ namespace SluMAN
         public Sly1Practice(sly1 game)
         {
             this.game = game;
-            Name = "Sly1Practice";
-            Text = "SluMAN :: Sly Cooper and the Thievius Raccoonus (Practice Mode)";
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
-            Font = new Font("Microsoft Sans Serif", 8.25F);
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-
-            BuildMenu();
+            PracticeLayout.SetUpWindow(this, "Sly1Practice", "SluMAN :: Sly Cooper and the Thievius Raccoonus (Practice Mode)");
+            layout = new PracticeLayout(this);
             BuildControls();
-            ClientSize = new Size(660, 554);
             statusLine = new StatusLine(this, true);
+            // Before the session's own handler, which disconnects: this one still writes to the game.
+            FormClosing += Sly1Practice_FormClosing;
 
             namedEntrances = new SpawnPoints(EntranceFile);
             seenEntrances = new SpawnPoints(UserData.Path(SeenEntranceFile));
@@ -117,8 +111,6 @@ namespace SluMAN
             RefreshStatus();
             SelectCurrentLevel();
 
-            FormClosing += Sly1Practice_FormClosing;
-
             freeCamera = new Sly1FreeCamera(game);
             freeCamera.Stopped += (message) =>
             {
@@ -142,80 +134,49 @@ namespace SluMAN
             practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, CameraTab, WorldStatesTab, PowerupsTab);
         }
 
-        /// <summary>The menu bar; the session fills the Tools menu once it exists.</summary>
-        private void BuildMenu()
-        {
-            menuStrip.Items.Add(toolsMenu);
-            MainMenuStrip = menuStrip;
-            Controls.Add(menuStrip);
-        }
-
+        /// <summary>The Practice tab, in the slots every game shares (PracticeLayout).</summary>
         private void BuildControls()
         {
+            toolsMenu = layout.AddMenu();
+
             // Left column
-            GroupBox levelGroupBox = AddGroup("Level", 12, 32, 80);
-            levelComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            levelComboBox.Location = new Point(10, 20);
-            levelComboBox.Size = new Size(292, 21);
-            levelGroupBox.Controls.Add(levelComboBox);
-            entranceComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            entranceComboBox.Location = new Point(10, 49);
-            entranceComboBox.Size = new Size(193, 21);
-            levelGroupBox.Controls.Add(entranceComboBox);
-            AddButton(levelGroupBox, "Load", 208, 48, 94, (sender, e) => LoadSelectedLevel());
-
-            GroupBox reloadGroupBox = AddGroup("Reload", 12, 118, 54);
-            AddButton(reloadGroupBox, "Reload Level", 10, 19, 143, (sender, e) => Run("Reloading.", () =>
+            layout.AddPickerGroup("Level", levelComboBox, entranceComboBox, (sender, e) => LoadSelectedLevel());
+            layout.AddReloadGroup(new Button[]
             {
-                ClearPositionFreezes();
-                game.ReloadLevel();
-            }));
-            AddButton(reloadGroupBox, "Skip Cinematic", 159, 19, 143, (sender, e) => Run(null, game.SkipCinematic));
-
-            GroupBox utilityGroupBox = AddGroup("Utility", 12, 178, 110);
-            AddLabel(utilityGroupBox, "Coins:", 10, 23);
-            coinsTextBox.Location = new Point(60, 20);
-            coinsTextBox.Size = new Size(143, 20);
-            utilityGroupBox.Controls.Add(coinsTextBox);
-            AddButton(utilityGroupBox, "Set Coins", 208, 18, 94, (sender, e) => SetFromTextBox(coinsTextBox, "coins", game.SetCoinCount));
-            AddLabel(utilityGroupBox, "Lives:", 10, 52);
-            livesTextBox.Location = new Point(60, 49);
-            livesTextBox.Size = new Size(143, 20);
-            utilityGroupBox.Controls.Add(livesTextBox);
-            AddButton(utilityGroupBox, "Set Lives", 208, 47, 94, (sender, e) => SetFromTextBox(livesTextBox, "lives", game.SetLives));
-            AddLabel(utilityGroupBox, "Charms:", 10, 81);
-            charmsComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            charmsComboBox.Items.AddRange(new object[] { "None", "Blue", "Gold" });
-            charmsComboBox.SelectedIndex = 2;
-            charmsComboBox.Location = new Point(60, 78);
-            charmsComboBox.Size = new Size(143, 21);
-            utilityGroupBox.Controls.Add(charmsComboBox);
-            AddButton(utilityGroupBox, "Set Charms", 208, 76, 94,
-                (sender, e) => Run(null, () => game.SetCharms(charmsComboBox.SelectedIndex)));
+                PracticeLayout.MakeButton("Reload Level", (sender, e) => Run("Reloading.", () =>
+                {
+                    ClearPositionFreezes();
+                    game.ReloadLevel();
+                })),
+                PracticeLayout.MakeButton("Skip Cinematic", (sender, e) => Run(null, game.SkipCinematic)),
+            }, null);
+            layout.AddSavedPositionsGroup(game, slotComboBox,
+                (sender, e) => Run($"Saved position to slot {game.selectedPositionIndex + 1}.", game.SavePosition),
+                (sender, e) => Run(null, game.LoadPosition));
 
             // Right column
-            GroupBox togglesGroupBox = AddGroup("Toggles", 336, 32, 138);
-            // Every game's toggles in the same order (.claude/ui-uniform-plan.md); Sly 1's own
-            // after the shared ones, Always On Top last.
-            AddCheckBox(togglesGroupBox, flyModeCheckBox, "Fly Mode", 10, 20, (sender, e) => StartPlayerTool(flyModeCheckBox));
-            AddCheckBox(togglesGroupBox, infiniteJumpCheckBox, "Infinite Jump", 10, 43, (sender, e) => StartPlayerTool(infiniteJumpCheckBox));
-            AddCheckBox(togglesGroupBox, freezeLivesCheckBox, "Freeze Lives", 10, 66,
-                (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked)));
-            AddCheckBox(togglesGroupBox, freezeCharmsCheckBox, "Freeze Gold Charm", 10, 89,
-                (sender, e) => Toggle(freezeCharmsCheckBox, () => game.SetCharmsFrozen(freezeCharmsCheckBox.Checked)));
-            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 10, 112, null);
+            layout.AddStatusGroup(new string[] { "Level", "Lives", "Charms", "Coins" },
+                new Label[] { levelValueLabel, livesValueLabel, charmsValueLabel, coinsValueLabel });
+            charmsComboBox.Items.AddRange(new object[] { "None", "Blue", "Gold" });
+            layout.AddUtilityGroup(
+                PracticeLayout.Setter("Coins", coinsTextBox, (sender, e) => SetFromTextBox(coinsTextBox, "coins", game.SetCoinCount)),
+                PracticeLayout.Setter("Lives", livesTextBox, (sender, e) => SetFromTextBox(livesTextBox, "lives", game.SetLives)),
+                PracticeLayout.Setter("Charms", charmsComboBox, (sender, e) => Run(null, () => game.SetCharms(charmsComboBox.SelectedIndex))));
+            charmsComboBox.SelectedIndex = 2;
+            // Every game's toggles in the same order; Sly 1's own after the shared ones, Always On
+            // Top last. Sly 1's lives and charms work unlike Sly 2-4's health, so they keep their names.
+            layout.AddTogglesGroup(
+                layout.PlaceholderToggle("Freeze Game Clock"),
+                PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", (sender, e) => StartPlayerTool(flyModeCheckBox)),
+                PracticeLayout.Toggle(infiniteJumpCheckBox, "Infinite Jump", (sender, e) => StartPlayerTool(infiniteJumpCheckBox)),
+                layout.PlaceholderToggle("Auto-skip Cutscenes"),
+                PracticeLayout.Toggle(freezeLivesCheckBox, "Freeze Lives",
+                    (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked))),
+                PracticeLayout.Toggle(freezeCharmsCheckBox, "Freeze Gold Charm",
+                    (sender, e) => Toggle(freezeCharmsCheckBox, () => game.SetCharmsFrozen(freezeCharmsCheckBox.Checked))),
+                PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
 
-            GroupBox statusGroupBox = AddGroup("Game", 336, 176, 112);
-            AddLabel(statusGroupBox, "Level:", 10, 20);
-            AddValueLabel(statusGroupBox, levelValueLabel, 70, 20);
-            AddLabel(statusGroupBox, "Lives:", 10, 42);
-            AddValueLabel(statusGroupBox, livesValueLabel, 70, 42);
-            AddLabel(statusGroupBox, "Charms:", 10, 64);
-            AddValueLabel(statusGroupBox, charmsValueLabel, 70, 64);
-            AddLabel(statusGroupBox, "Coins:", 10, 86);
-            AddValueLabel(statusGroupBox, coinsValueLabel, 70, 86);
-
-            ToolTip tip = new ToolTip();
+            ToolTip tip = layout.ToolTip;
             tip.SetToolTip(entranceComboBox,
                 "Entrances are read from the game when you're in a level, and remembered, so a level's\n" +
                 "entrances can be loaded from anywhere once you've visited it. Names for them come\n" +
@@ -223,57 +184,6 @@ namespace SluMAN
             tip.SetToolTip(freezeCharmsCheckBox, "Holds a gold charm, so hits don't cost a life.");
             tip.SetToolTip(flyModeCheckBox, "Holds Sly's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
             tip.SetToolTip(infiniteJumpCheckBox, "Sly can double jump again and again.");
-            FormClosed += (sender, e) => tip.Dispose();
-        }
-
-        private GroupBox AddGroup(string text, int x, int y, int height)
-        {
-            GroupBox group = new GroupBox();
-            group.Text = text;
-            group.Location = new Point(x, y);
-            group.Size = new Size(312, height);
-            Controls.Add(group);
-            return group;
-        }
-
-        private static void AddButton(Control parent, string text, int x, int y, int width, EventHandler click)
-        {
-            Button button = new Button();
-            button.Text = text;
-            button.Location = new Point(x, y);
-            button.Size = new Size(width, 23);
-            button.UseVisualStyleBackColor = true;
-            button.Click += click;
-            parent.Controls.Add(button);
-        }
-
-        private static void AddLabel(Control parent, string text, int x, int y)
-        {
-            Label label = new Label();
-            label.Text = text;
-            label.AutoSize = true;
-            label.Location = new Point(x, y);
-            parent.Controls.Add(label);
-        }
-
-        private static void AddValueLabel(Control parent, Label label, int x, int y)
-        {
-            label.Text = "-";
-            label.Location = new Point(x, y);
-            label.Size = new Size(232, 13);
-            parent.Controls.Add(label);
-        }
-
-        private static void AddCheckBox(Control parent, CheckBox checkBox, string text, int x, int y, EventHandler changed)
-        {
-            checkBox.Text = text;
-            checkBox.AutoSize = true;
-            checkBox.Location = new Point(x, y);
-            if (changed != null)
-            {
-                checkBox.CheckedChanged += changed;
-            }
-            parent.Controls.Add(checkBox);
         }
 
         private void Run(string done, Action action)

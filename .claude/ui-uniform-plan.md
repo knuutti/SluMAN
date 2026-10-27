@@ -89,7 +89,20 @@ powerup in the game (L2 / R2 cycle it), as L2 / R2 height did before.
 - Fly controls switch to R1 / L1 (decision 1) in `PositionEditor`'s fly and Sly 3's fallback
   fly in `Sly3Practice.FreezeTimer_Tick`.
 
-### Phase 2: one Practice-tab builder
+### Phase 2: one Practice-tab builder — done
+
+Every Practice window is now built in code with `PracticeLayout` (the Designer files of Sly 2, 3
+and 4 are gone; Sly 2 / 3's job lists are in `Sly2Jobs.cs` / `Sly3Jobs.cs`). Notes:
+
+- Sly 4's Job group's Load starts the picked job at the picked goal (its first without one), or
+  warps to the running job's goal when no job is picked; To Hub / To Hideout are on the Jobs tab.
+- Sly 2's Kill with the Character list on "Default" kills the current character; it used to
+  switch to Sly first (the list was read one entry off).
+- Sly 2 / 3's Game group shows Map, Coins and Health; Job and Checkpoint need readers (below).
+- Sly 3's Disable Guard AI moved to the game-only toggles, leaving the Undetectable slot to the
+  placeholder.
+- A window's own FormClosing handler is registered before its `GameSession`, whose handler
+  disconnects (Sly 1's used to run after it).
 
 - A shared `PracticeLayout` from the helpers Sly 1 and Hackpack each copy (`AddGroup`,
   `AddButton`, `AddCheckBox`, `AddValueLabel`), placing named groups in the slots above.
@@ -140,4 +153,4 @@ layout already matches; making it work means adding the game method and wiring t
 | Infinite Jump | Sly 4 | Needs research. |
 | Freeze Game Clock / Slow Motion | Sly 1 | Needs research. |
 | Set Health | Sly 4 | Needs research. |
-| Game status rows | Sly 2, 3 | Phase 2 adds map, job, coins and health; checkpoint needs a reader. |
+| Game status rows | Sly 2, 3 | Map, coins and health show. Job needs the current job ID (`currentJobId` / `currentJob`) mapped to its name; checkpoint needs a reader. |

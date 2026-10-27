@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
@@ -40,8 +39,6 @@ namespace SluMAN
         private static readonly TimeSpan QueuedGoalWarpTimeout = TimeSpan.FromSeconds(60);
         private static readonly TimeSpan QueuedGoalWarpSettleTime = TimeSpan.FromSeconds(1);
 
-        private readonly MenuStrip menuStrip = new MenuStrip();
-        private readonly ToolStripMenuItem toolsMenu = new ToolStripMenuItem("Tools");
         private readonly ComboBox jobComboBox = new ComboBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
@@ -58,6 +55,8 @@ namespace SluMAN
         /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
         public Sly4CameraApi CameraApi;
 
+        private PracticeLayout layout;
+        private ToolStripMenuItem toolsMenu;
         private StatusLine statusLine;
         private GameSession session;
         private PracticeTabs practiceTabs;
@@ -76,17 +75,9 @@ namespace SluMAN
         public HackpackPractice(sly4 game)
         {
             this.game = game;
-            Name = "HackpackPractice";
-            Text = "SluMAN :: Bentley's Hackpack (Practice Mode)";
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
-            Font = new Font("Microsoft Sans Serif", 8.25F);
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-
-            BuildMenu();
+            PracticeLayout.SetUpWindow(this, "HackpackPractice", "SluMAN :: Bentley's Hackpack (Practice Mode)");
+            layout = new PracticeLayout(this);
             BuildControls();
-            ClientSize = new Size(660, 220);
             statusLine = new StatusLine(this, true);
 
             FillJobs(false);
@@ -153,21 +144,17 @@ namespace SluMAN
             practiceTabs.AddViewMenu("hackpack_visible_tabs", CameraTab, JobsTab);
         }
 
-        /// <summary>The menu bar; the session fills the Tools menu once it exists.</summary>
-        private void BuildMenu()
-        {
-            menuStrip.Items.Add(toolsMenu);
-            MainMenuStrip = menuStrip;
-            Controls.Add(menuStrip);
-        }
-
+        /// <summary>The Practice tab, in the slots every game shares (PracticeLayout).</summary>
         private void BuildControls()
         {
+            toolsMenu = layout.AddMenu();
+
             // Left column
-            GroupBox jobGroupBox = AddGroup("Job", 12, 32, 80);
-            jobComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            jobComboBox.Location = new Point(10, 20);
-            jobComboBox.Size = new Size(292, 21);
+            GroupBox levelGroupBox = layout.AddLeft("Level", 1);
+            PracticeLayout.AddButtonRow(levelGroupBox, PracticeLayout.Row(0) - 1, new Button[]
+            {
+                PracticeLayout.MakeButton("Load Hub", (sender, e) => LoadHub()),
+            });
             // The game reads its jobs while it boots, so they're read again when still empty.
             jobComboBox.DropDown += (sender, e) =>
             {
@@ -176,78 +163,24 @@ namespace SluMAN
                     FillJobs(true);
                 }
             };
-            jobGroupBox.Controls.Add(jobComboBox);
-            AddButton(jobGroupBox, "Start Job", 10, 48, 143, (sender, e) => StartSelectedJob());
-            AddButton(jobGroupBox, "Restart Job", 159, 48, 143, (sender, e) => RestartRunningJob());
-
-            GroupBox hubGroupBox = AddGroup("Hub", 12, 118, 54);
-            AddButton(hubGroupBox, "Load Hub", 10, 19, 292, (sender, e) => LoadHub());
+            layout.AddPickerGroup("Job", jobComboBox, null, (sender, e) => StartSelectedJob());
+            layout.AddReloadGroup(new Button[]
+            {
+                PracticeLayout.MakeButton("Restart Job", (sender, e) => RestartRunningJob()),
+                layout.PlaceholderButton("Skip Cinematic"),
+            }, null);
 
             // Right column
-            GroupBox statusGroupBox = AddGroup("Game", 336, 32, 90);
-            AddLabel(statusGroupBox, "Level:", 10, 20);
-            AddValueLabel(statusGroupBox, levelValueLabel, 70, 20);
-            AddLabel(statusGroupBox, "Job:", 10, 42);
-            AddValueLabel(statusGroupBox, jobValueLabel, 70, 42);
-            AddLabel(statusGroupBox, "Goal:", 10, 64);
-            AddValueLabel(statusGroupBox, goalValueLabel, 70, 64);
+            layout.AddStatusGroup(new string[] { "Level", "Job", "Goal" },
+                new Label[] { levelValueLabel, jobValueLabel, goalValueLabel });
+            layout.AddTogglesGroup(
+                PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
+                PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
+                PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
 
-            GroupBox togglesGroupBox = AddGroup("Toggles", 336, 128, 70);
-            AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
-            AddCheckBox(togglesGroupBox, skipCutscenesCheckBox, "Auto-skip Cutscenes", 10, 43);
-            AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 160, 20);
-
-            ToolTip tip = new ToolTip();
-            tip.SetToolTip(jobComboBox,
+            layout.ToolTip.SetToolTip(jobComboBox,
                 "Every job in the game's job list: each minigame stage is one. Jobs start the way the\n" +
                 "arcade machines start them, so the stage's challenges are set up.");
-            FormClosed += (sender, e) => tip.Dispose();
-        }
-
-        private GroupBox AddGroup(string text, int x, int y, int height)
-        {
-            GroupBox group = new GroupBox();
-            group.Text = text;
-            group.Location = new Point(x, y);
-            group.Size = new Size(312, height);
-            Controls.Add(group);
-            return group;
-        }
-
-        private static void AddButton(Control parent, string text, int x, int y, int width, EventHandler click)
-        {
-            Button button = new Button();
-            button.Text = text;
-            button.Location = new Point(x, y);
-            button.Size = new Size(width, 23);
-            button.UseVisualStyleBackColor = true;
-            button.Click += click;
-            parent.Controls.Add(button);
-        }
-
-        private static void AddLabel(Control parent, string text, int x, int y)
-        {
-            Label label = new Label();
-            label.Text = text;
-            label.AutoSize = true;
-            label.Location = new Point(x, y);
-            parent.Controls.Add(label);
-        }
-
-        private static void AddValueLabel(Control parent, Label label, int x, int y)
-        {
-            label.Text = "-";
-            label.Location = new Point(x, y);
-            label.Size = new Size(232, 13);
-            parent.Controls.Add(label);
-        }
-
-        private static void AddCheckBox(Control parent, CheckBox checkBox, string text, int x, int y)
-        {
-            checkBox.Text = text;
-            checkBox.AutoSize = true;
-            checkBox.Location = new Point(x, y);
-            parent.Controls.Add(checkBox);
         }
 
         private void Toggle(CheckBox toggle, Action apply)

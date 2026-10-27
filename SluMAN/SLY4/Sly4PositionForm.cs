@@ -8,7 +8,7 @@ namespace SluMAN
 {
     /// <summary>
     /// The Player tab: the player's live position, velocity and horizontal speed (with the top
-    /// speed reached), teleporting to typed coordinates, coins and fly mode. Read only while its
+    /// speed reached), teleporting to typed coordinates and fly mode (coins are on the Practice tab). Read only while its
     /// tab shows. The controls are built in code.
     /// </summary>
     public class Sly4PositionForm : Form, IRefreshOnShow
@@ -17,8 +17,6 @@ namespace SluMAN
         // read is a network round trip, and one refresh takes about eight.
         private const int Rpcs3RefreshIntervalMs = 50;
         private const int PS3RefreshIntervalMs = 200;
-        // Coins change rarely, so they're read on every few refreshes.
-        private const int CoinRefreshTicks = 10;
 
         private readonly sly4 game;
 
@@ -32,9 +30,6 @@ namespace SluMAN
         private readonly TextBox zTextBox = new TextBox();
         private readonly Button currentPositionButton = new Button();
         private readonly Button teleportButton = new Button();
-        private readonly Label coinsValueLabel = new Label();
-        private readonly TextBox coinsTextBox = new TextBox();
-        private readonly Button setCoinsButton = new Button();
         private readonly CheckBox flyCheckBox = new CheckBox();
         private readonly NumericUpDown speedUpDown = new NumericUpDown();
         private readonly Timer refreshTimer = new Timer();
@@ -42,7 +37,6 @@ namespace SluMAN
         private StatusLine statusLine;
 
         private float topSpeed;
-        private int refreshTick = 0;
 
         public Sly4PositionForm(sly4 game, Sly4FreeMove freeMove)
         {
@@ -56,9 +50,8 @@ namespace SluMAN
 
             GroupBox liveGroupBox = BuildLiveGroup();
             GroupBox teleportGroupBox = BuildTeleportGroup(liveGroupBox.Bottom + 6);
-            // Fly and coins in a second column.
+            // Fly in a second column.
             GroupBox flyGroupBox = BuildFlyGroup(new Point(liveGroupBox.Right + 8, liveGroupBox.Top));
-            GroupBox coinsGroupBox = BuildCoinsGroup(new Point(flyGroupBox.Left, flyGroupBox.Bottom + 6));
             ClientSize = new Size(flyGroupBox.Right + 8, teleportGroupBox.Bottom + 8);
             statusLine = new StatusLine(this, false);
 
@@ -71,7 +64,6 @@ namespace SluMAN
             refreshTimer.Tick += refreshTimer_Tick;
             FormClosing += (sender, e) => refreshTimer.Stop();
             FormClosed += (sender, e) => refreshTimer.Dispose();
-            ReadCoins();
             refreshTimer.Start();
         }
 
@@ -206,34 +198,6 @@ namespace SluMAN
             return group;
         }
 
-        private GroupBox BuildCoinsGroup(Point location)
-        {
-            GroupBox group = new GroupBox();
-            group.Text = "Coins";
-            group.Location = location;
-            group.Size = new Size(284, 50);
-            Controls.Add(group);
-
-            coinsValueLabel.AutoSize = true;
-            coinsValueLabel.Location = new Point(8, 23);
-            coinsValueLabel.Text = "-";
-            group.Controls.Add(coinsValueLabel);
-
-            coinsTextBox.Location = new Point(138, 20);
-            coinsTextBox.Size = new Size(70, 20);
-            group.Controls.Add(coinsTextBox);
-
-            setCoinsButton.Text = "Set";
-            setCoinsButton.Location = new Point(214, 18);
-            setCoinsButton.Size = new Size(60, 23);
-            setCoinsButton.UseVisualStyleBackColor = true;
-            setCoinsButton.Click += setCoinsButton_Click;
-            group.Controls.Add(setCoinsButton);
-
-            func.BindEnter(coinsTextBox, setCoinsButton);
-            return group;
-        }
-
         private void flyCheckBox_Click(object sender, EventArgs e)
         {
             try
@@ -257,41 +221,9 @@ namespace SluMAN
             }
         }
 
-        private void setCoinsButton_Click(object sender, EventArgs e)
-        {
-            if (!int.TryParse(coinsTextBox.Text, out int coins))
-            {
-                statusLine.Error("Coins must be a whole number.");
-                return;
-            }
-
-            try
-            {
-                game.SetCoinCount(coins);
-                ReadCoins();
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't set coins: {ex.Message}");
-            }
-        }
-
-        private void ReadCoins()
-        {
-            try
-            {
-                coinsValueLabel.Text = $"Coins: {game.GetCoinCount()}";
-            }
-            catch
-            {
-                coinsValueLabel.Text = "Coins: -";
-            }
-        }
-
         public void RefreshFromGame()
         {
             ReadMotion();
-            ReadCoins();
             ShowMode();
         }
 
@@ -303,10 +235,6 @@ namespace SluMAN
                 return;
             }
             ReadMotion();
-            if (++refreshTick % CoinRefreshTicks == 0)
-            {
-                ReadCoins();
-            }
         }
 
         private void ReadMotion()

@@ -4,10 +4,44 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class Sly4Practice : Form, ISly4JobHost
+    /// <summary>
+    /// Sly 4 Practice Mode: load a level (at a spawn point, as a character) or a job at a goal,
+    /// retry the checkpoint, saved positions, coins and the toggles, with the player, the camera,
+    /// the jobs, the tunables, the GUI and the memory tools on tabs. The controls are built in
+    /// code (PracticeLayout), in the layout every game shares.
+    /// </summary>
+    public class Sly4Practice : Form, ISly4JobHost
     {
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
+
+        // The timer that refreshes the game state and tracks the queued warps.
+        private const int RefreshIntervalMs = 200;
+
+        private readonly ComboBox levelComboBox = new ComboBox();
+        private readonly ComboBox characterComboBox = new ComboBox();
+        private readonly ComboBox spawnPointComboBox = new ComboBox();
+        private readonly ComboBox jobComboBox = new ComboBox();
+        private readonly ComboBox goalComboBox = new ComboBox();
+        private readonly ComboBox slotComboBox = new ComboBox();
+        private readonly TextBox coinsTextBox = new TextBox();
+        private readonly CheckBox invulnerableCheckBox = new CheckBox();
+        private readonly CheckBox undetectableCheckBox = new CheckBox();
+        private readonly CheckBox slowMotionCheckBox = new CheckBox();
+        private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
+        private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
+        private readonly Label levelValueLabel = new Label();
+        private readonly Label episodeValueLabel = new Label();
+        private readonly Label jobValueLabel = new Label();
+        private readonly Label checkpointValueLabel = new Label();
+        private readonly Label goalValueLabel = new Label();
+        private readonly Label coinsValueLabel = new Label();
+        private readonly Timer refreshTimer = new Timer();
+
+        private PracticeLayout layout;
+        private ToolStripMenuItem toolsToolStripMenuItem;
+        private GroupBox gameGroupBox;
+        private GroupBox savedPositionsGroupBox;
 
         // The game state is refreshed every few ticks: it takes a dozen reads, and on a PS3 every
         // read is a network round trip.
@@ -68,14 +102,12 @@ namespace SluMAN
         public Sly4Practice(sly4 game)
         {
             this.game = game;
-            InitializeComponent();
+            PracticeLayout.SetUpWindow(this, "Sly4Practice", "SluMAN :: Sly Cooper: Thieves in Time (Practice Mode)");
+            layout = new PracticeLayout(this);
+            BuildControls();
             statusLine = new StatusLine(this, true);
-
-            for (int slot = 1; slot <= IGame.PositionSlotCount; slot++)
-            {
-                slotComboBox.Items.Add($"Slot {slot}");
-            }
-            slotComboBox.SelectedIndex = game.selectedPositionIndex;
+            // Before the session's own handler, which disconnects: this one still writes to the game.
+            FormClosing += Sly4Practice_FormClosing;
 
             foreach (sly4.LevelEntry level in sly4.GetWarpLevels())
             {
@@ -110,6 +142,11 @@ namespace SluMAN
             {
                 // Left unchecked; ticking them writes the values anyway.
             }
+            // After the game's state is shown, so showing it writes nothing.
+            slowMotionCheckBox.CheckedChanged += slowMotionCheckBox_CheckedChanged;
+            invulnerableCheckBox.CheckedChanged += invulnerableCheckBox_CheckedChanged;
+            undetectableCheckBox.CheckedChanged += undetectableCheckBox_CheckedChanged;
+            skipCutscenesCheckBox.CheckedChanged += skipCutscenesCheckBox_CheckedChanged;
 
             // The controller feeds the combos and the input display.
             game.SetupInputDisplayMemorySubs();
@@ -125,6 +162,8 @@ namespace SluMAN
             game.GoalsChanged += game_GoalsChanged;
             game.StartGoalWatcher();
 
+            refreshTimer.Interval = RefreshIntervalMs;
+            refreshTimer.Tick += refreshTimer_Tick;
             refreshTimer.Start();
 
             FreeMove = new Sly4FreeMove(game);
@@ -153,6 +192,68 @@ namespace SluMAN
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
             practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab, CameraTab, JobsTab);
+        }
+
+        /// <summary>The Practice tab, in the slots every game shares (PracticeLayout).</summary>
+        private void BuildControls()
+        {
+            toolsToolStripMenuItem = layout.AddMenu();
+
+            // Left column
+            levelComboBox.MaxDropDownItems = 20;
+            characterComboBox.MaxDropDownItems = 20;
+            spawnPointComboBox.MaxDropDownItems = 20;
+            layout.AddPickerGroup("Level", levelComboBox, spawnPointComboBox, loadLevelButton_Click, characterComboBox);
+            jobComboBox.MaxDropDownItems = 20;
+            goalComboBox.MaxDropDownItems = 20;
+            goalComboBox.DropDownWidth = 300;
+            jobComboBox.DropDown += jobComboBox_DropDown;
+            jobComboBox.SelectedIndexChanged += jobComboBox_SelectedIndexChanged;
+            goalComboBox.DropDown += goalComboBox_DropDown;
+            layout.AddPickerGroup("Job", jobComboBox, goalComboBox, (sender, e) => LoadSelectedJob());
+            layout.AddReloadGroup(new Button[]
+            {
+                layout.PlaceholderButton("Reload"),
+                PracticeLayout.MakeButton("Retry Checkpoint", retryCheckpointButton_Click),
+                layout.PlaceholderButton("Skip Cinematic"),
+            }, null);
+            savedPositionsGroupBox = layout.AddSavedPositionsGroup(game, slotComboBox, savePosButton_Click, loadPosButton_Click);
+
+            // Right column
+            gameGroupBox = layout.AddStatusGroup(new string[] { "Level", "Episode", "Job", "Checkpoint", "Goal", "Coins" },
+                new Label[] { levelValueLabel, episodeValueLabel, jobValueLabel, checkpointValueLabel, goalValueLabel, coinsValueLabel });
+            layout.AddUtilityGroup(
+                PracticeLayout.Setter("Coins", coinsTextBox, setCoinsButton_Click),
+                PracticeLayout.PlaceholderSetter("Health"));
+            // Every game's toggles in the same order, Always On Top last. Fly is on the Player tab.
+            layout.AddTogglesGroup(
+                PracticeLayout.Toggle(invulnerableCheckBox, "Invulnerability", null),
+                layout.PlaceholderToggle("Infinite Gadget Power"),
+                PracticeLayout.Toggle(undetectableCheckBox, "Undetectable", null),
+                PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
+                layout.PlaceholderToggle("Infinite Jump"),
+                PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
+                PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+
+            layout.ToolTip.SetToolTip(goalComboBox, "Load starts the job at this goal; with no job picked, the running job's.");
+        }
+
+        private void setCoinsButton_Click(object sender, EventArgs e)
+        {
+            if (!int.TryParse(coinsTextBox.Text.Trim(), out int coins))
+            {
+                statusLine.Error("Coins must be a whole number.");
+                return;
+            }
+            try
+            {
+                game.SetCoinCount(coins);
+                coinsValueLabel.Text = game.GetCoinCount().ToString();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't set coins: {ex.Message}");
+            }
         }
 
         /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
@@ -392,30 +493,21 @@ namespace SluMAN
             }
         }
 
-        private void startJobButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(false, false);
-        }
-
-        private void toHubButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(true, false);
-        }
-
-        private void toHideoutButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(false, true);
-        }
-
-        private void StartSelectedJob(bool toHub, bool toHideout)
+        /// <summary>
+        /// The Job group's Load: the selected job at the selected goal (its first without one),
+        /// or the running job's goal when no job is picked. Going to an episode's hub or
+        /// hideout is on the Jobs tab.
+        /// </summary>
+        private void LoadSelectedJob()
         {
             sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
-            if (job == null)
+            int goal = goalComboBox.SelectedIndex;
+            if (job == null && goal < 0)
             {
                 statusLine.Error("Pick a job first.");
                 return;
             }
-            StartJob(job, toHub, toHideout);
+            WarpToGoal(job, Math.Max(goal, 0));
         }
 
         /// <summary>
@@ -442,16 +534,6 @@ namespace SluMAN
             {
                 statusLine.Error($"Couldn't start the job: {ex.Message}");
             }
-        }
-
-        private void warpToGoalButton_Click(object sender, EventArgs e)
-        {
-            if (goalComboBox.SelectedIndex < 0)
-            {
-                statusLine.Error("Pick a goal first.");
-                return;
-            }
-            WarpToGoal(jobComboBox.SelectedItem as sly4.JobEntry, goalComboBox.SelectedIndex);
         }
 
         /// <summary>
@@ -692,6 +774,15 @@ namespace SluMAN
                 }
                 checkpointValueLabel.Text = checkpointText;
                 goalValueLabel.Text = string.IsNullOrEmpty(goalName) ? "-" : goalName;
+                try
+                {
+                    coinsValueLabel.Text = game.GetCoinCount().ToString();
+                }
+                catch
+                {
+                    // In the title screen, there's no game manager yet.
+                    coinsValueLabel.Text = "-";
+                }
             }
             catch
             {
@@ -700,12 +791,8 @@ namespace SluMAN
                 jobValueLabel.Text = "-";
                 checkpointValueLabel.Text = "-";
                 goalValueLabel.Text = "-";
+                coinsValueLabel.Text = "-";
             }
-        }
-
-        private void slotComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            game.selectedPositionIndex = slotComboBox.SelectedIndex;
         }
 
         private void savePosButton_Click(object sender, EventArgs e)

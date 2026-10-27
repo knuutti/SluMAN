@@ -333,20 +333,36 @@ namespace SluMAN
             api.WriteMemory(pid, sly2.addr.coinCount, ConvertIntToBytes(coins));
         }
 
+        public int GetCoins()
+        {
+            return (int)ReadUInt(sly2.addr.coinCount);
+        }
+
+        /// <summary>The active character's health.</summary>
+        public int GetHealth()
+        {
+            return (int)ReadUInt(CurrentCharacterHealthAddress());
+        }
+
         public void SetHealth(int health)
         {
-            var currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
-            uint currentCharacterHealth = sly2.addr.healthSly;
+            byte[] healthBytes = ConvertIntToBytes(health);
+            api.WriteMemory(pid, CurrentCharacterHealthAddress(), 4, healthBytes);
+        }
+
+        /// <summary>Health lives per character in the save data.</summary>
+        private uint CurrentCharacterHealthAddress()
+        {
+            byte[] currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
             if (currentCharacterId[3] == 8)
             {
-                currentCharacterHealth = sly2.addr.healthBentley;
+                return sly2.addr.healthBentley;
             }
-            else if (currentCharacterId[3] == 9)
+            if (currentCharacterId[3] == 9)
             {
-                currentCharacterHealth = sly2.addr.healthMurray;
+                return sly2.addr.healthMurray;
             }
-            byte[] healthBytes = ConvertIntToBytes(health);
-            api.WriteMemory(pid, currentCharacterHealth, 4, healthBytes);
+            return sly2.addr.healthSly;
         }
 
         // Values the toggles hold, from SluMAN-EXT: full health per character and full gadget power.
