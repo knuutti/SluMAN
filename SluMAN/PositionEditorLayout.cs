@@ -84,6 +84,14 @@ namespace SluMAN
         public uint rotationOffset;
 
         /// <summary>
+        /// Read the player's health and gadget power from their entity (null if unknown), for
+        /// games that keep them outside it (Sly 2's are per character in the save data). Used
+        /// instead of healthOffset / gadgetPowerOffset when set.
+        /// </summary>
+        public Func<uint, int?> readHealth;
+        public Func<uint, int?> readGadgetPower;
+
+        /// <summary>
         /// Entity offset the editor writes 0 to while Infinite Jump is on and the editor is open.
         /// 0 if the game handles Infinite Jump elsewhere.
         /// </summary>

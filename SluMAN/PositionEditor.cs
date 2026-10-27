@@ -237,6 +237,17 @@ namespace SluMAN
         private uint PositionAddress(uint transformPtr, uint axis) => transformPtr + layout.positionOffset + axis * 4;
         private uint VelocityAddress(uint transformPtr, uint axis) => transformPtr + layout.velocityOffset + axis * 4;
 
+        /// <summary>A Character Info value, through the layout's reader or at its entity offset; N/A if unknown.</summary>
+        private string ReadCharacterValue(uint entityPtr, Func<uint, int?> read, uint offset)
+        {
+            if (read != null)
+            {
+                int? value = read(entityPtr);
+                return value.HasValue ? value.Value.ToString() : "N/A";
+            }
+            return offset != 0 ? ReadInt(entityPtr + offset).ToString() : "N/A";
+        }
+
         /// <summary>X, Y and Z velocity, or null where the game's isn't known.</summary>
         private float[] ReadVelocity(uint transformPtr)
         {
@@ -479,8 +490,8 @@ namespace SluMAN
 
                 // Current state for the labels.
                 entityIdValueLabel.Text = layout.entityIdOffset != 0 ? ReadInt(entityPtr + layout.entityIdOffset).ToString() : "N/A";
-                healthValueLabel.Text = layout.healthOffset != 0 ? ReadInt(entityPtr + layout.healthOffset).ToString() : "N/A";
-                gadgetPowerValueLabel.Text = layout.gadgetPowerOffset != 0 ? ReadInt(entityPtr + layout.gadgetPowerOffset).ToString() : "N/A";
+                healthValueLabel.Text = ReadCharacterValue(entityPtr, layout.readHealth, layout.healthOffset);
+                gadgetPowerValueLabel.Text = ReadCharacterValue(entityPtr, layout.readGadgetPower, layout.gadgetPowerOffset);
                 opacityValueLabel.Text = layout.opacityOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.opacityOffset)) : "N/A";
                 rotationValueLabel.Text = layout.rotationOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.rotationOffset)) : "N/A";
 

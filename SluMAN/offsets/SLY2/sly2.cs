@@ -518,8 +518,8 @@ namespace SluMAN
 
         public PositionEditorLayout GetPositionEditorLayout()
         {
-            // Velocity and the Character Info fields aren't known for Sly 2 yet, so the editor
-            // shows N/A for them. Health lives per character in the save data, not on the entity.
+            // Rotation isn't known for Sly 2 yet, so the editor shows N/A for it. Health and
+            // gadget power live per character in the save data, not on the entity.
             return new PositionEditorLayout
             {
                 gameName = "Sly 2",
@@ -528,7 +528,36 @@ namespace SluMAN
                 mapNameAddress = sly2.addr.mapAOB,
                 transformOffset = sly2.addr.transformOffset,
                 positionOffset = sly2.addr.coordsOffsetX,
+                velocityOffset = EntityVelocityOffset,
+                entityIdOffset = EntityIdOffset,
+                opacityOffset = EntityOpacityOffset,
+                readHealth = (entity) => ReadCharacterValue(entity, sly2.addr.healthSly, sly2.addr.healthBentley, sly2.addr.healthMurray),
+                readGadgetPower = (entity) => ReadCharacterValue(entity, sly2.addr.juiceSly, sly2.addr.juiceBentley, sly2.addr.juiceMurray),
             };
+        }
+
+        // Character entity offsets: its ID (Sly, Bentley, Murray), opacity, and its transform's
+        // X velocity (Y and Z follow).
+        private const uint EntityIdOffset = 0x18;
+        private const uint EntityOpacityOffset = 0x11C;
+        private const uint EntityVelocityOffset = 0x1B0;
+        private const int SlyEntityId = 7;
+        private const int BentleyEntityId = 8;
+        private const int MurrayEntityId = 9;
+
+        /// <summary>
+        /// A per-character save data value (health, gadget power) for the character an entity is,
+        /// or null if it's none of the three.
+        /// </summary>
+        private int? ReadCharacterValue(uint entity, uint slyAddress, uint bentleyAddress, uint murrayAddress)
+        {
+            switch ((int)ReadUInt(entity + EntityIdOffset))
+            {
+                case SlyEntityId: return (int)ReadUInt(slyAddress);
+                case BentleyEntityId: return (int)ReadUInt(bentleyAddress);
+                case MurrayEntityId: return (int)ReadUInt(murrayAddress);
+                default: return null;
+            }
         }
 
         /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
