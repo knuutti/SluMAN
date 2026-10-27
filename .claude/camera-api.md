@@ -62,7 +62,7 @@ Lists the requests this game supports and which world axis is up.
 }
 ```
 
-Sly 4 and the Hackpack list `&far=` in `/camera/set` as well. Use `upAxis` to tell the two coordinate systems apart (see [Coordinates and angles](#coordinates-and-angles)).
+Sly 2, Sly 4 and the Hackpack list `&far=` in `/camera/set` as well. Use `upAxis` to tell the two coordinate systems apart (see [Coordinates and angles](#coordinates-and-angles)).
 
 ### `GET /camera`
 
@@ -79,8 +79,8 @@ Reads the free camera.
 | `yaw`, `pitch` | when `on` | Facing in degrees (see below) |
 | `fov` | when `on` | Field of view in degrees. `0` when the game's couldn't be read (Sly 1–3), in which case the game's own is used and zoom doesn't work |
 | `gameFov` | when the game's field of view is known | The game's own field of view in degrees, read when the free camera started |
-| `far` | Sly 4 / Hackpack | The free camera's far distance. `0` means the game's |
-| `gameFar` | Sly 4 / Hackpack | The game's own far distance |
+| `far` | Sly 2, Sly 4, Hackpack | The free camera's far distance. `0` means the game's |
+| `gameFar` | Sly 2, Sly 4, Hackpack | The game's own far distance, read when the free camera started (Sly 2: `0` until it has) |
 
 When the camera is off, only `on: false` and whichever of `gameFov` / `far` / `gameFar` apply are returned.
 
@@ -94,7 +94,7 @@ Moves the free camera, **turning it on first** if it's off (from where the game'
 | `yaw` | Degrees, any value (not wrapped) |
 | `pitch` | Degrees. Clamped to −90…90 (straight down to straight up) in every game |
 | `fov` | Degrees, above 0 and below 180 in every game: clamped to 0.0001°–179.9999°, since exactly 0° or 180° breaks the projection. `0` means the game's |
-| `far` | Sly 4 / Hackpack only (`400` elsewhere). `0` means the game's |
+| `far` | Sly 2, Sly 4 and Hackpack only (`400` elsewhere). `0` means the game's. It applies only while the free camera is on and stays set when it's turned off and on. In Sly 2 it's the game's render distance (75000 on at least one map), which SluMAN puts back when the camera stops. The PAL version's address hasn't been checked |
 
 Setting the camera **stops any camera path playing** on the Camera tab.
 

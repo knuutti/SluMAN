@@ -674,9 +674,7 @@ namespace SluMAN
 
         public void SetCameraFOV(float value)
         {
-            byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);
-            uint ptr = BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
-            api.WriteMemory(pid, ptr + sly3.addr.cameraFovTargetOffset, ConvertFloatToBytes(value));
+            WriteCameraFov(GetMainCamera(), value);
         }
 
         public void SetDrawDistance(float value)
@@ -854,10 +852,17 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, camera + addr.cameraFovTargetOffset, 4), 0);
         }
 
-        /// <summary>Sets the field of view (radians) a camera eases to.</summary>
+        /// <summary>
+        /// Sets a camera's field of view (radians) at once: the one it has, 4 bytes before the
+        /// target, and the target the game eases it to, in one write.
+        /// </summary>
         public void WriteCameraFov(uint camera, float fov)
         {
-            api.WriteMemory(pid, camera + addr.cameraFovTargetOffset, ConvertFloatToBytes(fov));
+            byte[] bytes = new byte[8];
+            byte[] value = ConvertFloatToBytes(fov);
+            Array.Copy(value, 0, bytes, 0, 4);
+            Array.Copy(value, 0, bytes, 4, 4);
+            api.WriteMemory(pid, camera + addr.cameraFovTargetOffset - 4, bytes);
         }
 
         // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put

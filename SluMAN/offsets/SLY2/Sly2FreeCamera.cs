@@ -66,6 +66,12 @@ namespace SluMAN
         private float yaw;
         private float pitch;
         private float fov;
+        // The free camera's render distance (0 for the game's), the game's when the camera
+        // started, and the one last written (0 for none), so stopping only puts the game's back
+        // over SluMAN's own.
+        private float farDistance;
+        private float gameFar;
+        private float farWritten;
         // False when the camera's field of view isn't in radians as on the PS2 version, so it's
         // left to the game.
         private bool fovKnown;
@@ -210,6 +216,44 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     return gameFov;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The free camera's render distance, or 0 for the game's own. Applies at once while the
+        /// camera is on, and stays set when it's turned off and on.
+        /// </summary>
+        public float FarDistance
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return farDistance;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    farDistance = Math.Max(0, value);
+                    if (on)
+                    {
+                        WriteFar();
+                    }
+                }
+            }
+        }
+
+        /// <summary>The game's render distance when the free camera started (0 if unknown).</summary>
+        public float GameFar
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return gameFar;
                 }
             }
         }
@@ -373,6 +417,7 @@ namespace SluMAN
                 if (on)
                 {
                     GiveBackFov();
+                    GiveBackFar();
                     Unhook();
                     RestorePlayerControllable();
                 }
@@ -439,8 +484,46 @@ namespace SluMAN
             fovKnown = cameraFov >= MinFov && cameraFov <= MaxFov;
             gameFov = fovKnown ? cameraFov : DefaultFov;
             fov = gameFov;
+            gameFar = game.ReadRenderDistance();
+            farWritten = 0;
+            WriteFar();
             Hook();
             WriteCamera();
+        }
+
+        /// <summary>Writes the render distance set, or the game's when it's 0.</summary>
+        private void WriteFar()
+        {
+            if (gameFar <= 0)
+            {
+                return;
+            }
+            float far = farDistance > 0 ? farDistance : gameFar;
+            if (far != farWritten)
+            {
+                game.WriteRenderDistance(far);
+                farWritten = far;
+            }
+        }
+
+        /// <summary>
+        /// Puts the game's render distance back, unless the game has set its own since (a load).
+        /// </summary>
+        private void GiveBackFar()
+        {
+            if (farWritten <= 0 || farWritten == gameFar)
+            {
+                return;
+            }
+            try
+            {
+                if (game.ReadRenderDistance() == farWritten)
+                {
+                    game.WriteRenderDistance(gameFar);
+                }
+            }
+            catch { }
+            farWritten = 0;
         }
 
         /// <summary>Lets the game's camera ease back to its own field of view.</summary>

@@ -563,7 +563,7 @@ namespace SluMAN
         /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
         public CameraTabLayout GetCameraTabLayout(Sly2FreeCamera freeCamera)
         {
-            return new CameraTabLayout
+            CameraTabLayout layout = new CameraTabLayout
             {
                 freeCamera = freeCamera,
                 pathFolder = CameraPath.Sly2Folder,
@@ -587,6 +587,14 @@ namespace SluMAN
                 minFov = Sly2FreeCamera.MinFov,
                 maxFov = Sly2FreeCamera.MaxFov,
             };
+            // A Far distance row (and the camera API's far) where the version's is known.
+            if (addr.renderDistance != 0)
+            {
+                layout.getFarDistance = () => freeCamera.FarDistance;
+                layout.setFarDistance = (far) => freeCamera.FarDistance = far;
+                layout.getGameFar = () => freeCamera.GameFar;
+            }
+            return layout;
         }
 
         /// <summary>
@@ -1151,14 +1159,41 @@ namespace SluMAN
             return addr.fogAmount != 0 && ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0) == 0;
         }
 
+        /// <summary>How far the game draws, or 0 when this version's is unknown.</summary>
+        public float ReadRenderDistance()
+        {
+            return addr.renderDistance == 0 ? 0 : ToFloat(api.ReadMemory(pid, addr.renderDistance, 4), 0);
+        }
+
+        public void WriteRenderDistance(float distance)
+        {
+            if (addr.renderDistance != 0)
+            {
+                api.WriteMemory(pid, addr.renderDistance, ConvertFloatToBytes(distance));
+            }
+        }
+
         public float ReadCameraFov()
         {
             return ToFloat(api.ReadMemory(pid, addr.cameraFov, 4), 0);
         }
 
+        /// <summary>
+        /// Sets the camera's field of view (radians) at once: the one it has, 4 bytes before the
+        /// target, and the target the game eases it to, in one write.
+        /// </summary>
         public void WriteCameraFov(float fov)
         {
-            api.WriteMemory(pid, addr.cameraFov, ConvertFloatToBytes(fov));
+            api.WriteMemory(pid, addr.cameraFov - 4, FovPair(fov));
+        }
+
+        private static byte[] FovPair(float fov)
+        {
+            byte[] bytes = new byte[8];
+            byte[] value = ConvertFloatToBytes(fov);
+            Array.Copy(value, 0, bytes, 0, 4);
+            Array.Copy(value, 0, bytes, 4, 4);
+            return bytes;
         }
 
         /// <summary>The spawn point the player last arrived at (the game sets it through doors and loads).</summary>
