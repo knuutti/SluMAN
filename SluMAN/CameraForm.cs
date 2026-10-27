@@ -222,7 +222,7 @@ namespace SluMAN
             double scale = Math.Pow(10, layout.fovDecimals);
             fovUpDown.DecimalPlaces = layout.fovDecimals;
             fovUpDown.Minimum = (decimal)(Math.Ceiling(CameraPath.Degrees(layout.minFov) * scale) / scale);
-            fovUpDown.Maximum = (decimal)Math.Floor(CameraPath.Degrees(layout.maxFov));
+            fovUpDown.Maximum = (decimal)(Math.Floor(CameraPath.Degrees(layout.maxFov) * scale) / scale);
             float startFov = layout.startFovDegrees > 0 ? layout.startFovDegrees : CameraPath.Degrees(freeCamera.GameFov);
             fovUpDown.Value = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, (decimal)Math.Round(startFov, layout.fovDecimals)));
             fovUpDown.Location = new Point(214, 98);

@@ -30,10 +30,12 @@ namespace SluMAN
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 50;
         private const float DeadZone = 0.2f;
-        // Field of view limits, in radians (10 and 150 degrees), and the game's usual one
-        // (Camera.Default.FOV, 53.5 degrees) for when the view's can't be read.
+        // Field of view limits, in radians: just above 0 and just below 180 degrees (0.0001 and
+        // 179.9999), where the projection breaks down.
         public const float MinFov = 1.745e-6f;
-        public const float MaxFov = 2.618f;
+        public const float MaxFov = 3.1415909f;
+        // The game's usual field of view (Camera.Default.FOV, 53.5 degrees), for when the view's
+        // can't be read.
         private const float DefaultFov = 0.9338f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
         private const float MaxPitch = (float)(Math.PI / 2);

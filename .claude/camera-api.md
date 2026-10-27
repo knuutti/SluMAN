@@ -92,8 +92,8 @@ Moves the free camera, **turning it on first** if it's off (from where the game'
 |---|---|
 | `x`, `y`, `z` | World position |
 | `yaw` | Degrees, any value (not wrapped) |
-| `pitch` | Degrees. Clamped to just short of ±90 in Sly 1–3, and to exactly ±90 in Sly 4 / Hackpack |
-| `fov` | Degrees. `0` means the game's. Clamped to 0.57°–171.9° in Sly 1–3 and about 0.0001°–150° in Sly 4 / Hackpack |
+| `pitch` | Degrees. Clamped to −90…90 (straight down to straight up) in every game |
+| `fov` | Degrees, above 0 and below 180 in every game: clamped to 0.0001°–179.9999°, since exactly 0° or 180° breaks the projection. `0` means the game's |
 | `far` | Sly 4 / Hackpack only (`400` elsewhere). `0` means the game's |
 
 Setting the camera **stops any camera path playing** on the Camera tab.
