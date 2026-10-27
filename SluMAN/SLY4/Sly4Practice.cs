@@ -138,11 +138,10 @@ namespace SluMAN
             CameraApi = new Sly4CameraApi(game, FreeMove);
             CameraApi.StartFromConfig();
 
-            ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
-            inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
-            toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
+            session.FillPracticeToolsMenu(toolsToolStripMenuItem, () => practiceTabs.Show(MemoryTab));
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
@@ -152,8 +151,8 @@ namespace SluMAN
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
-            // View menu: which tabs show, saved per user. Practice and Player show at first.
-            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab);
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab, CameraTab, JobsTab);
         }
 
         /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
@@ -848,31 +847,6 @@ namespace SluMAN
 
             // Put the game's code back. Does nothing if no warp was used.
             try { game.RemoveCodeHook(); } catch { }
-        }
-
-        private void switchGameModeToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.SwitchGameOrMode();
-        }
-
-        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(MemoryTab);
-        }
-
-        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            UserData.OpenInExplorer();
-        }
-
-        private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.PowerOffPS3();
-        }
-
-        private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.RebootPS3();
         }
     }
 }

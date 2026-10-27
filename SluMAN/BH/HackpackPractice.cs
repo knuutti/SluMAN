@@ -41,6 +41,7 @@ namespace SluMAN
         private static readonly TimeSpan QueuedGoalWarpSettleTime = TimeSpan.FromSeconds(1);
 
         private readonly MenuStrip menuStrip = new MenuStrip();
+        private readonly ToolStripMenuItem toolsMenu = new ToolStripMenuItem("Tools");
         private readonly ComboBox jobComboBox = new ComboBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
@@ -115,6 +116,7 @@ namespace SluMAN
             session = new GameSession(this, game, gameNameId, "Hackpack", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
+            session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
 
             // The Jobs tab colours the running job's goals as they change.
             game.StartGoalWatcher();
@@ -139,32 +141,22 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
-            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools;
+            // the Hackpack has no player.
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
+            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("hackpack_visible_tabs", JobsTab, CameraTab);
+            practiceTabs.AddViewMenu("hackpack_visible_tabs", CameraTab, JobsTab);
         }
 
+        /// <summary>The menu bar; the session fills the Tools menu once it exists.</summary>
         private void BuildMenu()
         {
-            ToolStripMenuItem tools = new ToolStripMenuItem("Tools");
-            tools.DropDownItems.Add("Switch Game/Mode", null, (sender, e) => session.SwitchGameOrMode());
-            tools.DropDownItems.Add("Input Display", null, (sender, e) => session.ShowInputDisplay());
-            tools.DropDownItems.Add("Controller Combos...", null, (sender, e) =>
-            {
-                ConfigureCombos configureCombos = new ConfigureCombos();
-                configureCombos.ShowDialog(this);
-            });
-            tools.DropDownItems.Add("Memory Utilities...", null, (sender, e) => practiceTabs.Show(MemoryTab));
-            tools.DropDownItems.Add("Open User Data Folder", null, (sender, e) => UserData.OpenInExplorer());
-            tools.DropDownItems.Add(new ToolStripSeparator());
-            tools.DropDownItems.Add("Power Off (PS3)", null, (sender, e) => session.PowerOffPS3());
-            tools.DropDownItems.Add("Reboot (PS3)", null, (sender, e) => session.RebootPS3());
-            menuStrip.Items.Add(tools);
+            menuStrip.Items.Add(toolsMenu);
             MainMenuStrip = menuStrip;
             Controls.Add(menuStrip);
         }
@@ -202,7 +194,7 @@ namespace SluMAN
 
             GroupBox togglesGroupBox = AddGroup("Toggles", 336, 128, 70);
             AddCheckBox(togglesGroupBox, slowMotionCheckBox, "Slow Motion", 10, 20);
-            AddCheckBox(togglesGroupBox, skipCutscenesCheckBox, "Skip Cutscenes", 10, 43);
+            AddCheckBox(togglesGroupBox, skipCutscenesCheckBox, "Auto-skip Cutscenes", 10, 43);
             AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 160, 20);
 
             ToolTip tip = new ToolTip();

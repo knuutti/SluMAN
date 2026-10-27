@@ -124,6 +124,47 @@ namespace SluMAN
             }
         }
 
+        /// <summary>
+        /// Fills <paramref name="tools"/> with the Tools menu every Practice window has: Switch
+        /// Game/Mode, Input Display, Controller Combos, Memory Utilities and Open User Data Folder,
+        /// then Power Off and Reboot after a separator. A game's own items go before the separator,
+        /// through <see cref="AddGameMenuItem"/>.
+        /// </summary>
+        /// <param name="showMemoryTools">Opens the Memory tab.</param>
+        public void FillPracticeToolsMenu(ToolStripMenuItem tools, Action showMemoryTools)
+        {
+            tools.DropDownItems.Clear();
+            tools.DropDownItems.Add("Switch Game/Mode", null, (sender, e) => SwitchGameOrMode());
+            tools.DropDownItems.Add("Input Display", null, (sender, e) => ShowInputDisplay());
+            tools.DropDownItems.Add("Controller Combos...", null, (sender, e) =>
+            {
+                using (ConfigureCombos configureCombos = new ConfigureCombos())
+                {
+                    configureCombos.ShowDialog(form);
+                }
+            });
+            tools.DropDownItems.Add("Memory Utilities...", null, (sender, e) => showMemoryTools());
+            tools.DropDownItems.Add("Open User Data Folder", null, (sender, e) => UserData.OpenInExplorer());
+            tools.DropDownItems.Add(new ToolStripSeparator());
+            tools.DropDownItems.Add("Power Off (PS3)", null, (sender, e) => PowerOffPS3());
+            tools.DropDownItems.Add("Reboot (PS3)", null, (sender, e) => RebootPS3());
+        }
+
+        /// <summary>Adds a game's own item to a Tools menu, before the separator above Power Off / Reboot.</summary>
+        public static void AddGameMenuItem(ToolStripMenuItem tools, ToolStripItem item)
+        {
+            int index = tools.DropDownItems.Count;
+            for (int i = 0; i < tools.DropDownItems.Count; i++)
+            {
+                if (tools.DropDownItems[i] is ToolStripSeparator)
+                {
+                    index = i;
+                    break;
+                }
+            }
+            tools.DropDownItems.Insert(index, item);
+        }
+
         public void ShowInputDisplay()
         {
             if (inputDisplay == null || inputDisplay.IsDisposed)

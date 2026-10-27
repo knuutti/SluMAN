@@ -71,15 +71,20 @@ namespace SluMAN
             game.combosActive = true;
             game.InputsTimer.Start();
 
+            session = new GameSession(this, game, gameNameId, "Sly 3", false);
+            session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.Reconnected += session_Reconnected;
+
+            session.FillPracticeToolsMenu(menuToolStripMenuItem, () => practiceTabs.Show(MemoryTab));
             // Only the PAL versions have more than one language.
             if (sly3.addr.language != 0)
             {
                 GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly3, statusLine, game.GetLanguage, game.SetLanguage);
             }
 
-            session = new GameSession(this, game, gameNameId, "Sly 3", false);
-            session.BindAlwaysOnTop(alwaysOnTopCheckBox);
-            session.Reconnected += session_Reconnected;
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(flyModeCheckBox, "Holds the character's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
+            FormClosed += (sender, e) => tip.Dispose();
 
             freezeTimer = new System.Windows.Forms.Timer();
             freezeTimer.Interval = 16;
@@ -103,15 +108,16 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
+            practiceTabs.AddTool(CameraTab, () => new Sly3CameraForm(game, FreeCamera));
             practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
-            practiceTabs.AddTool(CameraTab, () => new Sly3CameraForm(game, FreeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab);
+            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, CameraTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
         }
@@ -257,7 +263,7 @@ namespace SluMAN
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Couldn't re-apply {toggle.Text} after load: {ex.Message}");
+                statusLine.Error($"Couldn't re-apply {toggle.Text} after load: {ex.Message}");
             }
         }
 
@@ -340,15 +346,16 @@ namespace SluMAN
                 }
                 prevFlyModeState = true;
 
-                if ((Inputs.RawInputs & 0x1) != 0) flyFrozenZ += FlyHeightStep;  // L2 = up
-                if ((Inputs.RawInputs & 0x2) != 0) flyFrozenZ -= FlyHeightStep;  // R2 = down
+                // R1 / L1 up and down, as every game's fly and free camera.
+                if (Inputs.IsPressed(Inputs.Buttons.r1)) flyFrozenZ += FlyHeightStep;
+                if (Inputs.IsPressed(Inputs.Buttons.l1)) flyFrozenZ -= FlyHeightStep;
 
                 WriteFloat(transformPtr + sly3.addr.coordsOffsetZ, flyFrozenZ);
                 WriteFloat(transformPtr + 0x1B8, 0f);  // zero Z velocity
 
                 float curX = ReadFloat(transformPtr + sly3.addr.coordsOffsetX);
                 float curY = ReadFloat(transformPtr + sly3.addr.coordsOffsetY);
-                if ((Inputs.RawInputs & 0x8) != 0)  // R1 = horizontal boost
+                if (Inputs.IsPressed(Inputs.Buttons.r2))  // horizontal boost
                 {
                     float deltaX = curX - prevFlyPosX;
                     float deltaY = curY - prevFlyPosY;
@@ -386,11 +393,6 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, address, b);
         }
 
-        private void inputDisplayButton_Click(object sender, EventArgs e)
-        {
-            session.ShowInputDisplay();
-        }
-
         private void loadPosButton_Click(object sender, EventArgs e)
         {
         }
@@ -426,27 +428,6 @@ namespace SluMAN
             // The session closes the other windows and disconnects after this.
         }
 
-        private void toolsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void switchGameToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.SwitchGameOrMode();
-        }
-
-        private void configureButtonCombosToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ConfigureCombos configureCombos = new ConfigureCombos();
-            configureCombos.ShowDialog(this);
-        }
-
-        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(MemoryTab);
-        }
-
         private void practiceTabs_ToolCreated(string title, Form form)
         {
             if (title == GadgetsTab)
@@ -471,11 +452,6 @@ namespace SluMAN
             {
                 positionEditorWindow = null;
             }
-        }
-
-        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            UserData.OpenInExplorer();
         }
 
         private void loadMapButton_Click(object sender, EventArgs e)
@@ -547,11 +523,6 @@ namespace SluMAN
         }
 
         private void loadRunFileButton_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void webMANShortcutsToolStripMenuItem_Click(object sender, EventArgs e)
         {
 
         }
@@ -639,40 +610,41 @@ namespace SluMAN
         }
 
 
-
-        private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.PowerOffPS3();
-        }
-
-        private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.RebootPS3();
-        }
-
         private void invulnerabilityCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            game.SetInvulnerability(invulnerabilityCheckBox.Checked);
+            ApplyToggle(invulnerabilityCheckBox, () => game.SetInvulnerability(invulnerabilityCheckBox.Checked));
         }
 
         private void guardAICheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            game.SetGuardAI(guardAICheckBox.Checked);
+            ApplyToggle(guardAICheckBox, () => game.SetGuardAI(guardAICheckBox.Checked));
         }
 
         private void deathBarriersCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            game.SetDeathBarriers(deathBarriersCheckBox.Checked);
+            ApplyToggle(deathBarriersCheckBox, () => game.SetDeathBarriers(deathBarriersCheckBox.Checked));
         }
 
         private void gameClockCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            game.SetGameClockFrozen(gameClockCheckBox.Checked);
+            ApplyToggle(gameClockCheckBox, () => game.SetGameClockFrozen(gameClockCheckBox.Checked));
         }
 
         private void autoSkipCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            game.SetAutoSkip(autoSkipCheckBox.Checked);
+            ApplyToggle(autoSkipCheckBox, () => game.SetAutoSkip(autoSkipCheckBox.Checked));
+        }
+
+        private void ApplyToggle(CheckBox toggle, Action apply)
+        {
+            try
+            {
+                apply();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change {toggle.Text}: {ex.Message}");
+            }
         }
 
         

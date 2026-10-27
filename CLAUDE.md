@@ -45,7 +45,9 @@ The version lives only in the release branch name. `AssemblyInfo.cs` stays at `0
 - `CheckInputs` — runs on a 60 Hz timer, reads controller state
 - `SavePosition` / `LoadPosition` — game-specific coordinate save/restore
 
-Each game form creates a `GameSession` (`GameSession.cs`), which owns the connection lifecycle: reconnecting after a game reset (off the UDP thread, finishing on the UI thread), disconnecting when the form closes, the always-on-top and autosplitter settings, the input display, Switch Game/Mode, and power off/reboot. Put shared form behaviour there, not in each form; forms add their own subscriptions in the `Reconnected` event.
+Each game form creates a `GameSession` (`GameSession.cs`), which owns the connection lifecycle: reconnecting after a game reset (off the UDP thread, finishing on the UI thread), disconnecting when the form closes, the always-on-top and autosplitter settings, the input display, Switch Game/Mode, power off/reboot, and every Practice window's Tools menu (`FillPracticeToolsMenu`; a game's own items, such as Language, go before its separator through `AddGameMenuItem`). Put shared form behaviour there, not in each form; forms add their own subscriptions in the `Reconnected` event.
+
+Practice windows are being made uniform across the games: every shared feature in the same place and under the same name, game-specific ones around them. The target layout, the decisions behind it, its phases and the features some games still lack are in [`.claude/ui-uniform-plan.md`](.claude/ui-uniform-plan.md); follow it when changing a Practice window.
 
 Game addresses live in `offsets/<GAME>/<Game>Addresses.cs` (e.g. `Sly2Addresses.cs`), separate from the game class. Each instance of the address class is one supported game version (title ID, display name and every address), built in its `CreateVersions()`. `AttachPS3Form` asks each address class `IsSupportedGameId(titleId)` to pick the game, and the game class gets its addresses with `ForGame(titleId)`.
 

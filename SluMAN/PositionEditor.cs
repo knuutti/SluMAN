@@ -248,7 +248,8 @@ namespace SluMAN
                     WritePosition(transformPtr, 2, frozenPosZ.Value);
                 }
 
-                // Fly mode: hold Z, adjust height with L2/R2, amplify horizontal movement with R1.
+                // Fly mode: hold Z, adjust height with R1 / L1 (as every game's fly and free
+                // camera), amplify horizontal movement with R2.
                 if (flyModeEnabled && (!prevFlyMode || entityPtr != flyEntityPtr))
                 {
                     flyFrozenZ = ReadFloat(PositionAddress(transformPtr, 2));
@@ -269,8 +270,8 @@ namespace SluMAN
 
                 if (flyModeEnabled)
                 {
-                    if ((Inputs.RawInputs & 0x1) != 0) flyFrozenZ += FlyHeightStep;   // L2 = up
-                    if ((Inputs.RawInputs & 0x2) != 0) flyFrozenZ -= FlyHeightStep;   // R2 = down
+                    if (Inputs.IsPressed(Inputs.Buttons.r1)) flyFrozenZ += FlyHeightStep;
+                    if (Inputs.IsPressed(Inputs.Buttons.l1)) flyFrozenZ -= FlyHeightStep;
 
                     WritePosition(transformPtr, 2, flyFrozenZ);
                     // Don't overwrite a value the user is typing.
@@ -281,7 +282,7 @@ namespace SluMAN
 
                     float curX = ReadFloat(PositionAddress(transformPtr, 0));
                     float curY = ReadFloat(PositionAddress(transformPtr, 1));
-                    if ((Inputs.RawInputs & 0x8) != 0)  // R1 = horizontal boost
+                    if (Inputs.IsPressed(Inputs.Buttons.r2))  // horizontal boost
                     {
                         float deltaX = curX - prevFlyPosX;
                         float deltaY = curY - prevFlyPosY;

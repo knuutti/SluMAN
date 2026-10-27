@@ -32,14 +32,6 @@
             this.coinsTextBox = new System.Windows.Forms.TextBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.switchGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.inputDisplayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.configureButtonCombosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.memoryUtilitiesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openUserDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.powerOffPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.rebootPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mapComboBox = new System.Windows.Forms.ComboBox();
             this.spawnComboBox = new System.Windows.Forms.ComboBox();
             this.loadMapButton = new System.Windows.Forms.Button();
@@ -103,73 +95,10 @@
             // 
             // menuToolStripMenuItem
             // 
-            this.menuToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.switchGameToolStripMenuItem,
-            this.inputDisplayToolStripMenuItem,
-            this.configureButtonCombosToolStripMenuItem,
-            this.memoryUtilitiesToolStripMenuItem,
-            this.openUserDataToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.powerOffPS3ToolStripMenuItem,
-            this.rebootPS3ToolStripMenuItem});
             this.menuToolStripMenuItem.Name = "menuToolStripMenuItem";
             this.menuToolStripMenuItem.Size = new System.Drawing.Size(47, 20);
             this.menuToolStripMenuItem.Text = "Tools";
-            // 
-            // switchGameToolStripMenuItem
-            // 
-            this.switchGameToolStripMenuItem.Name = "switchGameToolStripMenuItem";
-            this.switchGameToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.switchGameToolStripMenuItem.Text = "Switch Game/Mode";
-            this.switchGameToolStripMenuItem.Click += new System.EventHandler(this.switchGameToolStripMenuItem_Click);
-            // 
-            // inputDisplayToolStripMenuItem
-            // 
-            this.inputDisplayToolStripMenuItem.Name = "inputDisplayToolStripMenuItem";
-            this.inputDisplayToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.inputDisplayToolStripMenuItem.Text = "Input Display";
-            this.inputDisplayToolStripMenuItem.Click += new System.EventHandler(this.inputDisplayButton_Click);
-            // 
-            // configureButtonCombosToolStripMenuItem
-            // 
-            this.configureButtonCombosToolStripMenuItem.Name = "configureButtonCombosToolStripMenuItem";
-            this.configureButtonCombosToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.configureButtonCombosToolStripMenuItem.Text = "Controller Combos...";
-            this.configureButtonCombosToolStripMenuItem.Click += new System.EventHandler(this.configureButtonCombosToolStripMenuItem_Click);
-            // 
-            // memoryUtilitiesToolStripMenuItem
-            // 
-            this.memoryUtilitiesToolStripMenuItem.Name = "memoryUtilitiesToolStripMenuItem";
-            this.memoryUtilitiesToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.memoryUtilitiesToolStripMenuItem.Text = "Memory Utilities...";
-            this.memoryUtilitiesToolStripMenuItem.Click += new System.EventHandler(this.memoryUtilitiesToolStripMenuItem_Click);
-            // 
-            // openUserDataToolStripMenuItem
-            // 
-            this.openUserDataToolStripMenuItem.Name = "openUserDataToolStripMenuItem";
-            this.openUserDataToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.openUserDataToolStripMenuItem.Text = "Open User Data Folder";
-            this.openUserDataToolStripMenuItem.Click += new System.EventHandler(this.openUserDataToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator1
-            // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(176, 6);
-            // 
-            // powerOffPS3ToolStripMenuItem
-            // 
-            this.powerOffPS3ToolStripMenuItem.Name = "powerOffPS3ToolStripMenuItem";
-            this.powerOffPS3ToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.powerOffPS3ToolStripMenuItem.Text = "Power Off (PS3)";
-            this.powerOffPS3ToolStripMenuItem.Click += new System.EventHandler(this.powerOffPS3ToolStripMenuItem_Click);
-            // 
-            // rebootPS3ToolStripMenuItem
-            // 
-            this.rebootPS3ToolStripMenuItem.Name = "rebootPS3ToolStripMenuItem";
-            this.rebootPS3ToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.rebootPS3ToolStripMenuItem.Text = "Reboot (PS3)";
-            this.rebootPS3ToolStripMenuItem.Click += new System.EventHandler(this.rebootPS3ToolStripMenuItem_Click);
-            // 
+            //
             // mapComboBox
             // 
             this.mapComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -194,7 +123,7 @@
             this.loadMapButton.Name = "loadMapButton";
             this.loadMapButton.Size = new System.Drawing.Size(94, 23);
             this.loadMapButton.TabIndex = 9;
-            this.loadMapButton.Text = "Load Map";
+            this.loadMapButton.Text = "Load";
             this.loadMapButton.UseVisualStyleBackColor = true;
             this.loadMapButton.Click += new System.EventHandler(this.loadMapButton_Click);
             // 
@@ -225,7 +154,7 @@
             this.gameClockCheckBox.Location = new System.Drawing.Point(16, 102);
             this.gameClockCheckBox.Name = "gameClockCheckBox";
             this.gameClockCheckBox.Size = new System.Drawing.Size(119, 17);
-            this.gameClockCheckBox.TabIndex = 11;
+            this.gameClockCheckBox.TabIndex = 9;
             this.gameClockCheckBox.Text = "Freeze Game Clock";
             this.gameClockCheckBox.UseVisualStyleBackColor = true;
             this.gameClockCheckBox.CheckedChanged += new System.EventHandler(this.gameClockCheckBox_CheckedChanged);
@@ -233,10 +162,10 @@
             // deathBarriersCheckBox
             // 
             this.deathBarriersCheckBox.AutoSize = true;
-            this.deathBarriersCheckBox.Location = new System.Drawing.Point(16, 82);
+            this.deathBarriersCheckBox.Location = new System.Drawing.Point(16, 182);
             this.deathBarriersCheckBox.Name = "deathBarriersCheckBox";
             this.deathBarriersCheckBox.Size = new System.Drawing.Size(131, 17);
-            this.deathBarriersCheckBox.TabIndex = 10;
+            this.deathBarriersCheckBox.TabIndex = 13;
             this.deathBarriersCheckBox.Text = "Disable Death Barriers";
             this.deathBarriersCheckBox.UseVisualStyleBackColor = true;
             this.deathBarriersCheckBox.CheckedChanged += new System.EventHandler(this.deathBarriersCheckBox_CheckedChanged);
@@ -244,7 +173,7 @@
             // guardAICheckBox
             // 
             this.guardAICheckBox.AutoSize = true;
-            this.guardAICheckBox.Location = new System.Drawing.Point(16, 62);
+            this.guardAICheckBox.Location = new System.Drawing.Point(16, 82);
             this.guardAICheckBox.Name = "guardAICheckBox";
             this.guardAICheckBox.Size = new System.Drawing.Size(106, 17);
             this.guardAICheckBox.TabIndex = 8;
@@ -255,10 +184,10 @@
             // invulnerabilityCheckBox
             // 
             this.invulnerabilityCheckBox.AutoSize = true;
-            this.invulnerabilityCheckBox.Location = new System.Drawing.Point(16, 42);
+            this.invulnerabilityCheckBox.Location = new System.Drawing.Point(16, 22);
             this.invulnerabilityCheckBox.Name = "invulnerabilityCheckBox";
             this.invulnerabilityCheckBox.Size = new System.Drawing.Size(90, 17);
-            this.invulnerabilityCheckBox.TabIndex = 6;
+            this.invulnerabilityCheckBox.TabIndex = 5;
             this.invulnerabilityCheckBox.Text = "Invulnerability";
             this.invulnerabilityCheckBox.UseVisualStyleBackColor = true;
             this.invulnerabilityCheckBox.CheckedChanged += new System.EventHandler(this.invulnerabilityCheckBox_CheckedChanged);
@@ -266,67 +195,67 @@
             // infiniteHealthCheckBox
             // 
             this.infiniteHealthCheckBox.AutoSize = true;
-            this.infiniteHealthCheckBox.Location = new System.Drawing.Point(16, 122);
+            this.infiniteHealthCheckBox.Location = new System.Drawing.Point(16, 42);
             this.infiniteHealthCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.infiniteHealthCheckBox.Name = "infiniteHealthCheckBox";
             this.infiniteHealthCheckBox.Size = new System.Drawing.Size(91, 17);
-            this.infiniteHealthCheckBox.TabIndex = 12;
+            this.infiniteHealthCheckBox.TabIndex = 6;
             this.infiniteHealthCheckBox.Text = "Infinite Health";
             this.infiniteHealthCheckBox.UseVisualStyleBackColor = true;
             // 
             // infiniteGadgetPowerCheckBox
             // 
             this.infiniteGadgetPowerCheckBox.AutoSize = true;
-            this.infiniteGadgetPowerCheckBox.Location = new System.Drawing.Point(16, 142);
+            this.infiniteGadgetPowerCheckBox.Location = new System.Drawing.Point(16, 62);
             this.infiniteGadgetPowerCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.infiniteGadgetPowerCheckBox.Name = "infiniteGadgetPowerCheckBox";
             this.infiniteGadgetPowerCheckBox.Size = new System.Drawing.Size(128, 17);
-            this.infiniteGadgetPowerCheckBox.TabIndex = 13;
+            this.infiniteGadgetPowerCheckBox.TabIndex = 7;
             this.infiniteGadgetPowerCheckBox.Text = "Infinite Gadget Power";
             this.infiniteGadgetPowerCheckBox.UseVisualStyleBackColor = true;
             // 
             // flyModeCheckBox
             // 
             this.flyModeCheckBox.AutoSize = true;
-            this.flyModeCheckBox.Location = new System.Drawing.Point(16, 162);
+            this.flyModeCheckBox.Location = new System.Drawing.Point(16, 122);
             this.flyModeCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.flyModeCheckBox.Name = "flyModeCheckBox";
-            this.flyModeCheckBox.Size = new System.Drawing.Size(154, 17);
-            this.flyModeCheckBox.TabIndex = 14;
-            this.flyModeCheckBox.Text = "Fly Mode (L2 up, R2 down)";
+            this.flyModeCheckBox.Size = new System.Drawing.Size(70, 17);
+            this.flyModeCheckBox.TabIndex = 10;
+            this.flyModeCheckBox.Text = "Fly Mode";
             this.flyModeCheckBox.UseVisualStyleBackColor = true;
             // 
             // infiniteJumpCheckBox
             // 
             this.infiniteJumpCheckBox.AutoSize = true;
-            this.infiniteJumpCheckBox.Location = new System.Drawing.Point(16, 182);
+            this.infiniteJumpCheckBox.Location = new System.Drawing.Point(16, 142);
             this.infiniteJumpCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.infiniteJumpCheckBox.Name = "infiniteJumpCheckBox";
             this.infiniteJumpCheckBox.Size = new System.Drawing.Size(85, 17);
-            this.infiniteJumpCheckBox.TabIndex = 15;
+            this.infiniteJumpCheckBox.TabIndex = 11;
             this.infiniteJumpCheckBox.Text = "Infinite Jump";
             this.infiniteJumpCheckBox.UseVisualStyleBackColor = true;
             // 
             // autoSkipCheckBox
             // 
             this.autoSkipCheckBox.AutoSize = true;
-            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 202);
+            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 162);
             this.autoSkipCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.autoSkipCheckBox.Name = "autoSkipCheckBox";
-            this.autoSkipCheckBox.Size = new System.Drawing.Size(132, 17);
-            this.autoSkipCheckBox.TabIndex = 16;
-            this.autoSkipCheckBox.Text = "Auto-skip Cinematics";
+            this.autoSkipCheckBox.Size = new System.Drawing.Size(126, 17);
+            this.autoSkipCheckBox.TabIndex = 12;
+            this.autoSkipCheckBox.Text = "Auto-skip Cutscenes";
             this.autoSkipCheckBox.UseVisualStyleBackColor = true;
             this.autoSkipCheckBox.CheckedChanged += new System.EventHandler(this.autoSkipCheckBox_CheckedChanged);
             // 
             // alwaysOnTopCheckBox
             // 
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(16, 22);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(16, 202);
             this.alwaysOnTopCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.alwaysOnTopCheckBox.TabIndex = 5;
+            this.alwaysOnTopCheckBox.TabIndex = 14;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -845,9 +774,6 @@
         private System.Windows.Forms.CheckBox infiniteGadgetPowerCheckBox;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem switchGameToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem inputDisplayToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
         private System.Windows.Forms.ComboBox mapComboBox;
         private System.Windows.Forms.ComboBox spawnComboBox;
         private System.Windows.Forms.Button loadMapButton;
@@ -868,11 +794,6 @@
         private System.Windows.Forms.GroupBox jobGroupBox;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.ToolStripMenuItem memoryUtilitiesToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openUserDataToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem powerOffPS3ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem rebootPS3ToolStripMenuItem;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.ComboBox reloadAsCharacterComboBox;
         private System.Windows.Forms.CheckBox invulnerabilityCheckBox;

@@ -62,7 +62,7 @@ Practice, Player, Camera, then the game's own tabs, then Memory and Memory Viewe
 
 | Game | Tabs | Shown by default |
 |---|---|---|
-| Sly 1 | Practice, Player, Camera, World States, Memory, Memory Viewer | Player, Camera, World States |
+| Sly 1 | Practice, Player, Camera, World States, Powerups, Memory, Memory Viewer | Player, Camera, World States, Powerups |
 | Sly 2 | Practice, Player, Camera, Gadgets, Run Files, Memory, Memory Viewer | Player, Camera, Gadgets, Run Files |
 | Sly 3 | as Sly 2 | as Sly 2 |
 | Sly 4 | Practice, Player, Camera, Jobs, Tunables, GUI, Memory, Memory Viewer | Player, Camera, Jobs |
@@ -76,7 +76,11 @@ separator, Power Off (PS3), Reboot (PS3). Sly 4 gains Controller Combos (its com
 
 ## Phases
 
-### Phase 1: names, order and menu (no logic moves)
+### Phase 1: names, order and menu (no logic moves) — done
+
+Left for Phase 2: Sly 4's "Retry" becomes "Retry Checkpoint" when it moves to the Reload group
+(the Game group has no room for the longer label). Sly 1's R2 fly boost also changes the equipped
+powerup in the game (L2 / R2 cycle it), as L2 / R2 height did before.
 
 - A shared Tools menu builder on `GameSession`, used by all five Practice windows.
 - Labels as above; toggles in the fixed order; tabs in the fixed order with the defaults above

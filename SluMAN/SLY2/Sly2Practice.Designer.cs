@@ -58,14 +58,6 @@
             this.alwaysOnTopCheckBox = new System.Windows.Forms.CheckBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.switchGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.inputDisplayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.configureButtonCombosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.memoryUtilitiesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openUserDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.powerOffPs3Button = new System.Windows.Forms.ToolStripMenuItem();
-            this.rebootPS3Button = new System.Windows.Forms.ToolStripMenuItem();
             this.reloadAsCharacterComboBox = new System.Windows.Forms.ComboBox();
             this.label3 = new System.Windows.Forms.Label();
             this.jobGroupBox.SuspendLayout();
@@ -425,7 +417,7 @@
             this.loadMapButton.Name = "loadMapButton";
             this.loadMapButton.Size = new System.Drawing.Size(94, 23);
             this.loadMapButton.TabIndex = 9;
-            this.loadMapButton.Text = "Load Map";
+            this.loadMapButton.Text = "Load";
             this.loadMapButton.UseVisualStyleBackColor = true;
             this.loadMapButton.Click += new System.EventHandler(this.loadMapButton_Click);
             // 
@@ -628,23 +620,23 @@
             // autoSkipCheckBox
             // 
             this.autoSkipCheckBox.AutoSize = true;
-            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 140);
+            this.autoSkipCheckBox.Location = new System.Drawing.Point(16, 120);
             this.autoSkipCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.autoSkipCheckBox.Name = "autoSkipCheckBox";
-            this.autoSkipCheckBox.Size = new System.Drawing.Size(132, 17);
+            this.autoSkipCheckBox.Size = new System.Drawing.Size(126, 17);
             this.autoSkipCheckBox.TabIndex = 35;
-            this.autoSkipCheckBox.Text = "Auto-skip Cinematics";
+            this.autoSkipCheckBox.Text = "Auto-skip Cutscenes";
             this.autoSkipCheckBox.UseVisualStyleBackColor = true;
             this.autoSkipCheckBox.CheckedChanged += new System.EventHandler(this.autoSkipCheckBox_CheckedChanged);
             // 
             // alwaysOnTopCheckBox
             // 
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(16, 120);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(16, 140);
             this.alwaysOnTopCheckBox.Margin = new System.Windows.Forms.Padding(2);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.alwaysOnTopCheckBox.TabIndex = 5;
+            this.alwaysOnTopCheckBox.TabIndex = 36;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -663,73 +655,10 @@
             // 
             // menuToolStripMenuItem
             // 
-            this.menuToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.switchGameToolStripMenuItem,
-            this.inputDisplayToolStripMenuItem,
-            this.configureButtonCombosToolStripMenuItem,
-            this.memoryUtilitiesToolStripMenuItem,
-            this.openUserDataToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.powerOffPs3Button,
-            this.rebootPS3Button});
             this.menuToolStripMenuItem.Name = "menuToolStripMenuItem";
             this.menuToolStripMenuItem.Size = new System.Drawing.Size(47, 20);
             this.menuToolStripMenuItem.Text = "Tools";
-            // 
-            // switchGameToolStripMenuItem
-            // 
-            this.switchGameToolStripMenuItem.Name = "switchGameToolStripMenuItem";
-            this.switchGameToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.switchGameToolStripMenuItem.Text = "Switch Game/Mode";
-            this.switchGameToolStripMenuItem.Click += new System.EventHandler(this.switchGameToolStripMenuItem_Click);
-            // 
-            // inputDisplayToolStripMenuItem
-            // 
-            this.inputDisplayToolStripMenuItem.Name = "inputDisplayToolStripMenuItem";
-            this.inputDisplayToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.inputDisplayToolStripMenuItem.Text = "Input Display";
-            this.inputDisplayToolStripMenuItem.Click += new System.EventHandler(this.inputDisplayToolStripMenuItem_Click);
-            // 
-            // configureButtonCombosToolStripMenuItem
-            // 
-            this.configureButtonCombosToolStripMenuItem.Name = "configureButtonCombosToolStripMenuItem";
-            this.configureButtonCombosToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.configureButtonCombosToolStripMenuItem.Text = "Controller Combos...";
-            this.configureButtonCombosToolStripMenuItem.Click += new System.EventHandler(this.configureButtonCombosToolStripMenuItem_Click);
-            // 
-            // memoryUtilitiesToolStripMenuItem
-            // 
-            this.memoryUtilitiesToolStripMenuItem.Name = "memoryUtilitiesToolStripMenuItem";
-            this.memoryUtilitiesToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.memoryUtilitiesToolStripMenuItem.Text = "Memory Utilities...";
-            this.memoryUtilitiesToolStripMenuItem.Click += new System.EventHandler(this.memoryUtilitiesToolStripMenuItem_Click);
-            // 
-            // openUserDataToolStripMenuItem
-            // 
-            this.openUserDataToolStripMenuItem.Name = "openUserDataToolStripMenuItem";
-            this.openUserDataToolStripMenuItem.Size = new System.Drawing.Size(179, 22);
-            this.openUserDataToolStripMenuItem.Text = "Open User Data Folder";
-            this.openUserDataToolStripMenuItem.Click += new System.EventHandler(this.openUserDataToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator1
-            // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(176, 6);
-            // 
-            // powerOffPs3Button
-            // 
-            this.powerOffPs3Button.Name = "powerOffPs3Button";
-            this.powerOffPs3Button.Size = new System.Drawing.Size(179, 22);
-            this.powerOffPs3Button.Text = "Power Off (PS3)";
-            this.powerOffPs3Button.Click += new System.EventHandler(this.powerOffPs3Button_Click);
-            // 
-            // rebootPS3Button
-            // 
-            this.rebootPS3Button.Name = "rebootPS3Button";
-            this.rebootPS3Button.Size = new System.Drawing.Size(179, 22);
-            this.rebootPS3Button.Text = "Reboot (PS3)";
-            this.rebootPS3Button.Click += new System.EventHandler(this.rebootPS3Button_Click);
-            // 
+            //
             // reloadAsCharacterComboBox
             // 
             this.reloadAsCharacterComboBox.FormattingEnabled = true;
@@ -814,14 +743,6 @@
         private System.Windows.Forms.CheckBox autoSkipCheckBox;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem switchGameToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem inputDisplayToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem configureButtonCombosToolStripMenuItem;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.ToolStripMenuItem memoryUtilitiesToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openUserDataToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem powerOffPs3Button;
-        private System.Windows.Forms.ToolStripMenuItem rebootPS3Button;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.ComboBox reloadAsCharacterComboBox;
     }

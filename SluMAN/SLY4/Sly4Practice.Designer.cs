@@ -32,12 +32,6 @@ namespace SluMAN
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Sly4Practice));
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.switchGameModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.memoryUtilitiesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openUserDataToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.powerOffPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.rebootPS3ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.gameGroupBox = new System.Windows.Forms.GroupBox();
             this.levelLabel = new System.Windows.Forms.Label();
             this.levelValueLabel = new System.Windows.Forms.Label();
@@ -96,56 +90,9 @@ namespace SluMAN
             //
             // toolsToolStripMenuItem
             //
-            this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.switchGameModeToolStripMenuItem,
-            this.memoryUtilitiesToolStripMenuItem,
-            this.openUserDataToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.powerOffPS3ToolStripMenuItem,
-            this.rebootPS3ToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             this.toolsToolStripMenuItem.Size = new System.Drawing.Size(47, 20);
             this.toolsToolStripMenuItem.Text = "Tools";
-            //
-            // switchGameModeToolStripMenuItem
-            //
-            this.switchGameModeToolStripMenuItem.Name = "switchGameModeToolStripMenuItem";
-            this.switchGameModeToolStripMenuItem.Size = new System.Drawing.Size(192, 22);
-            this.switchGameModeToolStripMenuItem.Text = "Switch Game/Mode";
-            this.switchGameModeToolStripMenuItem.Click += new System.EventHandler(this.switchGameModeToolStripMenuItem_Click);
-            //
-            // memoryUtilitiesToolStripMenuItem
-            //
-            this.memoryUtilitiesToolStripMenuItem.Name = "memoryUtilitiesToolStripMenuItem";
-            this.memoryUtilitiesToolStripMenuItem.Size = new System.Drawing.Size(192, 22);
-            this.memoryUtilitiesToolStripMenuItem.Text = "Memory Utilities...";
-            this.memoryUtilitiesToolStripMenuItem.Click += new System.EventHandler(this.memoryUtilitiesToolStripMenuItem_Click);
-            //
-            // openUserDataToolStripMenuItem
-            //
-            this.openUserDataToolStripMenuItem.Name = "openUserDataToolStripMenuItem";
-            this.openUserDataToolStripMenuItem.Size = new System.Drawing.Size(192, 22);
-            this.openUserDataToolStripMenuItem.Text = "Open User Data Folder";
-            this.openUserDataToolStripMenuItem.Click += new System.EventHandler(this.openUserDataToolStripMenuItem_Click);
-            //
-            // toolStripSeparator1
-            //
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(189, 6);
-            //
-            // powerOffPS3ToolStripMenuItem
-            //
-            this.powerOffPS3ToolStripMenuItem.Name = "powerOffPS3ToolStripMenuItem";
-            this.powerOffPS3ToolStripMenuItem.Size = new System.Drawing.Size(192, 22);
-            this.powerOffPS3ToolStripMenuItem.Text = "Power Off (PS3)";
-            this.powerOffPS3ToolStripMenuItem.Click += new System.EventHandler(this.powerOffPS3ToolStripMenuItem_Click);
-            //
-            // rebootPS3ToolStripMenuItem
-            //
-            this.rebootPS3ToolStripMenuItem.Name = "rebootPS3ToolStripMenuItem";
-            this.rebootPS3ToolStripMenuItem.Size = new System.Drawing.Size(192, 22);
-            this.rebootPS3ToolStripMenuItem.Text = "Reboot (PS3)";
-            this.rebootPS3ToolStripMenuItem.Click += new System.EventHandler(this.rebootPS3ToolStripMenuItem_Click);
             //
             // gameGroupBox
             //
@@ -399,7 +346,7 @@ namespace SluMAN
             this.levelGroupBox.Size = new System.Drawing.Size(312, 107);
             this.levelGroupBox.TabIndex = 3;
             this.levelGroupBox.TabStop = false;
-            this.levelGroupBox.Text = "Load Level";
+            this.levelGroupBox.Text = "Level";
             //
             // levelComboBox
             //
@@ -443,25 +390,25 @@ namespace SluMAN
             //
             // optionsGroupBox
             //
-            this.optionsGroupBox.Controls.Add(this.slowMotionCheckBox);
-            this.optionsGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
             this.optionsGroupBox.Controls.Add(this.invulnerableCheckBox);
             this.optionsGroupBox.Controls.Add(this.undetectableCheckBox);
+            this.optionsGroupBox.Controls.Add(this.slowMotionCheckBox);
             this.optionsGroupBox.Controls.Add(this.skipCutscenesCheckBox);
+            this.optionsGroupBox.Controls.Add(this.alwaysOnTopCheckBox);
             this.optionsGroupBox.Location = new System.Drawing.Point(12, 220);
             this.optionsGroupBox.Name = "optionsGroupBox";
             this.optionsGroupBox.Size = new System.Drawing.Size(312, 88);
             this.optionsGroupBox.TabIndex = 4;
             this.optionsGroupBox.TabStop = false;
-            this.optionsGroupBox.Text = "Options";
+            this.optionsGroupBox.Text = "Toggles";
             //
             // slowMotionCheckBox
             //
             this.slowMotionCheckBox.AutoSize = true;
-            this.slowMotionCheckBox.Location = new System.Drawing.Point(10, 19);
+            this.slowMotionCheckBox.Location = new System.Drawing.Point(10, 65);
             this.slowMotionCheckBox.Name = "slowMotionCheckBox";
             this.slowMotionCheckBox.Size = new System.Drawing.Size(84, 17);
-            this.slowMotionCheckBox.TabIndex = 0;
+            this.slowMotionCheckBox.TabIndex = 2;
             this.slowMotionCheckBox.Text = "Slow Motion";
             this.slowMotionCheckBox.UseVisualStyleBackColor = true;
             this.slowMotionCheckBox.CheckedChanged += new System.EventHandler(this.slowMotionCheckBox_CheckedChanged);
@@ -469,21 +416,21 @@ namespace SluMAN
             // invulnerableCheckBox
             //
             this.invulnerableCheckBox.AutoSize = true;
-            this.invulnerableCheckBox.Location = new System.Drawing.Point(10, 42);
+            this.invulnerableCheckBox.Location = new System.Drawing.Point(10, 19);
             this.invulnerableCheckBox.Name = "invulnerableCheckBox";
-            this.invulnerableCheckBox.Size = new System.Drawing.Size(83, 17);
-            this.invulnerableCheckBox.TabIndex = 2;
-            this.invulnerableCheckBox.Text = "Invulnerable";
+            this.invulnerableCheckBox.Size = new System.Drawing.Size(90, 17);
+            this.invulnerableCheckBox.TabIndex = 0;
+            this.invulnerableCheckBox.Text = "Invulnerability";
             this.invulnerableCheckBox.UseVisualStyleBackColor = true;
             this.invulnerableCheckBox.CheckedChanged += new System.EventHandler(this.invulnerableCheckBox_CheckedChanged);
             //
             // undetectableCheckBox
             //
             this.undetectableCheckBox.AutoSize = true;
-            this.undetectableCheckBox.Location = new System.Drawing.Point(160, 42);
+            this.undetectableCheckBox.Location = new System.Drawing.Point(10, 42);
             this.undetectableCheckBox.Name = "undetectableCheckBox";
             this.undetectableCheckBox.Size = new System.Drawing.Size(89, 17);
-            this.undetectableCheckBox.TabIndex = 3;
+            this.undetectableCheckBox.TabIndex = 1;
             this.undetectableCheckBox.Text = "Undetectable";
             this.undetectableCheckBox.UseVisualStyleBackColor = true;
             this.undetectableCheckBox.CheckedChanged += new System.EventHandler(this.undetectableCheckBox_CheckedChanged);
@@ -491,21 +438,21 @@ namespace SluMAN
             // skipCutscenesCheckBox
             //
             this.skipCutscenesCheckBox.AutoSize = true;
-            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(10, 65);
+            this.skipCutscenesCheckBox.Location = new System.Drawing.Point(160, 19);
             this.skipCutscenesCheckBox.Name = "skipCutscenesCheckBox";
-            this.skipCutscenesCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.skipCutscenesCheckBox.TabIndex = 4;
-            this.skipCutscenesCheckBox.Text = "Skip Cutscenes";
+            this.skipCutscenesCheckBox.Size = new System.Drawing.Size(126, 17);
+            this.skipCutscenesCheckBox.TabIndex = 3;
+            this.skipCutscenesCheckBox.Text = "Auto-skip Cutscenes";
             this.skipCutscenesCheckBox.UseVisualStyleBackColor = true;
             this.skipCutscenesCheckBox.CheckedChanged += new System.EventHandler(this.skipCutscenesCheckBox_CheckedChanged);
             //
             // alwaysOnTopCheckBox
             //
             this.alwaysOnTopCheckBox.AutoSize = true;
-            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(160, 19);
+            this.alwaysOnTopCheckBox.Location = new System.Drawing.Point(160, 42);
             this.alwaysOnTopCheckBox.Name = "alwaysOnTopCheckBox";
             this.alwaysOnTopCheckBox.Size = new System.Drawing.Size(98, 17);
-            this.alwaysOnTopCheckBox.TabIndex = 1;
+            this.alwaysOnTopCheckBox.TabIndex = 4;
             this.alwaysOnTopCheckBox.Text = "Always On Top";
             this.alwaysOnTopCheckBox.UseVisualStyleBackColor = true;
             //
@@ -550,12 +497,6 @@ namespace SluMAN
 
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem switchGameModeToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem memoryUtilitiesToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openUserDataToolStripMenuItem;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.ToolStripMenuItem powerOffPS3ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem rebootPS3ToolStripMenuItem;
         private System.Windows.Forms.GroupBox gameGroupBox;
         private System.Windows.Forms.Label levelLabel;
         private System.Windows.Forms.Label levelValueLabel;

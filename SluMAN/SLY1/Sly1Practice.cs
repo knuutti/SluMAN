@@ -34,6 +34,7 @@ namespace SluMAN
         private const int RefreshIntervalMs = 1000;
 
         private readonly MenuStrip menuStrip = new MenuStrip();
+        private readonly ToolStripMenuItem toolsMenu = new ToolStripMenuItem("Tools");
         private readonly ComboBox levelComboBox = new ComboBox();
         private readonly ComboBox entranceComboBox = new ComboBox();
         private readonly TextBox coinsTextBox = new TextBox();
@@ -108,6 +109,7 @@ namespace SluMAN
             session = new GameSession(this, game, gameNameId, "Sly 1", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
+            session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
 
             refreshTimer.Interval = RefreshIntervalMs;
             refreshTimer.Tick += (sender, e) => RefreshStatus();
@@ -128,33 +130,22 @@ namespace SluMAN
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
+            practiceTabs.AddTool(CameraTab, () => new Sly1CameraForm(game, freeCamera));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             practiceTabs.AddTool(PowerupsTab, () => new Sly1PowerupsForm(game, statusLine));
-            practiceTabs.AddTool(CameraTab, () => new Sly1CameraForm(game, freeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, WorldStatesTab, PowerupsTab, CameraTab);
+            practiceTabs.AddViewMenu("sly1_visible_tabs", PlayerTab, CameraTab, WorldStatesTab, PowerupsTab);
         }
 
+        /// <summary>The menu bar; the session fills the Tools menu once it exists.</summary>
         private void BuildMenu()
         {
-            ToolStripMenuItem tools = new ToolStripMenuItem("Tools");
-            tools.DropDownItems.Add("Switch Game/Mode", null, (sender, e) => session.SwitchGameOrMode());
-            tools.DropDownItems.Add("Input Display", null, (sender, e) => session.ShowInputDisplay());
-            tools.DropDownItems.Add("Controller Combos...", null, (sender, e) =>
-            {
-                ConfigureCombos configureCombos = new ConfigureCombos();
-                configureCombos.ShowDialog(this);
-            });
-            tools.DropDownItems.Add("Memory Utilities...", null, (sender, e) => practiceTabs.Show(MemoryTab));
-            tools.DropDownItems.Add("Open User Data Folder", null, (sender, e) => UserData.OpenInExplorer());
-            tools.DropDownItems.Add(new ToolStripSeparator());
-            tools.DropDownItems.Add("Power Off (PS3)", null, (sender, e) => session.PowerOffPS3());
-            tools.DropDownItems.Add("Reboot (PS3)", null, (sender, e) => session.RebootPS3());
-            menuStrip.Items.Add(tools);
+            menuStrip.Items.Add(toolsMenu);
             MainMenuStrip = menuStrip;
             Controls.Add(menuStrip);
         }
@@ -204,12 +195,14 @@ namespace SluMAN
 
             // Right column
             GroupBox togglesGroupBox = AddGroup("Toggles", 336, 32, 138);
-            AddCheckBox(togglesGroupBox, freezeLivesCheckBox, "Freeze Lives", 10, 20,
+            // Every game's toggles in the same order (.claude/ui-uniform-plan.md); Sly 1's own
+            // after the shared ones, Always On Top last.
+            AddCheckBox(togglesGroupBox, flyModeCheckBox, "Fly Mode", 10, 20, (sender, e) => StartPlayerTool(flyModeCheckBox));
+            AddCheckBox(togglesGroupBox, infiniteJumpCheckBox, "Infinite Jump", 10, 43, (sender, e) => StartPlayerTool(infiniteJumpCheckBox));
+            AddCheckBox(togglesGroupBox, freezeLivesCheckBox, "Freeze Lives", 10, 66,
                 (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked)));
-            AddCheckBox(togglesGroupBox, freezeCharmsCheckBox, "Freeze Gold Charm", 10, 43,
+            AddCheckBox(togglesGroupBox, freezeCharmsCheckBox, "Freeze Gold Charm", 10, 89,
                 (sender, e) => Toggle(freezeCharmsCheckBox, () => game.SetCharmsFrozen(freezeCharmsCheckBox.Checked)));
-            AddCheckBox(togglesGroupBox, flyModeCheckBox, "Fly Mode", 10, 66, (sender, e) => StartPlayerTool(flyModeCheckBox));
-            AddCheckBox(togglesGroupBox, infiniteJumpCheckBox, "Infinite Jump", 10, 89, (sender, e) => StartPlayerTool(infiniteJumpCheckBox));
             AddCheckBox(togglesGroupBox, alwaysOnTopCheckBox, "Always On Top", 10, 112, null);
 
             GroupBox statusGroupBox = AddGroup("Game", 336, 176, 112);
@@ -228,7 +221,7 @@ namespace SluMAN
                 "entrances can be loaded from anywhere once you've visited it. Names for them come\n" +
                 "from data/s1_entrances.txt (level | entrance ID | name).");
             tip.SetToolTip(freezeCharmsCheckBox, "Holds a gold charm, so hits don't cost a life.");
-            tip.SetToolTip(flyModeCheckBox, "Holds Sly's height: L2 rises, R2 sinks, R1 speeds up horizontal movement.");
+            tip.SetToolTip(flyModeCheckBox, "Holds Sly's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
             tip.SetToolTip(infiniteJumpCheckBox, "Sly can double jump again and again.");
             FormClosed += (sender, e) => tip.Dispose();
         }
