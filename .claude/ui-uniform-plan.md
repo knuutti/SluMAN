@@ -116,7 +116,22 @@ and 4 are gone; Sly 2 / 3's job lists are in `Sly2Jobs.cs` / `Sly3Jobs.cs`). Not
 - A Game status group on Sly 2 / 3 (map, job, coins, health).
 - Disabled placeholders for the [future features](#future-features).
 
-### Phase 3: Player tab
+### Phase 3: Player tab — done
+
+Sly 4's Player tab is the shared `PositionEditor` (`sly4.GetPositionEditorLayout`), and
+`Sly4PositionForm` is gone. Notes:
+
+- New `PositionEditorLayout` hooks: `writePosition` (Sly 4 moves the Havok body with
+  `Teleport`), `readVelocity` (the character controller's), `heightAxis` (Y is up in Sly 4),
+  `isLoading` and `getFlySpeed` / `setFlySpeed` (a Fly speed row in Set Position).
+- Saved positions need no migration: the editor keeps them under the same keys
+  (`sly4_<level hash>`, 24 hex digits) as `sly4.SavePosition`. Sly 4 has no shipped warps
+  (`data/sly4_warp_locations.txt`); user warps go to `sly4_user_warps.txt`.
+- Character Info has a Top Speed row with Reset in every game.
+- Sly 4's Fly Mode is a Practice toggle driving `Sly4FreeMove`; it unticks when the free camera
+  takes over. Its speed stays on the Player tab. The editor's freezes are dropped when a Sly 4
+  load starts.
+- Sly 2's Fly Mode is still a placeholder (Future features).
 
 - Sly 4 on the shared `PositionEditor`, with `PositionEditorLayout` delegates for its rigid body
   (as Sly 1 has `readEntity` / `transformInEntity`). Sly 4 gains Freeze, Warp Locations and the

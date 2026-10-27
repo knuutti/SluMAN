@@ -517,6 +517,43 @@ namespace SluMAN
         }
 
         /// <summary>
+        /// The Player tab's Position Editor. The position is the Havok body's (Y is up), moved
+        /// with Teleport; the velocity is the character controller's. Sly 4's fly is
+        /// Sly4FreeMove's, so the editor gets its speed to show and none of its own fly.
+        /// </summary>
+        public PositionEditorLayout GetPositionEditorLayout(Sly4FreeMove freeMove)
+        {
+            return new PositionEditorLayout
+            {
+                gameName = "Sly 4",
+                warpFilePrefix = "sly4",
+                readEntity = GetRigidBody,
+                readMapIndicator = CurrentPositionMap,
+                transformInEntity = true,
+                positionOffset = addr.bodyPositionOffset,
+                writePosition = Teleport,
+                readVelocity = GetVelocity,
+                heightAxis = 1,
+                isLoading = IsLoading,
+                getFlySpeed = () => freeMove.FlySpeed,
+                setFlySpeed = (speed) => freeMove.FlySpeed = speed,
+                hideEntityFields = true,
+            };
+        }
+
+        /// <summary>The character controller's velocity (Y is up), or null when the player isn't loaded.</summary>
+        public float[] GetVelocity()
+        {
+            uint controller = GetCharacterController();
+            if (controller == 0)
+            {
+                return null;
+            }
+            byte[] bytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        /// <summary>
         /// Moves the player by writing the Havok body's motion state. The player's own position
         /// copies are refreshed from it every frame, so writing those does nothing.
         /// </summary>

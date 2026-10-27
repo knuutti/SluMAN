@@ -28,6 +28,7 @@ namespace SluMAN
         private readonly CheckBox invulnerableCheckBox = new CheckBox();
         private readonly CheckBox undetectableCheckBox = new CheckBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
+        private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
@@ -176,13 +177,15 @@ namespace SluMAN
             };
             CameraApi = new Sly4CameraApi(game, FreeMove);
             CameraApi.StartFromConfig();
+            // The free camera stops the fly, and the fly the free camera.
+            FreeMove.ModeChanged += ShowFlyMode;
 
             session.FillPracticeToolsMenu(toolsToolStripMenuItem, () => practiceTabs.Show(MemoryTab));
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs = new PracticeTabs(this, "Practice", true);
-            practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
+            practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(FreeMove), LevelDisplayName));
             practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
             practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
@@ -225,17 +228,54 @@ namespace SluMAN
             layout.AddUtilityGroup(
                 PracticeLayout.Setter("Coins", coinsTextBox, setCoinsButton_Click),
                 PracticeLayout.PlaceholderSetter("Health"));
-            // Every game's toggles in the same order, Always On Top last. Fly is on the Player tab.
+            // Every game's toggles in the same order, Always On Top last.
             layout.AddTogglesGroup(
                 PracticeLayout.Toggle(invulnerableCheckBox, "Invulnerability", null),
                 layout.PlaceholderToggle("Infinite Gadget Power"),
                 PracticeLayout.Toggle(undetectableCheckBox, "Undetectable", null),
                 PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
+                PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", null),
                 layout.PlaceholderToggle("Infinite Jump"),
                 PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
 
+            // Click, not CheckedChanged: showing the fly's mode sets Checked too.
+            flyModeCheckBox.Click += flyModeCheckBox_Click;
+            layout.ToolTip.SetToolTip(flyModeCheckBox, "Left stick moves along the camera's facing, R1 / L1 go up and down. The speed is on the Player tab.");
             layout.ToolTip.SetToolTip(goalComboBox, "Load starts the job at this goal; with no job picked, the running job's.");
+        }
+
+        private void flyModeCheckBox_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FreeMove.Start(flyModeCheckBox.Checked ? Sly4FreeMove.Mode.Fly : Sly4FreeMove.Mode.Off);
+            }
+            catch (Exception ex)
+            {
+                FreeMove.Stop();
+                statusLine.Error($"Couldn't start flying: {ex.Message}");
+            }
+            ShowFlyMode();
+        }
+
+        private void ShowFlyMode()
+        {
+            if (!IsDisposed)
+            {
+                flyModeCheckBox.Checked = FreeMove.Current == Sly4FreeMove.Mode.Fly;
+            }
+        }
+
+        /// <summary>The Player tab's map name: positions are kept per level, as "sly4_" and its hash.</summary>
+        private static string LevelDisplayName(string indicator)
+        {
+            uint hash;
+            if (indicator.StartsWith("sly4_") && uint.TryParse(indicator.Substring(5), System.Globalization.NumberStyles.HexNumber, null, out hash))
+            {
+                return sly4.GetLevelName(hash);
+            }
+            return null;
         }
 
         private void setCoinsButton_Click(object sender, EventArgs e)
@@ -328,14 +368,11 @@ namespace SluMAN
 
         /// <summary>
         /// Shows webMAN's "SluMAN (Practice Mode)" popup on the PS3 when a load finishes, like the
-        /// other games, so a run's video shows Practice Mode was on. Ratchetron only.
+        /// other games, so a run's video shows Practice Mode was on (Ratchetron only), and drops
+        /// the Player tab's position freezes when a load starts.
         /// </summary>
         private void ShowPopUpAfterLoad()
         {
-            if (!(game.api is Ratchetron))
-            {
-                return;
-            }
             bool loading;
             try
             {
@@ -346,7 +383,16 @@ namespace SluMAN
                 // Not connected right now.
                 return;
             }
-            if (wasLoading && !loading)
+            if (!wasLoading && loading)
+            {
+                // The Player tab's position freezes hold coordinates from the level being left.
+                PositionEditor positionEditor = practiceTabs.Get(PlayerTab) as PositionEditor;
+                if (positionEditor != null)
+                {
+                    positionEditor.ClearPositionFreezes();
+                }
+            }
+            if (wasLoading && !loading && game.api is Ratchetron)
             {
                 // A web request: off the UI thread.
                 string ip = game.api.GetIP();
@@ -906,6 +952,7 @@ namespace SluMAN
             // The tools' own cleanup (timers) runs when they close.
             practiceTabs.CloseAll();
             CameraApi.Stop();
+            FreeMove.ModeChanged -= ShowFlyMode;
             FreeMove.Stop();
             game.GoalsChanged -= game_GoalsChanged;
             game.StopGoalWatcher();
