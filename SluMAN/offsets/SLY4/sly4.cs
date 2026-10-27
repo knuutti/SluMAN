@@ -541,6 +541,48 @@ namespace SluMAN
             };
         }
 
+        /// <summary>
+        /// The Camera tab, for Sly 4 and the Hackpack. Paths are saved under CameraPathLevelKey
+        /// and shown with the level's name; the free camera has a far distance and a script API.
+        /// </summary>
+        public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove, Sly4CameraApi cameraApi)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = new Sly4FreeCamera(freeMove),
+                pathFolder = CameraPathFolder,
+                readPlace = (out string displayName) =>
+                {
+                    uint levelHash = GetLevelHash();
+                    displayName = levelHash == 0 ? "" : GetLevelName(levelHash);
+                    return levelHash == 0 ? "" : CameraPathLevelKey(levelHash);
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets the UI.3D.FOV tunable to 0). The pause menu is hidden too while it's on.",
+                setFogDisabled = SetFogDisabled,
+                fogToolTip = "Moves the level's fog out of sight, and keeps it there after loads. Untick to put it back.",
+                playerHelp = "The player is held where\nthey stood; in hacks, time stands still. Loads turn it off.",
+                characterControlToolTip =
+                    "The free camera stays where it is, or keeps playing its path, and the controller\n" +
+                    "moves the character as usual (in hacks, the minigame runs again). Untick to fly\n" +
+                    "the camera again.",
+                minMoveSpeed = 1,
+                maxMoveSpeed = 200,
+                moveSpeedIncrement = 1,
+                minFov = Sly4FreeMove.MinFov,
+                maxFov = Sly4FreeMove.MaxFov,
+                fovDecimals = 4,
+                startFovDegrees = 53.5f,
+                fovToolTip = "The free camera's vertical field of view. R2 zooms in, L2 out.",
+                upAxis = "Y",
+                getFarDistance = () => freeMove.FarDistance,
+                setFarDistance = (far) => freeMove.FarDistance = far,
+                getGameFar = () => freeMove.GameFar,
+                scriptApi = cameraApi,
+            };
+        }
+
         /// <summary>The character controller's velocity (Y is up), or null when the player isn't loaded.</summary>
         public float[] GetVelocity()
         {

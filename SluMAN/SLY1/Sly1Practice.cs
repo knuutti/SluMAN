@@ -124,7 +124,7 @@ namespace SluMAN
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), null, this));
-            practiceTabs.AddTool(CameraTab, () => new Sly1CameraForm(game, freeCamera));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(game.GetCameraTabLayout(freeCamera)));
             practiceTabs.AddTool(WorldStatesTab, () => new Sly1WorldStatesForm(game, statusLine));
             practiceTabs.AddTool(PowerupsTab, () => new Sly1PowerupsForm(game, statusLine));
             // The watch list and the hex viewer open each other's tabs.

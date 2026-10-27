@@ -23,7 +23,7 @@ namespace SluMAN
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
     /// </list>
     /// </summary>
-    public class Sly4CameraApi
+    public class Sly4CameraApi : ICameraScriptApi
     {
         public const int DefaultPort = 9675;
         private const string EnabledKey = "sly4CameraApi";

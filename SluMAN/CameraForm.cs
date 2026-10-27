@@ -6,20 +6,20 @@ using System.Windows.Forms;
 namespace SluMAN
 {
     /// <summary>
-    /// Sly 1's Camera tab: the free camera, and camera paths (keyframes the camera flies through,
-    /// played back by Sly1FreeCamera), laid out like Sly 4's. The camera keeps running when the
-    /// tab is left; Sly1Practice stops it when the window closes. The controls are built in code.
+    /// The Camera tab of every game: the free camera, and camera paths (keyframes the camera
+    /// flies through, played back by the game's free camera). What differs between the games
+    /// comes from its CameraTabLayout (sly1-4.GetCameraTabLayout). The camera keeps running when
+    /// the tab is left; the Practice window stops it when it closes. The controls are built in code.
     /// </summary>
-    public class Sly1CameraForm : Form, IRefreshOnShow
+    public class CameraForm : Form, IRefreshOnShow
     {
         private const int MaxLookDegrees = 360;
-        private const int MaxMoveSpeed = 20000;
         private const int ScrubSteps = 1000;
         private const int CountdownSeconds = 3;
         private const int PlaybackRefreshMs = 50;
 
-        private readonly sly1 game;
-        private readonly Sly1FreeCamera freeCamera;
+        private readonly CameraTabLayout layout;
+        private readonly IFreeCamera freeCamera;
         private CameraPath path = new CameraPath();
 
         private readonly CheckBox freeCameraCheckBox = new CheckBox();
@@ -30,6 +30,9 @@ namespace SluMAN
         private readonly CheckBox characterControlCheckBox = new CheckBox();
         // X, Y, Z, yaw, pitch, field of view (Camera group).
         private readonly TextBox[] cameraBoxes = new TextBox[6];
+        private readonly NumericUpDown farUpDown = new NumericUpDown();
+        private bool updatingFar;
+        private readonly CheckBox apiCheckBox = new CheckBox();
         private readonly CheckBox noFogCheckBox = new CheckBox();
         // No fog is checked again every this many field-of-view refreshes (a load sets the fog).
         private const int NoFogRefreshTicks = 10;
@@ -59,14 +62,16 @@ namespace SluMAN
         private int countdownLeft;
         // Set while the selected keyframe's values are put into the controls.
         private bool updating;
+        // The level or map paths are saved under, and its name as shown.
+        private string levelKey = "";
         private string levelName = "";
         private StatusLine statusLine;
 
-        public Sly1CameraForm(sly1 game, Sly1FreeCamera freeCamera)
+        public CameraForm(CameraTabLayout layout)
         {
-            this.game = game;
-            this.freeCamera = freeCamera;
-            Name = "Sly1CameraForm";
+            this.layout = layout;
+            freeCamera = layout.freeCamera;
+            Name = "CameraForm";
             Text = "SluMAN :: Camera";
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -77,7 +82,13 @@ namespace SluMAN
             GroupBox playbackGroupBox = BuildPlaybackGroup(savedGroupBox.Bottom + 6);
             GroupBox keyframesGroupBox = BuildKeyframesGroup(new Point(freeCameraGroupBox.Right + 8, 8));
             GroupBox cameraGroupBox = BuildCameraGroup(new Point(keyframesGroupBox.Left, keyframesGroupBox.Bottom + 6));
-            ClientSize = new Size(keyframesGroupBox.Right + 8, Math.Max(playbackGroupBox.Bottom, cameraGroupBox.Bottom) + 8);
+            int leftBottom = playbackGroupBox.Bottom;
+            if (layout.scriptApi != null)
+            {
+                BuildApiCheckBox(playbackGroupBox.Bottom + 8);
+                leftBottom = apiCheckBox.Bottom;
+            }
+            ClientSize = new Size(keyframesGroupBox.Right + 8, Math.Max(leftBottom, cameraGroupBox.Bottom) + 8);
             statusLine = new StatusLine(this, false);
 
             freeCamera.ModeChanged += freeCamera_ModeChanged;
@@ -95,11 +106,11 @@ namespace SluMAN
                 // Leave the game with its HUD.
                 if (hideHudCheckBox.Checked)
                 {
-                    try { game.SetHudHidden(false); } catch { }
+                    try { layout.setHudHidden(false); } catch { }
                 }
                 if (noFogCheckBox.Checked)
                 {
-                    try { game.SetFogDisabled(false); } catch { }
+                    try { layout.setFogDisabled(false); } catch { }
                 }
             };
             FormClosed += (sender, e) =>
@@ -112,9 +123,13 @@ namespace SluMAN
             fovTimer.Tick += (sender, e) =>
             {
                 ShowFov();
+                if (freeCamera.IsOn && layout.getFarDistance != null)
+                {
+                    ShowFar();
+                }
                 if (noFogCheckBox.Checked && ++noFogTick % NoFogRefreshTicks == 0)
                 {
-                    try { game.SetFogDisabled(true); } catch { }
+                    try { layout.setFogDisabled(true); } catch { }
                 }
             };
             fovTimer.Start();
@@ -153,10 +168,10 @@ namespace SluMAN
             hideHudCheckBox.Click += (sender, e) => SetHudHidden(hideHudCheckBox.Checked);
             group.Controls.Add(hideHudCheckBox);
             ToolTip hudTip = new ToolTip();
-            hudTip.SetToolTip(hideHudCheckBox, "Hides the HUD: none of its elements are drawn.");
+            hudTip.SetToolTip(hideHudCheckBox, layout.hudToolTip);
             try
             {
-                hideHudCheckBox.Checked = game.IsHudHidden();
+                hideHudCheckBox.Checked = layout.isHudHidden();
             }
             catch
             {
@@ -170,10 +185,10 @@ namespace SluMAN
             moveLabel.Location = new Point(8, 49);
             group.Controls.Add(moveLabel);
 
-            moveSpeedUpDown.Minimum = 10;
-            moveSpeedUpDown.Maximum = MaxMoveSpeed;
-            moveSpeedUpDown.Increment = 100;
-            moveSpeedUpDown.Value = (decimal)Math.Max(10, Math.Min(MaxMoveSpeed, freeCamera.CameraSpeed));
+            moveSpeedUpDown.Minimum = layout.minMoveSpeed;
+            moveSpeedUpDown.Maximum = layout.maxMoveSpeed;
+            moveSpeedUpDown.Increment = layout.moveSpeedIncrement;
+            moveSpeedUpDown.Value = (decimal)Math.Max(layout.minMoveSpeed, Math.Min(layout.maxMoveSpeed, freeCamera.CameraSpeed));
             moveSpeedUpDown.Location = new Point(214, 46);
             moveSpeedUpDown.Size = new Size(60, 20);
             moveSpeedUpDown.ValueChanged += (sender, e) => freeCamera.CameraSpeed = (float)moveSpeedUpDown.Value;
@@ -204,10 +219,12 @@ namespace SluMAN
             SetButton(gameFovButton, "Game's", 150, 96, 58, (sender, e) => freeCamera.Fov = freeCamera.GameFov);
             group.Controls.Add(gameFovButton);
 
-            fovUpDown.DecimalPlaces = 2;
-            fovUpDown.Minimum = (decimal)Math.Ceiling(CameraPath.Degrees(Sly1FreeCamera.MinFov) * 100) / 100;
-            fovUpDown.Maximum = (decimal)Math.Floor(CameraPath.Degrees(Sly1FreeCamera.MaxFov));
-            fovUpDown.Value = (decimal)Math.Round(CameraPath.Degrees(freeCamera.GameFov), 2);
+            double scale = Math.Pow(10, layout.fovDecimals);
+            fovUpDown.DecimalPlaces = layout.fovDecimals;
+            fovUpDown.Minimum = (decimal)(Math.Ceiling(CameraPath.Degrees(layout.minFov) * scale) / scale);
+            fovUpDown.Maximum = (decimal)Math.Floor(CameraPath.Degrees(layout.maxFov));
+            float startFov = layout.startFovDegrees > 0 ? layout.startFovDegrees : CameraPath.Degrees(freeCamera.GameFov);
+            fovUpDown.Value = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, (decimal)Math.Round(startFov, layout.fovDecimals)));
             fovUpDown.Location = new Point(214, 98);
             fovUpDown.Size = new Size(60, 20);
             fovUpDown.ValueChanged += (sender, e) =>
@@ -220,14 +237,13 @@ namespace SluMAN
             group.Controls.Add(fovUpDown);
 
             ToolTip fovTip = new ToolTip();
-            fovTip.SetToolTip(fovUpDown, "The free camera's field of view. R2 zooms in, L2 out.");
+            fovTip.SetToolTip(fovUpDown, layout.fovToolTip);
             fovTip.SetToolTip(gameFovButton, "Back to the field of view the game had when the free camera started.");
             FormClosed += (sender, e) => fovTip.Dispose();
 
             Label help = new Label();
             help.Text = "Left stick moves, right stick turns, R1 / L1 move camera-up,\n" +
-                "R2 / L2 zoom, R3 adds a keyframe. The player is made\n" +
-                "uncontrollable. The camera turns off when a level loads.\n" +
+                "R2 / L2 zoom, R3 adds a keyframe. " + layout.playerHelp + "\n" +
                 "On RPCS3, set the PPU decoder to Interpreter (static).";
             help.Location = new Point(8, 124);
             help.Size = new Size(270, 58);
@@ -240,9 +256,7 @@ namespace SluMAN
             characterControlCheckBox.CheckedChanged += (sender, e) => freeCamera.CharacterControl = characterControlCheckBox.Checked;
             group.Controls.Add(characterControlCheckBox);
             ToolTip controlTip = new ToolTip();
-            controlTip.SetToolTip(characterControlCheckBox,
-                "The free camera stays where it is, or keeps playing its path, and the controller\n" +
-                "moves the character as usual. Untick to fly the camera again.");
+            controlTip.SetToolTip(characterControlCheckBox, layout.characterControlToolTip);
             FormClosed += (sender, e) => controlTip.Dispose();
 
             return group;
@@ -399,7 +413,8 @@ namespace SluMAN
             GroupBox group = new GroupBox();
             group.Text = "Camera";
             group.Location = location;
-            group.Size = new Size(352, 106);
+            bool hasFar = layout.getFarDistance != null;
+            group.Size = new Size(352, hasFar ? 130 : 106);
             Controls.Add(group);
 
             string[] labels = { "X", "Y", "Z", "Yaw", "Pitch", "FOV" };
@@ -428,25 +443,69 @@ namespace SluMAN
                 func.BindEnter(box, setButton);
             }
 
-            noFogCheckBox.Text = "No fog";
-            noFogCheckBox.AutoSize = true;
-            noFogCheckBox.Location = new Point(264, 78);
-            noFogCheckBox.Click += (sender, e) => SetFogDisabled(noFogCheckBox.Checked);
-            group.Controls.Add(noFogCheckBox);
-            try
+            ToolTip tip = new ToolTip();
+            if (hasFar)
             {
-                noFogCheckBox.Checked = game.IsFogDisabled();
-            }
-            catch
-            {
-                // Left unticked; ticking it writes the value anyway.
+                BuildFarRow(group, tip);
             }
 
-            ToolTip tip = new ToolTip();
-            tip.SetToolTip(setButton, "Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees; Z is up.");
-            tip.SetToolTip(noFogCheckBox, "Turns the fog off, and keeps it off after loads. Untick to put it back.");
+            noFogCheckBox.Text = "No fog";
+            noFogCheckBox.AutoSize = true;
+            // Beside Far distance when there is one, else beside the buttons.
+            noFogCheckBox.Location = new Point(264, hasFar ? 105 : 78);
+            noFogCheckBox.Click += (sender, e) => SetFogDisabled(noFogCheckBox.Checked);
+            group.Controls.Add(noFogCheckBox);
+            if (layout.isFogDisabled != null)
+            {
+                try
+                {
+                    noFogCheckBox.Checked = layout.isFogDisabled();
+                }
+                catch
+                {
+                    // Left unticked; ticking it writes the value anyway.
+                }
+            }
+
+            tip.SetToolTip(setButton, $"Puts the free camera here (turning it on). Yaw, pitch and FOV in degrees; {layout.upAxis} is up.");
+            tip.SetToolTip(noFogCheckBox, layout.fogToolTip);
             FormClosed += (sender, e) => tip.Dispose();
             return group;
+        }
+
+        private void BuildFarRow(GroupBox group, ToolTip tip)
+        {
+            Label farLabel = new Label();
+            farLabel.Text = "Far distance:";
+            farLabel.AutoSize = true;
+            farLabel.Location = new Point(8, 106);
+            group.Controls.Add(farLabel);
+
+            farUpDown.Minimum = 1;
+            farUpDown.Maximum = 100000000;
+            farUpDown.Increment = 1000;
+            farUpDown.ThousandsSeparator = true;
+            farUpDown.Location = new Point(84, 103);
+            farUpDown.Size = new Size(100, 20);
+            farUpDown.ValueChanged += (sender, e) =>
+            {
+                if (!updatingFar)
+                {
+                    layout.setFarDistance((float)farUpDown.Value);
+                }
+            };
+            group.Controls.Add(farUpDown);
+
+            Button gameFarButton = new Button();
+            SetButton(gameFarButton, "Game's", 190, 101, 64, (sender, e) =>
+            {
+                layout.setFarDistance(0);
+                ShowFar();
+            });
+            group.Controls.Add(gameFarButton);
+
+            tip.SetToolTip(farUpDown, "How far the free camera draws. Distance fog may follow it.");
+            tip.SetToolTip(gameFarButton, "Back to the game's own far distance.");
         }
 
         private void ReadCameraBoxes()
@@ -566,7 +625,7 @@ namespace SluMAN
         {
             try
             {
-                game.SetHudHidden(hidden);
+                layout.setHudHidden(hidden);
                 statusLine.Info(hidden ? "Hid the HUD." : "Showed the HUD.");
             }
             catch (Exception ex)
@@ -580,16 +639,72 @@ namespace SluMAN
         {
             try
             {
-                if (!game.SetFogDisabled(disabled))
+                if (!layout.setFogDisabled(disabled))
                 {
                     statusLine.Error("The game has no camera yet; No fog applies once a level is loaded.");
                     return;
                 }
-                statusLine.Info(disabled ? "Turned the fog off." : "Fog put back.");
+                statusLine.Info(disabled ? layout.fogOffMessage : "Fog put back.");
             }
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't change the fog: {ex.Message}");
+            }
+        }
+
+        private void BuildApiCheckBox(int top)
+        {
+            ICameraScriptApi api = layout.scriptApi;
+            apiCheckBox.Text = $"Script API on 127.0.0.1:{api.Port}";
+            apiCheckBox.AutoSize = true;
+            apiCheckBox.Location = new Point(14, top);
+            apiCheckBox.Checked = api.IsRunning;
+            apiCheckBox.Click += (sender, e) =>
+            {
+                api.Enabled = apiCheckBox.Checked;
+                apiCheckBox.Checked = api.IsRunning;
+                apiCheckBox.Text = $"Script API on 127.0.0.1:{api.Port}";
+                if (api.LastError != "")
+                {
+                    statusLine.Error(api.LastError);
+                }
+                else if (api.IsRunning)
+                {
+                    statusLine.Info($"Scripts can drive the free camera at {api.Url} (ask / for the list of requests).");
+                }
+            };
+            Controls.Add(apiCheckBox);
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(apiCheckBox,
+                "Lets scripts on this PC read and move the free camera over HTTP, e.g.\n" +
+                "http://127.0.0.1:" + api.Port + "/camera/set?x=0&y=500&z=0&pitch=-90&fov=5\n" +
+                "Ask http://127.0.0.1:" + api.Port + "/ for the list of requests.");
+            FormClosed += (sender, e) => tip.Dispose();
+        }
+
+        /// <summary>Shows the far distance in use: the one set, or the game's.</summary>
+        private void ShowFar()
+        {
+            if (farUpDown.Focused)
+            {
+                return;
+            }
+            float far = layout.getFarDistance();
+            if (far <= 0)
+            {
+                far = layout.getGameFar();
+            }
+            if (far <= 0)
+            {
+                return;
+            }
+            decimal value = Math.Max(farUpDown.Minimum, Math.Min(farUpDown.Maximum, (decimal)Math.Round(far)));
+            if (farUpDown.Value != value)
+            {
+                updatingFar = true;
+                farUpDown.Value = value;
+                updatingFar = false;
             }
         }
 
@@ -599,7 +714,7 @@ namespace SluMAN
             {
                 return;
             }
-            decimal degrees = (decimal)Math.Round(CameraPath.Degrees(freeCamera.Fov), 2);
+            decimal degrees = (decimal)Math.Round(CameraPath.Degrees(freeCamera.Fov), layout.fovDecimals);
             degrees = Math.Max(fovUpDown.Minimum, Math.Min(fovUpDown.Maximum, degrees));
             if (fovUpDown.Value != degrees)
             {
@@ -958,33 +1073,38 @@ namespace SluMAN
 
         // --- Saved paths ---
 
-        /// <summary>Paths are saved per level; reads which level the game is in.</summary>
+        /// <summary>Paths are saved per level or map; reads which one the game is in.</summary>
         private void ReadLevel()
         {
-            // Saved under the level's title.
-            string level = "";
+            string key = "";
+            string name = "";
             try
             {
-                level = game.GetCurrentMapIndicator();
+                key = layout.readPlace(out name);
             }
             catch
             {
-                // Shown as no map; saving asks for one.
+                // Shown as no level; saving asks for one.
             }
-            if (level == levelName)
+            if (key == "")
+            {
+                name = "";
+            }
+            if (key == levelKey && name == levelName)
             {
                 return;
             }
 
-            levelName = level;
-            savedGroupBox.Text = level == "" ? "Saved Paths" : $"Saved Paths ({level})";
+            levelKey = key;
+            levelName = name;
+            savedGroupBox.Text = key == "" ? "Saved Paths" : $"Saved Paths ({name})";
             string typed = pathNameComboBox.Text;
             pathNameComboBox.Items.Clear();
-            if (level != "")
+            if (key != "")
             {
-                foreach (string name in CameraPath.SavedNames(CameraPath.Sly1Folder, level))
+                foreach (string saved in CameraPath.SavedNames(layout.pathFolder, key))
                 {
-                    pathNameComboBox.Items.Add(name);
+                    pathNameComboBox.Items.Add(saved);
                 }
             }
             pathNameComboBox.Text = typed;
@@ -993,9 +1113,9 @@ namespace SluMAN
         private string TypedPathName()
         {
             string name = pathNameComboBox.Text.Trim();
-            if (levelName == "")
+            if (levelKey == "")
             {
-                statusLine.Error("Paths are saved per level; load into a level first.");
+                statusLine.Error($"Paths are saved per {layout.placeWord}; load into a {layout.placeWord} first.");
                 return null;
             }
             if (!CameraPath.IsValidName(name))
@@ -1021,7 +1141,7 @@ namespace SluMAN
             }
             try
             {
-                path.Save(CameraPath.Sly1Folder, levelName, name);
+                path.Save(layout.pathFolder, levelKey, name);
                 if (!pathNameComboBox.Items.Contains(name))
                 {
                     pathNameComboBox.Items.Add(name);
@@ -1044,7 +1164,7 @@ namespace SluMAN
             }
             try
             {
-                CameraPath loaded = CameraPath.Load(CameraPath.Sly1Folder, levelName, name);
+                CameraPath loaded = CameraPath.Load(layout.pathFolder, levelKey, name);
                 StopPlayback();
                 path = loaded;
                 smoothCheckBox.Checked = path.Smooth;
@@ -1072,7 +1192,7 @@ namespace SluMAN
             }
             try
             {
-                CameraPath.Delete(CameraPath.Sly1Folder, levelName, name);
+                CameraPath.Delete(layout.pathFolder, levelKey, name);
                 pathNameComboBox.Items.Remove(name);
                 pathNameComboBox.Text = "";
                 statusLine.Info($"Deleted \"{name}\". The keyframes stay in the list until you change them.");

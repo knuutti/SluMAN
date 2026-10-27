@@ -186,6 +186,7 @@
     <Compile Include="offsets\SLY4\Sly4SpawnPoints.cs" />
     <Compile Include="offsets\SLY4\Sly4FreeMove.cs" />
     <Compile Include="CameraPath.cs" />
+    <Compile Include="CameraTabLayout.cs" />
     <Compile Include="offsets\SLY4\Sly4AutosplitterValues.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
@@ -218,9 +219,6 @@
     <Compile Include="SimpleInputDialogForm.Designer.cs">
       <DependentUpon>SimpleInputDialogForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="SLY1\Sly1CameraForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="SLY1\Sly1PowerupsForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -240,9 +238,6 @@
       <DependentUpon>Sly2Gadgets.cs</DependentUpon>
     </Compile>
     <Compile Include="SLY2\Sly2Practice.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SLY2\Sly2CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY2\Sly2RunFilesForm.cs">
@@ -265,6 +260,9 @@
     <Compile Include="PracticeTabs.cs" />
     <Compile Include="SLY2\Sly2Jobs.cs" />
     <Compile Include="SLY3\Sly3Jobs.cs" />
+    <Compile Include="GadgetsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -278,7 +276,7 @@
     <Compile Include="SLY3\Sly3RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3CameraForm.cs">
+    <Compile Include="CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY3\Sly3Speedrun.cs">
@@ -290,10 +288,8 @@
     <Compile Include="SLY4\Sly4Speedrun.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY4\Sly4CameraForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="SLY4\Sly4CameraApi.cs" />
+    <Compile Include="SLY4\Sly4JobQueue.cs" />
     <Compile Include="SLY4\Sly4GuiForm.cs">
       <SubType>Form</SubType>
     </Compile>

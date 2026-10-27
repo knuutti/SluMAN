@@ -5,18 +5,11 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    /// <summary>The Practice window the Jobs tab starts jobs and warps to goals through.</summary>
-    public interface ISly4JobHost
-    {
-        void StartJob(sly4.JobEntry job, bool toHub, bool toHideout);
-        void WarpToGoal(sly4.JobEntry job, int goal);
-    }
-
     /// <summary>
     /// The debug menu's Episodes browser: every episode, its jobs and each job's goals, with the
     /// running job marked and its goals coloured done / current / upcoming. Jobs start (or go to
-    /// their hub or hideout) and goals warp through the Practice window (Sly4Practice or
-    /// HackpackPractice), which tracks the game call and reports on the status bar. The
+    /// their hub or hideout) and goals warp through the Practice window's Sly4JobQueue, which
+    /// tracks the game call and reports on the window's status bar. The
     /// Hackpack's episodes have no hubs or hideouts, so it leaves those buttons out. The controls
     /// are built in code.
     /// </summary>
@@ -39,7 +32,7 @@ namespace SluMAN
         }
 
         private readonly sly4 game;
-        private readonly ISly4JobHost practice;
+        private readonly Sly4JobQueue jobQueue;
 
         private readonly TreeView tree = new TreeView();
         private readonly Button startJobButton = new Button();
@@ -56,10 +49,10 @@ namespace SluMAN
         // How many goals the running job had when its node was last filled from the game.
         private int runningGoalCount = -1;
 
-        public Sly4JobsForm(sly4 game, ISly4JobHost practice)
+        public Sly4JobsForm(sly4 game, Sly4JobQueue jobQueue)
         {
             this.game = game;
-            this.practice = practice;
+            this.jobQueue = jobQueue;
             Name = "Sly4JobsForm";
             Text = "SluMAN :: Jobs";
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -424,7 +417,7 @@ namespace SluMAN
             sly4.JobEntry job = SelectedJob();
             if (job != null)
             {
-                practice.StartJob(job, toHub, toHideout);
+                jobQueue.StartJob(job, toHub, toHideout);
             }
         }
 
@@ -433,7 +426,7 @@ namespace SluMAN
             GoalTag goal = tree.SelectedNode != null ? tree.SelectedNode.Tag as GoalTag : null;
             if (goal != null)
             {
-                practice.WarpToGoal(goal.job, goal.index);
+                jobQueue.WarpToGoal(goal.job, goal.index);
             }
         }
     }

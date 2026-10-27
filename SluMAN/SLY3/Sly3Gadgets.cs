@@ -11,20 +11,25 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class Sly3Gadgets : Form, IRefreshOnShow
+    public partial class Sly3Gadgets : GadgetsForm
     {
+        private static readonly string[] RunFiles =
+        {
+            "Episode 1", "Episode 2", "Episode 3", "Episode 4",
+            "Episode 5", "Episode 6 (No CE)", "Episode 6 (CE)",
+        };
+
         private sly3 game;
         private ItemCheckEventHandler slyItemCheckHandler;
         private ItemCheckEventHandler bentleyItemCheckHandler;
         private ItemCheckEventHandler murrayItemCheckHandler;
 
-        private StatusLine statusLine;
-
-        public Sly3Gadgets(sly3 game)
+        public Sly3Gadgets(sly3 game) : base(game)
         {
             this.game = game;
             InitializeComponent();
-            statusLine = new StatusLine(this, false);
+            // Under the Bentley and Murray columns, beside the special moves.
+            BuildButtonBar(slyGadgetsR2ComboBox.Bottom + 9, RunFiles);
             LoadGadgets();
             PopulateBindingComboBoxes();
             LoadGadgetBindings();
@@ -56,29 +61,15 @@ namespace SluMAN
             PopulateSlyBindingComboBoxes();
         }
 
-        // Discard Changes button - just close without saving
-        private void discardChangesButton_Click(object sender, EventArgs e)
+        protected override void WriteToGame()
         {
-            this.Close();
-        }
-
-        // Save button - write to memory and close
-        private void saveButton_Click(object sender, EventArgs e)
-        {
-            game.api.Notify("GadgetForm :: Save");
             SaveGadgets();
             SaveBindings();
-            this.Close();
         }
 
-        // Save and Reload button - write to memory, trigger reload, and close
-        private void saveAndReloadButton_Click(object sender, EventArgs e)
+        protected override void ReloadGame()
         {
-            game.api.Notify("GadgetForm :: Save and Reload");
-            SaveGadgets();
-            SaveBindings();
             game.Load();
-            this.Close();
         }
 
         // Write gadget unlock states to memory
@@ -186,7 +177,7 @@ namespace SluMAN
         /// Reads the unlocks and bindings again, since the tab keeps this form while saves are
         /// loaded. Unsaved changes are dropped, as closing the old gadget window did.
         /// </summary>
-        public void RefreshFromGame()
+        public override void RefreshFromGame()
         {
             SuspendComboBoxUpdates();
             try
@@ -523,15 +514,8 @@ namespace SluMAN
             return null; // Not found
         }
 
-        private void loadRunFileGadgetsButton_Click(object sender, EventArgs e)
+        protected override void LoadRunFileGadgets(string runFile)
         {
-            if (runFileComboBox.SelectedItem == null)
-            {
-                statusLine.Error("Select a run file to load from first.");
-                return;
-            }
-
-            string runFile = runFileComboBox.SelectedItem.ToString();
             string episodeKey = GetEpisodeKey(runFile);
             string gadgetHex = func.GetConfigData("config.txt", episodeKey + "_GadgetUnlocks");
             string bindingHex = func.GetConfigData("config.txt", episodeKey + "_GadgetBindings");
@@ -585,21 +569,9 @@ namespace SluMAN
             statusLine.Info($"Loaded the {runFile} run file. Save to apply it in game.");
         }
 
-        private void saveRunFileGadgetsButton_Click(object sender, EventArgs e)
+        protected override void SaveRunFileGadgets(string runFile)
         {
-            if (runFileComboBox.SelectedItem == null)
-            {
-                statusLine.Error("Select a run file to save to first.");
-                return;
-            }
-
-            SaveGadgetsToRunFile();
-            game.api.Notify($"SluMAN {func.VersionText}: Gadget settings saved to {runFileComboBox.SelectedItem} run file.");
-        }
-
-        private void SaveGadgetsToRunFile()
-        {
-            string episodeKey = GetEpisodeKey(runFileComboBox.SelectedItem.ToString());
+            string episodeKey = GetEpisodeKey(runFile);
 
             // Get current gadget states (same logic as SaveGadgets())
             var gadgetBytes = GetCurrentGadgetBytes();

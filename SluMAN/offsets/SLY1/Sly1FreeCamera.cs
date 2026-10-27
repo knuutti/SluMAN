@@ -23,7 +23,7 @@ namespace SluMAN
     /// Runs on its own thread and keeps going whichever tab shows. Sly1Practice owns the one
     /// instance. It turns itself off when a load starts.
     /// </summary>
-    public class Sly1FreeCamera
+    public class Sly1FreeCamera : IFreeCamera
     {
         // How often the sticks move the camera (and the player is held).
         private const int Rpcs3IntervalMs = 5;
@@ -83,10 +83,10 @@ namespace SluMAN
         private readonly Stopwatch sinceHook = new Stopwatch();
 
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
-        public float CameraSpeed = 1600f;
+        public float CameraSpeed { get; set; } = 1600f;
 
         /// <summary>How fast the camera turns: radians per second at full stick.</summary>
-        public float LookSpeed = 2f;
+        public float LookSpeed { get; set; } = 2f;
 
         /// <summary>How fast R2 / L2 zoom: the field of view changes by this factor of e per second.</summary>
         public float ZoomSpeed = 0.7f;

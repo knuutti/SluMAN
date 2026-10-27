@@ -531,6 +531,35 @@ namespace SluMAN
             };
         }
 
+        /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
+        public CameraTabLayout GetCameraTabLayout(Sly2FreeCamera freeCamera)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = freeCamera,
+                pathFolder = CameraPath.Sly2Folder,
+                placeWord = "map",
+                readPlace = (out string displayName) =>
+                {
+                    string map = GetMapIndicator();
+                    displayName = GetMapDisplayName(map);
+                    if (displayName == null)
+                    {
+                        displayName = map;
+                    }
+                    return map;
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets its scale X to 0).",
+                isFogDisabled = IsFogDisabled,
+                setFogDisabled = SetFogDisabled,
+                playerHelp = "The player is made\nuncontrollable. The camera turns off when a level loads.",
+                minFov = Sly2FreeCamera.MinFov,
+                maxFov = Sly2FreeCamera.MaxFov,
+            };
+        }
+
         /// <summary>
         /// Finds exact copies of a camera position in RPCS3 memory. The ranges cover the game's
         /// mapped main and user memory; unmapped chunks are skipped.

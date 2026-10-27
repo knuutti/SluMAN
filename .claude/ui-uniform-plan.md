@@ -139,7 +139,27 @@ Sly 4's Player tab is the shared `PositionEditor` (`sly4.GetPositionEditorLayout
 - Sly 4's speed / top speed readout in Character Info for every game.
 - Fly Mode is a Practice toggle in every game; Sly 4's fly speed stays on its Player tab.
 
-### Phase 4: shared code, so the games don't drift apart again
+### Phase 4: shared code, so the games don't drift apart again — done
+
+The shared tabs are one class each now, with what differs per game passed in. Notes:
+
+- `CameraForm` is every game's Camera tab, built from the game's `GetCameraTabLayout`
+  (`CameraTabLayout`). The free cameras implement `IFreeCamera`; Sly 4 / Hackpack wrap
+  `Sly4FreeMove`'s free camera mode in `Sly4FreeCamera`, and their Far distance row and Script
+  API checkbox come from the layout (`getFarDistance`, `scriptApi`). The Set Camera tooltip now
+  says Y is up in Sly 4.
+- `GadgetsForm` is Sly 2 / 3's Gadgets base: the same bar under the Bentley and Murray columns
+  (Run file gadgets Load / Save; Discard Changes, Save, Save and Reload), with the first column
+  left to the game (Sly 2's vault gadgets, Sly 3's special moves). Sly 2 gains Discard Changes,
+  which now reads the game's gadgets again instead of closing the tab. The per-column
+  Check / Uncheck All boxes were already the same in both and stay with the columns. The
+  Designer still lays the columns out; the base class is abstract, so the VS designer can't
+  open those two forms any more.
+- `Sly4JobQueue` holds the game call tracking and the queued goal warp, job restart and level
+  load for both `Sly4Practice` and `HackpackPractice`, and the Jobs tab calls it directly
+  (`ISly4JobHost` is gone). Where the games differ it checks `sly4.addr.IsHackpack`: the
+  Hackpack restarts a running job through RequestJob and warps to a running job's goal in place,
+  Sly 4 abandons the job first and starts it again at the goal.
 
 - One camera tab form with a small per-game adapter (path folder, level key and name, Hide HUD,
   No fog, field of view, Sly 4's Far distance) in place of `Sly1CameraForm`, `Sly2CameraForm`,

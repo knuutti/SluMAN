@@ -351,6 +351,35 @@ namespace SluMAN
             };
         }
 
+        /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
+        public CameraTabLayout GetCameraTabLayout(Sly3FreeCamera freeCamera)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = freeCamera,
+                pathFolder = CameraPath.Sly3Folder,
+                placeWord = "map",
+                readPlace = (out string displayName) =>
+                {
+                    string map = GetMapIndicator();
+                    displayName = GetMapDisplayName(map);
+                    if (displayName == null)
+                    {
+                        displayName = map;
+                    }
+                    return map;
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets its scale X to 0).",
+                isFogDisabled = IsFogDisabled,
+                setFogDisabled = SetFogDisabled,
+                playerHelp = "The player is held where\nthey stood. The camera turns off when a level loads.",
+                minFov = Sly3FreeCamera.MinFov,
+                maxFov = Sly3FreeCamera.MaxFov,
+            };
+        }
+
         /// <summary>
         /// The readable name of a map such as "Y$KFv_ext", or null when it isn't in the list.
         /// </summary>

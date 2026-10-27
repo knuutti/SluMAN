@@ -11,20 +11,25 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class Sly2Gadgets : Form, IRefreshOnShow
+    public partial class Sly2Gadgets : GadgetsForm
     {
+        private static readonly string[] RunFiles =
+        {
+            "Episode 1", "Episode 2", "Episode 3", "Episode 4",
+            "Episode 5", "Episode 6", "Episode 7", "Episode 8",
+        };
+
         private sly2 game;
         private ItemCheckEventHandler slyItemCheckHandler;
         private ItemCheckEventHandler bentleyItemCheckHandler;
         private ItemCheckEventHandler murrayItemCheckHandler;
 
-        private StatusLine statusLine;
-
-        public Sly2Gadgets(sly2 game)
+        public Sly2Gadgets(sly2 game) : base(game)
         {
             this.game = game;
             InitializeComponent();
-            statusLine = new StatusLine(this, false);
+            // Under the Bentley and Murray columns, beside the vault gadgets.
+            BuildButtonBar(label7.Top, RunFiles);
             LoadGadgets();
             PopulateBindingComboBoxes();
             LoadGadgetBindings();
@@ -127,9 +132,9 @@ namespace SluMAN
             murrayGadgetsCheckedList.ItemCheck += murrayItemCheckHandler;
         }
 
-        private void SaveGadgetsToRunFile()
+        protected override void SaveRunFileGadgets(string runFile)
         {
-            string episodeKey = GetEpisodeKey(runFileComboBox.SelectedItem.ToString());
+            string episodeKey = GetEpisodeKey(runFile);
 
             // Get current gadget states (same logic as SaveGadgets())
             var gadgetBytes = GetCurrentGadgetBytes();
@@ -221,7 +226,7 @@ namespace SluMAN
         /// Reads the unlocks and bindings again, since the tab keeps this form while saves are
         /// loaded. Unsaved changes are dropped, as closing the old gadget window did.
         /// </summary>
-        public void RefreshFromGame()
+        public override void RefreshFromGame()
         {
             SuspendComboBoxUpdates();
             try
@@ -519,15 +524,8 @@ namespace SluMAN
             PopulateMurrayBindingComboBoxes();
         }
 
-        private void loadRunFileGadgetsButton_Click(object sender, EventArgs e)
+        protected override void LoadRunFileGadgets(string runFile)
         {
-            if (runFileComboBox.SelectedItem == null)
-            {
-                statusLine.Error("Select a run file to load from first.");
-                return;
-            }
-
-            string runFile = runFileComboBox.SelectedItem.ToString();
             string episodeKey = GetEpisodeKey(runFile);
             string gadgetHex = func.GetConfigData("config.txt", episodeKey + "_Sly2GadgetUnlocks");
             string bindingHex = func.GetConfigData("config.txt", episodeKey + "_Sly2GadgetBindings");
@@ -581,33 +579,15 @@ namespace SluMAN
             statusLine.Info($"Loaded the {runFile} run file. Save to apply it in game.");
         }
 
-        private void saveRunFileGadgetsButton_Click(object sender, EventArgs e)
+        protected override void WriteToGame()
         {
-            if (runFileComboBox.SelectedItem == null)
-            {
-                statusLine.Error("Select a run file to save to first.");
-                return;
-            }
-
-            SaveGadgetsToRunFile();
-            game.api.Notify($"SluMAN {func.VersionText}: Gadget settings saved to {runFileComboBox.SelectedItem} run file.");
-        }
-
-        private void saveButton_Click(object sender, EventArgs e)
-        {
-            game.api.Notify("GadgetForm :: Save");
             SaveGadgets();
             SaveBindings();
-            this.Close();
         }
 
-        private void saveAndReloadButton_Click(object sender, EventArgs e)
+        protected override void ReloadGame()
         {
-            game.api.Notify("GadgetForm :: Save and Reload");
-            SaveGadgets();
-            SaveBindings();
             game.Load();
-            this.Close();
         }
 
         private void vaultGadgetsToggleCheckBox_CheckedChanged(object sender, EventArgs e)

@@ -77,6 +77,30 @@ namespace SluMAN
             };
         }
 
+        /// <summary>The Camera tab. Paths are saved under the level's title.</summary>
+        public CameraTabLayout GetCameraTabLayout(Sly1FreeCamera freeCamera)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = freeCamera,
+                pathFolder = CameraPath.Sly1Folder,
+                readPlace = (out string displayName) =>
+                {
+                    displayName = GetCurrentMapIndicator();
+                    return displayName;
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD: none of its elements are drawn.",
+                isFogDisabled = IsFogDisabled,
+                setFogDisabled = SetFogDisabled,
+                fogOffMessage = "Turned the fog off.",
+                playerHelp = "The player is made\nuncontrollable. The camera turns off when a level loads.",
+                minFov = Sly1FreeCamera.MinFov,
+                maxFov = Sly1FreeCamera.MaxFov,
+            };
+        }
+
         /// <summary>Gives Sly another double jump. Does nothing to a vehicle.</summary>
         public void ApplyInfiniteJump(uint entity)
         {

@@ -834,4 +834,102 @@ namespace SluMAN
             };
         }
     }
+
+    /// <summary>Sly4FreeMove's free camera mode, as the shared Camera tab drives it.</summary>
+    public class Sly4FreeCamera : IFreeCamera
+    {
+        private readonly Sly4FreeMove freeMove;
+
+        public Sly4FreeCamera(Sly4FreeMove freeMove)
+        {
+            this.freeMove = freeMove;
+        }
+
+        public event Action ModeChanged
+        {
+            add { freeMove.ModeChanged += value; }
+            remove { freeMove.ModeChanged -= value; }
+        }
+
+        public event Action KeyframeRequested
+        {
+            add { freeMove.KeyframeRequested += value; }
+            remove { freeMove.KeyframeRequested -= value; }
+        }
+
+        public event Action PlaybackFinished
+        {
+            add { freeMove.PlaybackFinished += value; }
+            remove { freeMove.PlaybackFinished -= value; }
+        }
+
+        // Sly4FreeMove has no notices; its problems are thrown from Start.
+        public event Action<string, bool> Notice
+        {
+            add { }
+            remove { }
+        }
+
+        public bool IsOn => freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
+        public bool FovKnown => true;
+
+        public float CameraSpeed
+        {
+            get { return freeMove.CameraSpeed; }
+            set { freeMove.CameraSpeed = value; }
+        }
+
+        public float LookSpeed
+        {
+            get { return freeMove.LookSpeed; }
+            set { freeMove.LookSpeed = value; }
+        }
+
+        public float Fov
+        {
+            get { return freeMove.Fov; }
+            set { freeMove.Fov = value; }
+        }
+
+        public float GameFov => freeMove.GameFov;
+
+        public bool CharacterControl
+        {
+            get { return freeMove.CharacterControl; }
+            set { freeMove.CharacterControl = value; }
+        }
+
+        public bool IsPlaying => freeMove.IsPlaying;
+        public float PlaybackTime => freeMove.PlaybackTime;
+
+        public void Start()
+        {
+            freeMove.Start(Sly4FreeMove.Mode.FreeCamera);
+        }
+
+        public void Stop()
+        {
+            freeMove.Stop();
+        }
+
+        public void Play(CameraPath path, bool loop)
+        {
+            freeMove.Play(path, loop);
+        }
+
+        public void StopPlayback()
+        {
+            freeMove.StopPlayback();
+        }
+
+        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch, out float cameraFov)
+        {
+            return freeMove.GetCamera(out position, out cameraYaw, out cameraPitch, out cameraFov);
+        }
+
+        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch, float cameraFov)
+        {
+            return freeMove.SetCamera(position, cameraYaw, cameraPitch, cameraFov);
+        }
+    }
 }

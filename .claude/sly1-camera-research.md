@@ -160,7 +160,7 @@ rebuilds the matrices straight after its own writes.
 
 ## Implemented
 
-The hook above is `sly1.StartCameraHook` / `Sly1FreeCamera`, on the Camera tab (`Sly1CameraForm`).
+The hook above is `sly1.StartCameraHook` / `Sly1FreeCamera`, on the Camera tab (the shared `CameraForm`, through `sly1.GetCameraTabLayout`).
 SluMAN builds the projection from the game's own one at start: only m[0][0] and m[1][1] depend on
 the field of view, so they're scaled by the ratio of the frustum values, with no screen constants.
 The player is held by writing their position (and zero velocity) each tick, as Sly 3 does.
