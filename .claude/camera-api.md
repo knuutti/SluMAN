@@ -1,6 +1,6 @@
 # Camera Script API Reference
 
-A small local HTTP API that lets a script on the same PC (Python, a shell `curl`, anything that can make an HTTP GET) read and move a game's free camera, and toggle Hide HUD and No fog. It works in every supported game: Sly 1, Sly 2, Sly 3, Sly 4 and Bentley's Hackpack. The server is `SluMAN/CameraScriptApi.cs`. It drives the game's `IFreeCamera` and the Hide HUD / No fog / far distance delegates from the game's `CameraTabLayout` (`SluMAN/CameraTabLayout.cs`), the same ones the Camera tab uses.
+A small local HTTP API that lets a script on the same PC (Python, a shell `curl`, anything that can make an HTTP GET) read and move a game's free camera, and toggle Hide HUD, No fog and Freeze Game Clock. It works in every supported game: Sly 1, Sly 2, Sly 3, Sly 4 and Bentley's Hackpack. The server is `SluMAN/CameraScriptApi.cs`. It drives the game's `IFreeCamera` and the Hide HUD / No fog / far distance delegates from the game's `CameraTabLayout` (`SluMAN/CameraTabLayout.cs`), the same ones the Camera tab uses. `/clock` drives the Practice tab's Freeze Game Clock checkbox, bound to the layout by the Practice window (`CameraScriptApi.BindClockToggle`).
 
 ---
 
@@ -39,7 +39,7 @@ Every error is `{"error": "<message>"}` with one of these statuses:
 | `400 Bad Request` | A value isn't a number, `hidden` / `off` is missing, `fov` is below 0, or `far` was given to a game without a far distance |
 | `404 Not Found` | Unknown path |
 | `405 Method Not Allowed` | Not a GET |
-| `409 Conflict` | The game refused. The free camera couldn't start (a level is still loading, the game has no camera yet, or the camera hook couldn't be put in), the game can't hide the HUD or turn off the fog, or there's no camera to change the fog on yet. The message says which. |
+| `409 Conflict` | The game refused. The free camera couldn't start (a level is still loading, the game has no camera yet, or the camera hook couldn't be put in), the game can't hide the HUD, turn off the fog or freeze the clock, there's no camera to change the fog on yet, or the clock couldn't be frozen. The message says which. |
 
 ---
 
@@ -56,7 +56,8 @@ Lists the requests this game supports and which world axis is up.
     "/camera/set?x=&y=&z=&yaw=&pitch=&fov= (any of them; degrees; fov=0 is the game's)",
     "/camera/off",
     "/hud?hidden=1|0",
-    "/fog?off=1|0"
+    "/fog?off=1|0",
+    "/clock?frozen=1|0 (or none to read it)"
   ],
   "upAxis": "Z"
 }
@@ -115,6 +116,17 @@ Hide HUD on or off, as the Camera tab's checkbox does. `1` and `true` (any case)
 ### `GET /fog?off=1` or `?off=0`
 
 No fog on or off. Answers `{"off": true|false}` (what was asked). `409` if the game has no camera yet. In Sly 4 / Hackpack the fog is moved out of sight and kept there after loads.
+
+### `GET /clock?frozen=1` or `?frozen=0`, or `GET /clock`
+
+Freeze Game Clock on or off, as the Practice tab's checkbox does: the checkbox follows, and the window treats it like a click (applied again after loads and resets). `1` and `true` (any case) mean on; anything else means off. Without `frozen` it only reads. Answers `{"frozen": true|false}`, the checkbox's state. `409` in a game without it, or if the game refused.
+
+| Game | How |
+|---|---|
+| Sly 1 | Not supported (`409`) |
+| Sly 2 / 3 | The game speed is held at 0 |
+| Sly 4 | The clock's frame time clamps are set so each frame steps 1/100000 s, about 1,700 times slower: the game still draws, so the free camera and HUD stay live. Slow Motion set while frozen takes effect once unfrozen |
+| Hackpack | Not supported (`409`) |
 
 ---
 

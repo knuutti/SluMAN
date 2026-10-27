@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 using Newtonsoft.Json;
 
 namespace SluMAN
@@ -24,6 +25,7 @@ namespace SluMAN
     /// camera, turning it on first. Values left out stay as they are; fov=0 and far=0 are the game's.</item>
     /// <item><c>/camera/off</c>: turns the free camera off.</item>
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
+    /// <item><c>/clock</c>, <c>/clock?frozen=1</c> or <c>0</c>: the Practice tab's Freeze Game Clock.</item>
     /// </list>
     /// </summary>
     public class CameraScriptApi
@@ -295,6 +297,10 @@ namespace SluMAN
                     {
                         requests.Add("/fog?off=1|0");
                     }
+                    if (layout.setClockFrozen != null)
+                    {
+                        requests.Add("/clock?frozen=1|0 (or none to read it)");
+                    }
                     return new Dictionary<string, object>
                     {
                         { "requests", requests },
@@ -327,6 +333,16 @@ namespace SluMAN
                         throw new InvalidOperationException("The game has no camera yet.");
                     }
                     return new Dictionary<string, object> { { "off", off } };
+                case "/clock":
+                    if (layout.setClockFrozen == null)
+                    {
+                        throw new InvalidOperationException("This game can't freeze the clock.");
+                    }
+                    if (values.ContainsKey("frozen"))
+                    {
+                        layout.setClockFrozen(Flag(values, "frozen"));
+                    }
+                    return new Dictionary<string, object> { { "frozen", layout.isClockFrozen() } };
                 default:
                     return null;
             }
@@ -413,6 +429,46 @@ namespace SluMAN
                 throw new FormatException($"{key} must be a number, not \"{text}\".");
             }
             return value;
+        }
+
+        /// <summary>
+        /// Lets /clock drive the Practice tab's Freeze Game Clock checkbox, so the box shows what
+        /// a script set and the window's own cleanup (reapplying after a reset, unfreezing when it
+        /// closes) covers it. <paramref name="apply"/> is the game's freeze; it runs first so a
+        /// failure reaches the script, and ticking the box then applies it again.
+        /// </summary>
+        public static void BindClockToggle(CameraTabLayout layout, CheckBox toggle, Action<bool> apply)
+        {
+            layout.isClockFrozen = () => OnUiThread(toggle, () => toggle.Checked);
+            layout.setClockFrozen = (frozen) => OnUiThread(toggle, () =>
+            {
+                apply(frozen);
+                toggle.Checked = frozen;
+                return frozen;
+            });
+        }
+
+        /// <summary>Runs on the control's UI thread, passing its exception on to the request.</summary>
+        private static T OnUiThread<T>(Control control, Func<T> action)
+        {
+            T result = default(T);
+            Exception error = null;
+            control.Invoke(new Action(() =>
+            {
+                try
+                {
+                    result = action();
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+            }));
+            if (error != null)
+            {
+                throw new InvalidOperationException(error.Message);
+            }
+            return result;
         }
 
         private static bool Flag(Dictionary<string, string> values, string key)

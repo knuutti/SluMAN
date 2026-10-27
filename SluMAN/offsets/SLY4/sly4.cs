@@ -1230,34 +1230,110 @@ namespace SluMAN
             return matrix;
         }
 
+        /// <summary>
+        /// Slows the game down through the clock's frame time clamps. While the clock is frozen
+        /// it's kept for when it runs again instead.
+        /// </summary>
         public void SetSlowMotion(bool enabled)
         {
-            api.WriteMemory(pid, addr.clockClampFreqMax, ConvertIntToBytes(enabled ? SlowMotionClampFreqMax : NormalClampFreqMax));
-            api.WriteMemory(pid, addr.clockClampFreqMin, ConvertIntToBytes(enabled ? SlowMotionClampFreqMin : NormalClampFreqMin));
+            byte[] max = ConvertIntToBytes(enabled ? SlowMotionClampFreqMax : NormalClampFreqMax);
+            byte[] min = ConvertIntToBytes(enabled ? SlowMotionClampFreqMin : NormalClampFreqMin);
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze != null)
+                {
+                    clockBeforeFreeze = max.Concat(min).ToArray();
+                    return;
+                }
+                api.WriteMemory(pid, addr.clockClampFreqMax, max);
+                api.WriteMemory(pid, addr.clockClampFreqMin, min);
+            }
         }
 
         public bool IsSlowMotionOn()
         {
-            byte[] bytes = api.ReadMemory(pid, addr.clockClampFreqMax, 4);
-            return BitConverter.ToInt32(bytes.Reverse().ToArray(), 0) == SlowMotionClampFreqMax;
+            lock (clockLock)
+            {
+                byte[] max = clockBeforeFreeze != null ? clockBeforeFreeze.Take(4).ToArray() : api.ReadMemory(pid, addr.clockClampFreqMax, 4);
+                return ToInt(max) == SlowMotionClampFreqMax;
+            }
         }
 
         // Frozen time: every frame's time step is clamped to 1 / this many seconds, so the game
         // runs about 1,700 times slower than at 60 frames a second and still draws every frame.
         private const int FrozenClampFreq = 100000;
-        // The clock's ClampFreqMax and ClampFreqMin before SetTimeFrozen froze it, or null.
+        private readonly object clockLock = new object();
+        // The clock's ClampFreqMax and ClampFreqMin from before it was frozen, or null when it isn't.
         private byte[] clockBeforeFreeze;
+        // What holds it frozen: Freeze Game Clock, and the free camera in a hacking minigame.
+        private bool clockFrozenByToggle;
+        private bool clockFrozenForCamera;
 
         /// <summary>
-        /// Holds the game's time nearly still (or lets it run again) through the clock's frame
-        /// time clamps, like Slow Motion. For the free camera in the hacking minigames, where the
-        /// sticks also drive the minigame's ship, ball or avatar and there's no character to hold.
-        /// Unfreezing puts back the clamps it found, unless something (Slow Motion) has set them
-        /// since.
+        /// Holds the game's time nearly still (or lets it run again) for the free camera in the
+        /// hacking minigames, where the sticks also drive the minigame's ship, ball or avatar and
+        /// there's no character to hold. The clock stays frozen while Freeze Game Clock is on.
         /// </summary>
         public void SetTimeFrozen(bool frozen)
         {
-            if (frozen)
+            lock (clockLock)
+            {
+                clockFrozenForCamera = frozen;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>Freeze Game Clock: holds the game's time nearly still, as SetTimeFrozen does.</summary>
+        public void SetGameClockFrozen(bool frozen)
+        {
+            lock (clockLock)
+            {
+                clockFrozenByToggle = frozen;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>
+        /// Whether Freeze Game Clock is on. A clock left frozen by a SluMAN that went away counts
+        /// as on, running normally once it's turned off.
+        /// </summary>
+        public bool IsGameClockFrozen()
+        {
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze == null && ToInt(api.ReadMemory(pid, addr.clockClampFreqMax, 4)) == FrozenClampFreq)
+                {
+                    clockBeforeFreeze = ConvertIntToBytes(NormalClampFreqMax).Concat(ConvertIntToBytes(NormalClampFreqMin)).ToArray();
+                    clockFrozenByToggle = true;
+                }
+                return clockFrozenByToggle;
+            }
+        }
+
+        /// <summary>
+        /// Freezes the clock again after a game reset, which puts its clamps back to the normal
+        /// ones: those are what it runs at once unfrozen (Slow Motion sets its own again).
+        /// </summary>
+        public void RefreezeClockAfterReset()
+        {
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze == null)
+                {
+                    return;
+                }
+                clockBeforeFreeze = null;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>
+        /// Freezes the clock while anything holds it, and puts back the clamps it found once
+        /// nothing does, unless something else has set them since. Call with clockLock held.
+        /// </summary>
+        private void ApplyClockFreeze()
+        {
+            if (clockFrozenByToggle || clockFrozenForCamera)
             {
                 if (clockBeforeFreeze != null)
                 {

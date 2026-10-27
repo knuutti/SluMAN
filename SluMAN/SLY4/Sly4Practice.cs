@@ -27,6 +27,7 @@ namespace SluMAN
         private readonly TextBox coinsTextBox = new TextBox();
         private readonly CheckBox invulnerableCheckBox = new CheckBox();
         private readonly CheckBox undetectableCheckBox = new CheckBox();
+        private readonly CheckBox gameClockCheckBox = new CheckBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
@@ -103,6 +104,8 @@ namespace SluMAN
 
             try
             {
+                // Before Slow Motion: a frozen clock keeps Slow Motion's clamps for when it runs again.
+                gameClockCheckBox.Checked = game.IsGameClockFrozen();
                 slowMotionCheckBox.Checked = game.IsSlowMotionOn();
             }
             catch
@@ -121,6 +124,7 @@ namespace SluMAN
                 // Left unchecked; ticking them writes the values anyway.
             }
             // After the game's state is shown, so showing it writes nothing.
+            gameClockCheckBox.CheckedChanged += gameClockCheckBox_CheckedChanged;
             slowMotionCheckBox.CheckedChanged += slowMotionCheckBox_CheckedChanged;
             invulnerableCheckBox.CheckedChanged += invulnerableCheckBox_CheckedChanged;
             undetectableCheckBox.CheckedChanged += undetectableCheckBox_CheckedChanged;
@@ -153,6 +157,7 @@ namespace SluMAN
                 }
             };
             CameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeMove));
+            CameraScriptApi.BindClockToggle(CameraApi.Layout, gameClockCheckBox, game.SetGameClockFrozen);
             CameraApi.StartFromConfig();
             // The free camera stops the fly, and the fly the free camera.
             FreeMove.ModeChanged += ShowFlyMode;
@@ -212,6 +217,7 @@ namespace SluMAN
                 PracticeLayout.Toggle(invulnerableCheckBox, "Invulnerability", null),
                 layout.PlaceholderToggle("Infinite Gadget Power"),
                 PracticeLayout.Toggle(undetectableCheckBox, "Undetectable", null),
+                PracticeLayout.Toggle(gameClockCheckBox, "Freeze Game Clock", null),
                 PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
                 PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", null),
                 layout.PlaceholderToggle("Infinite Jump"),
@@ -220,7 +226,8 @@ namespace SluMAN
 
             // Click, not CheckedChanged: showing the fly's mode sets Checked too.
             flyModeCheckBox.Click += flyModeCheckBox_Click;
-            layout.ToolTip.SetToolTip(flyModeCheckBox, "Left stick moves along the camera's facing, R1 / L1 go up and down. The speed is on the Player tab.");
+            layout.ToolTip.SetToolTip(gameClockCheckBox, "Holds the game's time nearly still (about 1,700 times slower), through the same clock clamps as Slow Motion.");
+            layout.ToolTip.SetToolTip(flyModeCheckBox,"Left stick moves along the camera's facing, R1 / L1 go up and down. The speed is on the Player tab.");
             layout.ToolTip.SetToolTip(goalComboBox, "Load starts the job at this goal; with no job picked, the running job's.");
         }
 
@@ -567,6 +574,18 @@ namespace SluMAN
             }
         }
 
+        private void gameClockCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                game.SetGameClockFrozen(gameClockCheckBox.Checked);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change the game clock: {ex.Message}");
+            }
+        }
+
         private void slowMotionCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             try
@@ -620,6 +639,8 @@ namespace SluMAN
             // A game reset puts the tunables back to their defaults.
             try
             {
+                // Before Slow Motion, which a frozen clock keeps for when it runs again.
+                game.RefreezeClockAfterReset();
                 if (slowMotionCheckBox.Checked)
                 {
                     game.SetSlowMotion(true);
@@ -660,7 +681,12 @@ namespace SluMAN
             refreshTimer.Stop();
             jobQueue.Stop();
 
-            // Leave the game unmodified. This runs before the session disconnects.
+            // Leave the game unmodified. This runs before the session disconnects. The clock runs
+            // again first, at what it ran at before; then Slow Motion goes.
+            if (gameClockCheckBox.Checked)
+            {
+                try { game.SetGameClockFrozen(false); } catch { }
+            }
             if (slowMotionCheckBox.Checked)
             {
                 try { game.SetSlowMotion(false); } catch { }

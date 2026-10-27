@@ -45,7 +45,7 @@ Toggle order:
 2. Infinite Health
 3. Infinite Gadget Power
 4. Undetectable
-5. Freeze Game Clock (Sly 2, 3) / Slow Motion (Sly 4, Hackpack)
+5. Freeze Game Clock (Sly 2, 3, 4) / Slow Motion (Sly 4, Hackpack); Sly 4 has both, Freeze Game Clock first
 6. Fly Mode
 7. Infinite Jump
 8. Auto-skip Cutscenes

@@ -116,6 +116,7 @@ namespace SluMAN
             freeCamera.Notice += freeCamera_Notice;
 
             cameraApi = new CameraScriptApi(game.GetCameraTabLayout(freeCamera));
+            CameraScriptApi.BindClockToggle(cameraApi.Layout, gameClockCheckBox, game.SetGameClockFrozen);
             cameraApi.StartFromConfig();
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.

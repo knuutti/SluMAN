@@ -95,6 +95,14 @@ namespace SluMAN
         public Func<float> getGameFar;
 
         /// <summary>
+        /// The Practice tab's Freeze Game Clock, for the script API's /clock (not on the Camera
+        /// tab). Set by the Practice window with CameraScriptApi.BindClockToggle; null in games
+        /// without it.
+        /// </summary>
+        public Func<bool> isClockFrozen;
+        public Action<bool> setClockFrozen;
+
+        /// <summary>
         /// The local HTTP API scripts drive the free camera through, shown as a checkbox below
         /// Playback when set. A CameraScriptApi made from the layout sets it.
         /// </summary>
