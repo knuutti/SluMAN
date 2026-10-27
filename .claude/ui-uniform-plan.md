@@ -1,0 +1,139 @@
+# Uniform Practice Mode UI: plan
+
+Practice Mode's shared features (loading a place, jobs, reloading, saved positions, toggles, the
+player and camera tabs, the Tools menu) look and sit differently in each game. This plan puts
+every shared feature in the same place, with the same name, in Sly 1-4 and Bentley's Hackpack.
+Matching the common features comes first; game-specific features move to fit around them.
+
+Speedrun Mode is already the same in every game (Autosplitter, Always On Top, Input Display and
+the same menu) and is left alone.
+
+## Decisions
+
+1. **Fly controls are R1 up / L1 down in every game**, as in Sly 4's fly and every free camera.
+   Sly 1 and Sly 3 move off L2 up / R2 down. Their horizontal boost is on R1 today, so it moves
+   too (proposed: R2). Update the Sly 1 tooltip and the Sly 3 checkbox text
+   ("Fly Mode (L2 up, R2 down)") to match.
+2. **Sly 1 keeps its own toggle names** ("Freeze Lives", "Freeze Gold Charm"). Lives and charms
+   work differently from Sly 2-4's health, so they go with the game-only toggles, not in the
+   shared Invulnerability / Infinite Health slots.
+3. **Sly 4's Practice Job group shrinks** to job + goal + Load. Go to Hub and Go to Hideout stay
+   on the Jobs tab, which already has them (`Sly4JobsForm`).
+4. **Features missing from some games are added later** (see [Future features](#future-features)).
+   The Practice tab can show their controls already, disabled and calling nothing.
+
+## Target layout
+
+### Practice tab
+
+Two columns of 312-wide group boxes. Each group has a fixed slot in every game; a group a game
+doesn't have collapses and the ones below it move up.
+
+| Slot | Group | Contents | Games |
+|---|---|---|---|
+| L1 | Level / Map | place, entrance / spawn point, **Load**; Character (Sly 4) | all (Hackpack: Load Hub) |
+| L2 | Job | job, checkpoint / goal, **Load** | Sly 2, 3, 4, Hackpack |
+| L3 | Reload | Reload / Retry Checkpoint / Restart Job, **Skip Cinematic**; Kill (Sly 2), Fast / Full (Sly 3), Character (Sly 2, 3) | all |
+| L4 | Saved Positions | slot, **Save**, **Load** | Sly 1-4 |
+| R1 | Game | Level / Map, Job, Checkpoint / Goal, then game rows (Sly 1 lives, charms; Sly 4 episode) | all |
+| R2 | Utility | Coins, Health (Sly 2, 3) or Lives and Charms (Sly 1): text box + Set | Sly 1-4 |
+| R3 | Toggles | in the order below, in two sub-columns | all |
+
+Toggle order:
+
+1. Invulnerability
+2. Infinite Health
+3. Infinite Gadget Power
+4. Undetectable
+5. Freeze Game Clock (Sly 2, 3) / Slow Motion (Sly 4, Hackpack)
+6. Fly Mode
+7. Infinite Jump
+8. Auto-skip Cutscenes
+9. Game-only toggles: Disable Death Barriers (Sly 3), Freeze Lives and Freeze Gold Charm (Sly 1)
+10. Always On Top (always last)
+
+Shared labels: "Invulnerability" (not "Invulnerable"), "Auto-skip Cutscenes" (not "Skip
+Cutscenes" / "Auto-skip Cinematics"), "Skip Cinematic", "Load" on every load button, "Toggles"
+(not "Options"), "Retry Checkpoint" (Sly 4's "Retry").
+
+### Tabs
+
+Practice, Player, Camera, then the game's own tabs, then Memory and Memory Viewer:
+
+| Game | Tabs | Shown by default |
+|---|---|---|
+| Sly 1 | Practice, Player, Camera, World States, Memory, Memory Viewer | Player, Camera, World States |
+| Sly 2 | Practice, Player, Camera, Gadgets, Run Files, Memory, Memory Viewer | Player, Camera, Gadgets, Run Files |
+| Sly 3 | as Sly 2 | as Sly 2 |
+| Sly 4 | Practice, Player, Camera, Jobs, Tunables, GUI, Memory, Memory Viewer | Player, Camera, Jobs |
+| Hackpack | Practice, Camera, Jobs, Tunables, Memory, Memory Viewer (no player) | Camera, Jobs |
+
+### Tools menu
+
+Switch Game/Mode, Input Display, Controller Combos..., Memory Utilities..., Open User Data
+Folder, the game's own items (Language on PAL Sly 2 / 3, Copy Episode State on Sly 2), a
+separator, Power Off (PS3), Reboot (PS3). Sly 4 gains Controller Combos (its combos already run).
+
+## Phases
+
+### Phase 1: names, order and menu (no logic moves)
+
+- A shared Tools menu builder on `GameSession`, used by all five Practice windows.
+- Labels as above; toggles in the fixed order; tabs in the fixed order with the defaults above
+  (`*_visible_tabs` keys).
+- Sly 2 / 3 toggle errors go to the status line instead of `Console.WriteLine`.
+- Fly controls switch to R1 / L1 (decision 1) in `PositionEditor`'s fly and Sly 3's fallback
+  fly in `Sly3Practice.FreezeTimer_Tick`.
+
+### Phase 2: one Practice-tab builder
+
+- A shared `PracticeLayout` from the helpers Sly 1 and Hackpack each copy (`AddGroup`,
+  `AddButton`, `AddCheckBox`, `AddValueLabel`), placing named groups in the slots above.
+- Sly 2, 3 and 4 Practice built in code with it instead of the Designer.
+- Moves: Sly 4 Load Level and Job to the left column, Game to the right, Coins from the Player
+  tab to Utility, Retry from Game to Reload, Job group shrunk (decision 3); Sly 2 / 3 Skip
+  Cinematic from Utility to Reload; Sly 1 Coins / Lives / Charms to the right column; Hackpack
+  Restart Job to Reload and Load Hub to the Level slot.
+- Saved Positions (slot, Save, Load) on Sly 1-3's Practice tab, through
+  `IGame.selectedPositionIndex`, as Sly 4's.
+- A Game status group on Sly 2 / 3 (map, job, coins, health).
+- Disabled placeholders for the [future features](#future-features).
+
+### Phase 3: Player tab
+
+- Sly 4 on the shared `PositionEditor`, with `PositionEditorLayout` delegates for its rigid body
+  (as Sly 1 has `readEntity` / `transformInEntity`). Sly 4 gains Freeze, Warp Locations and the
+  slot grid. Check its saved positions in `config.txt` against `PositionEditor`'s, or migrate.
+- Sly 4's speed / top speed readout in Character Info for every game.
+- Fly Mode is a Practice toggle in every game; Sly 4's fly speed stays on its Player tab.
+
+### Phase 4: shared code, so the games don't drift apart again
+
+- One camera tab form with a small per-game adapter (path folder, level key and name, Hide HUD,
+  No fog, field of view, Sly 4's Far distance) in place of `Sly1CameraForm`, `Sly2CameraForm`,
+  `Sly3CameraForm` (near-identical copies) and `Sly4CameraForm`.
+- A Gadgets base for Sly 2 / 3 with one button bar (Save, Save and Reload, Discard Changes,
+  Check / Uncheck All), as `RunFilesForm` is for run files.
+- The job start, goal warp and game call queue `Sly4Practice` and `HackpackPractice` each have,
+  shared.
+- `CLAUDE.md` describes the fixed slots and tabs, so new games follow them.
+
+## Future features
+
+Features one game has and another lacks. Each is new work for its game. Phase 2 adds the
+control in its slot, **disabled, with a "Not available yet" tooltip and no game calls**, so the
+layout already matches; making it work means adding the game method and wiring the control.
+
+| Feature | Missing in | Notes |
+|---|---|---|
+| Fly Mode | Sly 2 | Make `Sly2Practice` an `IPositionEditorHost`, as `Sly3Practice` is. |
+| Undetectable | Sly 3 | `sly3.SetUndetectable` exists, unused. Decide how it sits next to "Disable Guard AI". |
+| Auto-skip Cutscenes | Sly 1 | Needs a `sly1` auto-skip, like `sly2` / `sly3.SetAutoSkip`. |
+| Skip Cinematic (one-shot) | Sly 4, Hackpack | Needs a `sly4.SkipCinematic`. |
+| Reload | Sly 4 | Reload the current level / checkpoint in place; Retry Checkpoint covers jobs only. |
+| Invulnerability, Infinite Health | Sly 1 | Only if they mean something beyond Freeze Gold Charm / Freeze Lives (decision 2). |
+| Infinite Gadget Power | Sly 4 | Needs research. |
+| Infinite Jump | Sly 4 | Needs research. |
+| Freeze Game Clock / Slow Motion | Sly 1 | Needs research. |
+| Set Health | Sly 4 | Needs research. |
+| Game status rows | Sly 2, 3 | Phase 2 adds map, job, coins and health; checkpoint needs a reader. |
