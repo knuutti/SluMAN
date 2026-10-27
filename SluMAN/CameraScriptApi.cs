@@ -21,7 +21,7 @@ namespace SluMAN
     /// <item><c>/camera</c>: the free camera: on, x, y, z, yaw, pitch, fov, the game's own fov,
     /// and far and gameFar for games with a far distance.</item>
     /// <item><c>/camera/set?x=&amp;y=&amp;z=&amp;yaw=&amp;pitch=&amp;fov=&amp;far=</c>: moves the free
-    /// camera, turning it on first. Values left out stay as they are; far=0 is the game's.</item>
+    /// camera, turning it on first. Values left out stay as they are; fov=0 and far=0 are the game's.</item>
     /// <item><c>/camera/off</c>: turns the free camera off.</item>
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
     /// </list>
@@ -283,8 +283,8 @@ namespace SluMAN
                     {
                         "/camera",
                         layout.setFarDistance != null
-                            ? "/camera/set?x=&y=&z=&yaw=&pitch=&fov=&far= (any of them; degrees; far=0 is the game's)"
-                            : "/camera/set?x=&y=&z=&yaw=&pitch=&fov= (any of them; degrees)",
+                            ? "/camera/set?x=&y=&z=&yaw=&pitch=&fov=&far= (any of them; degrees; fov=0 and far=0 are the game's)"
+                            : "/camera/set?x=&y=&z=&yaw=&pitch=&fov= (any of them; degrees; fov=0 is the game's)",
                         "/camera/off",
                     };
                     if (layout.setHudHidden != null)
@@ -382,10 +382,11 @@ namespace SluMAN
             position[2] = Value(values, "z", position[2]);
             yaw = CameraPath.Radians(Value(values, "yaw", CameraPath.Degrees(yaw)));
             pitch = CameraPath.Radians(Value(values, "pitch", CameraPath.Degrees(pitch)));
+            // 0 is the game's; it's what a camera that couldn't read the game's gives back.
             float fovDegrees = Value(values, "fov", CameraPath.Degrees(fov));
-            if (fovDegrees <= 0)
+            if (fovDegrees < 0)
             {
-                throw new FormatException("fov must be above 0.");
+                throw new FormatException("fov can't be below 0.");
             }
 
             if (values.ContainsKey("far"))
