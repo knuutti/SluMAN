@@ -17,6 +17,14 @@ namespace SluMAN
     /// data each tick.
     /// </para>
     /// <para>
+    /// On a PS3 each write reaches the game a network round trip late, out of step with its
+    /// frames, so ticks alone move the camera unevenly. There SluMAN also tells the hook how the
+    /// camera is moving: the matrix at a time on the PS3's timebase and how it changes from
+    /// there (worked out from where the sticks or the path would take it next). The stub moves
+    /// it on to each frame's own time, and each tick only corrects the course. The time on the
+    /// PS3 comes from the timebase the stub leaves at each run (sly3.CameraHookTime).
+    /// </para>
+    /// <para>
     /// When the hook can't run on a PS3, the camera's matrix and the copies the game draws from
     /// (cameraDrawMatrixOffset, cameraDrawMatrix) are written directly instead. The game copies
     /// its own camera into them just before drawing, so it shows through now and then. On RPCS3
@@ -45,11 +53,29 @@ namespace SluMAN
 
         private readonly sly3 game;
         private readonly int intervalMs;
-        // How long the camera hook gets to show it runs (its count goes up) before SluMAN falls
+        // How long the camera hook gets to show it runs (it leaves its time) before SluMAN falls
         // back to writing the camera directly (or, on RPCS3, turns it off).
         private const int HookCheckMs = 500;
         private readonly SynchronizationContext uiContext;
         private readonly Stopwatch clock = new Stopwatch();
+
+        // On a PS3, whether the hook is told how the camera moves (see the class summary), and
+        // how far ahead that's worked out from: the change is the step to where the camera is
+        // then, so it stays on course for about that long.
+        private readonly bool moveOnPS3;
+        private const float AheadSeconds = 0.05f;
+        // The PS3's timebase is worked out as the PC's time plus an offset. A time the stub left
+        // is from at most as late as the PS3's time when the read of it returns, so the largest
+        // offset seen is the closest. It's lowered by OffsetDrift (1 ms a second, more than the
+        // clocks drift apart) between reads, so it follows the clocks smoothly, without jumps.
+        // One more than OffsetJumpSeconds above it is a read of a time being written, and is
+        // left out.
+        private const double OffsetDrift = 0.001;
+        private const double OffsetJumpSeconds = 0.5;
+        private readonly Stopwatch pcTime = Stopwatch.StartNew();
+        private bool offsetKnown;
+        private double timebaseOffset;
+        private double offsetReadAt;
         private readonly object stateLock = new object();
 
         private bool on;
@@ -108,6 +134,8 @@ namespace SluMAN
         {
             this.game = game;
             intervalMs = game.api is RPCS3 ? Rpcs3IntervalMs : PS3IntervalMs;
+            // On RPCS3 the writes reach the game at once, many times a frame.
+            moveOnPS3 = !(game.api is RPCS3);
             uiContext = SynchronizationContext.Current ?? new SynchronizationContext();
         }
 
@@ -395,6 +423,7 @@ namespace SluMAN
         {
             hooked = false;
             hookConfirmed = false;
+            offsetKnown = false;
             if (matrixOffset != (int)sly3.addr.cameraMatrixOffset)
             {
                 HookFailed($"The camera's matrix is at +0x{matrixOffset:X}, not where the camera hook puts it.");
@@ -569,6 +598,10 @@ namespace SluMAN
                     game.SetPlayerPosition(playerPosition);
                 }
                 CheckHook();
+                if (hooked && moveOnPS3)
+                {
+                    ReadPS3Time();
+                }
                 // The game writes its own camera every frame, so the free one is written every
                 // tick, also while it stays put.
                 WriteCamera();
@@ -642,7 +675,12 @@ namespace SluMAN
                 Post(() => KeyframeRequested);
             }
             r3WasPressed = r3;
+            Steer(step);
+        }
 
+        /// <summary>Moves, turns and zooms the camera as the sticks and buttons say, for a step of time.</summary>
+        private void Steer(float step)
+        {
             yaw -= Stick(Inputs.rx) * LookSpeed * step;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
@@ -705,12 +743,87 @@ namespace SluMAN
             return m;
         }
 
+        /// <summary>
+        /// The matrix the camera will have after some time, if the sticks stay as they are or
+        /// the path plays on. Leaves the camera as it is.
+        /// </summary>
+        private float[] BuildMatrixAhead(float seconds)
+        {
+            float[] savedPosition = (float[])cameraPosition.Clone();
+            float savedYaw = yaw;
+            float savedPitch = pitch;
+            float savedFov = fov;
+            try
+            {
+                if (playingPath != null)
+                {
+                    float total = playingPath.TotalDuration;
+                    float time = playTime + seconds;
+                    time = loopPlayback && total > 0 ? time % total : Math.Min(time, total);
+                    float pathFov;
+                    playingPath.Evaluate(time, gameFov, cameraPosition, out yaw, out pitch, out pathFov);
+                    pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
+                }
+                else if (!characterControl)
+                {
+                    Steer(seconds);
+                }
+                return BuildMatrix();
+            }
+            finally
+            {
+                cameraPosition = savedPosition;
+                yaw = savedYaw;
+                pitch = savedPitch;
+                fov = savedFov;
+            }
+        }
+
+        /// <summary>Reads the time the camera hook left, to keep the PS3's time worked out (see the offset fields).</summary>
+        private void ReadPS3Time()
+        {
+            ulong timebase = game.CameraHookTime();
+            double now = pcTime.Elapsed.TotalSeconds;
+            if (timebase == 0)
+            {
+                return;
+            }
+            double offset = timebase - now * sly3.TimebaseFrequency;
+            if (!offsetKnown)
+            {
+                timebaseOffset = offset;
+                offsetKnown = true;
+            }
+            else
+            {
+                double lowered = timebaseOffset - (now - offsetReadAt) * OffsetDrift * sly3.TimebaseFrequency;
+                if (offset > lowered + OffsetJumpSeconds * sly3.TimebaseFrequency)
+                {
+                    return;
+                }
+                timebaseOffset = Math.Max(offset, lowered);
+            }
+            offsetReadAt = now;
+        }
+
         private void WriteCamera()
         {
             float[] m = BuildMatrix();
             if (hooked)
             {
-                game.SetCameraHookMatrix(m);
+                float[] change = new float[16];
+                double timebase = 0;
+                if (moveOnPS3 && offsetKnown)
+                {
+                    float[] ahead = BuildMatrixAhead(AheadSeconds);
+                    double ticks = AheadSeconds * sly3.TimebaseFrequency;
+                    for (int i = 0; i < 16; i++)
+                    {
+                        change[i] = (float)((ahead[i] - m[i]) / ticks);
+                    }
+                    timebase = timebaseOffset + pcTime.Elapsed.TotalSeconds * sly3.TimebaseFrequency;
+                }
+                game.SetCameraHookState(m, change, timebase);
                 // Marked changed, so the game works out the drawn matrix again even when its own
                 // camera stays put.
                 game.MarkObjectChanged(camera);
@@ -744,7 +857,7 @@ namespace SluMAN
             {
                 return;
             }
-            if (game.CameraHookCount() > 0)
+            if (game.CameraHookTime() != 0)
             {
                 hookConfirmed = true;
                 PostNotice("Free camera on, through the camera hook: the game's camera stays out.", false);

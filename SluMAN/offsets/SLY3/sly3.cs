@@ -865,14 +865,23 @@ namespace SluMAN
             api.WriteMemory(pid, camera + addr.cameraFovTargetOffset - 4, bytes);
         }
 
-        // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
-        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix.
+        // The camera hook's data: +0x4 the camera (0 when off), +0xC SluMAN's mark, +0x10 the
+        // timebase at the stub's last run (0 until it has run), then doubles in timebase ticks:
+        // +0x18 the time the matrix is for and +0x20 the furthest the stub moves it on from
+        // there, then +0x30 the matrix and +0x70 how much each of its values changes per tick.
         private const uint CameraHookMark = 0x534C4D33; // "SLM3"
-        private const uint CameraHookDataSize = 0x50;
+        private const uint CameraHookDataSize = 0xB0;
+
+        /// <summary>The PS3's timebase (mftb), in ticks per second. RPCS3 runs it at the same rate.</summary>
+        public const double TimebaseFrequency = 79800000.0;
+
+        // The stub moves the camera on at most this far past the time its matrix is for, so a
+        // camera SluMAN stops writing to (a stall, a lost connection) comes to a stop.
+        private const double MaxCameraHookAheadSeconds = 0.25;
 
         /// <summary>
         /// Starts the camera hook for a camera: from the next frame, the game's world matrix
-        /// update puts the matrix given to SetCameraHookMatrix into the camera (+0x50, marked
+        /// update puts the matrix given to SetCameraHookState into the camera (+0x50, marked
         /// changed) before working out its world matrix (+0x90), which everything drawn uses.
         /// </summary>
         public void StartCameraHook(uint camera, float[] matrix)
@@ -896,31 +905,35 @@ namespace SluMAN
             // Both go in unused memory: zeros, or what SluMAN put there before.
             byte[] code = CameraHookStub();
             byte[] codeThere = api.ReadMemory(pid, stub, (uint)code.Length);
-            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0))
+            bool ourData = ReadUInt(data + 0xC) == CameraHookMark;
+            if (!codeThere.SequenceEqual(code) && codeThere.Any(b => b != 0) && !ourData)
             {
                 throw new InvalidOperationException($"The memory at 0x{stub:X} SluMAN puts its camera code in isn't empty. Restart the game, or the camera hook isn't available on this version.");
             }
             byte[] dataThere = api.ReadMemory(pid, data, CameraHookDataSize);
-            if (ReadUInt(data + 0xC) != CameraHookMark && dataThere.Any(b => b != 0))
+            if (!ourData && dataThere.Any(b => b != 0))
             {
                 throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
             }
 
-            // Off while the stub and matrix are written, then on.
-            byte[] header = new byte[0x10];
-            Array.Copy(BitConverter.GetBytes(camera).Reverse().ToArray(), 0, header, 4, 4);
+            // Off (no camera, and an older stub's on flag at +0x0 cleared) while the stub and
+            // matrix are written, then on.
+            byte[] header = new byte[0x18];
             Array.Copy(BitConverter.GetBytes(CameraHookMark).Reverse().ToArray(), 0, header, 0xC, 4);
             api.WriteMemory(pid, data, header);
-            SetCameraHookMatrix(matrix);
+            SetCameraHookState(matrix, new float[16], 0);
             if (!codeThere.SequenceEqual(code))
             {
+                // An older SluMAN's stub may be there: the game's calls go back to the function
+                // before it's written over.
+                PutBackWorldMatrixUpdateCalls();
                 api.WriteMemory(pid, stub, code);
                 if (!api.ReadMemory(pid, stub, (uint)code.Length).SequenceEqual(code))
                 {
                     throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
                 }
             }
-            api.WriteMemory(pid, data, BitConverter.GetBytes(1u).Reverse().ToArray());
+            api.WriteMemory(pid, data + 4, BitConverter.GetBytes(camera).Reverse().ToArray());
             foreach (uint call in addr.worldMatrixUpdateCalls)
             {
                 api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, stub, true)).Reverse().ToArray());
@@ -933,22 +946,42 @@ namespace SluMAN
             api.WriteMemory(pid, obj + addr.objectChangedOffset, ConvertIntToBytes(-1));
         }
 
-        /// <summary>The matrix (laid out as ReadCameraMatrix's) the camera hook puts in, from the next frame. One write.</summary>
-        public void SetCameraHookMatrix(float[] matrix)
+        /// <summary>
+        /// What the camera hook puts in, from the next frame, in one write: the matrix (laid out
+        /// as ReadCameraMatrix's) at a time on the PS3's timebase, and how much each of its values
+        /// changes per timebase tick. On every frame the stub puts in the matrix moved on by the
+        /// time since then (up to MaxCameraHookAheadSeconds). With no change the time is unused.
+        /// </summary>
+        public void SetCameraHookState(float[] matrix, float[] change, double timebase)
         {
-            WriteMatrixAt(addr.cameraHookData + 0x10, matrix);
+            byte[] bytes = new byte[0x98];
+            Array.Copy(BitConverter.GetBytes(timebase).Reverse().ToArray(), 0, bytes, 0, 8);
+            Array.Copy(BitConverter.GetBytes(MaxCameraHookAheadSeconds * TimebaseFrequency).Reverse().ToArray(), 0, bytes, 8, 8);
+            for (int i = 0; i < 16; i++)
+            {
+                Array.Copy(ConvertFloatToBytes(matrix[i]), 0, bytes, 0x18 + i * 4, 4);
+                Array.Copy(ConvertFloatToBytes(change[i]), 0, bytes, 0x58 + i * 4, 4);
+            }
+            api.WriteMemory(pid, addr.cameraHookData + 0x18, bytes);
         }
 
-        /// <summary>How many times the camera hook has put the matrix in since it started.</summary>
-        public uint CameraHookCount()
+        /// <summary>The PS3's timebase when the camera hook last ran, or 0 when it hasn't since it started.</summary>
+        public ulong CameraHookTime()
         {
-            return ReadUInt(addr.cameraHookData + 8);
+            byte[] bytes = api.ReadMemory(pid, addr.cameraHookData + 0x10, 8);
+            return BitConverter.ToUInt64(bytes.Reverse().ToArray(), 0);
         }
 
         /// <summary>Lets the game's own camera through again, and puts the game's calls back.</summary>
         public void StopCameraHook()
         {
-            api.WriteMemory(pid, addr.cameraHookData, new byte[4]);
+            // Clears an older stub's on flag (+0x0) too.
+            api.WriteMemory(pid, addr.cameraHookData, new byte[8]);
+            PutBackWorldMatrixUpdateCalls();
+        }
+
+        private void PutBackWorldMatrixUpdateCalls()
+        {
             uint function = addr.worldMatrixUpdateFunction;
             foreach (uint call in addr.worldMatrixUpdateCalls)
             {
@@ -961,8 +994,11 @@ namespace SluMAN
 
         /// <summary>
         /// The camera hook's stub, called instead of the world matrix update with the object in
-        /// r3. It only uses registers a call may change (r4 to r7, r11, r12, the count register
-        /// and cr0), then branches on into the function, which returns to the caller.
+        /// r3. It only uses registers a call may change (r4 to r7, r11, r12, f0 and f2 to f4, the
+        /// count register and cr0), then branches on into the function, which returns to the
+        /// caller. For the camera it reads the timebase, works out the ticks since the matrix's
+        /// time (at most the data's limit) and puts in each value plus its change times that.
+        /// It fills 0x68 of the 0x70 bytes of padding it has.
         /// </summary>
         private byte[] CameraHookStub()
         {
@@ -975,25 +1011,30 @@ namespace SluMAN
             {
                 0x3D600000 | high,      //  0 lis r11, data@ha
                 0x396B0000 | low,       //  1 addi r11, r11, data@l
-                0x818B0000,             //  2 lwz r12, 0(r11) (on)
-                0x2C0C0000,             //  3 cmpwi r12, 0
-                0x41820040,             //  4 beq +0x40 (to 20: off)
-                0x818B0004,             //  5 lwz r12, 4(r11) (the camera)
-                0x7C036000,             //  6 cmpw r3, r12
-                0x40820034,             //  7 bne +0x34 (to 20: another object)
-                0x38C00010,             //  8 li r6, 16 (words)
-                0x7CC903A6,             //  9 mtctr r6
-                0x38AB000C,             // 10 addi r5, r11, matrix - 4
-                0x3883004C,             // 11 addi r4, r3, 0x50 - 4
-                0x84E50004,             // 12 lwzu r7, 4(r5)
-                0x94E40004,             // 13 stwu r7, 4(r4)
-                0x4200FFF8,             // 14 bdnz -8
-                0x38E0FFFF,             // 15 li r7, -1
-                0x90E30044,             // 16 stw r7, 0x44(r3) (changed: work out the world matrix again)
-                0x80EB0008,             // 17 lwz r7, 8(r11)
-                0x38E70001,             // 18 addi r7, r7, 1
-                0x90EB0008,             // 19 stw r7, 8(r11) (count)
-                Branch(stub + 20 * 4, addr.worldMatrixUpdateFunction, false), // 20 b to the function
+                0x818B0004,             //  2 lwz r12, 4(r11) (the camera, 0 when off)
+                0x7C036000,             //  3 cmpw r3, r12
+                0x40820054,             //  4 bne +0x54 (to 25: another object, or off)
+                0x7CAC42E6,             //  5 mftb r5
+                0xF8AB0010,             //  6 std r5, 0x10(r11) (the last run's time, for SluMAN)
+                0xC80B0010,             //  7 lfd f0, 0x10(r11)
+                0xFC00069C,             //  8 fcfid f0, f0 (now, as a double)
+                0xC84B0018,             //  9 lfd f2, 0x18(r11) (the matrix's time)
+                0xFC001028,             // 10 fsub f0, f0, f2 (ticks since)
+                0xC84B0020,             // 11 lfd f2, 0x20(r11) (the limit)
+                0xFC620028,             // 12 fsub f3, f2, f0
+                0xFC03102E,             // 13 fsel f0, f3, f0, f2 (past the limit: the limit)
+                0x38C00010,             // 14 li r6, 16 (values)
+                0x7CC903A6,             // 15 mtctr r6
+                0x38AB002C,             // 16 addi r5, r11, matrix - 4
+                0x3883004C,             // 17 addi r4, r3, 0x50 - 4
+                0xC4850004,             // 18 lfsu f4, 4(r5)
+                0xC0450040,             // 19 lfs f2, 0x40(r5) (its change)
+                0xFC82203A,             // 20 fmadd f4, f2, f0, f4
+                0xD4840004,             // 21 stfsu f4, 4(r4)
+                0x4200FFF0,             // 22 bdnz -0x10
+                0x38E0FFFF,             // 23 li r7, -1
+                0x90E30044,             // 24 stw r7, 0x44(r3) (changed: work out the world matrix again)
+                Branch(stub + 25 * 4, addr.worldMatrixUpdateFunction, false), // 25 b to the function
             };
             return WordsToBytes(words);
         }
