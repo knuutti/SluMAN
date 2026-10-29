@@ -6,6 +6,55 @@
     <title>SluMAN Changelog</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <h2>SluMAN v1.1.6</h2>
+    <h3>New game</h3>
+    <ul>
+        <li>Bentley's Hackpack (NPEA00427, PAL PSN) is now supported, running on the Sly 4 code.</li>
+        <li>Practice Mode: start and restart jobs (each minigame stage), warp to challenges, load the hub, Slow Motion and Auto-skip Cutscenes, plus Sly 4's Jobs, Camera and Tunables tabs. Levels are named from the game's own level list.</li>
+        <li>Speedrun Mode: input display and an autosplitter (<code>autosplitters/hackpack-autosplitter.asl</code>, not properly configured yet).</li>
+    </ul>
+    <h3>New features</h3>
+    <ul>
+        <li>Uniform Practice Mode: every game's Practice window now has the same layout, with shared features in the same place and under the same name.</li>
+        <li>Practice tab: Level / Map, Job, Reload and Saved Positions on the left; Game status, Utility and Toggles on the right. Toggles are in the same order in every game, with Always On Top last.</li>
+        <li>Tabs in the same order everywhere: Practice, Player, Camera, the game's own tabs, then Memory and Memory Viewer.</li>
+        <li>Shared Tools menu in every game (Sly 4 gains Controller Combos).</li>
+        <li>Fly Mode is R1 up / L1 down in every game, with R2 boost.</li>
+        <li>Features a game doesn't have yet are shown as disabled placeholders.</li>
+        <li>Sly 1 Practice Mode: added a Camera tab with a free camera, camera paths, Hide HUD and No Fog. Sly's controls are taken away while the free camera flies.</li>
+        <li>Sly 1 Practice Mode: added a Powerups tab for editing unlocked vault powerups, Mz. Ruby's Invisibility, world blueprints and the equipped powerup.</li>
+        <li>Sly 4 Practice Mode: added a Gadgets tab with a checklist per character. Changes are applied with a checkpoint or level reload, and each run file's gadgets can be saved.</li>
+        <li>Sly 4 Practice Mode: added a Run Files tab (Episodes 1–5) that goes to the episode's first hideout and sets the gadgets saved for it.</li>
+        <li>Sly 4 Practice Mode: the Player tab now uses the shared position editor, adding axis freezes, warp locations and the saved position slot grid. Fly Mode is now a Practice toggle.</li>
+        <li>Sly 4 Practice Mode: added a Freeze Game Clock toggle.</li>
+        <li>Sly 4 Practice Mode: the free camera now works in the hacking minigames (System Cracker, Spark Runner, Alter Ego). It holds the game's time nearly still there and turns off the depth of field blur.</li>
+        <li>Sly 4 / Hackpack Tunables tab: added Reset to Defaults. The original values are also restored when Practice Mode closes and when Speedrun Mode opens.</li>
+        <li>Sly 4 / Hackpack Tunables tab: added an "Only this level" checkbox that hides tunables in deeper categories.</li>
+        <li>Sly 2 and Sly 3: saved positions and warp locations now also save which way the player is facing.</li>
+        <li>Sly 2 Practice Mode: the Player tab now shows character ID, health, gadget power, opacity and velocity.</li>
+        <li>Sly 2 Practice Mode: added Discard Changes to the Gadgets tab.</li>
+        <li>Sly 2 and Sly 3 Practice Mode: added a Game status group (map, coins, health) and Saved Positions on the Practice tab.</li>
+        <li>Character Info has a Top Speed row with Reset in every game.</li>
+        <li>Camera Script API: a local HTTP API (127.0.0.1:9675) that lets scripts move the free camera, set the field of view and far distance, and toggle Hide HUD, No Fog and Freeze Game Clock. Works in every supported game, turned on from the Camera tab. See <code>.claude/camera-api.md</code>.</li>
+    </ul>
+    <h3>Changes</h3>
+    <ul>
+        <li>Sly 4: warping to a checkpoint now always restarts the running job at that goal. The Reload Job on Warp checkbox has been removed.</li>
+        <li>Sly 2 / Sly 3: Skip Cinematic moved to the Reload group.</li>
+        <li>Sly 4: Coins moved from the Player tab to the Practice tab's Utility group.</li>
+        <li>Saving a run file's gadgets leaves out the gadgets that aren't available yet in that episode, with a warning naming them.</li>
+    </ul>
+    <h3>Bug fixes</h3>
+    <ul>
+        <li>Sly 2 and Sly 3: warping through a death plane no longer kills the player when the destination is safe.</li>
+        <li>Sly 4: the free camera no longer crashes the game when it sees more than the game's own cameras do (e.g. looking over a whole hacking level).</li>
+        <li>Sly 4: the free camera now turns and moves the right way in Spark Runner, and the level no longer goes dark there.</li>
+        <li>Sly 2: Kill with "Default" no longer switches to Sly first.</li>
+        <li>Sly 3: toggle errors no longer throw out of their handlers. Sly 2 and Sly 3 toggle errors now show in the status line.</li>
+        <li>Sly 2 and Sly 3: field of view changes in the free camera apply immediately instead of easing in.</li>
+    </ul>
+    <p>---</p>
+    <p>_Generated by <a href="https://claude.ai/code/session_01WFs8cnR4axTz3L4ocyduaV">Claude Code</a>_</p>
     <h2>SluMAN v1.1.5</h2>
     <h3>Bug fixes</h3>
     <ul>
