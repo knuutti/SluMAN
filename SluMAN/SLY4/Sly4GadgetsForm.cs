@@ -20,7 +20,7 @@ namespace SluMAN
         private const int ListTop = 30;
 
         private readonly sly4 game;
-        private readonly Sly4Practice practice;
+        private readonly Sly4JobQueue jobQueue;
         private readonly Dictionary<string, CheckedListBox> lists = new Dictionary<string, CheckedListBox>();
         // Above each list: ticks or unticks the character's every gadget.
         private readonly Dictionary<string, CheckBox> allCheckBoxes = new Dictionary<string, CheckBox>();
@@ -38,10 +38,10 @@ namespace SluMAN
         private byte[] gameStates;
         private byte[] states;
 
-        public Sly4GadgetsForm(sly4 game, Sly4Practice practice)
+        public Sly4GadgetsForm(sly4 game, Sly4JobQueue jobQueue)
         {
             this.game = game;
-            this.practice = practice;
+            this.jobQueue = jobQueue;
             Name = "Sly4GadgetsForm";
             Text = "SluMAN :: Gadgets";
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -329,7 +329,7 @@ namespace SluMAN
                 statusLine.Error($"Couldn't apply the gadgets: {ex.Message}");
                 return;
             }
-            practice.ReloadForGadgets();
+            jobQueue.ReloadForGadgets();
         }
 
         private void loadRunFileButton_Click(object sender, EventArgs e)

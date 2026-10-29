@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -168,9 +168,11 @@
     <Compile Include="ModLoaderForm.Designer.cs">
       <DependentUpon>ModLoaderForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="offsets\BH\hackpack.cs" />
+    <Compile Include="offsets\BH\HackpackAddresses.cs" />
+    <Compile Include="offsets\BH\HackpackLevels.cs" />
     <Compile Include="offsets\SLY1\sly1.cs" />
     <Compile Include="offsets\SLY1\Sly1Addresses.cs" />
+    <Compile Include="offsets\SLY1\Sly1FreeCamera.cs" />
     <Compile Include="offsets\SLY2\sly2.cs" />
     <Compile Include="offsets\SLY2\Sly2Addresses.cs" />
     <Compile Include="offsets\SLY2\Sly2FreeCamera.cs" />
@@ -186,6 +188,8 @@
     <Compile Include="offsets\SLY4\Sly4SpawnPoints.cs" />
     <Compile Include="offsets\SLY4\Sly4FreeMove.cs" />
     <Compile Include="CameraPath.cs" />
+    <Compile Include="CameraTabLayout.cs" />
+    <Compile Include="CameraScriptApi.cs" />
     <Compile Include="offsets\SLY4\Sly4AutosplitterValues.cs" />
     <Compile Include="offsets\SLY4\Sly4Addresses.cs" />
     <Compile Include="Program.cs" />
@@ -218,6 +222,9 @@
     <Compile Include="SimpleInputDialogForm.Designer.cs">
       <DependentUpon>SimpleInputDialogForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="SLY1\Sly1PowerupsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="SLY1\Sly1Practice.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -236,12 +243,6 @@
     <Compile Include="SLY2\Sly2Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY2\Sly2CameraForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SLY2\Sly2Practice.Designer.cs">
-      <DependentUpon>Sly2Practice.cs</DependentUpon>
-    </Compile>
     <Compile Include="SLY2\Sly2RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -251,9 +252,6 @@
     <Compile Include="SLY3\Sly3Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3Practice.Designer.cs">
-      <DependentUpon>Sly3Practice.cs</DependentUpon>
-    </Compile>
     <Compile Include="SLY3\Sly3Gadgets.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -261,7 +259,13 @@
       <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </Compile>
     <Compile Include="PositionEditorLayout.cs" />
+    <Compile Include="PracticeLayout.cs" />
     <Compile Include="PracticeTabs.cs" />
+    <Compile Include="SLY2\Sly2Jobs.cs" />
+    <Compile Include="SLY3\Sly3Jobs.cs" />
+    <Compile Include="GadgetsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -275,7 +279,7 @@
     <Compile Include="SLY3\Sly3RunFilesForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY3\Sly3CameraForm.cs">
+    <Compile Include="CameraForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY3\Sly3Speedrun.cs">
@@ -284,19 +288,10 @@
     <Compile Include="SLY4\Sly4Practice.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY4\Sly4Practice.Designer.cs">
-      <DependentUpon>Sly4Practice.cs</DependentUpon>
-    </Compile>
     <Compile Include="SLY4\Sly4Speedrun.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SLY4\Sly4PositionForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SLY4\Sly4CameraForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="SLY4\Sly4CameraApi.cs" />
+    <Compile Include="SLY4\Sly4JobQueue.cs" />
     <Compile Include="SLY4\Sly4GadgetsForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -310,6 +305,12 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SLY4\Sly4TunablesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="BH\HackpackPractice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="BH\HackpackSpeedrun.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="func.cs" />
@@ -357,20 +358,11 @@
     <EmbeddedResource Include="SLY2\Sly2Gadgets.resx">
       <DependentUpon>Sly2Gadgets.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SLY2\Sly2Practice.resx">
-      <DependentUpon>Sly2Practice.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY3\Sly3Practice.resx">
-      <DependentUpon>Sly3Practice.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="SLY3\Sly3Gadgets.resx">
       <DependentUpon>Sly3Gadgets.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PositionEditor.resx">
       <DependentUpon>PositionEditor.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="SLY4\Sly4Practice.resx">
-      <DependentUpon>Sly4Practice.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -388,6 +380,7 @@
     <Content Include="sluman_icon.ico" />
     <None Include="autosplitters\sly3-autosplitter.asl" />
     <None Include="autosplitters\sly4-autosplitter.asl" />
+    <None Include="autosplitters\hackpack-autosplitter.asl" />
     <Content Include="defaultSkin.txt" />
     <Content Include="..\data\s3_run_file_config.txt">
       <Link>data/s3_run_file_config.txt</Link>
@@ -419,6 +412,10 @@
     </Content>
     <Content Include="..\data\sly3_warp_locations.txt">
       <Link>data/sly3_warp_locations.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\data\hackpack_levels.txt">
+      <Link>data/hackpack_levels.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="ds3drip.ico" />

@@ -8,8 +8,8 @@ namespace SluMAN
 {
     /// <summary>
     /// The debug menu's Tuning browser: every Sly 4 tunable, by category, with its live value.
-    /// Values are edited in place; "Keep" saves one so it's written again on every connect. The
-    /// values on screen are read again a few times a second. The controls are built in code.
+    /// Values are edited in place; "Keep" saves one so it's written again on every connect, and
+    /// "Reset to Defaults" puts back everything SluMAN changed. The values on screen are read again a few times a second. The controls are built in code.
     /// </summary>
     public class Sly4TunablesForm : Form, IRefreshOnShow
     {
@@ -22,12 +22,16 @@ namespace SluMAN
         private const int ValueColumn = 2;
         private const int KeepColumn = 3;
 
+        private const string DirectOnlyKey = "tunablesDirectOnly";
+
         private readonly sly4 game;
 
         private readonly TextBox searchBox = new TextBox();
         private readonly Button refreshButton = new Button();
         private readonly Button importButton = new Button();
+        private readonly Button resetButton = new Button();
         private readonly Label countLabel = new Label();
+        private readonly CheckBox directOnlyCheckBox = new CheckBox();
         private readonly TreeView categoryTree = new TreeView();
         private readonly DataGridView grid = new DataGridView();
         private readonly Timer refreshTimer = new Timer();
@@ -94,7 +98,7 @@ namespace SluMAN
             Controls.Add(searchLabel);
 
             searchBox.Location = new Point(56, 9);
-            searchBox.Size = new Size(220, 20);
+            searchBox.Size = new Size(180, 20);
             searchBox.TextChanged += (sender, e) =>
             {
                 searchTimer.Stop();
@@ -103,21 +107,28 @@ namespace SluMAN
             Controls.Add(searchBox);
 
             refreshButton.Text = "Reload List";
-            refreshButton.Location = new Point(284, 8);
+            refreshButton.Location = new Point(244, 8);
             refreshButton.Size = new Size(80, 23);
             refreshButton.UseVisualStyleBackColor = true;
             refreshButton.Click += (sender, e) => LoadTunables();
             Controls.Add(refreshButton);
 
             importButton.Text = "Import debugmenu.cfg...";
-            importButton.Location = new Point(370, 8);
+            importButton.Location = new Point(330, 8);
             importButton.Size = new Size(140, 23);
             importButton.UseVisualStyleBackColor = true;
             importButton.Click += importButton_Click;
             Controls.Add(importButton);
 
+            resetButton.Text = "Reset to Defaults";
+            resetButton.Location = new Point(476, 8);
+            resetButton.Size = new Size(105, 23);
+            resetButton.UseVisualStyleBackColor = true;
+            resetButton.Click += resetButton_Click;
+            Controls.Add(resetButton);
+
             countLabel.AutoSize = true;
-            countLabel.Location = new Point(518, 12);
+            countLabel.Location = new Point(589, 12);
             Controls.Add(countLabel);
 
             ToolTip tip = new ToolTip();
@@ -126,13 +137,33 @@ namespace SluMAN
             tip.SetToolTip(importButton,
                 "Applies and keeps the values from a debug menu settings file\n" +
                 "(/dev_hdd0/tmp/Sly4DebugMenu/debugmenu.cfg).");
+            tip.SetToolTip(resetButton,
+                "Puts every tunable SluMAN changed back to its default and stops keeping any.\n" +
+                "This also happens when SluMAN closes or switches game or mode (kept ones stay kept then).");
             FormClosed += (sender, e) => tip.Dispose();
         }
 
         private void BuildTree()
         {
-            categoryTree.Location = new Point(8, 38);
-            categoryTree.Size = new Size(210, 420);
+            directOnlyCheckBox.Text = "Only this level";
+            directOnlyCheckBox.AutoSize = true;
+            directOnlyCheckBox.Location = new Point(10, 38);
+            directOnlyCheckBox.Checked = string.Equals(func.GetConfigData("config.txt", DirectOnlyKey), "true", StringComparison.OrdinalIgnoreCase);
+            directOnlyCheckBox.CheckedChanged += (sender, e) =>
+            {
+                func.ChangeFileLines("config.txt", directOnlyCheckBox.Checked ? "true" : "false", DirectOnlyKey);
+                ShowTunables();
+            };
+            Controls.Add(directOnlyCheckBox);
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(directOnlyCheckBox,
+                "Shows only the tunables directly in the selected category, e.g. Audio.MasterVolume\n" +
+                "for Audio but not Audio.Optimization.SomeTunable.");
+            FormClosed += (sender, e) => tip.Dispose();
+
+            categoryTree.Location = new Point(8, 60);
+            categoryTree.Size = new Size(210, 398);
             categoryTree.HideSelection = false;
             categoryTree.AfterSelect += categoryTree_AfterSelect;
             Controls.Add(categoryTree);
@@ -267,8 +298,11 @@ namespace SluMAN
         {
             string search = searchBox.Text.Trim();
             string prefix = category.Length > 0 ? category + "." : "";
+            bool directOnly = directOnlyCheckBox.Checked;
             return game.tunables.GetAll()
                 .Where(t => t.name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                // Not in a deeper category, i.e. no dot after the selected one.
+                .Where(t => !directOnly || t.name.IndexOf('.', prefix.Length) < 0)
                 .Where(t => search.Length == 0 || t.name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
         }
@@ -544,6 +578,29 @@ namespace SluMAN
             catch
             {
                 // The refresh timer tries again.
+            }
+        }
+
+        private void resetButton_Click(object sender, EventArgs e)
+        {
+            int kept = game.tunables.KeptCount;
+            if (kept > 0 && MessageBox.Show(this,
+                    $"Put every tunable SluMAN changed back to its default and stop keeping {kept} tunables?",
+                    "Reset to Defaults", MessageBoxButtons.YesNo) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                int reset = game.tunables.ResetToDefaults(true);
+                ShowTunables();
+                statusLine.Info($"Put {reset} tunables back to their defaults.");
+            }
+            catch (Exception ex)
+            {
+                ShowTunables();
+                statusLine.Error($"Couldn't reset the tunables: {ex.Message}");
             }
         }
 

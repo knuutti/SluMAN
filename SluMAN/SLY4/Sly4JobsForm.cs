@@ -8,8 +8,10 @@ namespace SluMAN
     /// <summary>
     /// The debug menu's Episodes browser: every episode, its jobs and each job's goals, with the
     /// running job marked and its goals coloured done / current / upcoming. Jobs start (or go to
-    /// their hub or hideout) and goals warp through Sly4Practice, which tracks the game call and
-    /// reports on the status bar. The controls are built in code.
+    /// their hub or hideout) and goals warp through the Practice window's Sly4JobQueue, which
+    /// tracks the game call and reports on the window's status bar. The
+    /// Hackpack's episodes have no hubs or hideouts, so it leaves those buttons out. The controls
+    /// are built in code.
     /// </summary>
     public class Sly4JobsForm : Form, IRefreshOnShow
     {
@@ -30,7 +32,7 @@ namespace SluMAN
         }
 
         private readonly sly4 game;
-        private readonly Sly4Practice practice;
+        private readonly Sly4JobQueue jobQueue;
 
         private readonly TreeView tree = new TreeView();
         private readonly Button startJobButton = new Button();
@@ -47,10 +49,10 @@ namespace SluMAN
         // How many goals the running job had when its node was last filled from the game.
         private int runningGoalCount = -1;
 
-        public Sly4JobsForm(sly4 game, Sly4Practice practice)
+        public Sly4JobsForm(sly4 game, Sly4JobQueue jobQueue)
         {
             this.game = game;
-            this.practice = practice;
+            this.jobQueue = jobQueue;
             Name = "Sly4JobsForm";
             Text = "SluMAN :: Jobs";
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -97,6 +99,13 @@ namespace SluMAN
             AddButton(toHideoutButton, "Go to Hideout", 176, 85, (sender, e) => StartSelected(false, true));
             AddButton(warpToGoalButton, "Warp to Goal", 265, 85, (sender, e) => WarpToSelected());
             AddButton(reloadButton, "Reload", 354, 54, (sender, e) => LoadJobs());
+            if (sly4.addr.IsHackpack)
+            {
+                toHubButton.Visible = false;
+                toHideoutButton.Visible = false;
+                warpToGoalButton.Left = 97;
+                reloadButton.Left = 186;
+            }
 
             legendLabel.AutoSize = true;
             legendLabel.Location = new Point(8, 442);
@@ -408,7 +417,7 @@ namespace SluMAN
             sly4.JobEntry job = SelectedJob();
             if (job != null)
             {
-                practice.StartJob(job, toHub, toHideout);
+                jobQueue.StartJob(job, toHub, toHideout);
             }
         }
 
@@ -417,7 +426,7 @@ namespace SluMAN
             GoalTag goal = tree.SelectedNode != null ? tree.SelectedNode.Tag as GoalTag : null;
             if (goal != null)
             {
-                practice.WarpToGoal(goal.job, goal.index);
+                jobQueue.WarpToGoal(goal.job, goal.index);
             }
         }
     }

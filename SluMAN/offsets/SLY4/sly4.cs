@@ -12,6 +12,9 @@ namespace SluMAN
 
         private const uint MainMenuLevelHash = 0xE4927E12;
 
+        // The hacking minigames' level names start with one of these.
+        private static readonly string[] HackLevelPrefixes = { "System Cracker", "Spark Runner", "Alter Ego" };
+
         // Display names for level hashes (gm + currentLevelHashOffset). Hashes not listed show in hex.
         private static readonly Dictionary<uint, string> levelNames = new Dictionary<uint, string>
         {
@@ -536,6 +539,84 @@ namespace SluMAN
         }
 
         /// <summary>
+        /// The Player tab's Position Editor. The position is the Havok body's (Y is up), moved
+        /// with Teleport; the velocity is the character controller's. Sly 4's fly is
+        /// Sly4FreeMove's, so the editor gets its speed to show and none of its own fly.
+        /// </summary>
+        public PositionEditorLayout GetPositionEditorLayout(Sly4FreeMove freeMove)
+        {
+            return new PositionEditorLayout
+            {
+                gameName = "Sly 4",
+                warpFilePrefix = "sly4",
+                readEntity = GetRigidBody,
+                readMapIndicator = CurrentPositionMap,
+                transformInEntity = true,
+                positionOffset = addr.bodyPositionOffset,
+                writePosition = Teleport,
+                readVelocity = GetVelocity,
+                heightAxis = 1,
+                isLoading = IsLoading,
+                getFlySpeed = () => freeMove.FlySpeed,
+                setFlySpeed = (speed) => freeMove.FlySpeed = speed,
+                hideEntityFields = true,
+            };
+        }
+
+        /// <summary>
+        /// The Camera tab, for Sly 4 and the Hackpack. Paths are saved under CameraPathLevelKey
+        /// and shown with the level's name; the free camera has a far distance.
+        /// </summary>
+        public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = new Sly4FreeCamera(freeMove),
+                pathFolder = CameraPathFolder,
+                readPlace = (out string displayName) =>
+                {
+                    uint levelHash = GetLevelHash();
+                    displayName = levelHash == 0 ? "" : GetLevelName(levelHash);
+                    return levelHash == 0 ? "" : CameraPathLevelKey(levelHash);
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets the UI.3D.FOV tunable to 0). The pause menu is hidden too while it's on.",
+                setFogDisabled = SetFogDisabled,
+                fogToolTip = "Moves the level's fog out of sight, and keeps it there after loads. Untick to put it back.",
+                playerHelp = "The player is held where\nthey stood; in hacks, time stands still. Loads turn it off.",
+                characterControlToolTip =
+                    "The free camera stays where it is, or keeps playing its path, and the controller\n" +
+                    "moves the character as usual (in hacks, the minigame runs again). Untick to fly\n" +
+                    "the camera again.",
+                minMoveSpeed = 1,
+                maxMoveSpeed = 200,
+                moveSpeedIncrement = 1,
+                minFov = Sly4FreeMove.MinFov,
+                maxFov = Sly4FreeMove.MaxFov,
+                fovDecimals = 4,
+                startFovDegrees = 53.5f,
+                fovToolTip = "The free camera's vertical field of view. R2 zooms in, L2 out.",
+                upAxis = "Y",
+                getFarDistance = () => freeMove.FarDistance,
+                setFarDistance = (far) => freeMove.FarDistance = far,
+                getGameFar = () => freeMove.GameFar,
+            };
+        }
+
+        /// <summary>The character controller's velocity (Y is up), or null when the player isn't loaded.</summary>
+        public float[] GetVelocity()
+        {
+            uint controller = GetCharacterController();
+            if (controller == 0)
+            {
+                return null;
+            }
+            byte[] bytes = api.ReadMemory(pid, controller + addr.controllerVelocityOffset, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        /// <summary>
         /// Moves the player by writing the Havok body's motion state. The player's own position
         /// copies are refreshed from it every frame, so writing those does nothing.
         /// </summary>
@@ -684,6 +765,13 @@ namespace SluMAN
             api.WriteMemory(pid, addr.viewOverrideData, header);
             SetViewOverride(matrices, fov, far);
 
+            // To put back if the game doesn't draw its own camera again by itself (see
+            // StopViewOverride).
+            overrideView = view;
+            viewBeforeOverride = api.ReadMemory(pid, view + addr.viewMatrixOffset, 0x80);
+            fovBeforeOverride = api.ReadMemory(pid, view + addr.viewFovOffset, 4);
+            farBeforeOverride = api.ReadMemory(pid, view + addr.viewFarOffset, 4);
+
             byte[] stub = ViewOverrideStub();
             api.WriteMemory(pid, addr.viewOverrideStub, stub);
             if (!api.ReadMemory(pid, addr.viewOverrideStub, (uint)stub.Length).SequenceEqual(stub))
@@ -691,7 +779,125 @@ namespace SluMAN
                 throw new InvalidOperationException("Couldn't write the camera code into the game's memory.");
             }
             api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
+            StartHackPreRenderHook();
+            StartDrawListGuard();
             api.WriteMemory(pid, addr.viewOverrideData, BitConverter.GetBytes(1u).Reverse().ToArray());
+        }
+
+        /// <summary>
+        /// Points the draw lists' push functions at stubs that drop an item when its list is full
+        /// (see Sly4Addresses), so a free camera that sees more than the game's cameras ever do
+        /// leaves some things undrawn rather than crashing the game. Each push whose code isn't
+        /// what this version should have is left as it is.
+        /// </summary>
+        private void StartDrawListGuard()
+        {
+            for (int i = 0; i < addr.drawListPushDescriptors.Length; i++)
+            {
+                uint descriptor = addr.drawListPushDescriptors[i];
+                uint push = addr.drawListPushFunctions[i];
+                uint guard = addr.drawListGuardStubs + (uint)i * Sly4Addresses.DrawListGuardStubSize;
+                uint code = ReadUInt(descriptor);
+                if (code != push && code != guard)
+                {
+                    continue;
+                }
+
+                byte[] stub = DrawListGuardStub(guard, push);
+                byte[] written = api.ReadMemory(pid, guard, (uint)stub.Length);
+                if (!written.SequenceEqual(stub))
+                {
+                    // Only into unused memory, never rewritten in place (see StartHackPreRenderHook).
+                    if (code == guard || written.Any(b => b != 0))
+                    {
+                        continue;
+                    }
+                    api.WriteMemory(pid, guard, stub);
+                    if (!api.ReadMemory(pid, guard, (uint)stub.Length).SequenceEqual(stub))
+                    {
+                        continue;
+                    }
+                }
+                api.WriteMemory(pid, descriptor, BitConverter.GetBytes(guard).Reverse().ToArray());
+            }
+        }
+
+        private void StopDrawListGuard()
+        {
+            for (int i = 0; i < addr.drawListPushDescriptors.Length; i++)
+            {
+                uint descriptor = addr.drawListPushDescriptors[i];
+                uint guard = addr.drawListGuardStubs + (uint)i * Sly4Addresses.DrawListGuardStubSize;
+                if (ReadUInt(descriptor) == guard)
+                {
+                    api.WriteMemory(pid, descriptor, BitConverter.GetBytes(addr.drawListPushFunctions[i]).Reverse().ToArray());
+                }
+            }
+        }
+
+        /// <summary>
+        /// A draw list push's guard, called with the list in r3 and the item in r4: returns without
+        /// adding anything when the list holds capacity - 1 entries (capacity for item 0, the
+        /// padding the game adds), otherwise continues into the push. r11 and r12 are free at a
+        /// call, and the pushes set them before reading them.
+        /// </summary>
+        private byte[] DrawListGuardStub(uint stub, uint push)
+        {
+            uint[] words =
+            {
+                0x81630004,             //  0 lwz r11, 4(r3) (begin)
+                0x81830008,             //  1 lwz r12, 8(r3) (end)
+                0x7D8B6050,             //  2 subf r12, r11, r12
+                0x558CE8FE,             //  3 srwi r12, r12, 3 (entries)
+                0x81630000 | addr.drawListCapacityOffset, // 4 lwz r11, capacity(r3)
+                0x2C040000,             //  5 cmpwi r4, 0
+                0x41820008,             //  6 beq +8 (padding: may fill the last entry)
+                0x396BFFFF,             //  7 addi r11, r11, -1
+                0x7C0C5840,             //  8 cmplw r12, r11
+                0x4C800020,             //  9 bgelr (full: drop it)
+                Branch(stub + 10 * 4, push, false), // 10 b push
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        /// <summary>
+        /// Points the hacking minigames' layer setup at its stub (see Sly4Addresses), so they draw
+        /// from the free camera too. Leaves it be when the code isn't what this version should have
+        /// (another version, or a mod): the free camera still works outside the minigames.
+        /// </summary>
+        private void StartHackPreRenderHook()
+        {
+            uint call = addr.hackPreRenderCall;
+            uint original = Branch(call, addr.hackPreRenderFunction, true);
+            uint hooked = Branch(call, addr.hackPreRenderStub, true);
+            uint instruction = ReadUInt(call);
+            if (instruction != original && instruction != hooked)
+            {
+                return;
+            }
+
+            byte[] stub = HackPreRenderStub();
+            byte[] written = api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length);
+            if (!written.SequenceEqual(stub))
+            {
+                // Only into unused memory, and never rewritten in place: RPCS3 keeps running code
+                // it has run as it was decoded then.
+                if (instruction == hooked || written.Any(b => b != 0))
+                {
+                    return;
+                }
+                api.WriteMemory(pid, addr.hackPreRenderStub, stub);
+                if (!api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length).SequenceEqual(stub))
+                {
+                    return;
+                }
+            }
+            api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
         }
 
         /// <summary>
@@ -706,7 +912,19 @@ namespace SluMAN
             Array.Copy(ConvertFloatToBytes(fov), 0, data, 0x80, 4);
             Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
+            lastOverride = data;
         }
+
+        // The main view the free camera draws, its matrices, field of view and far distance before
+        // it started, and what the free camera last drew with (as SetViewOverride writes it).
+        private uint overrideView;
+        private byte[] viewBeforeOverride;
+        private byte[] fovBeforeOverride;
+        private byte[] farBeforeOverride;
+        private byte[] lastOverride;
+
+        // How long StopViewOverride gives the game to draw its own camera again.
+        private const int ViewRestoreWaitMs = 150;
 
         // No fog pushes the fog's start and end this far away.
         private const float NoFogDistance = 2147483648f;
@@ -772,7 +990,12 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, view + addr.viewFovOffset, 4), 0);
         }
 
-        /// <summary>Lets the game draw its own camera again, from the next frame.</summary>
+        /// <summary>
+        /// Lets the game draw its own camera again, from the next frame. Most cameras write the
+        /// view every frame; when the game hasn't a moment later (a camera that only writes it as
+        /// it moves, or the game paused), the view is put back as it was before the free camera,
+        /// so it doesn't stay where the free camera left it.
+        /// </summary>
         public void StopViewOverride()
         {
             api.WriteMemory(pid, addr.viewOverrideData, new byte[4]);
@@ -780,6 +1003,68 @@ namespace SluMAN
             if (ReadUInt(call) == Branch(call, addr.viewOverrideStub, true))
             {
                 api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
+            }
+            uint hackCall = addr.hackPreRenderCall;
+            if (ReadUInt(hackCall) == Branch(hackCall, addr.hackPreRenderStub, true))
+            {
+                api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
+            }
+            StopDrawListGuard();
+            RestoreViewAfterOverride();
+        }
+
+        private void RestoreViewAfterOverride()
+        {
+            uint view = overrideView;
+            byte[] matrices = viewBeforeOverride;
+            byte[] fov = fovBeforeOverride;
+            byte[] far = farBeforeOverride;
+            byte[] last = lastOverride;
+            overrideView = 0;
+            viewBeforeOverride = null;
+            fovBeforeOverride = null;
+            farBeforeOverride = null;
+            lastOverride = null;
+            if (view == 0 || last == null)
+            {
+                return;
+            }
+
+            // Not while a load replaces the views.
+            if (IsLoading() || GetMainView() != view)
+            {
+                return;
+            }
+            System.Threading.Thread.Sleep(ViewRestoreWaitMs);
+            if (IsLoading() || GetMainView() != view)
+            {
+                return;
+            }
+
+            bool restored = false;
+            if (api.ReadMemory(pid, view + addr.viewMatrixOffset, 0x80).SequenceEqual(last.Take(0x80)))
+            {
+                api.WriteMemory(pid, view + addr.viewMatrixOffset, matrices);
+                restored = true;
+            }
+            // The stub writes the field of view and far distance only when they aren't 0.
+            byte[] lastFov = last.Skip(0x80).Take(4).ToArray();
+            if (lastFov.Any(b => b != 0) && api.ReadMemory(pid, view + addr.viewFovOffset, 4).SequenceEqual(lastFov))
+            {
+                api.WriteMemory(pid, view + addr.viewFovOffset, fov);
+                restored = true;
+            }
+            byte[] lastFar = last.Skip(0x84).Take(4).ToArray();
+            if (lastFar.Any(b => b != 0) && api.ReadMemory(pid, view + addr.viewFarOffset, 4).SequenceEqual(lastFar))
+            {
+                api.WriteMemory(pid, view + addr.viewFarOffset, far);
+                restored = true;
+            }
+            if (restored)
+            {
+                // Has the game rebuild the view's render matrices from them.
+                uint flags = view + addr.viewFlagsOffset;
+                api.WriteMemory(pid, flags, new byte[] { (byte)(ReadByte(flags) | 0x80) });
             }
         }
 
@@ -841,6 +1126,93 @@ namespace SluMAN
             return code;
         }
 
+        /// <summary>
+        /// The hacking minigames' stub, called instead of their layer setup with the mechanic in r3
+        /// and the main view in r4 (see Sly4Addresses). While the view override is on, it first
+        /// puts the override's matrices, field of view and far distance into the main view (the
+        /// override stub does it again later, for the main view's own copy) and turns the main
+        /// view's depth of field off; after the setup, it turns the bottom layer's off. The game
+        /// turns both on again each frame, so nothing stays changed once the hook is gone.
+        /// </summary>
+        private byte[] HackPreRenderStub()
+        {
+            uint stub = addr.hackPreRenderStub;
+            uint data = addr.viewOverrideData;
+            uint high = ((data + 0x8000) >> 16) & 0xFFFF;
+            uint low = data & 0xFFFF;
+            uint effects = addr.viewEffectsOffset;
+            uint dof = addr.effectDofOffset;
+            uint enabled = addr.effectEnabledOffset;
+
+            uint[] words =
+            {
+                0xF821FF81,             //  0 stdu r1, -0x80(r1)
+                0x7C0802A6,             //  1 mflr r0
+                0xF8010090,             //  2 std r0, 0x90(r1)
+                0xF8610070,             //  3 std r3, 0x70(r1)
+                0x3D600000 | high,      //  4 lis r11, data@ha
+                0x396B0000 | low,       //  5 addi r11, r11, data@l
+                0x818B0000,             //  6 lwz r12, 0(r11)
+                0x2C0C0000,             //  7 cmpwi r12, 0
+                0x41820070,             //  8 beq +0x70 (to 36: off)
+                0x818B0004,             //  9 lwz r12, 4(r11)
+                0x7C046000,             // 10 cmpw r4, r12
+                0x40820064,             // 11 bne +0x64 (to 36: another view)
+                0x38C00020,             // 12 li r6, 32 (words)
+                0x7CC903A6,             // 13 mtctr r6
+                0x38A40000 | (addr.viewMatrixOffset - 4), // 14 addi r5, r4, view matrix - 4
+                0x38EB000C,             // 15 addi r7, r11, matrices - 4
+                0x85070004,             // 16 lwzu r8, 4(r7)
+                0x95050004,             // 17 stwu r8, 4(r5)
+                0x4200FFF8,             // 18 bdnz -8
+                0x810B0090,             // 19 lwz r8, 0x90(r11) (field of view)
+                0x2C080000,             // 20 cmpwi r8, 0
+                0x41820008,             // 21 beq +8 (0: keep the game's)
+                0x91040000 | addr.viewFovOffset, // 22 stw r8, fov(r4)
+                0x810B0094,             // 23 lwz r8, 0x94(r11) (far distance)
+                0x2C080000,             // 24 cmpwi r8, 0
+                0x41820008,             // 25 beq +8 (0: keep the game's)
+                0x91040000 | addr.viewFarOffset, // 26 stw r8, far(r4)
+                0x80A40000 | effects,   // 27 lwz r5, effects(r4)
+                0x2C050000,             // 28 cmpwi r5, 0
+                0x4182001C,             // 29 beq +0x1C (to 36)
+                0x80A50000 | dof,       // 30 lwz r5, dof(r5)
+                0x2C050000,             // 31 cmpwi r5, 0
+                0x41820010,             // 32 beq +0x10 (to 36)
+                0x38C00000,             // 33 li r6, 0
+                0x98C50000 | enabled,   // 34 stb r6, enabled(r5)
+                0xE8610070,             // 35 ld r3, 0x70(r1)
+                Branch(stub + 36 * 4, addr.hackPreRenderFunction, true), // 36 bl layer setup
+                0x3D600000 | high,      // 37 lis r11, data@ha
+                0x396B0000 | low,       // 38 addi r11, r11, data@l
+                0x818B0000,             // 39 lwz r12, 0(r11)
+                0x2C0C0000,             // 40 cmpwi r12, 0
+                0x41820034,             // 41 beq +0x34 (to 54: off)
+                0xE8610070,             // 42 ld r3, 0x70(r1)
+                0x80A30000 | addr.hackBottomLayerOffset, // 43 lwz r5, bottom layer(r3)
+                0x2C050000,             // 44 cmpwi r5, 0
+                0x41820024,             // 45 beq +0x24 (to 54)
+                0x80A50000 | effects,   // 46 lwz r5, effects(r5)
+                0x2C050000,             // 47 cmpwi r5, 0
+                0x41820018,             // 48 beq +0x18 (to 54)
+                0x80A50000 | dof,       // 49 lwz r5, dof(r5)
+                0x2C050000,             // 50 cmpwi r5, 0
+                0x4182000C,             // 51 beq +0xC (to 54)
+                0x38C00000,             // 52 li r6, 0
+                0x98C50000 | enabled,   // 53 stb r6, enabled(r5)
+                0xE8010090,             // 54 ld r0, 0x90(r1)
+                0x7C0803A6,             // 55 mtlr r0
+                0x38210080,             // 56 addi r1, r1, 0x80
+                0x4E800020,             // 57 blr
+            };
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
         private static uint Branch(uint from, uint to, bool link)
         {
             return 0x48000000 | ((to - from) & 0x3FFFFFC) | (link ? 1u : 0u);
@@ -858,16 +1230,147 @@ namespace SluMAN
             return matrix;
         }
 
+        /// <summary>
+        /// Slows the game down through the clock's frame time clamps. While the clock is frozen
+        /// it's kept for when it runs again instead.
+        /// </summary>
         public void SetSlowMotion(bool enabled)
         {
-            api.WriteMemory(pid, addr.clockClampFreqMax, ConvertIntToBytes(enabled ? SlowMotionClampFreqMax : NormalClampFreqMax));
-            api.WriteMemory(pid, addr.clockClampFreqMin, ConvertIntToBytes(enabled ? SlowMotionClampFreqMin : NormalClampFreqMin));
+            byte[] max = ConvertIntToBytes(enabled ? SlowMotionClampFreqMax : NormalClampFreqMax);
+            byte[] min = ConvertIntToBytes(enabled ? SlowMotionClampFreqMin : NormalClampFreqMin);
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze != null)
+                {
+                    clockBeforeFreeze = max.Concat(min).ToArray();
+                    return;
+                }
+                api.WriteMemory(pid, addr.clockClampFreqMax, max);
+                api.WriteMemory(pid, addr.clockClampFreqMin, min);
+            }
         }
 
         public bool IsSlowMotionOn()
         {
-            byte[] bytes = api.ReadMemory(pid, addr.clockClampFreqMax, 4);
-            return BitConverter.ToInt32(bytes.Reverse().ToArray(), 0) == SlowMotionClampFreqMax;
+            lock (clockLock)
+            {
+                byte[] max = clockBeforeFreeze != null ? clockBeforeFreeze.Take(4).ToArray() : api.ReadMemory(pid, addr.clockClampFreqMax, 4);
+                return ToInt(max) == SlowMotionClampFreqMax;
+            }
+        }
+
+        // Frozen time: every frame's time step is clamped to 1 / this many seconds, so the game
+        // runs about 1,700 times slower than at 60 frames a second and still draws every frame.
+        private const int FrozenClampFreq = 100000;
+        private readonly object clockLock = new object();
+        // The clock's ClampFreqMax and ClampFreqMin from before it was frozen, or null when it isn't.
+        private byte[] clockBeforeFreeze;
+        // What holds it frozen: Freeze Game Clock, and the free camera in a hacking minigame.
+        private bool clockFrozenByToggle;
+        private bool clockFrozenForCamera;
+
+        /// <summary>
+        /// Holds the game's time nearly still (or lets it run again) for the free camera in the
+        /// hacking minigames, where the sticks also drive the minigame's ship, ball or avatar and
+        /// there's no character to hold. The clock stays frozen while Freeze Game Clock is on.
+        /// </summary>
+        public void SetTimeFrozen(bool frozen)
+        {
+            lock (clockLock)
+            {
+                clockFrozenForCamera = frozen;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>Freeze Game Clock: holds the game's time nearly still, as SetTimeFrozen does.</summary>
+        public void SetGameClockFrozen(bool frozen)
+        {
+            lock (clockLock)
+            {
+                clockFrozenByToggle = frozen;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>
+        /// Whether Freeze Game Clock is on. A clock left frozen by a SluMAN that went away counts
+        /// as on, running normally once it's turned off.
+        /// </summary>
+        public bool IsGameClockFrozen()
+        {
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze == null && ToInt(api.ReadMemory(pid, addr.clockClampFreqMax, 4)) == FrozenClampFreq)
+                {
+                    clockBeforeFreeze = ConvertIntToBytes(NormalClampFreqMax).Concat(ConvertIntToBytes(NormalClampFreqMin)).ToArray();
+                    clockFrozenByToggle = true;
+                }
+                return clockFrozenByToggle;
+            }
+        }
+
+        /// <summary>
+        /// Freezes the clock again after a game reset, which puts its clamps back to the normal
+        /// ones: those are what it runs at once unfrozen (Slow Motion sets its own again).
+        /// </summary>
+        public void RefreezeClockAfterReset()
+        {
+            lock (clockLock)
+            {
+                if (clockBeforeFreeze == null)
+                {
+                    return;
+                }
+                clockBeforeFreeze = null;
+                ApplyClockFreeze();
+            }
+        }
+
+        /// <summary>
+        /// Freezes the clock while anything holds it, and puts back the clamps it found once
+        /// nothing does, unless something else has set them since. Call with clockLock held.
+        /// </summary>
+        private void ApplyClockFreeze()
+        {
+            if (clockFrozenByToggle || clockFrozenForCamera)
+            {
+                if (clockBeforeFreeze != null)
+                {
+                    return;
+                }
+                byte[] max = api.ReadMemory(pid, addr.clockClampFreqMax, 4);
+                byte[] min = api.ReadMemory(pid, addr.clockClampFreqMin, 4);
+                // Left frozen by a SluMAN that went away: run normally afterwards.
+                if (ToInt(max) == FrozenClampFreq)
+                {
+                    max = ConvertIntToBytes(NormalClampFreqMax);
+                    min = ConvertIntToBytes(NormalClampFreqMin);
+                }
+                clockBeforeFreeze = max.Concat(min).ToArray();
+                api.WriteMemory(pid, addr.clockClampFreqMax, ConvertIntToBytes(FrozenClampFreq));
+                api.WriteMemory(pid, addr.clockClampFreqMin, ConvertIntToBytes(FrozenClampFreq));
+            }
+            else
+            {
+                byte[] before = clockBeforeFreeze;
+                clockBeforeFreeze = null;
+                if (before == null)
+                {
+                    return;
+                }
+                if (ToInt(api.ReadMemory(pid, addr.clockClampFreqMax, 4)) == FrozenClampFreq
+                    && ToInt(api.ReadMemory(pid, addr.clockClampFreqMin, 4)) == FrozenClampFreq)
+                {
+                    api.WriteMemory(pid, addr.clockClampFreqMax, before.Take(4).ToArray());
+                    api.WriteMemory(pid, addr.clockClampFreqMin, before.Skip(4).ToArray());
+                }
+            }
+        }
+
+        private static int ToInt(byte[] bigEndian)
+        {
+            return BitConverter.ToInt32(bigEndian.Reverse().ToArray(), 0);
         }
 
         public void SetInvulnerable(bool enabled)
@@ -944,10 +1447,46 @@ namespace SluMAN
                 || ReadUInt(gameManager + addr.loadingLevelHashOffset) != 0;
         }
 
+        /// <summary>
+        /// Whether a level is one of the hacking minigames (System Cracker, Spark Runner, Alter
+        /// Ego). Each is a level of its own; "System Cracker01" is the Paris Sewers. Every
+        /// Hackpack level is one but the hub (FrontEnd).
+        /// </summary>
+        public static bool IsHackLevel(uint levelHash)
+        {
+            if (addr.IsHackpack)
+            {
+                return levelHash != MainMenuLevelHash;
+            }
+            string name;
+            if (!levelNames.TryGetValue(levelHash, out name))
+            {
+                return false;
+            }
+            foreach (string prefix in HackLevelPrefixes)
+            {
+                if (name.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool IsInHack()
+        {
+            return IsHackLevel(GetLevelHash());
+        }
+
         /// <summary>The level's name if it's known, otherwise its hash in hex.</summary>
         public static string GetLevelName(uint levelHash)
         {
             string name;
+            if (addr.IsHackpack)
+            {
+                name = HackpackLevels.GetName(levelHash);
+                return name == null ? levelHash.ToString("X8") : name;
+            }
             if (levelNames.TryGetValue(levelHash, out name))
             {
                 return name;
@@ -967,6 +1506,18 @@ namespace SluMAN
                 }
             }
             return levels;
+        }
+
+        /// <summary>The folder this game's camera paths are saved in.</summary>
+        public static string CameraPathFolder => addr.IsHackpack ? CameraPath.HackpackFolder : CameraPath.Sly4Folder;
+
+        /// <summary>
+        /// The level's part of its saved camera paths' file names: its name, or for the Hackpack,
+        /// whose level names aren't all known yet, its hash, so paths stay put once it's named.
+        /// </summary>
+        public static string CameraPathLevelKey(uint levelHash)
+        {
+            return addr.IsHackpack ? levelHash.ToString("X8") : GetLevelName(levelHash);
         }
 
         /// <summary>
@@ -1243,8 +1794,12 @@ namespace SluMAN
         /// ID (goal + 0xA00) matches it, and only among goals already loaded, which a job in
         /// another level doesn't have yet. To start later, warp to the goal once the job runs,
         /// or pass the ID of one of the running job's goals (GetGoalId) to restart it there.
+        /// With <paramref name="restart"/>, the running job may be started again: the 6th argument
+        /// is 1, as the Hackpack's own restart (0x357684) passes it. Where the game's RequestJob is
+        /// known (the Hackpack), jobs are queued through it instead, as the game's own job triggers
+        /// do, so the job's goals are set up.
         /// </remarks>
-        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0)
+        public void StartJob(int jobIndex, bool toHub, bool toHideout, uint goalId = 0, bool restart = false)
         {
             uint episodeManager = ReadUInt(addr.episodeManagerPtr);
             if (episodeManager == 0)
@@ -1255,13 +1810,18 @@ namespace SluMAN
 
             uint job = ReadUInt(episodeManager + addr.jobArrayOffset) + (uint)jobIndex * Sly4Addresses.JobStride;
             uint currentJob = ReadUInt(episodeManager + addr.currentJobOffset);
-            if (!toHub && !toHideout && currentJob == job)
+            if (!toHub && !toHideout && !restart && currentJob == job)
             {
                 throw new InvalidOperationException("That job is already running. Warp to one of its goals instead.");
             }
 
+            if (addr.requestJobFunction != 0 && !toHub && !toHideout)
+            {
+                codeHook.Call(addr.requestJobFunction, episodeManager, 0, job, goalId, 0, 0);
+                return;
+            }
             codeHook.Call(addr.startJobByInstFunction, episodeManager, job, goalId,
-                toHub ? 1u : 0u, toHideout ? 1u : 0u, 0, 0, 0, 1);
+                toHub ? 1u : 0u, toHideout ? 1u : 0u, restart ? 1u : 0u, 0, 0, 1);
         }
 
         /// <summary>The ID of one of the running job's goals (0-based), for StartJob.</summary>
@@ -1717,11 +2277,25 @@ namespace SluMAN
             return result;
         }
 
-        /// <summary>The player ref, or 0 while the player doesn't exist.</summary>
+        /// <summary>
+        /// The player ref, or 0 while the player doesn't exist. Also 0 in the hacking minigames:
+        /// the player there is the minigame's ship, ball or avatar, not a character, so the
+        /// character controller's pointers followed from it lead to memory that isn't a
+        /// character's, and holding or teleporting the player would write over it.
+        /// </summary>
         private uint GetPlayerRef()
         {
+            // The Hackpack has no character anywhere: its hub is only looked at.
+            if (addr.IsHackpack)
+            {
+                return 0;
+            }
             uint gameManager = ReadUInt(addr.gameManagerPtr);
             if (gameManager == 0)
+            {
+                return 0;
+            }
+            if (IsHackLevel(ReadUInt(gameManager + addr.currentLevelHashOffset)))
             {
                 return 0;
             }

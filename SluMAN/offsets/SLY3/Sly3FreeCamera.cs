@@ -25,7 +25,7 @@ namespace SluMAN
     /// Runs on its own thread and keeps going whichever tab shows. Sly3Practice owns the one
     /// instance. It turns itself off when a load starts.
     /// </summary>
-    public class Sly3FreeCamera
+    public class Sly3FreeCamera : IFreeCamera
     {
         // How often the sticks move the camera (and the player is held). On RPCS3 the camera's
         // matrices are also rewritten nonstop in between: the game copies its own camera into
@@ -34,12 +34,14 @@ namespace SluMAN
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 30;
         private const float DeadZone = 0.2f;
-        // Field of view limits and the game's usual one (the PS2 freecam's), in radians.
-        public const float MinFov = 0.01f;
-        public const float MaxFov = 3.0f;
+        // Field of view limits, in radians: just above 0 and just below 180 degrees (0.0001 and
+        // 179.9999), where the projection breaks down.
+        public const float MinFov = 1.745e-6f;
+        public const float MaxFov = 3.1415909f;
+        // The game's usual field of view (the PS2 freecam's), in radians.
         private const float DefaultFov = 1.1f;
-        // Just short of straight up and down, where the yaw would stop meaning anything.
-        private const float MaxPitch = 1.5706217f;
+        // Straight up and down: the camera's left comes from the yaw alone, so it's defined there.
+        private const float MaxPitch = (float)(Math.PI / 2);
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
 
@@ -96,10 +98,10 @@ namespace SluMAN
         private readonly Stopwatch sinceHook = new Stopwatch();
 
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
-        public float CameraSpeed = 1600f;
+        public float CameraSpeed { get; set; } = 1600f;
 
         /// <summary>How fast the camera turns: radians per second at full stick.</summary>
-        public float LookSpeed = 2f;
+        public float LookSpeed { get; set; } = 2f;
 
         /// <summary>How fast R2 / L2 zoom: the field of view changes by this factor of e per second.</summary>
         public float ZoomSpeed = 0.7f;

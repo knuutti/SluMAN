@@ -5,7 +5,7 @@ namespace SluMAN
 {
     /// <summary>
     /// Sly 4's Run Files tab: goes to the hideout of the run file's episode's first job, with the
-    /// gadgets saved for it in the Gadgets tab. Practice Mode starts it (Sly4Practice.LoadRunFile).
+    /// gadgets saved for it in the Gadgets tab. Practice Mode's job queue starts it (Sly4JobQueue.LoadRunFile).
     /// </summary>
     public class Sly4RunFilesForm : RunFilesForm
     {
@@ -20,14 +20,14 @@ namespace SluMAN
         };
 
         private readonly sly4 game;
-        private readonly Sly4Practice practice;
+        private readonly Sly4JobQueue jobQueue;
 
-        public Sly4RunFilesForm(sly4 game, Sly4Practice practice)
+        public Sly4RunFilesForm(sly4 game, Sly4JobQueue jobQueue)
             : base("Sly 4", Sly4Gadgets.RunFiles,
                 "A run file starts in the hideout of its episode's first job. The gadgets it loads with are saved in the Gadgets tab, under Run file gadgets.")
         {
             this.game = game;
-            this.practice = practice;
+            this.jobQueue = jobQueue;
         }
 
         protected override void LoadRunFile(string runFile)
@@ -49,7 +49,7 @@ namespace SluMAN
             }
 
             byte[] gadgets = Sly4Gadgets.LoadRunFile(runFile);
-            practice.LoadRunFile(runFile, firstJob, gadgets);
+            jobQueue.LoadRunFile(runFile, firstJob, gadgets);
             statusLine.Info(gadgets == null
                 ? $"Loading {runFile}. No gadgets are saved for it, so they were left as they are."
                 : $"Loading {runFile} with its saved gadgets.");

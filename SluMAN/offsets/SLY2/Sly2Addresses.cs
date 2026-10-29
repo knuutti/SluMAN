@@ -40,6 +40,7 @@ namespace SluMAN
         public uint coinCount { get; private set; }
         public uint language { get; private set; } // 0 on versions with one language
         public uint currentCharacter { get; private set; }
+        // The field of view the camera eases to; the one it has is 4 bytes before.
         public uint cameraFov { get; private set; }
         public uint cameraParameter { get; private set; }
         public uint hudScaleX { get; private set; }
@@ -47,6 +48,8 @@ namespace SluMAN
         public uint hudPositionX { get; private set; }
         public uint hudPositionY { get; private set; }
         public uint fogAmount { get; private set; }
+        // How far the game draws (a float, set per map: 75000 on one), or 0 when unknown.
+        public uint renderDistance { get; private set; }
         // A camera matrix copy found in the global camera region. The rendered camera may be
         // made from another copy; the Camera research tab searches for that source.
         public uint cameraMatrixAddress { get; private set; }
@@ -183,6 +186,7 @@ namespace SluMAN
                 hudPositionX = 0x45DB50,
                 hudPositionY = 0x45DB54,
                 fogAmount = 0x49E278,
+                renderDistance = 0x49E080,
                 cameraMatrixAddress = 0x49E090,
                 cameraRenderMatrix = 0x8C2210,
                 cameraObject = 0x49E030,
@@ -282,6 +286,8 @@ namespace SluMAN
             palDigital.hudPositionX = 0x45DAE0;
             palDigital.hudPositionY = 0x45DAE4;
             palDigital.fogAmount = 0x49E1F8;
+            // Unchecked: where the 0x80 shift of the other camera globals puts it.
+            palDigital.renderDistance = 0x49E000;
             palDigital.cameraMatrixAddress = 0x49E010;
             palDigital.cameraRenderMatrix = 0x8C2190;
             palDigital.cameraObject = 0x49DFB0;

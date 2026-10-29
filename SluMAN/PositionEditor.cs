@@ -37,6 +37,8 @@ namespace SluMAN
             public string Name;
             public string MapIndicator;
             public float X, Y, Z;
+            // Which way the player faced (IGame.ReadFacing), null if not saved.
+            public byte[] Facing;
             public bool IsUserDefined;
         }
 
@@ -80,6 +82,11 @@ namespace SluMAN
                     }
                 }
             }
+            AddTopSpeedRow();
+            if (layout.getFlySpeed != null)
+            {
+                AddFlySpeedRow();
+            }
             Text = $"SluMAN :: Position Editor ({layout.gameName})";
             statusLine = new StatusLine(this, false);
             func.BindEnter(xPosTextBox, setXPosButton);
@@ -107,12 +114,171 @@ namespace SluMAN
             pollTimer.Start();
         }
 
+        // A row added below a group's last one.
+        private const int ExtraRowHeight = 23;
+
+        // The fastest horizontal speed seen since the editor opened or Reset.
+        private float topSpeed;
+        private readonly Label topSpeedValueLabel = new Label();
+
+        /// <summary>
+        /// Makes a group taller by <paramref name="extra"/>, moving the groups below it in its
+        /// column down and growing the saved positions' table to match the window.
+        /// </summary>
+        private void GrowGroup(GroupBox group, int extra)
+        {
+            int bottom = group.Bottom;
+            group.Height += extra;
+            foreach (Control control in Controls)
+            {
+                if (control != group && control.Left == group.Left && control.Top >= bottom)
+                {
+                    control.Top += extra;
+                }
+            }
+            savedPositionsGroupBox.Height += extra;
+            slotGrid.Height += extra;
+            saveSlotButton.Top += extra;
+            loadSlotButton.Top += extra;
+            clearSlotButton.Top += extra;
+            slotInfoLabel.Top += extra;
+            ClientSize = new System.Drawing.Size(ClientSize.Width, ClientSize.Height + extra);
+        }
+
+        /// <summary>Character Info's Top speed row, under the velocity, with a Reset button.</summary>
+        private void AddTopSpeedRow()
+        {
+            int y = zVelLiveLabel.Top + ExtraRowHeight;
+            GrowGroup(charInfoGroupBox, ExtraRowHeight);
+
+            Label nameLabel = new Label();
+            nameLabel.Text = "Top Speed:";
+            nameLabel.AutoSize = true;
+            nameLabel.Location = new System.Drawing.Point(lblZVel.Left, y);
+            charInfoGroupBox.Controls.Add(nameLabel);
+
+            topSpeedValueLabel.Text = "N/A";
+            topSpeedValueLabel.AutoSize = true;
+            topSpeedValueLabel.Location = new System.Drawing.Point(zVelLiveLabel.Left, y);
+            charInfoGroupBox.Controls.Add(topSpeedValueLabel);
+
+            Button resetButton = new Button();
+            resetButton.Text = "Reset Top Speed";
+            resetButton.UseVisualStyleBackColor = true;
+            resetButton.Size = new System.Drawing.Size(110, 23);
+            // Under the entity fields, or right of the value when they're hidden (the position
+            // and velocity rows have moved into their place).
+            int buttonX = layout.hideEntityFields ? zVelLiveLabel.Left + 70 : lblEntityId.Left;
+            resetButton.Location = new System.Drawing.Point(buttonX, y - 5);
+            resetButton.Click += (sender, e) =>
+            {
+                topSpeed = 0;
+                topSpeedValueLabel.Text = FormatFloat(topSpeed);
+            };
+            charInfoGroupBox.Controls.Add(resetButton);
+        }
+
+        /// <summary>Set Position's Fly speed row, for a game whose fly runs outside the editor (Sly 4).</summary>
+        private void AddFlySpeedRow()
+        {
+            int y = setZPosButton.Bottom + 8;
+            GrowGroup(positionGroupBox, ExtraRowHeight + 4);
+
+            Label speedLabel = new Label();
+            speedLabel.Text = "Fly speed:";
+            speedLabel.AutoSize = true;
+            speedLabel.Location = new System.Drawing.Point(lblSetZ.Left, y + 3);
+            positionGroupBox.Controls.Add(speedLabel);
+
+            NumericUpDown speedUpDown = new NumericUpDown();
+            speedUpDown.Minimum = 1;
+            speedUpDown.Maximum = 200;
+            speedUpDown.Value = (decimal)Math.Max(1, Math.Min(200, layout.getFlySpeed()));
+            speedUpDown.Location = new System.Drawing.Point(zPosTextBox.Left, y);
+            speedUpDown.Size = new System.Drawing.Size(zPosTextBox.Width, 20);
+            speedUpDown.ValueChanged += (sender, e) => layout.setFlySpeed((float)speedUpDown.Value);
+            positionGroupBox.Controls.Add(speedUpDown);
+
+            Label help = new Label();
+            help.Text = "Fly Mode is on the Practice tab.";
+            help.AutoSize = true;
+            help.Location = new System.Drawing.Point(setZPosButton.Left, y + 3);
+            positionGroupBox.Controls.Add(help);
+        }
+
         private bool FlyModeEnabled => host != null && host.FlyModeEnabled;
         private bool InfiniteJumpEnabled => host != null && host.InfiniteJumpEnabled;
+
+        /// <summary>A load is in progress, so nothing may be written to the player.</summary>
+        private bool GameLoading
+        {
+            get
+            {
+                if (game.IsLoading)
+                {
+                    return true;
+                }
+                try
+                {
+                    return layout.isLoading != null && layout.isLoading();
+                }
+                catch
+                {
+                    return true;
+                }
+            }
+        }
+
+        // The horizontal axes: the two that aren't up.
+        private uint HorizontalAxis1 => layout.heightAxis == 0 ? 1u : 0u;
+        private uint HorizontalAxis2 => layout.heightAxis == 2 ? 1u : 2u;
 
         // Transform addresses for one axis (0 = X, 1 = Y, 2 = Z).
         private uint PositionAddress(uint transformPtr, uint axis) => transformPtr + layout.positionOffset + axis * 4;
         private uint VelocityAddress(uint transformPtr, uint axis) => transformPtr + layout.velocityOffset + axis * 4;
+
+        /// <summary>A Character Info value, through the layout's reader or at its entity offset; N/A if unknown.</summary>
+        private string ReadCharacterValue(uint entityPtr, Func<uint, int?> read, uint offset)
+        {
+            if (read != null)
+            {
+                int? value = read(entityPtr);
+                return value.HasValue ? value.Value.ToString() : "N/A";
+            }
+            return offset != 0 ? ReadInt(entityPtr + offset).ToString() : "N/A";
+        }
+
+        /// <summary>X, Y and Z velocity, or null where the game's isn't known.</summary>
+        private float[] ReadVelocity(uint transformPtr)
+        {
+            if (layout.readVelocity != null)
+            {
+                return layout.readVelocity();
+            }
+            if (layout.velocityOffset == 0)
+            {
+                return null;
+            }
+            return new float[]
+            {
+                ReadFloat(VelocityAddress(transformPtr, 0)),
+                ReadFloat(VelocityAddress(transformPtr, 1)),
+                ReadFloat(VelocityAddress(transformPtr, 2)),
+            };
+        }
+
+        /// <summary>Moves the player to X, Y and Z, stopping them where the game's velocity is known.</summary>
+        private void WritePositionVector(uint transformPtr, float x, float y, float z)
+        {
+            if (layout.writePosition != null)
+            {
+                layout.writePosition(x, y, z);
+                return;
+            }
+            WritePosition(transformPtr, 0, x);
+            WritePosition(transformPtr, 1, y);
+            WritePosition(transformPtr, 2, z);
+        }
 
         private bool TryResolvePointers(out uint entityPtr, out uint transformPtr)
         {
@@ -172,6 +338,17 @@ namespace SluMAN
         /// </summary>
         private void WritePosition(uint transformPtr, uint axis, float value)
         {
+            if (layout.writePosition != null)
+            {
+                float[] position = new float[3];
+                for (uint i = 0; i < 3; i++)
+                {
+                    position[i] = ReadFloat(PositionAddress(transformPtr, i));
+                }
+                position[axis] = value;
+                layout.writePosition(position[0], position[1], position[2]);
+                return;
+            }
             WriteFloat(PositionAddress(transformPtr, axis), value);
             if (layout.velocityOffset != 0)
             {
@@ -221,7 +398,7 @@ namespace SluMAN
             // During a load (the fade to black included) the player entity is being freed or set
             // up, and writing to it crashes the game. With no player, e.g. in a hideout, fly mode
             // takes the height again once there is one.
-            if (game.IsLoading || !TryResolvePointers(out uint entityPtr, out uint transformPtr))
+            if (GameLoading || !TryResolvePointers(out uint entityPtr, out uint transformPtr))
             {
                 prevFlyMode = false;
                 SetLabelsUnavailable();
@@ -231,27 +408,31 @@ namespace SluMAN
             try
             {
                 bool flyModeEnabled = FlyModeEnabled;
+                uint up = layout.heightAxis;
+                uint across1 = HorizontalAxis1;
+                uint across2 = HorizontalAxis2;
 
                 // Position freezes; each also stops movement on its axis.
-                if (frozenPosX.HasValue)
+                if (frozenPosX.HasValue && !(flyModeEnabled && up == 0))
                 {
                     WritePosition(transformPtr, 0, frozenPosX.Value);
                 }
-                if (frozenPosY.HasValue)
+                if (frozenPosY.HasValue && !(flyModeEnabled && up == 1))
                 {
                     WritePosition(transformPtr, 1, frozenPosY.Value);
                 }
-                if (!flyModeEnabled && frozenPosZ.HasValue)
+                if (frozenPosZ.HasValue && !(flyModeEnabled && up == 2))
                 {
                     WritePosition(transformPtr, 2, frozenPosZ.Value);
                 }
 
-                // Fly mode: hold Z, adjust height with L2/R2, amplify horizontal movement with R1.
+                // Fly mode: hold the height, adjust height with R1 / L1 (as every game's fly and free
+                // camera), amplify horizontal movement with R2.
                 if (flyModeEnabled && (!prevFlyMode || entityPtr != flyEntityPtr))
                 {
-                    flyFrozenZ = ReadFloat(PositionAddress(transformPtr, 2));
-                    prevFlyPosX = ReadFloat(PositionAddress(transformPtr, 0));
-                    prevFlyPosY = ReadFloat(PositionAddress(transformPtr, 1));
+                    flyFrozenZ = ReadFloat(PositionAddress(transformPtr, up));
+                    prevFlyPosX = ReadFloat(PositionAddress(transformPtr, across1));
+                    prevFlyPosY = ReadFloat(PositionAddress(transformPtr, across2));
                     flyEntityPtr = entityPtr;
                     // Not a position yet: the entity is still being set up.
                     if (!IsFinite(flyFrozenZ) || !IsFinite(prevFlyPosX) || !IsFinite(prevFlyPosY))
@@ -267,19 +448,19 @@ namespace SluMAN
 
                 if (flyModeEnabled)
                 {
-                    if ((Inputs.RawInputs & 0x1) != 0) flyFrozenZ += FlyHeightStep;   // L2 = up
-                    if ((Inputs.RawInputs & 0x2) != 0) flyFrozenZ -= FlyHeightStep;   // R2 = down
+                    if (Inputs.IsPressed(Inputs.Buttons.r1)) flyFrozenZ += FlyHeightStep;
+                    if (Inputs.IsPressed(Inputs.Buttons.l1)) flyFrozenZ -= FlyHeightStep;
 
-                    WritePosition(transformPtr, 2, flyFrozenZ);
+                    WritePosition(transformPtr, up, flyFrozenZ);
                     // Don't overwrite a value the user is typing.
                     if (!zPosTextBox.Focused)
                     {
                         zPosTextBox.Text = flyFrozenZ.ToString("F3", CultureInfo.InvariantCulture);
                     }
 
-                    float curX = ReadFloat(PositionAddress(transformPtr, 0));
-                    float curY = ReadFloat(PositionAddress(transformPtr, 1));
-                    if ((Inputs.RawInputs & 0x8) != 0)  // R1 = horizontal boost
+                    float curX = ReadFloat(PositionAddress(transformPtr, across1));
+                    float curY = ReadFloat(PositionAddress(transformPtr, across2));
+                    if (Inputs.IsPressed(Inputs.Buttons.r2))  // horizontal boost
                     {
                         float deltaX = curX - prevFlyPosX;
                         float deltaY = curY - prevFlyPosY;
@@ -287,8 +468,8 @@ namespace SluMAN
                         {
                             float newX = prevFlyPosX + deltaX * FlyBoostMultiplier;
                             float newY = prevFlyPosY + deltaY * FlyBoostMultiplier;
-                            WriteFloat(PositionAddress(transformPtr, 0), newX);
-                            WriteFloat(PositionAddress(transformPtr, 1), newY);
+                            WriteFloat(PositionAddress(transformPtr, across1), newX);
+                            WriteFloat(PositionAddress(transformPtr, across2), newY);
                             curX = newX;
                             curY = newY;
                         }
@@ -309,8 +490,8 @@ namespace SluMAN
 
                 // Current state for the labels.
                 entityIdValueLabel.Text = layout.entityIdOffset != 0 ? ReadInt(entityPtr + layout.entityIdOffset).ToString() : "N/A";
-                healthValueLabel.Text = layout.healthOffset != 0 ? ReadInt(entityPtr + layout.healthOffset).ToString() : "N/A";
-                gadgetPowerValueLabel.Text = layout.gadgetPowerOffset != 0 ? ReadInt(entityPtr + layout.gadgetPowerOffset).ToString() : "N/A";
+                healthValueLabel.Text = ReadCharacterValue(entityPtr, layout.readHealth, layout.healthOffset);
+                gadgetPowerValueLabel.Text = ReadCharacterValue(entityPtr, layout.readGadgetPower, layout.gadgetPowerOffset);
                 opacityValueLabel.Text = layout.opacityOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.opacityOffset)) : "N/A";
                 rotationValueLabel.Text = layout.rotationOffset != 0 ? FormatFloat(ReadFloat(entityPtr + layout.rotationOffset)) : "N/A";
 
@@ -318,18 +499,23 @@ namespace SluMAN
                 yPosLiveLabel.Text = FormatFloat(ReadFloat(PositionAddress(transformPtr, 1)));
                 zPosLiveLabel.Text = FormatFloat(ReadFloat(PositionAddress(transformPtr, 2)));
 
-                if (layout.velocityOffset != 0)
+                float[] velocity = ReadVelocity(transformPtr);
+                if (velocity != null)
                 {
-                    float velX = ReadFloat(VelocityAddress(transformPtr, 0));
-                    float velY = ReadFloat(VelocityAddress(transformPtr, 1));
-                    float velZ = ReadFloat(VelocityAddress(transformPtr, 2));
-                    hSpeedLabel.Text = FormatFloat((float)Math.Sqrt(velX * velX + velY * velY));
-                    zVelLiveLabel.Text = FormatFloat(velZ);
+                    float speed = (float)Math.Sqrt(velocity[across1] * velocity[across1] + velocity[across2] * velocity[across2]);
+                    hSpeedLabel.Text = FormatFloat(speed);
+                    zVelLiveLabel.Text = FormatFloat(velocity[up]);
+                    if (IsFinite(speed) && speed > topSpeed)
+                    {
+                        topSpeed = speed;
+                    }
+                    topSpeedValueLabel.Text = FormatFloat(topSpeed);
                 }
                 else
                 {
                     hSpeedLabel.Text = "N/A";
                     zVelLiveLabel.Text = "N/A";
+                    topSpeedValueLabel.Text = "N/A";
                 }
             }
             catch
@@ -382,7 +568,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 0, val);
+                game.Warp(() => WritePosition(transformPtr, 0, val));
                 if (freezePosXCheckBox.Checked) frozenPosX = val;
             }
             catch { }
@@ -394,7 +580,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 1, val);
+                game.Warp(() => WritePosition(transformPtr, 1, val));
                 if (freezePosYCheckBox.Checked) frozenPosY = val;
             }
             catch { }
@@ -406,7 +592,7 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 2, val);
+                game.Warp(() => WritePosition(transformPtr, 2, val));
                 if (freezePosZCheckBox.Checked) frozenPosZ = val;
                 if (FlyModeEnabled) flyFrozenZ = val;
             }
@@ -659,6 +845,7 @@ namespace SluMAN
 
             func.ChangeFileLines("config.txt", "", IGame.SavedPositionKey(currentMapIndicator, slot));
             func.ChangeFileLines("config.txt", "", IGame.SavedPositionNameKey(currentMapIndicator, slot));
+            func.ChangeFileLines("config.txt", "", IGame.SavedFacingKey(currentMapIndicator, slot));
             RefreshSlots();
             statusLine.Info($"Cleared slot {slot + 1}.");
         }
@@ -745,9 +932,11 @@ namespace SluMAN
             try
             {
                 if (!TryResolvePointers(out _, out uint transformPtr)) return;
-                WritePosition(transformPtr, 0, loc.X);
-                WritePosition(transformPtr, 1, loc.Y);
-                WritePosition(transformPtr, 2, loc.Z);
+                game.Warp(() =>
+                {
+                    WritePositionVector(transformPtr, loc.X, loc.Y, loc.Z);
+                    game.WriteFacing(loc.Facing);
+                });
                 if (FlyModeEnabled) flyFrozenZ = loc.Z;
             }
             catch { }
@@ -769,9 +958,10 @@ namespace SluMAN
                 float x = ReadFloat(PositionAddress(transformPtr, 0));
                 float y = ReadFloat(PositionAddress(transformPtr, 1));
                 float z = ReadFloat(PositionAddress(transformPtr, 2));
+                byte[] facing = game.ReadFacing();
 
                 userWarps.RemoveAll(w => w.MapIndicator == currentMapIndicator && w.Name == name);
-                userWarps.Add(new WarpLocation { Name = name, MapIndicator = currentMapIndicator, X = x, Y = y, Z = z, IsUserDefined = true });
+                userWarps.Add(new WarpLocation { Name = name, MapIndicator = currentMapIndicator, X = x, Y = y, Z = z, Facing = facing, IsUserDefined = true });
                 SaveUserWarps();
                 RefreshWarpDropdown(currentMapIndicator);
 
@@ -816,14 +1006,17 @@ namespace SluMAN
                 string trimmed = line.Trim();
                 if (trimmed.StartsWith("#") || string.IsNullOrEmpty(trimmed)) continue;
 
+                // Map|Name|X|Y|Z, then optionally the facing in hex.
                 string[] parts = trimmed.Split('|');
-                if (parts.Length != 5) continue;
+                if (parts.Length != 5 && parts.Length != 6) continue;
 
                 if (!float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)) continue;
                 if (!float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)) continue;
                 if (!float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float z)) continue;
 
-                warps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, IsUserDefined = isUserDefined });
+                byte[] facing = parts.Length == 6 ? IGame.FacingFromHex(parts[5]) : null;
+
+                warps.Add(new WarpLocation { MapIndicator = parts[0], Name = parts[1], X = x, Y = y, Z = z, Facing = facing, IsUserDefined = isUserDefined });
             }
             return warps;
         }
@@ -845,6 +1038,10 @@ namespace SluMAN
             {
                 WarpLocation w = userWarps[i];
                 lines[i] = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}", w.MapIndicator, w.Name, w.X, w.Y, w.Z);
+                if (w.Facing != null)
+                {
+                    lines[i] += "|" + IGame.FacingToHex(w.Facing);
+                }
             }
             File.WriteAllLines(userWarpFile, lines);
         }

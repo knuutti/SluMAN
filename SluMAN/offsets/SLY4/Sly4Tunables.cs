@@ -14,6 +14,10 @@ namespace SluMAN
     ///
     /// Values that should stick ("Keep") are saved in sly4_tunables.cfg in the user data folder,
     /// in the debug menu's own debugmenu.cfg format, and written again on every connect.
+    ///
+    /// The value a tunable had before SluMAN first wrote it is its default, put back by
+    /// ResetToDefaults. Those are saved in sly4_tunable_defaults.cfg until they're put back, so a
+    /// SluMAN that closed without putting them back still knows them next time.
     /// </summary>
     public class Sly4Tunables
     {
@@ -59,7 +63,8 @@ namespace SluMAN
         // Anything above this is a bad read, not the registry.
         private const uint MaxTunableCount = 10000;
 
-        private const string SavedFile = "sly4_tunables.cfg";
+        private static string SavedFile => sly4.addr.IsHackpack ? "hackpack_tunables.cfg" : "sly4_tunables.cfg";
+        private static string DefaultsFile => sly4.addr.IsHackpack ? "hackpack_tunable_defaults.cfg" : "sly4_tunable_defaults.cfg";
 
         private readonly IGame game;
         private List<Tunable> tunables;
@@ -68,13 +73,18 @@ namespace SluMAN
         // Name -> value as the cfg file writes it, in the order they were kept.
         private readonly List<KeyValuePair<string, string>> saved = new List<KeyValuePair<string, string>>();
 
+        // Name -> value before SluMAN first wrote it, as the cfg file writes it.
+        private readonly List<KeyValuePair<string, string>> defaults = new List<KeyValuePair<string, string>>();
+
         public Sly4Tunables(IGame game)
         {
             this.game = game;
             LoadSavedFile();
+            LoadDefaultsFile();
         }
 
         public static string SavedFilePath => UserData.Path(SavedFile);
+        private static string DefaultsFilePath => UserData.Path(DefaultsFile);
 
         /// <summary>Every tunable, read from the game the first time it's asked for.</summary>
         public List<Tunable> GetAll()
@@ -171,7 +181,68 @@ namespace SluMAN
         public void WriteValue(Tunable tunable, string value)
         {
             byte[] bytes = Parse(tunable.type, value);
+            RememberDefault(tunable);
             game.api.WriteMemory(game.pid, tunable.address + ValueOffsetOf(tunable.type), bytes);
+        }
+
+        /// <summary>How many tunables SluMAN changed and hasn't put back yet.</summary>
+        public int ChangedCount => defaults.Count;
+
+        /// <summary>
+        /// Puts every tunable SluMAN wrote (edited, kept or imported) back to the value it had
+        /// before, and with <paramref name="forgetKept"/> stops keeping any. Returns how many were
+        /// put back.
+        /// </summary>
+        public int ResetToDefaults(bool forgetKept)
+        {
+            if (forgetKept && saved.Count > 0)
+            {
+                saved.Clear();
+                WriteSavedFile();
+            }
+            if (defaults.Count == 0)
+            {
+                return 0;
+            }
+
+            int reset = 0;
+            try
+            {
+                foreach (KeyValuePair<string, string> entry in defaults.ToList())
+                {
+                    Tunable tunable = Find(entry.Key);
+                    if (tunable != null)
+                    {
+                        try
+                        {
+                            game.api.WriteMemory(game.pid, tunable.address + ValueOffsetOf(tunable.type), Parse(tunable.type, entry.Value));
+                            reset++;
+                        }
+                        catch (FormatException)
+                        {
+                            // A hand-edited line that doesn't parse; nothing to put back.
+                        }
+                    }
+                    defaults.Remove(entry);
+                }
+            }
+            finally
+            {
+                // What's left wasn't put back yet (the game went away), so it's still remembered.
+                WriteDefaultsFile();
+            }
+            return reset;
+        }
+
+        /// <summary>Remembers a tunable's value the first time SluMAN writes it.</summary>
+        private void RememberDefault(Tunable tunable)
+        {
+            if (defaults.Any(d => string.Equals(d.Key, tunable.name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+            defaults.Add(new KeyValuePair<string, string>(tunable.name, ToCfgValue(tunable.type, ReadValue(tunable))));
+            WriteDefaultsFile();
         }
 
         public bool IsKept(Tunable tunable)
@@ -444,13 +515,40 @@ namespace SluMAN
 
         private void WriteSavedFile()
         {
+            WriteCfg(SavedFilePath, "# Sly4 Debug Menu - Saved Settings", saved);
+        }
+
+        private void LoadDefaultsFile()
+        {
+            defaults.Clear();
+            if (File.Exists(DefaultsFilePath))
+            {
+                defaults.AddRange(ReadCfg(DefaultsFilePath));
+            }
+        }
+
+        private void WriteDefaultsFile()
+        {
+            if (defaults.Count == 0)
+            {
+                if (File.Exists(DefaultsFilePath))
+                {
+                    File.Delete(DefaultsFilePath);
+                }
+                return;
+            }
+            WriteCfg(DefaultsFilePath, "# Tunables SluMAN changed, with the values to put back", defaults);
+        }
+
+        private static void WriteCfg(string path, string header, List<KeyValuePair<string, string>> entries)
+        {
             StringBuilder text = new StringBuilder();
-            text.AppendLine("# Sly4 Debug Menu - Saved Settings");
-            foreach (KeyValuePair<string, string> entry in saved)
+            text.AppendLine(header);
+            foreach (KeyValuePair<string, string> entry in entries)
             {
                 text.AppendLine($"\"{entry.Key}\" = {entry.Value}");
             }
-            File.WriteAllText(SavedFilePath, text.ToString());
+            File.WriteAllText(path, text.ToString());
         }
 
         /// <summary>Reads "Name" = value lines, the format the debug menu saves.</summary>

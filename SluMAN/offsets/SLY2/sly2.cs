@@ -205,40 +205,99 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The config key a position slot is stored under, per map so each map keeps its own slots.
+        /// The map position slots are stored under, so each map keeps its own slots.
         /// </summary>
-        private string SavedPositionKey()
+        private string CurrentPositionMap()
         {
             string mapIndicator = ReadMapIndicator(sly2.addr.mapAOB);
             if (mapIndicator == "")
             {
                 throw new InvalidOperationException("Couldn't read the current map.");
             }
-            return SavedPositionKey(mapIndicator, selectedPositionIndex);
+            return mapIndicator;
         }
 
         public override void SavePosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
             uint coordsAddress = GetPlayerCoordsAddress();
 
             string position = api.ReadMemoryStr(pid, coordsAddress, 12);
-            func.ChangeFileLines("config.txt", position, key);
+            func.ChangeFileLines("config.txt", position, SavedPositionKey(map, selectedPositionIndex));
+            func.ChangeFileLines("config.txt", FacingToHex(ReadFacing()), SavedFacingKey(map, selectedPositionIndex));
             OnPositionSaved();
         }
 
         public override void LoadPosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
+            string key = SavedPositionKey(map, selectedPositionIndex);
             string position = func.GetConfigData("config.txt", key);
             if (position == "")
             {
                 Console.WriteLine($"No saved position for {key}");
                 return;
             }
+            byte[] facing = FacingFromHex(func.GetConfigData("config.txt", SavedFacingKey(map, selectedPositionIndex)));
 
             uint coordsAddress = GetPlayerCoordsAddress();
-            api.WriteMemory(pid, coordsAddress, 12, position);
+            Warp(() =>
+            {
+                api.WriteMemory(pid, coordsAddress, 12, position);
+                WriteFacing(facing);
+            });
+        }
+
+        /// <summary>
+        /// Moving across a death plane kills the player even when the end point is safe, so the
+        /// warp keeps them invulnerable while the game catches up.
+        /// </summary>
+        public override void Warp(Action write)
+        {
+            WarpWithInvulnerability(() =>
+            {
+                uint entity = GetEntityAddress();
+                return entity == 0 ? 0 : entity + 0x27C;
+            }, write);
+        }
+
+        // The player's rotation: three rows (forward, left, up) just before the position in the
+        // transform, as in the PS2 games' transforms.
+        private const uint RotationRowsSize = 0x30;
+
+        private uint GetPlayerRotationAddress()
+        {
+            return GetPlayerCoordsAddress() - RotationRowsSize;
+        }
+
+        public override byte[] ReadFacing()
+        {
+            try
+            {
+                byte[] rows = api.ReadMemory(pid, GetPlayerRotationAddress(), RotationRowsSize);
+                return IsRotationRows(rows) ? rows : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public override void WriteFacing(byte[] facing)
+        {
+            if (facing == null || !IsRotationRows(facing))
+            {
+                return;
+            }
+            try
+            {
+                uint rotationAddress = GetPlayerRotationAddress();
+                if (IsRotationRows(api.ReadMemory(pid, rotationAddress, RotationRowsSize)))
+                {
+                    api.WriteMemory(pid, rotationAddress, facing);
+                }
+            }
+            catch { }
         }
 
         public override void LoadGame()
@@ -274,20 +333,36 @@ namespace SluMAN
             api.WriteMemory(pid, sly2.addr.coinCount, ConvertIntToBytes(coins));
         }
 
+        public int GetCoins()
+        {
+            return (int)ReadUInt(sly2.addr.coinCount);
+        }
+
+        /// <summary>The active character's health.</summary>
+        public int GetHealth()
+        {
+            return (int)ReadUInt(CurrentCharacterHealthAddress());
+        }
+
         public void SetHealth(int health)
         {
-            var currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
-            uint currentCharacterHealth = sly2.addr.healthSly;
+            byte[] healthBytes = ConvertIntToBytes(health);
+            api.WriteMemory(pid, CurrentCharacterHealthAddress(), 4, healthBytes);
+        }
+
+        /// <summary>Health lives per character in the save data.</summary>
+        private uint CurrentCharacterHealthAddress()
+        {
+            byte[] currentCharacterId = api.ReadMemory(pid, sly2.addr.currentCharacter, 4);
             if (currentCharacterId[3] == 8)
             {
-                currentCharacterHealth = sly2.addr.healthBentley;
+                return sly2.addr.healthBentley;
             }
-            else if (currentCharacterId[3] == 9)
+            if (currentCharacterId[3] == 9)
             {
-                currentCharacterHealth = sly2.addr.healthMurray;
+                return sly2.addr.healthMurray;
             }
-            byte[] healthBytes = ConvertIntToBytes(health);
-            api.WriteMemory(pid, currentCharacterHealth, 4, healthBytes);
+            return sly2.addr.healthSly;
         }
 
         // Values the toggles hold, from SluMAN-EXT: full health per character and full gadget power.
@@ -346,6 +421,7 @@ namespace SluMAN
         /// </summary>
         public void SetInvulnerability(bool enabled)
         {
+            CancelWarpInvulnerability();
             ReleaseFreeze(ref invulnerabilityFreezeSubID);
 
             uint entity = GetEntityAddress();
@@ -442,8 +518,8 @@ namespace SluMAN
 
         public PositionEditorLayout GetPositionEditorLayout()
         {
-            // Velocity and the Character Info fields aren't known for Sly 2 yet, so the editor
-            // shows N/A for them. Health lives per character in the save data, not on the entity.
+            // Rotation isn't known for Sly 2 yet, so the editor shows N/A for it. Health and
+            // gadget power live per character in the save data, not on the entity.
             return new PositionEditorLayout
             {
                 gameName = "Sly 2",
@@ -452,7 +528,73 @@ namespace SluMAN
                 mapNameAddress = sly2.addr.mapAOB,
                 transformOffset = sly2.addr.transformOffset,
                 positionOffset = sly2.addr.coordsOffsetX,
+                velocityOffset = EntityVelocityOffset,
+                entityIdOffset = EntityIdOffset,
+                opacityOffset = EntityOpacityOffset,
+                readHealth = (entity) => ReadCharacterValue(entity, sly2.addr.healthSly, sly2.addr.healthBentley, sly2.addr.healthMurray),
+                readGadgetPower = (entity) => ReadCharacterValue(entity, sly2.addr.juiceSly, sly2.addr.juiceBentley, sly2.addr.juiceMurray),
             };
+        }
+
+        // Character entity offsets: its ID (Sly, Bentley, Murray), opacity, and its transform's
+        // X velocity (Y and Z follow).
+        private const uint EntityIdOffset = 0x18;
+        private const uint EntityOpacityOffset = 0x11C;
+        private const uint EntityVelocityOffset = 0x1B0;
+        private const int SlyEntityId = 7;
+        private const int BentleyEntityId = 8;
+        private const int MurrayEntityId = 9;
+
+        /// <summary>
+        /// A per-character save data value (health, gadget power) for the character an entity is,
+        /// or null if it's none of the three.
+        /// </summary>
+        private int? ReadCharacterValue(uint entity, uint slyAddress, uint bentleyAddress, uint murrayAddress)
+        {
+            switch ((int)ReadUInt(entity + EntityIdOffset))
+            {
+                case SlyEntityId: return (int)ReadUInt(slyAddress);
+                case BentleyEntityId: return (int)ReadUInt(bentleyAddress);
+                case MurrayEntityId: return (int)ReadUInt(murrayAddress);
+                default: return null;
+            }
+        }
+
+        /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
+        public CameraTabLayout GetCameraTabLayout(Sly2FreeCamera freeCamera)
+        {
+            CameraTabLayout layout = new CameraTabLayout
+            {
+                freeCamera = freeCamera,
+                pathFolder = CameraPath.Sly2Folder,
+                placeWord = "map",
+                readPlace = (out string displayName) =>
+                {
+                    string map = GetMapIndicator();
+                    displayName = GetMapDisplayName(map);
+                    if (displayName == null)
+                    {
+                        displayName = map;
+                    }
+                    return map;
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets its scale X to 0).",
+                isFogDisabled = IsFogDisabled,
+                setFogDisabled = SetFogDisabled,
+                playerHelp = "The player is made\nuncontrollable. The camera turns off when a level loads.",
+                minFov = Sly2FreeCamera.MinFov,
+                maxFov = Sly2FreeCamera.MaxFov,
+            };
+            // A Far distance row (and the camera API's far) where the version's is known.
+            if (addr.renderDistance != 0)
+            {
+                layout.getFarDistance = () => freeCamera.FarDistance;
+                layout.setFarDistance = (far) => freeCamera.FarDistance = far;
+                layout.getGameFar = () => freeCamera.GameFar;
+            }
+            return layout;
         }
 
         /// <summary>
@@ -1017,14 +1159,41 @@ namespace SluMAN
             return addr.fogAmount != 0 && ToFloat(api.ReadMemory(pid, addr.fogAmount, 4), 0) == 0;
         }
 
+        /// <summary>How far the game draws, or 0 when this version's is unknown.</summary>
+        public float ReadRenderDistance()
+        {
+            return addr.renderDistance == 0 ? 0 : ToFloat(api.ReadMemory(pid, addr.renderDistance, 4), 0);
+        }
+
+        public void WriteRenderDistance(float distance)
+        {
+            if (addr.renderDistance != 0)
+            {
+                api.WriteMemory(pid, addr.renderDistance, ConvertFloatToBytes(distance));
+            }
+        }
+
         public float ReadCameraFov()
         {
             return ToFloat(api.ReadMemory(pid, addr.cameraFov, 4), 0);
         }
 
+        /// <summary>
+        /// Sets the camera's field of view (radians) at once: the one it has, 4 bytes before the
+        /// target, and the target the game eases it to, in one write.
+        /// </summary>
         public void WriteCameraFov(float fov)
         {
-            api.WriteMemory(pid, addr.cameraFov, ConvertFloatToBytes(fov));
+            api.WriteMemory(pid, addr.cameraFov - 4, FovPair(fov));
+        }
+
+        private static byte[] FovPair(float fov)
+        {
+            byte[] bytes = new byte[8];
+            byte[] value = ConvertFloatToBytes(fov);
+            Array.Copy(value, 0, bytes, 0, 4);
+            Array.Copy(value, 0, bytes, 4, 4);
+            return bytes;
         }
 
         /// <summary>The spawn point the player last arrived at (the game sets it through doors and loads).</summary>

@@ -4,17 +4,50 @@ using System.Windows.Forms;
 
 namespace SluMAN
 {
-    public partial class Sly4Practice : Form
+    /// <summary>
+    /// Sly 4 Practice Mode: load a level (at a spawn point, as a character) or a job at a goal,
+    /// retry the checkpoint, saved positions, coins and the toggles, with the player, the camera,
+    /// the jobs, the tunables, the GUI and the memory tools on tabs. The controls are built in
+    /// code (PracticeLayout), in the layout every game shares.
+    /// </summary>
+    public class Sly4Practice : Form
     {
         public sly4 game;
         public string gameNameId = sly4.addr.GameId;
 
+        // The timer that refreshes the game state.
+        private const int RefreshIntervalMs = 200;
+
+        private readonly ComboBox levelComboBox = new ComboBox();
+        private readonly ComboBox characterComboBox = new ComboBox();
+        private readonly ComboBox spawnPointComboBox = new ComboBox();
+        private readonly ComboBox jobComboBox = new ComboBox();
+        private readonly ComboBox goalComboBox = new ComboBox();
+        private readonly ComboBox slotComboBox = new ComboBox();
+        private readonly TextBox coinsTextBox = new TextBox();
+        private readonly CheckBox invulnerableCheckBox = new CheckBox();
+        private readonly CheckBox undetectableCheckBox = new CheckBox();
+        private readonly CheckBox gameClockCheckBox = new CheckBox();
+        private readonly CheckBox slowMotionCheckBox = new CheckBox();
+        private readonly CheckBox flyModeCheckBox = new CheckBox();
+        private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
+        private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
+        private readonly Label levelValueLabel = new Label();
+        private readonly Label episodeValueLabel = new Label();
+        private readonly Label jobValueLabel = new Label();
+        private readonly Label checkpointValueLabel = new Label();
+        private readonly Label goalValueLabel = new Label();
+        private readonly Label coinsValueLabel = new Label();
+        private readonly Timer refreshTimer = new Timer();
+
+        private PracticeLayout layout;
+        private ToolStripMenuItem toolsToolStripMenuItem;
+        private GroupBox gameGroupBox;
+        private GroupBox savedPositionsGroupBox;
+
         // The game state is refreshed every few ticks: it takes a dozen reads, and on a PS3 every
         // read is a network round trip.
         private const int GameStateRefreshTicks = 5;
-
-        // How long a queued warp may wait for the game's next frame before it's dropped.
-        private static readonly TimeSpan GameCallTimeout = TimeSpan.FromSeconds(3);
 
         private const string PlayerTab = "Player";
         private const string CameraTab = "Camera";
@@ -30,7 +63,7 @@ namespace SluMAN
         public Sly4FreeMove FreeMove;
 
         /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
-        public Sly4CameraApi CameraApi;
+        public CameraScriptApi CameraApi;
 
         private StatusLine statusLine;
         private GameSession session;
@@ -38,31 +71,8 @@ namespace SluMAN
         private int refreshTick = 0;
         // Whether the last tick saw a load, for the Practice Mode popup after it.
         private bool wasLoading;
-        private bool gameCallPending = false;
-        private DateTime gameCallDeadline;
-        private string gameCallDoneMessage;
-
-        // A goal to warp to once the job started for it is running (see CheckQueuedGoalWarp).
-        private static readonly TimeSpan QueuedGoalWarpTimeout = TimeSpan.FromSeconds(60);
-        private static readonly TimeSpan QueuedGoalWarpSettleTime = TimeSpan.FromSeconds(1);
-        private sly4.JobEntry queuedGoalJob = null;
-        private int queuedGoal;
-        private DateTime queuedGoalDeadline;
-        private DateTime queuedGoalReadySince = DateTime.MaxValue;
-        // A job started on another map settles first; a restart in place loads nothing, so it
-        // warps at once, before the restarted job shows the player in an odd state for long.
-        private TimeSpan queuedGoalSettleTime;
-
-        // The running job, to start again at a goal once the game has abandoned it (see RestartJob).
-        private sly4.JobEntry queuedJobStart = null;
-        private int queuedJobStartGoal;
-        private uint queuedJobStartGoalId;
-
-        // A level to load once the job being abandoned for it has ended (see loadLevelButton_Click).
-        private sly4.LevelEntry queuedLevel = null;
-        private sly4.CharacterEntry queuedCharacter = null;
-
-        private sly4.SpawnPointEntry queuedSpawnPoint = null;
+        // Job starts, goal warps and level loads (shared with the Hackpack and the Jobs tab).
+        private Sly4JobQueue jobQueue;
 
         private const string LevelCharacter = "Level's own character";
         private const string LevelStart = "Level start";
@@ -70,14 +80,13 @@ namespace SluMAN
         public Sly4Practice(sly4 game)
         {
             this.game = game;
-            InitializeComponent();
+            PracticeLayout.SetUpWindow(this, "Sly4Practice", "SluMAN :: Sly Cooper: Thieves in Time (Practice Mode)");
+            layout = new PracticeLayout(this);
+            BuildControls();
             statusLine = new StatusLine(this, true);
-
-            for (int slot = 1; slot <= IGame.PositionSlotCount; slot++)
-            {
-                slotComboBox.Items.Add($"Slot {slot}");
-            }
-            slotComboBox.SelectedIndex = game.selectedPositionIndex;
+            jobQueue = new Sly4JobQueue(game, statusLine);
+            // Before the session's own handler, which disconnects: this one still writes to the game.
+            FormClosing += Sly4Practice_FormClosing;
 
             foreach (sly4.LevelEntry level in sly4.GetWarpLevels())
             {
@@ -95,6 +104,8 @@ namespace SluMAN
 
             try
             {
+                // Before Slow Motion: a frozen clock keeps Slow Motion's clamps for when it runs again.
+                gameClockCheckBox.Checked = game.IsGameClockFrozen();
                 slowMotionCheckBox.Checked = game.IsSlowMotionOn();
             }
             catch
@@ -112,6 +123,12 @@ namespace SluMAN
             {
                 // Left unchecked; ticking them writes the values anyway.
             }
+            // After the game's state is shown, so showing it writes nothing.
+            gameClockCheckBox.CheckedChanged += gameClockCheckBox_CheckedChanged;
+            slowMotionCheckBox.CheckedChanged += slowMotionCheckBox_CheckedChanged;
+            invulnerableCheckBox.CheckedChanged += invulnerableCheckBox_CheckedChanged;
+            undetectableCheckBox.CheckedChanged += undetectableCheckBox_CheckedChanged;
+            skipCutscenesCheckBox.CheckedChanged += skipCutscenesCheckBox_CheckedChanged;
 
             // The controller feeds the combos and the input display.
             game.SetupInputDisplayMemorySubs();
@@ -127,6 +144,8 @@ namespace SluMAN
             game.GoalsChanged += game_GoalsChanged;
             game.StartGoalWatcher();
 
+            refreshTimer.Interval = RefreshIntervalMs;
+            refreshTimer.Tick += refreshTimer_Tick;
             refreshTimer.Start();
 
             FreeMove = new Sly4FreeMove(game);
@@ -137,27 +156,130 @@ namespace SluMAN
                     statusLine.Error($"Fly / free camera stopped: {message}");
                 }
             };
-            CameraApi = new Sly4CameraApi(game, FreeMove);
+            CameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeMove));
+            CameraScriptApi.BindClockToggle(CameraApi.Layout, gameClockCheckBox, game.SetGameClockFrozen);
             CameraApi.StartFromConfig();
+            // The free camera stops the fly, and the fly the free camera.
+            FreeMove.ModeChanged += ShowFlyMode;
 
-            ToolStripMenuItem inputDisplayItem = new ToolStripMenuItem("Input Display");
-            inputDisplayItem.Click += (sender, e) => session.ShowInputDisplay();
-            toolsToolStripMenuItem.DropDownItems.Insert(0, inputDisplayItem);
+            session.FillPracticeToolsMenu(toolsToolStripMenuItem, () => practiceTabs.Show(MemoryTab));
 
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs = new PracticeTabs(this, "Practice", true);
-            practiceTabs.AddTool(PlayerTab, () => new Sly4PositionForm(game, FreeMove));
-            practiceTabs.AddTool(CameraTab, () => new Sly4CameraForm(game, FreeMove, CameraApi));
-            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, this));
-            practiceTabs.AddTool(GadgetsTab, () => new Sly4GadgetsForm(game, this));
-            practiceTabs.AddTool(RunFilesTab, () => new Sly4RunFilesForm(game, this));
+            practiceTabs.AddTool(PlayerTab, () => new PositionEditor(game, game.GetPositionEditorLayout(FreeMove), LevelDisplayName));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(CameraApi.Layout));
+            practiceTabs.AddTool(JobsTab, () => new Sly4JobsForm(game, jobQueue));
+            practiceTabs.AddTool(GadgetsTab, () => new Sly4GadgetsForm(game, jobQueue));
+            practiceTabs.AddTool(RunFilesTab, () => new Sly4RunFilesForm(game, jobQueue));
             practiceTabs.AddTool(TunablesTab, () => new Sly4TunablesForm(game));
             practiceTabs.AddTool(GuiTab, () => new Sly4GuiForm(game));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
-            // View menu: which tabs show, saved per user. Practice and Player show at first.
-            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab);
+            // View menu: which tabs show, saved per user. Practice always shows.
+            practiceTabs.AddViewMenu("sly4_visible_tabs", PlayerTab, CameraTab, JobsTab, GadgetsTab, RunFilesTab);
+        }
+
+        /// <summary>The Practice tab, in the slots every game shares (PracticeLayout).</summary>
+        private void BuildControls()
+        {
+            toolsToolStripMenuItem = layout.AddMenu();
+
+            // Left column
+            levelComboBox.MaxDropDownItems = 20;
+            characterComboBox.MaxDropDownItems = 20;
+            spawnPointComboBox.MaxDropDownItems = 20;
+            layout.AddPickerGroup("Level", levelComboBox, spawnPointComboBox, loadLevelButton_Click, characterComboBox);
+            jobComboBox.MaxDropDownItems = 20;
+            goalComboBox.MaxDropDownItems = 20;
+            goalComboBox.DropDownWidth = 300;
+            jobComboBox.DropDown += jobComboBox_DropDown;
+            jobComboBox.SelectedIndexChanged += jobComboBox_SelectedIndexChanged;
+            goalComboBox.DropDown += goalComboBox_DropDown;
+            layout.AddPickerGroup("Job", jobComboBox, goalComboBox, (sender, e) => LoadSelectedJob());
+            layout.AddReloadGroup(new Button[]
+            {
+                layout.PlaceholderButton("Reload"),
+                PracticeLayout.MakeButton("Retry Checkpoint", retryCheckpointButton_Click),
+                layout.PlaceholderButton("Skip Cinematic"),
+            }, null);
+            savedPositionsGroupBox = layout.AddSavedPositionsGroup(game, slotComboBox, savePosButton_Click, loadPosButton_Click);
+
+            // Right column
+            gameGroupBox = layout.AddStatusGroup(new string[] { "Level", "Episode", "Job", "Checkpoint", "Goal", "Coins" },
+                new Label[] { levelValueLabel, episodeValueLabel, jobValueLabel, checkpointValueLabel, goalValueLabel, coinsValueLabel });
+            layout.AddUtilityGroup(
+                PracticeLayout.Setter("Coins", coinsTextBox, setCoinsButton_Click),
+                PracticeLayout.PlaceholderSetter("Health"));
+            // Every game's toggles in the same order, Always On Top last.
+            layout.AddTogglesGroup(
+                PracticeLayout.Toggle(invulnerableCheckBox, "Invulnerability", null),
+                layout.PlaceholderToggle("Infinite Gadget Power"),
+                PracticeLayout.Toggle(undetectableCheckBox, "Undetectable", null),
+                PracticeLayout.Toggle(gameClockCheckBox, "Freeze Game Clock", null),
+                PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
+                PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", null),
+                layout.PlaceholderToggle("Infinite Jump"),
+                PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
+                PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+
+            // Click, not CheckedChanged: showing the fly's mode sets Checked too.
+            flyModeCheckBox.Click += flyModeCheckBox_Click;
+            layout.ToolTip.SetToolTip(gameClockCheckBox, "Holds the game's time nearly still (about 1,700 times slower), through the same clock clamps as Slow Motion.");
+            layout.ToolTip.SetToolTip(flyModeCheckBox,"Left stick moves along the camera's facing, R1 / L1 go up and down. The speed is on the Player tab.");
+            layout.ToolTip.SetToolTip(goalComboBox, "Load starts the job at this goal; with no job picked, the running job's.");
+        }
+
+        private void flyModeCheckBox_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FreeMove.Start(flyModeCheckBox.Checked ? Sly4FreeMove.Mode.Fly : Sly4FreeMove.Mode.Off);
+            }
+            catch (Exception ex)
+            {
+                FreeMove.Stop();
+                statusLine.Error($"Couldn't start flying: {ex.Message}");
+            }
+            ShowFlyMode();
+        }
+
+        private void ShowFlyMode()
+        {
+            if (!IsDisposed)
+            {
+                flyModeCheckBox.Checked = FreeMove.Current == Sly4FreeMove.Mode.Fly;
+            }
+        }
+
+        /// <summary>The Player tab's map name: positions are kept per level, as "sly4_" and its hash.</summary>
+        private static string LevelDisplayName(string indicator)
+        {
+            uint hash;
+            if (indicator.StartsWith("sly4_") && uint.TryParse(indicator.Substring(5), System.Globalization.NumberStyles.HexNumber, null, out hash))
+            {
+                return sly4.GetLevelName(hash);
+            }
+            return null;
+        }
+
+        private void setCoinsButton_Click(object sender, EventArgs e)
+        {
+            if (!int.TryParse(coinsTextBox.Text.Trim(), out int coins))
+            {
+                statusLine.Error("Coins must be a whole number.");
+                return;
+            }
+            try
+            {
+                game.SetCoinCount(coins);
+                coinsValueLabel.Text = game.GetCoinCount().ToString();
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't set coins: {ex.Message}");
+            }
         }
 
         /// <summary>Writes the tunables kept in the Tunables tab. A game reset puts them back to their defaults.</summary>
@@ -205,41 +327,21 @@ namespace SluMAN
         private void refreshTimer_Tick(object sender, EventArgs e)
         {
             // The labels are only read while the Practice tab shows. The timer keeps running for
-            // the warps it tracks.
+            // the load popup.
             if (refreshTick++ % GameStateRefreshTicks == 0 && gameGroupBox.Visible)
             {
                 RefreshGameState();
             }
             ShowPopUpAfterLoad();
-
-            if (gameCallPending)
-            {
-                CheckGameCall();
-            }
-            else if (queuedLevel != null)
-            {
-                LoadQueuedLevel();
-            }
-            else if (queuedJobStart != null)
-            {
-                StartQueuedJob();
-            }
-            else if (queuedGoalJob != null)
-            {
-                CheckQueuedGoalWarp();
-            }
         }
 
         /// <summary>
         /// Shows webMAN's "SluMAN (Practice Mode)" popup on the PS3 when a load finishes, like the
-        /// other games, so a run's video shows Practice Mode was on. Ratchetron only.
+        /// other games, so a run's video shows Practice Mode was on (Ratchetron only), and drops
+        /// the Player tab's position freezes when a load starts.
         /// </summary>
         private void ShowPopUpAfterLoad()
         {
-            if (!(game.api is Ratchetron))
-            {
-                return;
-            }
             bool loading;
             try
             {
@@ -250,87 +352,22 @@ namespace SluMAN
                 // Not connected right now.
                 return;
             }
-            if (wasLoading && !loading)
+            if (!wasLoading && loading)
+            {
+                // The Player tab's position freezes hold coordinates from the level being left.
+                PositionEditor positionEditor = practiceTabs.Get(PlayerTab) as PositionEditor;
+                if (positionEditor != null)
+                {
+                    positionEditor.ClearPositionFreezes();
+                }
+            }
+            if (wasLoading && !loading && game.api is Ratchetron)
             {
                 // A web request: off the UI thread.
                 string ip = game.api.GetIP();
                 System.Threading.ThreadPool.QueueUserWorkItem(_ => WebMAN.DisplayVersionPopUp(ip));
             }
             wasLoading = loading;
-        }
-
-        /// <summary>
-        /// Warps to the queued goal once its job is running, done loading and has the goal loaded,
-        /// and has stayed that way for a moment, so the warp doesn't land in the job's setup.
-        /// </summary>
-        private void CheckQueuedGoalWarp()
-        {
-            if (DateTime.Now > queuedGoalDeadline)
-            {
-                statusLine.Error($"{queuedGoalJob.Title} didn't start in time, so it wasn't warped to goal {queuedGoal + 1}.");
-                queuedGoalJob = null;
-                return;
-            }
-
-            try
-            {
-                bool ready = !game.IsLoading() && game.IsJobRunning(queuedGoalJob.index) && game.GetGoalCount() > queuedGoal;
-                if (!ready)
-                {
-                    queuedGoalReadySince = DateTime.MaxValue;
-                    return;
-                }
-                if (queuedGoalReadySince == DateTime.MaxValue)
-                {
-                    queuedGoalReadySince = DateTime.Now;
-                }
-                if (DateTime.Now - queuedGoalReadySince < queuedGoalSettleTime)
-                {
-                    return;
-                }
-
-                int goal = queuedGoal;
-                queuedGoalJob = null;
-                game.WarpToGoal(goal);
-                TrackGameCall($"Warping to goal {goal + 1}.");
-            }
-            catch (Exception ex)
-            {
-                queuedGoalJob = null;
-                statusLine.Error($"Couldn't warp to the goal: {ex.Message}");
-            }
-        }
-
-        private void CheckGameCall()
-        {
-            try
-            {
-                if (!game.IsGameCallPending())
-                {
-                    gameCallPending = false;
-                    statusLine.Info(gameCallDoneMessage);
-                }
-                else if (DateTime.Now > gameCallDeadline)
-                {
-                    gameCallPending = false;
-                    queuedLevel = null;
-                    queuedJobStart = null;
-                    game.CancelGameCall();
-                    statusLine.Error("The game didn't run the warp. On RPCS3, set the PPU decoder to Interpreter (static).");
-                }
-            }
-            catch
-            {
-                // Checked again on the next tick.
-            }
-        }
-
-        /// <summary>Starts waiting for a queued game call, reporting the message once it has run.</summary>
-        private void TrackGameCall(string doneMessage)
-        {
-            gameCallPending = true;
-            gameCallDeadline = DateTime.Now + GameCallTimeout;
-            gameCallDoneMessage = doneMessage;
         }
 
         private void jobComboBox_DropDown(object sender, EventArgs e)
@@ -397,197 +434,21 @@ namespace SluMAN
             }
         }
 
-        private void startJobButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(false, false);
-        }
-
-        private void toHubButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(true, false);
-        }
-
-        private void toHideoutButton_Click(object sender, EventArgs e)
-        {
-            StartSelectedJob(false, true);
-        }
-
-        private void StartSelectedJob(bool toHub, bool toHideout)
+        /// <summary>
+        /// The Job group's Load: the selected job at the selected goal (its first without one),
+        /// or the running job's goal when no job is picked. Going to an episode's hub or
+        /// hideout is on the Jobs tab.
+        /// </summary>
+        private void LoadSelectedJob()
         {
             sly4.JobEntry job = jobComboBox.SelectedItem as sly4.JobEntry;
-            if (job == null)
+            int goal = goalComboBox.SelectedIndex;
+            if (job == null && goal < 0)
             {
                 statusLine.Error("Pick a job first.");
                 return;
             }
-            StartJob(job, toHub, toHideout);
-        }
-
-        /// <summary>
-        /// Starts a job, or goes to its episode's hub or hideout. Used by the Warp controls and
-        /// the Jobs tab; the result shows on the status bar.
-        /// </summary>
-        public void StartJob(sly4.JobEntry job, bool toHub, bool toHideout)
-        {
-            queuedGoalJob = null;
-            queuedLevel = null;
-            queuedJobStart = null;
-            try
-            {
-                if (!toHub && !toHideout && game.IsJobRunning(job.index))
-                {
-                    RestartJob(job, 0);
-                    return;
-                }
-                game.StartJob(job.index, toHub, toHideout);
-                string where = toHub ? $"{job.EpisodeTitle}'s hub" : (toHideout ? $"{job.EpisodeTitle}'s hideout" : job.Title);
-                TrackGameCall($"Going to {where}.");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't start the job: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Loads a run file: goes to the hideout of its episode's first job with its gadgets, or
-        /// with the gadgets as they are if gadgets is null. Throws if the game can't start it.
-        /// </summary>
-        public void LoadRunFile(string runFile, sly4.JobEntry job, byte[] gadgets)
-        {
-            queuedGoalJob = null;
-            queuedLevel = null;
-            queuedJobStart = null;
-
-            // Started first, so a job the game won't start leaves the gadgets alone. Starting a
-            // job never resets gadgets; it can make more available, but a run file's gadgets
-            // only hold ones available by its episode (GadgetAvailability).
-            game.StartJob(job.index, false, true);
-            TrackGameCall($"Loading the {runFile} run file.");
-            game.api.Notify($"SluMAN {func.VersionText}: Loading {runFile} run file.");
-
-            if (gadgets != null)
-            {
-                game.SetGadgetStates(gadgets);
-            }
-        }
-
-        private void warpToGoalButton_Click(object sender, EventArgs e)
-        {
-            if (goalComboBox.SelectedIndex < 0)
-            {
-                statusLine.Error("Pick a goal first.");
-                return;
-            }
-            WarpToGoal(jobComboBox.SelectedItem as sly4.JobEntry, goalComboBox.SelectedIndex);
-        }
-
-        /// <summary>
-        /// Warps to a goal (0-based) of a job: in place if the job is running (or no job is
-        /// given), otherwise by starting the job and warping once it has loaded. With Reload Job
-        /// on Warp, a running job is started again instead, as if coming from another job, for
-        /// goals whose setup (such as a cutscene) a warp in place skips.
-        /// </summary>
-        public void WarpToGoal(sly4.JobEntry job, int goal)
-        {
-            queuedGoalJob = null;
-            queuedLevel = null;
-            queuedJobStart = null;
-            try
-            {
-                if (job == null && reloadJobCheckBox.Checked)
-                {
-                    job = RunningJob();
-                }
-
-                if (job == null || (game.IsJobRunning(job.index) && !reloadJobCheckBox.Checked))
-                {
-                    game.WarpToGoal(goal);
-                    TrackGameCall($"Warping to goal {goal + 1}.");
-                }
-                else if (game.IsJobRunning(job.index))
-                {
-                    RestartJob(job, goal);
-                }
-                else
-                {
-                    StartJobAtGoal(job, goal);
-                }
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't warp: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Starts a job that isn't running and queues the warp to the goal (0-based): the game
-        /// can't start a job at a later goal, so it warps once the job runs.
-        /// </summary>
-        private void StartJobAtGoal(sly4.JobEntry job, int goal, uint goalId = 0, bool inPlace = false)
-        {
-            game.StartJob(job.index, false, false, goalId);
-            if (goal > 0)
-            {
-                queuedGoalJob = job;
-                queuedGoal = goal;
-                queuedGoalDeadline = DateTime.Now + QueuedGoalWarpTimeout;
-                queuedGoalReadySince = DateTime.MaxValue;
-                queuedGoalSettleTime = inPlace ? TimeSpan.Zero : QueuedGoalWarpSettleTime;
-            }
-            TrackGameCall(goal > 0
-                ? $"Starting {job.Title}; it warps to goal {goal + 1} once loaded."
-                : $"Starting {job.Title}.");
-        }
-
-        /// <summary>
-        /// Starts the running job again at a goal (0-based), as if coming from another job: the
-        /// game won't start the running job, so it's abandoned first and started once that has
-        /// run. The goal's ID is read before abandoning, while the job's goals are loaded, and
-        /// passed to the start, which resets the job's state to that goal but doesn't move the
-        /// player or set the goal up; the warp to the goal once the job runs does that, like the
-        /// game's own job start does (it teleports to the goal after StartJobByInst).
-        /// </summary>
-        private void RestartJob(sly4.JobEntry job, int goal)
-        {
-            uint goalId = goal > 0 ? game.GetGoalId(goal) : 0;
-            game.AbandonJob();
-            queuedJobStart = job;
-            queuedJobStartGoal = goal;
-            queuedJobStartGoalId = goalId;
-            TrackGameCall($"Left {job.Title}; starting it again.");
-        }
-
-        private void StartQueuedJob()
-        {
-            sly4.JobEntry job = queuedJobStart;
-            queuedJobStart = null;
-            try
-            {
-                StartJobAtGoal(job, queuedJobStartGoal, queuedJobStartGoalId, true);
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't restart the job: {ex.Message}");
-            }
-        }
-
-        /// <summary>The running job's entry, or null outside jobs.</summary>
-        private sly4.JobEntry RunningJob()
-        {
-            int index = game.GetRunningJobIndex();
-            if (index < 0)
-            {
-                return null;
-            }
-            foreach (sly4.JobEntry job in game.GetJobs())
-            {
-                if (job.index == index)
-                {
-                    return job;
-                }
-            }
-            return null;
+            jobQueue.WarpToGoal(job, Math.Max(goal, 0));
         }
 
         private void retryCheckpointButton_Click(object sender, EventArgs e)
@@ -607,52 +468,7 @@ namespace SluMAN
                 statusLine.Error("Not in a job, so there's no checkpoint to retry.");
                 return;
             }
-            WarpToGoal(null, checkpoint - 1);
-        }
-
-        /// <summary>
-        /// Reloads so the gadgets written to the game take effect, as the game only reads them on
-        /// a load: retries the checkpoint in a job (as Retry Checkpoint does), otherwise loads the
-        /// current level again from its start. Used by the Gadgets tab's Apply.
-        /// </summary>
-        public void ReloadForGadgets()
-        {
-            int checkpoint;
-            uint levelHash;
-            try
-            {
-                game.GetCheckpoint(out checkpoint, out int goalCount, out string goalName);
-                levelHash = game.GetLevelHash();
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't reload: {ex.Message}");
-                return;
-            }
-
-            if (checkpoint > 0)
-            {
-                WarpToGoal(null, checkpoint - 1);
-                return;
-            }
-            if (levelHash == 0)
-            {
-                statusLine.Error("No level is loaded, so the gadgets take effect on the next load.");
-                return;
-            }
-
-            queuedGoalJob = null;
-            queuedLevel = null;
-            queuedJobStart = null;
-            try
-            {
-                game.LoadLevel(levelHash, null, null);
-                TrackGameCall($"Reloading {sly4.GetLevelName(levelHash)}.");
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't reload the level: {ex.Message}");
-            }
+            jobQueue.WarpToGoal(null, checkpoint - 1);
         }
 
         private void loadLevelButton_Click(object sender, EventArgs e)
@@ -663,61 +479,9 @@ namespace SluMAN
                 statusLine.Error("Pick a level first.");
                 return;
             }
-
-            sly4.CharacterEntry character = characterComboBox.SelectedItem as sly4.CharacterEntry;
-            sly4.SpawnPointEntry spawnPoint = spawnPointComboBox.SelectedItem as sly4.SpawnPointEntry;
-            queuedGoalJob = null;
-            queuedLevel = null;
-            queuedJobStart = null;
-            try
-            {
-                // A running job would load its own level instead, so end it first and load the
-                // level once the game has run that call.
-                if (game.IsInJob())
-                {
-                    game.AbandonJob();
-                    queuedLevel = level;
-                    queuedCharacter = character;
-                    queuedSpawnPoint = spawnPoint;
-                    TrackGameCall($"Left the job; loading {level.name}.");
-                    return;
-                }
-                game.LoadLevel(level.hash, character, spawnPoint);
-                TrackGameCall(LoadingMessage(level, character, spawnPoint));
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't load the level: {ex.Message}");
-            }
-        }
-
-        private void LoadQueuedLevel()
-        {
-            sly4.LevelEntry level = queuedLevel;
-            queuedLevel = null;
-            try
-            {
-                game.LoadLevel(level.hash, queuedCharacter, queuedSpawnPoint);
-                TrackGameCall(LoadingMessage(level, queuedCharacter, queuedSpawnPoint));
-            }
-            catch (Exception ex)
-            {
-                statusLine.Error($"Couldn't load the level: {ex.Message}");
-            }
-        }
-
-        private static string LoadingMessage(sly4.LevelEntry level, sly4.CharacterEntry character, sly4.SpawnPointEntry spawnPoint)
-        {
-            string message = $"Loading {level.name}";
-            if (spawnPoint != null)
-            {
-                message += $" at {spawnPoint.title}";
-            }
-            if (character != null)
-            {
-                message += $" as {character.title}";
-            }
-            return message + ".";
+            jobQueue.LoadLevel(level.hash, level.name,
+                characterComboBox.SelectedItem as sly4.CharacterEntry,
+                spawnPointComboBox.SelectedItem as sly4.SpawnPointEntry);
         }
 
         /// <summary>Lists the selected level's spawn points, after its default start.</summary>
@@ -764,6 +528,15 @@ namespace SluMAN
                 }
                 checkpointValueLabel.Text = checkpointText;
                 goalValueLabel.Text = string.IsNullOrEmpty(goalName) ? "-" : goalName;
+                try
+                {
+                    coinsValueLabel.Text = game.GetCoinCount().ToString();
+                }
+                catch
+                {
+                    // In the title screen, there's no game manager yet.
+                    coinsValueLabel.Text = "-";
+                }
             }
             catch
             {
@@ -772,12 +545,8 @@ namespace SluMAN
                 jobValueLabel.Text = "-";
                 checkpointValueLabel.Text = "-";
                 goalValueLabel.Text = "-";
+                coinsValueLabel.Text = "-";
             }
-        }
-
-        private void slotComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            game.selectedPositionIndex = slotComboBox.SelectedIndex;
         }
 
         private void savePosButton_Click(object sender, EventArgs e)
@@ -802,6 +571,18 @@ namespace SluMAN
             catch (Exception ex)
             {
                 statusLine.Error($"Couldn't load the position: {ex.Message}");
+            }
+        }
+
+        private void gameClockCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                game.SetGameClockFrozen(gameClockCheckBox.Checked);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error($"Couldn't change the game clock: {ex.Message}");
             }
         }
 
@@ -858,6 +639,8 @@ namespace SluMAN
             // A game reset puts the tunables back to their defaults.
             try
             {
+                // Before Slow Motion, which a frozen clock keeps for when it runs again.
+                game.RefreezeClockAfterReset();
                 if (slowMotionCheckBox.Checked)
                 {
                     game.SetSlowMotion(true);
@@ -891,12 +674,19 @@ namespace SluMAN
             // The tools' own cleanup (timers) runs when they close.
             practiceTabs.CloseAll();
             CameraApi.Stop();
+            FreeMove.ModeChanged -= ShowFlyMode;
             FreeMove.Stop();
             game.GoalsChanged -= game_GoalsChanged;
             game.StopGoalWatcher();
             refreshTimer.Stop();
+            jobQueue.Stop();
 
-            // Leave the game unmodified. This runs before the session disconnects.
+            // Leave the game unmodified. This runs before the session disconnects. The clock runs
+            // again first, at what it ran at before; then Slow Motion goes.
+            if (gameClockCheckBox.Checked)
+            {
+                try { game.SetGameClockFrozen(false); } catch { }
+            }
             if (slowMotionCheckBox.Checked)
             {
                 try { game.SetSlowMotion(false); } catch { }
@@ -914,33 +704,11 @@ namespace SluMAN
                 try { game.SetSkipCutscenes(false); } catch { }
             }
 
+            // Put back what the Tunables tab changed; kept tunables are written again next time.
+            try { game.tunables.ResetToDefaults(false); } catch { }
+
             // Put the game's code back. Does nothing if no warp was used.
             try { game.RemoveCodeHook(); } catch { }
-        }
-
-        private void switchGameModeToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.SwitchGameOrMode();
-        }
-
-        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(MemoryTab);
-        }
-
-        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            UserData.OpenInExplorer();
-        }
-
-        private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.PowerOffPS3();
-        }
-
-        private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.RebootPS3();
         }
     }
 }

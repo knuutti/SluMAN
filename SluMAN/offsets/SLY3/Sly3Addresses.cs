@@ -107,7 +107,7 @@ namespace SluMAN
         public uint objectParentOffset { get; private set; }
         public uint objectChangedOffset { get; private set; }
         public uint cameraFarClipOffset { get; private set; }
-        public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it
+        public uint cameraFovTargetOffset { get; private set; } // the game eases its field of view to it; the one it has is 4 bytes before
         public uint levelFogAmount { get; private set; } // set to 0.0 to remove fog
         public uint infoboxPointer { get; private set; }
         public uint infoboxYPositionOffset { get; private set; }

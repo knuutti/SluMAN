@@ -14,8 +14,10 @@ namespace SluMAN
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
     /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
     /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down,
-    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood. It can
-    /// also play a camera path instead of following the sticks.</item>
+    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood; in the
+    /// hacking minigames, which have no character to hold, the game's time is held nearly still
+    /// instead (sly4.SetTimeFrozen), so the ship, ball or avatar the sticks also drive stays put.
+    /// It can also play a camera path instead of following the sticks.</item>
     /// </list>
     /// Runs on its own thread, faster than the game's frame rate on RPCS3 so the camera moves
     /// smoothly, and keeps going whichever tab shows. Sly4Practice owns the one instance. The free camera turns itself off when a load
@@ -28,13 +30,17 @@ namespace SluMAN
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 50;
         private const float DeadZone = 0.2f;
-        // Field of view limits, in radians (10 and 150 degrees), and the game's usual one
-        // (Camera.Default.FOV, 53.5 degrees) for when the view's can't be read.
+        // Field of view limits, in radians: just above 0 and just below 180 degrees (0.0001 and
+        // 179.9999), where the projection breaks down.
         public const float MinFov = 1.745e-6f;
-        public const float MaxFov = 2.618f;
+        public const float MaxFov = 3.1415909f;
+        // The game's usual field of view (Camera.Default.FOV, 53.5 degrees), for when the view's
+        // can't be read.
         private const float DefaultFov = 0.9338f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
         private const float MaxPitch = (float)(Math.PI / 2);
+        // A facing with less horizontal length than this counts as straight up or down.
+        private const float VerticalFacing = 0.05f;
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
 
@@ -50,6 +56,9 @@ namespace SluMAN
 
         // Where the player is held (fly: where they've flown to), or null until it's read.
         private float[] playerPosition;
+
+        // Whether the free camera started in a hacking minigame, where time is held instead.
+        private bool inHack;
 
         // The free camera: position, facing, and how the game's matrix rows relate to the facing.
         private float[] cameraPosition;
@@ -125,8 +134,8 @@ namespace SluMAN
 
         /// <summary>
         /// While on, the free camera stays where it is (or keeps playing its path) and the player
-        /// isn't held: the controller moves the character as usual. Turning it off holds the
-        /// player where they are then.
+        /// isn't held (nor, in the hacking minigames, time): the controller moves the character as
+        /// usual. Turning it off holds the player where they are then.
         /// </summary>
         public bool CharacterControl
         {
@@ -152,6 +161,14 @@ namespace SluMAN
                         {
                             playerPosition = null;
                         }
+                    }
+                    try
+                    {
+                        HoldHackTime();
+                    }
+                    catch
+                    {
+                        // Time runs as it was; the next change tries again.
                     }
                 }
             }
@@ -363,11 +380,20 @@ namespace SluMAN
             {
                 float[] position = game.GetPosition();
                 playerPosition = position;
+                inHack = game.IsInHack();
                 if (newMode == Mode.FreeCamera)
                 {
                     StartCamera(position);
                 }
                 mode = newMode;
+                try
+                {
+                    HoldHackTime();
+                }
+                catch
+                {
+                    // The camera works without it; the minigame just keeps running.
+                }
             }
 
             clock.Restart();
@@ -391,6 +417,7 @@ namespace SluMAN
 
             lock (stateLock)
             {
+                try { game.SetTimeFrozen(false); } catch { }
                 if (mode == Mode.FreeCamera)
                 {
                     try { game.StopViewOverride(); } catch { }
@@ -399,6 +426,15 @@ namespace SluMAN
                 playingPath = null;
             }
             RaiseModeChanged();
+        }
+
+        /// <summary>
+        /// In a hacking minigame, holds the game's time nearly still while the free camera is
+        /// steered, and lets it run with character control (or once the camera is off).
+        /// </summary>
+        private void HoldHackTime()
+        {
+            game.SetTimeFrozen(inHack && mode == Mode.FreeCamera && !characterControl);
         }
 
         private void RaiseModeChanged()
@@ -433,6 +469,7 @@ namespace SluMAN
                     running = false;
                     lock (stateLock)
                     {
+                        try { game.SetTimeFrozen(false); } catch { }
                         if (mode == Mode.FreeCamera)
                         {
                             try { game.StopViewOverride(); } catch { }
@@ -560,10 +597,25 @@ namespace SluMAN
                 }
             }
             float[] forward = Scale(z, forwardSign);
-            yaw = (float)Math.Atan2(forward[0], forward[2]);
             pitch = (float)Math.Asin(Math.Max(-1, Math.Min(1, forward[1])));
+            if (forward[0] * forward[0] + forward[2] * forward[2] > VerticalFacing * VerticalFacing)
+            {
+                yaw = (float)Math.Atan2(forward[0], forward[2]);
+            }
+            else
+            {
+                // Looking (nearly) straight up or down, as Spark Runner's camera does, the facing
+                // doesn't tell the yaw, but the camera's X axis (horizontal) still does. Taking it
+                // from the facing there put the camera at yaw 0 whichever way it was turned, which
+                // could also mirror it: the view turned around and its lit faces went dark.
+                // The right is the X axis times the forward sign, as it is for every camera facing
+                // anywhere else, so the sticks work the same way round as everywhere else.
+                float[] x = Axis(m, 0);
+                yaw = (float)Math.Atan2(-x[2] * forwardSign, x[0] * forwardSign);
+            }
 
-            float[] right = RightOf(forward);
+            // The right from the yaw, which is defined looking straight up or down too.
+            float[] right = RightOfYaw();
             float[] up = Cross(forward, right);
             rightSign = Dot(Axis(m, 0), right) < 0 ? -1 : 1;
             upSign = Dot(Axis(m, 1), up) < 0 ? -1 : 1;
@@ -637,7 +689,10 @@ namespace SluMAN
             }
             r3WasPressed = r3;
 
-            yaw -= Stick(Inputs.rx) * LookSpeed * step;
+            // The view turns towards the screen's right as the yaw drops only while the camera's
+            // X axis and its facing agree in sign, as in every unmirrored camera; for a mirrored
+            // one the stick turns the other way round.
+            yaw -= Stick(Inputs.rx) * LookSpeed * step * rightSign * forwardSign;
             pitch -= Stick(Inputs.ry) * LookSpeed * step;
             pitch = Math.Max(-MaxPitch, Math.Min(MaxPitch, pitch));
 
@@ -745,11 +800,6 @@ namespace SluMAN
             return new float[] { (float)Math.Cos(yaw), 0, (float)-Math.Sin(yaw) };
         }
 
-        private static float[] RightOf(float[] forward)
-        {
-            return Normalize(new float[] { forward[2], 0, -forward[0] });
-        }
-
         private static float[] Flatten(float[] v)
         {
             return Normalize(new float[] { v[0], 0, v[2] });
@@ -784,6 +834,104 @@ namespace SluMAN
                 a[2] * b[0] - a[0] * b[2],
                 a[0] * b[1] - a[1] * b[0],
             };
+        }
+    }
+
+    /// <summary>Sly4FreeMove's free camera mode, as the shared Camera tab drives it.</summary>
+    public class Sly4FreeCamera : IFreeCamera
+    {
+        private readonly Sly4FreeMove freeMove;
+
+        public Sly4FreeCamera(Sly4FreeMove freeMove)
+        {
+            this.freeMove = freeMove;
+        }
+
+        public event Action ModeChanged
+        {
+            add { freeMove.ModeChanged += value; }
+            remove { freeMove.ModeChanged -= value; }
+        }
+
+        public event Action KeyframeRequested
+        {
+            add { freeMove.KeyframeRequested += value; }
+            remove { freeMove.KeyframeRequested -= value; }
+        }
+
+        public event Action PlaybackFinished
+        {
+            add { freeMove.PlaybackFinished += value; }
+            remove { freeMove.PlaybackFinished -= value; }
+        }
+
+        // Sly4FreeMove has no notices; its problems are thrown from Start.
+        public event Action<string, bool> Notice
+        {
+            add { }
+            remove { }
+        }
+
+        public bool IsOn => freeMove.Current == Sly4FreeMove.Mode.FreeCamera;
+        public bool FovKnown => true;
+
+        public float CameraSpeed
+        {
+            get { return freeMove.CameraSpeed; }
+            set { freeMove.CameraSpeed = value; }
+        }
+
+        public float LookSpeed
+        {
+            get { return freeMove.LookSpeed; }
+            set { freeMove.LookSpeed = value; }
+        }
+
+        public float Fov
+        {
+            get { return freeMove.Fov; }
+            set { freeMove.Fov = value; }
+        }
+
+        public float GameFov => freeMove.GameFov;
+
+        public bool CharacterControl
+        {
+            get { return freeMove.CharacterControl; }
+            set { freeMove.CharacterControl = value; }
+        }
+
+        public bool IsPlaying => freeMove.IsPlaying;
+        public float PlaybackTime => freeMove.PlaybackTime;
+
+        public void Start()
+        {
+            freeMove.Start(Sly4FreeMove.Mode.FreeCamera);
+        }
+
+        public void Stop()
+        {
+            freeMove.Stop();
+        }
+
+        public void Play(CameraPath path, bool loop)
+        {
+            freeMove.Play(path, loop);
+        }
+
+        public void StopPlayback()
+        {
+            freeMove.StopPlayback();
+        }
+
+        public bool GetCamera(out float[] position, out float cameraYaw, out float cameraPitch, out float cameraFov)
+        {
+            return freeMove.GetCamera(out position, out cameraYaw, out cameraPitch, out cameraFov);
+        }
+
+        public bool SetCamera(float[] position, float cameraYaw, float cameraPitch, float cameraFov)
+        {
+            return freeMove.SetCamera(position, cameraYaw, cameraPitch, cameraFov);
         }
     }
 }

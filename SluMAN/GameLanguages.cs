@@ -80,17 +80,7 @@ namespace SluMAN
                 }
             };
 
-            // Before the separator above Power Off / Reboot, with the other game tools.
-            int index = menu.DropDownItems.Count;
-            for (int i = 0; i < menu.DropDownItems.Count; i++)
-            {
-                if (menu.DropDownItems[i] is ToolStripSeparator)
-                {
-                    index = i;
-                    break;
-                }
-            }
-            menu.DropDownItems.Insert(index, languageMenu);
+            GameSession.AddGameMenuItem(menu, languageMenu);
         }
     }
 }

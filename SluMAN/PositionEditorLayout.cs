@@ -51,12 +51,45 @@ namespace SluMAN
         /// <summary>Transform offset of X velocity; Y and Z follow at +4 and +8. 0 if unknown.</summary>
         public uint velocityOffset;
 
+        /// <summary>
+        /// Moves the player to X, Y and Z, for games where writing the position isn't enough
+        /// (Sly 4's physics body). Used instead of writing at positionOffset when set.
+        /// </summary>
+        public Action<float, float, float> writePosition;
+
+        /// <summary>Reads X, Y and Z velocity (null without a player). Used instead of velocityOffset when set.</summary>
+        public Func<float[]> readVelocity;
+
+        /// <summary>Which axis is up: 2 (Z) in Sly 1-3, 1 (Y) in Sly 4.</summary>
+        public uint heightAxis = 2;
+
+        /// <summary>
+        /// Whether the game is loading, for games whose loads IGame.IsLoading doesn't watch.
+        /// Nothing is written to the player then.
+        /// </summary>
+        public Func<bool> isLoading;
+
+        /// <summary>
+        /// The fly speed of a game whose fly runs outside the editor (Sly 4): shown as a Fly
+        /// speed box when set.
+        /// </summary>
+        public Func<float> getFlySpeed;
+        public Action<float> setFlySpeed;
+
         // Entity offsets for the Character Info panel. 0 if unknown.
         public uint entityIdOffset;
         public uint healthOffset;
         public uint gadgetPowerOffset;
         public uint opacityOffset;
         public uint rotationOffset;
+
+        /// <summary>
+        /// Read the player's health and gadget power from their entity (null if unknown), for
+        /// games that keep them outside it (Sly 2's are per character in the save data). Used
+        /// instead of healthOffset / gadgetPowerOffset when set.
+        /// </summary>
+        public Func<uint, int?> readHealth;
+        public Func<uint, int?> readGadgetPower;
 
         /// <summary>
         /// Entity offset the editor writes 0 to while Infinite Jump is on and the editor is open.

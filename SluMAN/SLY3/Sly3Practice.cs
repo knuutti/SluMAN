@@ -1,16 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
-using System.Net.Http;
-using System.Threading;
-using System.Reflection;
 
 namespace SluMAN
 {
-    public partial class Sly3Practice : Form, IPositionEditorHost
+    /// <summary>
+    /// Sly 3 Practice Mode: load a map at a spawn point or a job at a checkpoint, reload, saved
+    /// positions, set coins and health, and the toggles, with the player (position editor), the
+    /// camera, gadgets, run files and the memory tools on tabs. The controls are built in code
+    /// (PracticeLayout), in the layout every game shares.
+    /// </summary>
+    public class Sly3Practice : Form, IPositionEditorHost
     {
         public Form GadgetsWindow;
         private PositionEditor positionEditorWindow;
@@ -39,6 +41,35 @@ namespace SluMAN
         private const float FlyHeightStep = 20.0f;
         private const float FlyBoostMultiplier = 8.0f;
 
+        // The Game group refreshes every second; on a PS3 every read is a network round trip.
+        private const int RefreshIntervalMs = 1000;
+
+        private readonly ComboBox mapComboBox = new ComboBox();
+        private readonly ComboBox spawnComboBox = new ComboBox();
+        private readonly ComboBox jobComboBox = new ComboBox();
+        private readonly ComboBox checkpointComboBox = new ComboBox();
+        private readonly ComboBox reloadAsCharacterComboBox = new ComboBox();
+        private readonly ComboBox slotComboBox = new ComboBox();
+        private readonly TextBox coinsTextBox = new TextBox();
+        private readonly TextBox healthTextBox = new TextBox();
+        private readonly CheckBox invulnerabilityCheckBox = new CheckBox();
+        private readonly CheckBox infiniteHealthCheckBox = new CheckBox();
+        private readonly CheckBox infiniteGadgetPowerCheckBox = new CheckBox();
+        private readonly CheckBox gameClockCheckBox = new CheckBox();
+        private readonly CheckBox flyModeCheckBox = new CheckBox();
+        private readonly CheckBox infiniteJumpCheckBox = new CheckBox();
+        private readonly CheckBox autoSkipCheckBox = new CheckBox();
+        private readonly CheckBox guardAICheckBox = new CheckBox();
+        private readonly CheckBox deathBarriersCheckBox = new CheckBox();
+        private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
+        private readonly Label mapValueLabel = new Label();
+        private readonly Label coinsValueLabel = new Label();
+        private readonly Label healthValueLabel = new Label();
+        private readonly Timer refreshTimer = new Timer();
+
+        private PracticeLayout layout;
+        private ToolStripMenuItem toolsMenu;
+        private GroupBox statusGroupBox;
         private StatusLine statusLine;
         private JobPicker jobPicker;
         private MapPicker mapPicker;
@@ -46,15 +77,20 @@ namespace SluMAN
 
         /// <summary>The free camera, kept running whichever tab shows.</summary>
         public Sly3FreeCamera FreeCamera;
+        /// <summary>The local HTTP API scripts drive the free camera with (Camera tab).</summary>
+        private CameraScriptApi cameraApi;
 
         public Sly3Practice(sly3 game)
         {
             this.game = game;
-            InitializeComponent();
-            // The designer holds the flat job list; the picker splits it into jobs and checkpoints.
-            jobPicker = new JobPicker(jobComboBox, checkpointComboBox, jobComboBox.Items.Cast<string>().ToList());
+            PracticeLayout.SetUpWindow(this, "Sly3Practice", "SluMAN :: Sly 3: Honor Among Thieves (Practice Mode)");
+            layout = new PracticeLayout(this);
+            BuildControls();
+            // The picker splits the flat job list into jobs and checkpoints.
+            jobPicker = new JobPicker(jobComboBox, checkpointComboBox, Sly3Jobs.All.ToList());
             statusLine = new StatusLine(this, true);
-            func.BindEnter(healthTextBox, setHealthButton);
+            // Before the session's own handler, which disconnects: this one still writes to the game.
+            FormClosing += Sly3Practice_FormClosing;
 
             mapPicker = new MapPicker(mapComboBox, spawnComboBox, game.GetMapNames(),
                 game.maps.Select(m => m.indicator).ToArray(), game.maps.Select(m => m.defaultWarp).ToArray(),
@@ -71,15 +107,20 @@ namespace SluMAN
             game.combosActive = true;
             game.InputsTimer.Start();
 
-            // Only the PAL versions have more than one language.
-            if (sly3.addr.language != 0)
-            {
-                GameLanguages.AddMenu(menuToolStripMenuItem, GameLanguages.Sly3, statusLine, game.GetLanguage, game.SetLanguage);
-            }
-
             session = new GameSession(this, game, gameNameId, "Sly 3", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
             session.Reconnected += session_Reconnected;
+
+            session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
+            // Only the PAL versions have more than one language.
+            if (sly3.addr.language != 0)
+            {
+                GameLanguages.AddMenu(toolsMenu, GameLanguages.Sly3, statusLine, game.GetLanguage, game.SetLanguage);
+            }
+
+            refreshTimer.Interval = RefreshIntervalMs;
+            refreshTimer.Tick += (sender, e) => RefreshStatus();
+            refreshTimer.Start();
 
             freezeTimer = new System.Windows.Forms.Timer();
             freezeTimer.Interval = 16;
@@ -101,19 +142,74 @@ namespace SluMAN
                 }
             };
 
+            cameraApi = new CameraScriptApi(game.GetCameraTabLayout(FreeCamera));
+            CameraScriptApi.BindClockToggle(cameraApi.Layout, gameClockCheckBox, game.SetGameClockFrozen);
+            cameraApi.StartFromConfig();
+
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
+            // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
             practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
+            practiceTabs.AddTool(CameraTab, () => new CameraForm(cameraApi.Layout));
             practiceTabs.AddTool(GadgetsTab, () => new Sly3Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly3RunFilesForm(game));
-            practiceTabs.AddTool(CameraTab, () => new Sly3CameraForm(game, FreeCamera));
             // The watch list and the hex viewer open each other's tabs.
             practiceTabs.AddTool(MemoryTab, () => new MemoryForm(() => (MemoryViewerForm)practiceTabs.Show(ViewerTab)));
             practiceTabs.AddTool(ViewerTab, () => new MemoryViewerForm(() => (MemoryForm)practiceTabs.Show(MemoryTab)));
             // View menu: which tabs show, saved per user. Practice always shows.
-            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, GadgetsTab, RunFilesTab, CameraTab);
+            practiceTabs.AddViewMenu("sly3_visible_tabs", PositionTab, CameraTab, GadgetsTab, RunFilesTab);
             practiceTabs.ToolCreated += practiceTabs_ToolCreated;
             practiceTabs.ToolClosed += practiceTabs_ToolClosed;
+            RefreshStatus();
+        }
+
+        /// <summary>The Practice tab, in the slots every game shares (PracticeLayout).</summary>
+        private void BuildControls()
+        {
+            toolsMenu = layout.AddMenu();
+
+            // Left column
+            layout.AddPickerGroup("Map", mapComboBox, spawnComboBox, (sender, e) => Run(null, () => game.LoadMap(mapComboBox.SelectedIndex, mapPicker.SelectedSpawn)));
+            layout.AddPickerGroup("Job", jobComboBox, checkpointComboBox, (sender, e) => LoadSelectedJob());
+            reloadAsCharacterComboBox.Items.AddRange(new object[] { "Default", "Sly", "Bentley", "Murray", "Carmelita", "Guru", "Panda King", "Penelope" });
+            reloadAsCharacterComboBox.SelectedIndex = 0;
+            layout.AddReloadGroup(new Button[]
+            {
+                PracticeLayout.MakeButton("Reload (Fast)", (sender, e) => Run(null, () => Reload(true))),
+                PracticeLayout.MakeButton("Reload (Full)", (sender, e) => Run(null, () => Reload(false))),
+                PracticeLayout.MakeButton("Skip Cinematic", (sender, e) => Run(null, game.SkipCinematic)),
+            }, reloadAsCharacterComboBox);
+            layout.AddSavedPositionsGroup(game, slotComboBox,
+                (sender, e) => Run($"Saved position to slot {game.selectedPositionIndex + 1}.", game.SavePosition),
+                (sender, e) => Run(null, game.LoadPosition));
+
+            // Right column
+            statusGroupBox = layout.AddStatusGroup(new string[] { "Map", "Coins", "Health" },
+                new Label[] { mapValueLabel, coinsValueLabel, healthValueLabel });
+            layout.AddUtilityGroup(
+                PracticeLayout.Setter("Coins", coinsTextBox, (sender, e) => SetFromTextBox(coinsTextBox, "Coins", game.SetCoinCount)),
+                PracticeLayout.Setter("Health", healthTextBox, (sender, e) => SetFromTextBox(healthTextBox, "Health", game.SetHealth)));
+            // Every game's toggles in the same order; Sly 3's own after the shared ones, Always On
+            // Top last. Infinite Health and Gadget Power are held by the freeze timer.
+            layout.AddTogglesGroup(
+                PracticeLayout.Toggle(invulnerabilityCheckBox, "Invulnerability",
+                    (sender, e) => ApplyToggle(invulnerabilityCheckBox, () => game.SetInvulnerability(invulnerabilityCheckBox.Checked))),
+                PracticeLayout.Toggle(infiniteHealthCheckBox, "Infinite Health", null),
+                PracticeLayout.Toggle(infiniteGadgetPowerCheckBox, "Infinite Gadget Power", null),
+                layout.PlaceholderToggle("Undetectable"),
+                PracticeLayout.Toggle(gameClockCheckBox, "Freeze Game Clock",
+                    (sender, e) => ApplyToggle(gameClockCheckBox, () => game.SetGameClockFrozen(gameClockCheckBox.Checked))),
+                PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", null),
+                PracticeLayout.Toggle(infiniteJumpCheckBox, "Infinite Jump", null),
+                PracticeLayout.Toggle(autoSkipCheckBox, "Auto-skip Cutscenes",
+                    (sender, e) => ApplyToggle(autoSkipCheckBox, () => game.SetAutoSkip(autoSkipCheckBox.Checked))),
+                PracticeLayout.Toggle(guardAICheckBox, "Disable Guard AI",
+                    (sender, e) => ApplyToggle(guardAICheckBox, () => game.SetGuardAI(guardAICheckBox.Checked))),
+                PracticeLayout.Toggle(deathBarriersCheckBox, "Disable Death Barriers",
+                    (sender, e) => ApplyToggle(deathBarriersCheckBox, () => game.SetDeathBarriers(deathBarriersCheckBox.Checked))),
+                PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+
+            layout.ToolTip.SetToolTip(flyModeCheckBox, "Holds the character's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
         }
 
         private void game_LoadStarted()
@@ -257,7 +353,7 @@ namespace SluMAN
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Couldn't re-apply {toggle.Text} after load: {ex.Message}");
+                statusLine.Error($"Couldn't re-apply {toggle.Text} after load: {ex.Message}");
             }
         }
 
@@ -340,15 +436,16 @@ namespace SluMAN
                 }
                 prevFlyModeState = true;
 
-                if ((Inputs.RawInputs & 0x1) != 0) flyFrozenZ += FlyHeightStep;  // L2 = up
-                if ((Inputs.RawInputs & 0x2) != 0) flyFrozenZ -= FlyHeightStep;  // R2 = down
+                // R1 / L1 up and down, as every game's fly and free camera.
+                if (Inputs.IsPressed(Inputs.Buttons.r1)) flyFrozenZ += FlyHeightStep;
+                if (Inputs.IsPressed(Inputs.Buttons.l1)) flyFrozenZ -= FlyHeightStep;
 
                 WriteFloat(transformPtr + sly3.addr.coordsOffsetZ, flyFrozenZ);
                 WriteFloat(transformPtr + 0x1B8, 0f);  // zero Z velocity
 
                 float curX = ReadFloat(transformPtr + sly3.addr.coordsOffsetX);
                 float curY = ReadFloat(transformPtr + sly3.addr.coordsOffsetY);
-                if ((Inputs.RawInputs & 0x8) != 0)  // R1 = horizontal boost
+                if (Inputs.IsPressed(Inputs.Buttons.r2))  // horizontal boost
                 {
                     float deltaX = curX - prevFlyPosX;
                     float deltaY = curY - prevFlyPosY;
@@ -386,37 +483,12 @@ namespace SluMAN
             game.api.WriteMemory(game.pid, address, b);
         }
 
-        private void inputDisplayButton_Click(object sender, EventArgs e)
-        {
-            session.ShowInputDisplay();
-        }
-
-        private void loadPosButton_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void savePosButton_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void coinsTextBox_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true;
-                SetCoinsFromTextBox();
-            }
-        }
-
-        private void positionsComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
         private void Sly3Practice_FormClosing(object sender, FormClosingEventArgs e)
         {
+            refreshTimer.Stop();
             // The tools' own cleanup (subscriptions, timers) runs when they close.
             practiceTabs.CloseAll();
+            cameraApi.Stop();
             FreeCamera.Stop();
             game.LoadFinished -= game_LoadFinished;
             game.LoadStarted -= game_LoadStarted;
@@ -424,27 +496,6 @@ namespace SluMAN
             freezeTimer.Stop();
             game.SetAutoSkip(false);
             // The session closes the other windows and disconnects after this.
-        }
-
-        private void toolsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void switchGameToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.SwitchGameOrMode();
-        }
-
-        private void configureButtonCombosToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ConfigureCombos configureCombos = new ConfigureCombos();
-            configureCombos.ShowDialog(this);
-        }
-
-        private void memoryUtilitiesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            practiceTabs.Show(MemoryTab);
         }
 
         private void practiceTabs_ToolCreated(string title, Form form)
@@ -473,95 +524,55 @@ namespace SluMAN
             }
         }
 
-        private void openUserDataToolStripMenuItem_Click(object sender, EventArgs e)
+        private void Run(string done, Action action)
         {
-            UserData.OpenInExplorer();
-        }
-
-        private void loadMapButton_Click(object sender, EventArgs e)
-        {
-            game.LoadMap(mapComboBox.SelectedIndex, mapPicker.SelectedSpawn);
-        }
-
-        private void groupBox1_Enter(object sender, EventArgs e)
-        {
-
-        }
-
-        private void fastReloadButton_Click(object sender, EventArgs e)
-        {
-            switch (reloadAsCharacterComboBox.SelectedIndex)
+            try
             {
-                case 1:
-                    game.SetActiveCharacter(24);
-                    break;
-                case 2:
-                    game.SetActiveCharacter(25);
-                    break;
-                case 3:
-                    game.SetActiveCharacter(26);
-                    break;
-                case 4:
-                    game.SetActiveCharacter(28);
-                    break;
-                case 5:
-                    game.SetActiveCharacter(29);
-                    break;
-                case 6:
-                    game.SetActiveCharacter(30);
-                    break;
-                case 7:
-                    game.SetActiveCharacter(31);
-                    break;
+                action();
+                if (done != null)
+                {
+                    statusLine.Info(done);
+                }
             }
-            game.TriggerGameLoad((uint)0);
-        }
-
-        private void fullReloadButton_Click(object sender, EventArgs e)
-        {
-            switch (reloadAsCharacterComboBox.SelectedIndex)
+            catch (Exception ex)
             {
-                case 1:
-                    game.SetActiveCharacter(24);
-                    break;
-                case 2:
-                    game.SetActiveCharacter(25);
-                    break;
-                case 3:
-                    game.SetActiveCharacter(26);
-                    break;
-                case 4:
-                    game.SetActiveCharacter(28);
-                    break;
-                case 5:
-                    game.SetActiveCharacter(29);
-                    break;
-                case 6:
-                    game.SetActiveCharacter(30);
-                    break;
-                case 7:
-                    game.SetActiveCharacter(31);
-                    break;
+                statusLine.Error(ex.Message);
             }
-            game.TriggerGameLoad();
         }
 
-        private void loadRunFileButton_Click(object sender, EventArgs e)
+        private void SetFromTextBox(TextBox textBox, string what, Action<int> set)
         {
-
+            int value;
+            if (!int.TryParse(textBox.Text.Trim(), out value))
+            {
+                statusLine.Error($"{what} must be a whole number.");
+                return;
+            }
+            Run(null, () => set(value));
         }
 
-        private void webMANShortcutsToolStripMenuItem_Click(object sender, EventArgs e)
+        // The characters the Reload group's list picks, after Default.
+        private static readonly int[] ReloadCharacters = { 24, 25, 26, 28, 29, 30, 31 };
+
+        /// <summary>Reloads, as the character the Reload group's list picks; a fast reload keeps the map loaded.</summary>
+        private void Reload(bool fast)
         {
-
+            int selected = reloadAsCharacterComboBox.SelectedIndex;
+            if (selected >= 1 && selected <= ReloadCharacters.Length)
+            {
+                game.SetActiveCharacter(ReloadCharacters[selected - 1]);
+            }
+            if (fast)
+            {
+                game.TriggerGameLoad((uint)0);
+            }
+            else
+            {
+                game.TriggerGameLoad();
+            }
         }
 
-        private void skipCinematicsButton_Click(object sender, EventArgs e)
-        {
-            game.SkipCinematic();
-        }
-
-        private void loadJobButton_Click(object sender, EventArgs e)
+        private void LoadSelectedJob()
         {
             string entry = jobPicker.SelectedEntry;
             if (entry == null)
@@ -569,24 +580,27 @@ namespace SluMAN
                 statusLine.Error("Select a job to load first.");
                 return;
             }
-            game.LoadJob(entry);
+            Run(null, () => game.LoadJob(entry));
         }
 
-        private void abandonJobButton_Click(object sender, EventArgs e)
+        private void RefreshStatus()
         {
-            game.AbandonJob(jobComboBox.Text);
-        }
-
-        private void setCoinsButton_Click(object sender, EventArgs e)
-        {
-            SetCoinsFromTextBox();
-
-        }
-
-        private void coinsTextBox_TextChanged(object sender, EventArgs e)
-        {
-            
-
+            // Only read while the Practice tab shows.
+            if (IsDisposed || !statusGroupBox.Visible)
+            {
+                return;
+            }
+            try
+            {
+                mapValueLabel.Text = game.GetMapDisplayName(game.GetMapIndicator());
+                coinsValueLabel.Text = game.GetCoins().ToString();
+                int health = game.GetHealth();
+                healthValueLabel.Text = health < 0 ? "-" : health.ToString();
+            }
+            catch
+            {
+                // Not connected or reconnecting; the next tick tries again.
+            }
         }
 
         private void session_Reconnected()
@@ -596,93 +610,20 @@ namespace SluMAN
             // The game reset dropped the auto-skipper's subscriptions.
             if (autoSkipCheckBox.Checked)
             {
-                game.RestartAutoSkip();
+                ApplyToggle(autoSkipCheckBox, () => game.RestartAutoSkip());
             }
         }
 
-        private void SetCoinsFromTextBox()
+        private void ApplyToggle(CheckBox toggle, Action apply)
         {
-            var coinsText = coinsTextBox.Text;
-            // try to parse the input as an integer
-            if (int.TryParse(coinsText, out int coins))
+            try
             {
-                game.SetCoinCount(coins);
+                apply();
             }
-            else
+            catch (Exception ex)
             {
-                statusLine.Error("Coins must be a whole number.");
+                statusLine.Error($"Couldn't change {toggle.Text}: {ex.Message}");
             }
-        }
-
-        private void SetHealthFromTextBox()
-        {
-            var healthText = healthTextBox.Text;
-            // try to parse the input as an integer
-            if (int.TryParse(healthText, out int health))
-            {
-                game.SetHealth(health);
-            }
-            else
-            {
-                statusLine.Error("Health must be a whole number.");
-            }
-        }
-
-        private void healthTextBox_TextChanged(object sender, EventArgs e)
-        {
-            
-        }
-
-        private void setHealthButton_Click(object sender, EventArgs e)
-        {
-            SetHealthFromTextBox();
-        }
-
-
-
-        private void powerOffPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.PowerOffPS3();
-        }
-
-        private void rebootPS3ToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            session.RebootPS3();
-        }
-
-        private void invulnerabilityCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            game.SetInvulnerability(invulnerabilityCheckBox.Checked);
-        }
-
-        private void guardAICheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            game.SetGuardAI(guardAICheckBox.Checked);
-        }
-
-        private void deathBarriersCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            game.SetDeathBarriers(deathBarriersCheckBox.Checked);
-        }
-
-        private void gameClockCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            game.SetGameClockFrozen(gameClockCheckBox.Checked);
-        }
-
-        private void autoSkipCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            game.SetAutoSkip(autoSkipCheckBox.Checked);
-        }
-
-        
-
-        private void infiniteHealthCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-        }
-
-        private void infiniteGadgetPowerCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
         }
     }
 }

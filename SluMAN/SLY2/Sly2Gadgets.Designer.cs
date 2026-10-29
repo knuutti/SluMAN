@@ -57,17 +57,8 @@
             this.murrayGadgetsLabel = new System.Windows.Forms.Label();
             this.bentleyGadgetsLabel = new System.Windows.Forms.Label();
             this.slyGadgetsLabel = new System.Windows.Forms.Label();
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.loadRunFileGadgetsButton = new System.Windows.Forms.Button();
-            this.saveRunFileGadgetsButton = new System.Windows.Forms.Button();
-            this.runFileComboBox = new System.Windows.Forms.ComboBox();
-            this.saveAndReloadButton = new System.Windows.Forms.Button();
-            this.saveButton = new System.Windows.Forms.Button();
             this.label7 = new System.Windows.Forms.Label();
             this.vaultGadgetsToggleCheckBox = new System.Windows.Forms.CheckBox();
-            this.label8 = new System.Windows.Forms.Label();
-            this.label9 = new System.Windows.Forms.Label();
-            this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
             // slyGadgetsCheckedList
@@ -355,81 +346,6 @@
             this.slyGadgetsLabel.TabIndex = 54;
             this.slyGadgetsLabel.Text = "Sly:";
             // 
-            // groupBox1
-            // 
-            this.groupBox1.Controls.Add(this.loadRunFileGadgetsButton);
-            this.groupBox1.Controls.Add(this.saveRunFileGadgetsButton);
-            this.groupBox1.Controls.Add(this.runFileComboBox);
-            this.groupBox1.Location = new System.Drawing.Point(198, 380);
-            this.groupBox1.Margin = new System.Windows.Forms.Padding(2);
-            this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Padding = new System.Windows.Forms.Padding(2);
-            this.groupBox1.Size = new System.Drawing.Size(279, 86);
-            this.groupBox1.TabIndex = 60;
-            this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Run file gadgets";
-            // 
-            // loadRunFileGadgetsButton
-            // 
-            this.loadRunFileGadgetsButton.Location = new System.Drawing.Point(183, 20);
-            this.loadRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2);
-            this.loadRunFileGadgetsButton.Name = "loadRunFileGadgetsButton";
-            this.loadRunFileGadgetsButton.Size = new System.Drawing.Size(83, 26);
-            this.loadRunFileGadgetsButton.TabIndex = 1;
-            this.loadRunFileGadgetsButton.Text = "Load";
-            this.loadRunFileGadgetsButton.UseVisualStyleBackColor = true;
-            this.loadRunFileGadgetsButton.Click += new System.EventHandler(this.loadRunFileGadgetsButton_Click);
-            // 
-            // saveRunFileGadgetsButton
-            // 
-            this.saveRunFileGadgetsButton.Location = new System.Drawing.Point(183, 51);
-            this.saveRunFileGadgetsButton.Margin = new System.Windows.Forms.Padding(2);
-            this.saveRunFileGadgetsButton.Name = "saveRunFileGadgetsButton";
-            this.saveRunFileGadgetsButton.Size = new System.Drawing.Size(83, 26);
-            this.saveRunFileGadgetsButton.TabIndex = 2;
-            this.saveRunFileGadgetsButton.Text = "Save";
-            this.saveRunFileGadgetsButton.UseVisualStyleBackColor = true;
-            this.saveRunFileGadgetsButton.Click += new System.EventHandler(this.saveRunFileGadgetsButton_Click);
-            // 
-            // runFileComboBox
-            // 
-            this.runFileComboBox.FormattingEnabled = true;
-            this.runFileComboBox.Items.AddRange(new object[] {
-            "Episode 1",
-            "Episode 2",
-            "Episode 3",
-            "Episode 4",
-            "Episode 5",
-            "Episode 6",
-            "Episode 7",
-            "Episode 8"});
-            this.runFileComboBox.Location = new System.Drawing.Point(14, 39);
-            this.runFileComboBox.Margin = new System.Windows.Forms.Padding(2);
-            this.runFileComboBox.Name = "runFileComboBox";
-            this.runFileComboBox.Size = new System.Drawing.Size(155, 21);
-            this.runFileComboBox.TabIndex = 0;
-            this.runFileComboBox.Text = "Select run file...";
-            // 
-            // saveAndReloadButton
-            // 
-            this.saveAndReloadButton.Location = new System.Drawing.Point(356, 332);
-            this.saveAndReloadButton.Name = "saveAndReloadButton";
-            this.saveAndReloadButton.Size = new System.Drawing.Size(121, 36);
-            this.saveAndReloadButton.TabIndex = 58;
-            this.saveAndReloadButton.Text = "Save and Reload";
-            this.saveAndReloadButton.UseVisualStyleBackColor = true;
-            this.saveAndReloadButton.Click += new System.EventHandler(this.saveAndReloadButton_Click);
-            // 
-            // saveButton
-            // 
-            this.saveButton.Location = new System.Drawing.Point(198, 332);
-            this.saveButton.Name = "saveButton";
-            this.saveButton.Size = new System.Drawing.Size(121, 36);
-            this.saveButton.TabIndex = 57;
-            this.saveButton.Text = "Save";
-            this.saveButton.UseVisualStyleBackColor = true;
-            this.saveButton.Click += new System.EventHandler(this.saveButton_Click);
-            // 
             // label7
             // 
             this.label7.AutoSize = true;
@@ -450,36 +366,13 @@
             this.vaultGadgetsToggleCheckBox.UseVisualStyleBackColor = true;
             this.vaultGadgetsToggleCheckBox.CheckedChanged += new System.EventHandler(this.vaultGadgetsToggleCheckBox_CheckedChanged);
             // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(195, 284);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(249, 13);
-            this.label8.TabIndex = 63;
-            this.label8.Text = "Changes are activated only after you press \"Save\".";
-            // 
-            // label9
-            // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(195, 300);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(206, 13);
-            this.label9.TabIndex = 64;
-            this.label9.Text = "Gadget binding are activate after a reload.";
-            // 
             // Sly2Gadgets
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(492, 474);
-            this.Controls.Add(this.label9);
-            this.Controls.Add(this.label8);
             this.Controls.Add(this.vaultGadgetsToggleCheckBox);
             this.Controls.Add(this.label7);
-            this.Controls.Add(this.groupBox1);
-            this.Controls.Add(this.saveAndReloadButton);
-            this.Controls.Add(this.saveButton);
             this.Controls.Add(this.murrayGadgetsLabel);
             this.Controls.Add(this.bentleyGadgetsLabel);
             this.Controls.Add(this.slyGadgetsLabel);
@@ -512,7 +405,6 @@
             this.Name = "Sly2Gadgets";
             this.Text = "SluMAN :: Gadget Editor (Sly 2)";
             this.Load += new System.EventHandler(this.Sly2Gadgets_Load);
-            this.groupBox1.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -548,15 +440,7 @@
         private System.Windows.Forms.Label murrayGadgetsLabel;
         private System.Windows.Forms.Label bentleyGadgetsLabel;
         private System.Windows.Forms.Label slyGadgetsLabel;
-        private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.Button loadRunFileGadgetsButton;
-        private System.Windows.Forms.Button saveRunFileGadgetsButton;
-        private System.Windows.Forms.ComboBox runFileComboBox;
-        private System.Windows.Forms.Button saveAndReloadButton;
-        private System.Windows.Forms.Button saveButton;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.CheckBox vaultGadgetsToggleCheckBox;
-        private System.Windows.Forms.Label label8;
-        private System.Windows.Forms.Label label9;
     }
 }

@@ -173,40 +173,117 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// The config key a position slot is stored under, per map so each map keeps its own slots.
+        /// The map position slots are stored under, so each map keeps its own slots.
         /// </summary>
-        private string SavedPositionKey()
+        private string CurrentPositionMap()
         {
             string mapIndicator = ReadMapIndicator(sly3.addr.mapAOB);
             if (mapIndicator == "")
             {
                 throw new InvalidOperationException("Couldn't read the current map.");
             }
-            return SavedPositionKey(mapIndicator, selectedPositionIndex);
+            return mapIndicator;
         }
 
         public override void SavePosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
             uint coordsAddress = GetPlayerCoordsAddress();
 
             string position = api.ReadMemoryStr(pid, coordsAddress, 12);
-            func.ChangeFileLines("config.txt", position, key);
+            func.ChangeFileLines("config.txt", position, SavedPositionKey(map, selectedPositionIndex));
+            func.ChangeFileLines("config.txt", FacingToHex(ReadFacing()), SavedFacingKey(map, selectedPositionIndex));
             OnPositionSaved();
         }
 
         public override void LoadPosition()
         {
-            string key = SavedPositionKey();
+            string map = CurrentPositionMap();
+            string key = SavedPositionKey(map, selectedPositionIndex);
             string position = func.GetConfigData("config.txt", key);
             if (position == "")
             {
                 Console.WriteLine($"No saved position for {key}");
                 return;
             }
+            byte[] facing = FacingFromHex(func.GetConfigData("config.txt", SavedFacingKey(map, selectedPositionIndex)));
 
             uint coordsAddress = GetPlayerCoordsAddress();
-            api.WriteMemory(pid, coordsAddress, 12, position);
+            Warp(() =>
+            {
+                api.WriteMemory(pid, coordsAddress, 12, position);
+                WriteFacing(facing);
+            });
+        }
+
+        /// <summary>
+        /// Moving across a death plane kills the player even when the end point is safe, so the
+        /// warp keeps them invulnerable while the game catches up.
+        /// </summary>
+        public override void Warp(Action write)
+        {
+            WarpWithInvulnerability(() =>
+            {
+                uint entity = GetEntityAddress();
+                return entity == 0 ? 0 : entity + 0x17C;
+            }, write);
+        }
+
+        // The player's rotation: three rows (forward, left, up) just before the position in the
+        // transform, as in the PS2 games' transforms.
+        private const uint RotationRowsSize = 0x30;
+
+        private uint GetPlayerRotationAddress()
+        {
+            return GetPlayerCoordsAddress() - RotationRowsSize;
+        }
+
+        // The character's heading (shown as Rotation in the Position Editor), which is saved with
+        // the rotation rows in case the game turns the character from it.
+        private const uint HeadingOffset = 0x1AC;
+
+        public override byte[] ReadFacing()
+        {
+            try
+            {
+                byte[] rows = api.ReadMemory(pid, GetPlayerRotationAddress(), RotationRowsSize);
+                uint entity = GetEntityAddress();
+                if (!IsRotationRows(rows) || entity == 0)
+                {
+                    return null;
+                }
+                byte[] heading = api.ReadMemory(pid, entity + HeadingOffset, 4);
+                return rows.Concat(heading).ToArray();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public override void WriteFacing(byte[] facing)
+        {
+            if (facing == null || facing.Length != RotationRowsSize + 4)
+            {
+                return;
+            }
+            byte[] rows = facing.Take((int)RotationRowsSize).ToArray();
+            if (!IsRotationRows(rows))
+            {
+                return;
+            }
+            try
+            {
+                uint rotationAddress = GetPlayerRotationAddress();
+                uint entity = GetEntityAddress();
+                if (entity == 0 || !IsRotationRows(api.ReadMemory(pid, rotationAddress, RotationRowsSize)))
+                {
+                    return;
+                }
+                api.WriteMemory(pid, rotationAddress, rows);
+                api.WriteMemory(pid, entity + HeadingOffset, facing.Skip((int)RotationRowsSize).ToArray());
+            }
+            catch { }
         }
 
         public override void LoadGame()
@@ -274,6 +351,35 @@ namespace SluMAN
             };
         }
 
+        /// <summary>The Camera tab. Paths are saved under the map's internal name, shown with its natural one.</summary>
+        public CameraTabLayout GetCameraTabLayout(Sly3FreeCamera freeCamera)
+        {
+            return new CameraTabLayout
+            {
+                freeCamera = freeCamera,
+                pathFolder = CameraPath.Sly3Folder,
+                placeWord = "map",
+                readPlace = (out string displayName) =>
+                {
+                    string map = GetMapIndicator();
+                    displayName = GetMapDisplayName(map);
+                    if (displayName == null)
+                    {
+                        displayName = map;
+                    }
+                    return map;
+                },
+                isHudHidden = IsHudHidden,
+                setHudHidden = SetHudHidden,
+                hudToolTip = "Hides the HUD (sets its scale X to 0).",
+                isFogDisabled = IsFogDisabled,
+                setFogDisabled = SetFogDisabled,
+                playerHelp = "The player is held where\nthey stood. The camera turns off when a level loads.",
+                minFov = Sly3FreeCamera.MinFov,
+                maxFov = Sly3FreeCamera.MaxFov,
+            };
+        }
+
         /// <summary>
         /// The readable name of a map such as "Y$KFv_ext", or null when it isn't in the list.
         /// </summary>
@@ -306,6 +412,22 @@ namespace SluMAN
         public void SetCoinCount(int coins)
         {
             api.WriteMemory(pid, sly3.addr.coinCount, ConvertIntToBytes(coins));
+        }
+
+        public int GetCoins()
+        {
+            return (int)ReadUInt(sly3.addr.coinCount);
+        }
+
+        /// <summary>The active character's health, or -1 without one.</summary>
+        public int GetHealth()
+        {
+            uint entityPtr = ReadUInt(sly3.addr.activeCharacterPtr);
+            if (entityPtr == 0)
+            {
+                return -1;
+            }
+            return (int)ReadUInt(entityPtr + sly3.addr.healthEntityOffset);
         }
 
         public void SetHealth(int health)
@@ -439,6 +561,7 @@ namespace SluMAN
 
         public void SetInvulnerability(bool enabled)
         {
+            CancelWarpInvulnerability();
             uint entity = GetEntityAddress();
             api.WriteMemory(pid, entity + 0x17C, ConvertIntToBytes(enabled ? 1 : 0));
         }
@@ -551,9 +674,7 @@ namespace SluMAN
 
         public void SetCameraFOV(float value)
         {
-            byte[] ptrBytes = api.ReadMemory(pid, sly3.addr.cameraPointer, 4);
-            uint ptr = BitConverter.ToUInt32(ptrBytes.Reverse().ToArray(), 0);
-            api.WriteMemory(pid, ptr + sly3.addr.cameraFovTargetOffset, ConvertFloatToBytes(value));
+            WriteCameraFov(GetMainCamera(), value);
         }
 
         public void SetDrawDistance(float value)
@@ -731,10 +852,17 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, camera + addr.cameraFovTargetOffset, 4), 0);
         }
 
-        /// <summary>Sets the field of view (radians) a camera eases to.</summary>
+        /// <summary>
+        /// Sets a camera's field of view (radians) at once: the one it has, 4 bytes before the
+        /// target, and the target the game eases it to, in one write.
+        /// </summary>
         public void WriteCameraFov(uint camera, float fov)
         {
-            api.WriteMemory(pid, camera + addr.cameraFovTargetOffset, ConvertFloatToBytes(fov));
+            byte[] bytes = new byte[8];
+            byte[] value = ConvertFloatToBytes(fov);
+            Array.Copy(value, 0, bytes, 0, 4);
+            Array.Copy(value, 0, bytes, 4, 4);
+            api.WriteMemory(pid, camera + addr.cameraFovTargetOffset - 4, bytes);
         }
 
         // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
