@@ -781,12 +781,8 @@ namespace SluMAN
             farBeforeOverride = api.ReadMemory(pid, view + addr.viewFarOffset, 4);
             if (OrthoSupported)
             {
-                projectionBeforeOrtho = new ViewProjection
-                {
-                    type = ReadByte(view + addr.viewProjectionTypeOffset),
-                    rect = api.ReadMemory(pid, view + addr.viewOrthoRectOffset, 0x10),
-                    near = api.ReadMemory(pid, view + addr.viewNearOffset, 4),
-                };
+                projectionBeforeOrtho = ReadProjection(view);
+                layersBeforeOrtho = HackLayerViews().Select(ReadProjection).ToList();
             }
             SetViewOverride(matrices, fov, far, orthoRect, orthoNear);
 
@@ -894,7 +890,8 @@ namespace SluMAN
             uint original = Branch(call, addr.hackPreRenderFunction, true);
             uint hooked = Branch(call, addr.hackPreRenderStub, true);
             uint instruction = ReadUInt(call);
-            if (instruction != original && instruction != hooked)
+            bool legacy = addr.legacyHackPreRenderStub != 0 && instruction == Branch(call, addr.legacyHackPreRenderStub, true);
+            if (instruction != original && instruction != hooked && !legacy)
             {
                 return;
             }
@@ -962,15 +959,49 @@ namespace SluMAN
 
         private class ViewProjection
         {
+            public uint view;
             public byte type;
             public byte[] rect;
             public byte[] near;
         }
 
+        private ViewProjection ReadProjection(uint view)
+        {
+            return new ViewProjection
+            {
+                view = view,
+                type = ReadByte(view + addr.viewProjectionTypeOffset),
+                rect = api.ReadMemory(pid, view + addr.viewOrthoRectOffset, 0x10),
+                near = api.ReadMemory(pid, view + addr.viewNearOffset, 4),
+            };
+        }
+
+        /// <summary>The hacking minigame's layer views (see hackMechanicOffset); none outside the minigames.</summary>
+        private List<uint> HackLayerViews()
+        {
+            List<uint> views = new List<uint>();
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            uint mechanic = gameManager == 0 || addr.hackMechanicOffset == 0 ? 0 : ReadUInt(gameManager + addr.hackMechanicOffset);
+            if (mechanic == 0)
+            {
+                return views;
+            }
+            for (uint i = 0; i < 3; i++)
+            {
+                uint view = ReadUInt(mechanic + addr.hackLayerViewsOffset + i * 4);
+                if (view != 0)
+                {
+                    views.Add(view);
+                }
+            }
+            return views;
+        }
+
         /// <summary>
-        /// Puts back the main view's projection type, rectangle and near distance from before the
-        /// free camera. The game doesn't set them every frame as it does the matrices, so they'd
-        /// otherwise stay as the orthographic camera left them.
+        /// Puts back the projection type, rectangle and near distance the main view had before the
+        /// free camera, and the type and rectangle of the hacking minigame's layer views (the game
+        /// sets their near distance every frame). The game doesn't set these every frame as it does
+        /// the matrices, so they'd otherwise stay as the orthographic camera left them.
         /// </summary>
         private void PutBackProjection()
         {
@@ -981,9 +1012,23 @@ namespace SluMAN
             {
                 return;
             }
-            api.WriteMemory(pid, view + addr.viewProjectionTypeOffset, new byte[] { before.type });
-            api.WriteMemory(pid, view + addr.viewOrthoRectOffset, before.rect);
-            api.WriteMemory(pid, view + addr.viewNearOffset, before.near);
+            WriteProjection(before, true);
+            List<uint> layers = HackLayerViews();
+            foreach (ViewProjection layer in layersBeforeOrtho.Where(layer => layers.Contains(layer.view)))
+            {
+                WriteProjection(layer, false);
+            }
+        }
+
+        private void WriteProjection(ViewProjection projection, bool withNear)
+        {
+            uint view = projection.view;
+            api.WriteMemory(pid, view + addr.viewProjectionTypeOffset, new byte[] { projection.type });
+            api.WriteMemory(pid, view + addr.viewOrthoRectOffset, projection.rect);
+            if (withNear)
+            {
+                api.WriteMemory(pid, view + addr.viewNearOffset, projection.near);
+            }
             uint flags = view + addr.viewFlagsOffset;
             api.WriteMemory(pid, flags, new byte[] { (byte)(ReadByte(flags) | 0x80) });
         }
@@ -996,6 +1041,7 @@ namespace SluMAN
         private byte[] fovBeforeOverride;
         private byte[] farBeforeOverride;
         private ViewProjection projectionBeforeOrtho;
+        private List<ViewProjection> layersBeforeOrtho = new List<ViewProjection>();
         private byte[] lastOverride;
         private bool orthoWritten;
 
@@ -1089,7 +1135,9 @@ namespace SluMAN
                 api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
             }
             uint hackCall = addr.hackPreRenderCall;
-            if (ReadUInt(hackCall) == Branch(hackCall, addr.hackPreRenderStub, true))
+            uint hackInstruction = ReadUInt(hackCall);
+            if (hackInstruction == Branch(hackCall, addr.hackPreRenderStub, true)
+                || (addr.legacyHackPreRenderStub != 0 && hackInstruction == Branch(hackCall, addr.legacyHackPreRenderStub, true)))
             {
                 api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
             }
@@ -1113,6 +1161,7 @@ namespace SluMAN
             fovBeforeOverride = null;
             farBeforeOverride = null;
             projectionBeforeOrtho = null;
+            layersBeforeOrtho = new List<ViewProjection>();
             lastOverride = null;
             if (view == 0 || last == null)
             {
@@ -1241,6 +1290,10 @@ namespace SluMAN
         /// override stub does it again later, for the main view's own copy) and turns the main
         /// view's depth of field off; after the setup, it turns the bottom layer's off. The game
         /// turns both on again each frame, so nothing stays changed once the hook is gone.
+        /// Where the free camera can be orthographic, it also puts the orthographic near distance
+        /// into the main view before the setup (the top layer copies it), and after the setup
+        /// makes the three layer views orthographic with the override's rectangle; the setup's
+        /// setters have marked them to be rebuilt. Elsewhere the stub is as it always was.
         /// </summary>
         private byte[] HackPreRenderStub()
         {
@@ -1251,8 +1304,14 @@ namespace SluMAN
             uint effects = addr.viewEffectsOffset;
             uint dof = addr.effectDofOffset;
             uint enabled = addr.effectEnabledOffset;
+            uint rect = addr.viewOrthoRectOffset;
+            bool ortho = OrthoSupported;
+            // Where the branches go: the layer setup call, the orthographic layers and the end.
+            int call = ortho ? 43 : 36;
+            int layers = call + 18;
+            int end = ortho ? layers + 23 : layers;
 
-            uint[] words =
+            List<uint> words = new List<uint>
             {
                 0xF821FF81,             //  0 stdu r1, -0x80(r1)
                 0x7C0802A6,             //  1 mflr r0
@@ -1262,10 +1321,10 @@ namespace SluMAN
                 0x396B0000 | low,       //  5 addi r11, r11, data@l
                 0x818B0000,             //  6 lwz r12, 0(r11)
                 0x2C0C0000,             //  7 cmpwi r12, 0
-                0x41820070,             //  8 beq +0x70 (to 36: off)
+                ConditionalBranch(0x41820000, 8, call), //  8 beq call (off)
                 0x818B0004,             //  9 lwz r12, 4(r11)
                 0x7C046000,             // 10 cmpw r4, r12
-                0x40820064,             // 11 bne +0x64 (to 36: another view)
+                ConditionalBranch(0x40820000, 11, call), // 11 bne call (another view)
                 0x38C00020,             // 12 li r6, 32 (words)
                 0x7CC903A6,             // 13 mtctr r6
                 0x38A40000 | (addr.viewMatrixOffset - 4), // 14 addi r5, r4, view matrix - 4
@@ -1281,44 +1340,99 @@ namespace SluMAN
                 0x2C080000,             // 24 cmpwi r8, 0
                 0x41820008,             // 25 beq +8 (0: keep the game's)
                 0x91040000 | addr.viewFarOffset, // 26 stw r8, far(r4)
-                0x80A40000 | effects,   // 27 lwz r5, effects(r4)
-                0x2C050000,             // 28 cmpwi r5, 0
-                0x4182001C,             // 29 beq +0x1C (to 36)
-                0x80A50000 | dof,       // 30 lwz r5, dof(r5)
-                0x2C050000,             // 31 cmpwi r5, 0
-                0x41820010,             // 32 beq +0x10 (to 36)
-                0x38C00000,             // 33 li r6, 0
-                0x98C50000 | enabled,   // 34 stb r6, enabled(r5)
-                0xE8610070,             // 35 ld r3, 0x70(r1)
-                Branch(stub + 36 * 4, addr.hackPreRenderFunction, true), // 36 bl layer setup
-                0x3D600000 | high,      // 37 lis r11, data@ha
-                0x396B0000 | low,       // 38 addi r11, r11, data@l
-                0x818B0000,             // 39 lwz r12, 0(r11)
-                0x2C0C0000,             // 40 cmpwi r12, 0
-                0x41820034,             // 41 beq +0x34 (to 54: off)
-                0xE8610070,             // 42 ld r3, 0x70(r1)
-                0x80A30000 | addr.hackBottomLayerOffset, // 43 lwz r5, bottom layer(r3)
-                0x2C050000,             // 44 cmpwi r5, 0
-                0x41820024,             // 45 beq +0x24 (to 54)
-                0x80A50000 | effects,   // 46 lwz r5, effects(r5)
-                0x2C050000,             // 47 cmpwi r5, 0
-                0x41820018,             // 48 beq +0x18 (to 54)
-                0x80A50000 | dof,       // 49 lwz r5, dof(r5)
-                0x2C050000,             // 50 cmpwi r5, 0
-                0x4182000C,             // 51 beq +0xC (to 54)
-                0x38C00000,             // 52 li r6, 0
-                0x98C50000 | enabled,   // 53 stb r6, enabled(r5)
-                0xE8010090,             // 54 ld r0, 0x90(r1)
-                0x7C0803A6,             // 55 mtlr r0
-                0x38210080,             // 56 addi r1, r1, 0x80
-                0x4E800020,             // 57 blr
             };
-            byte[] code = new byte[words.Length * 4];
-            for (int i = 0; i < words.Length; i++)
+            if (ortho)
+            {
+                words.AddRange(new uint[]
+                {
+                    0x810B0098,         // 27 lwz r8, 0x98(r11) (orthographic)
+                    0x2C080000,         // 28 cmpwi r8, 0
+                    0x41820014,         // 29 beq +0x14 (to 34: perspective)
+                    0x810B00AC,         // 30 lwz r8, 0xAC(r11) (near distance)
+                    0x2C080000,         // 31 cmpwi r8, 0
+                    0x41820008,         // 32 beq +8 (0: keep the game's)
+                    0x91040000 | addr.viewNearOffset, // 33 stw r8, near(r4)
+                });
+            }
+            int at = words.Count;
+            words.AddRange(new uint[]
+            {
+                0x80A40000 | effects,   // lwz r5, effects(r4)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, at + 2, call), // beq call
+                0x80A50000 | dof,       // lwz r5, dof(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, at + 5, call), // beq call
+                0x38C00000,             // li r6, 0
+                0x98C50000 | enabled,   // stb r6, enabled(r5)
+                0xE8610070,             // ld r3, 0x70(r1)
+                Branch(stub + (uint)call * 4, addr.hackPreRenderFunction, true), // call: bl layer setup
+                0x3D600000 | high,      // lis r11, data@ha
+                0x396B0000 | low,       // addi r11, r11, data@l
+                0x818B0000,             // lwz r12, 0(r11)
+                0x2C0C0000,             // cmpwi r12, 0
+                ConditionalBranch(0x41820000, call + 5, end), // beq end (off)
+                0xE8610070,             // ld r3, 0x70(r1)
+                0x80A30000 | addr.hackBottomLayerOffset, // lwz r5, bottom layer(r3)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 9, layers), // beq layers
+                0x80A50000 | effects,   // lwz r5, effects(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 12, layers), // beq layers
+                0x80A50000 | dof,       // lwz r5, dof(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 15, layers), // beq layers
+                0x38C00000,             // li r6, 0
+                0x98C50000 | enabled,   // stb r6, enabled(r5)
+            });
+            if (ortho)
+            {
+                words.AddRange(new uint[]
+                {
+                    0x80EB0098,         // layers: lwz r7, 0x98(r11) (orthographic)
+                    0x2C070000,         // cmpwi r7, 0
+                    ConditionalBranch(0x41820000, layers + 2, end), // beq end
+                    0x39030000 | (addr.hackLayerViewsOffset - 4), // addi r8, r3, layer views - 4
+                    0x38C00003,         // li r6, 3
+                    0x7CC903A6,         // mtctr r6
+                    0x84A80004,         // loop: lwzu r5, 4(r8)
+                    0x2C050000,         // cmpwi r5, 0
+                    0x41820038,         // beq +0x38 (to next: no layer)
+                    0x38E00000,         // li r7, 0
+                    0x98E50000 | addr.viewProjectionTypeOffset, // stb r7, projection type(r5)
+                    0x80EB009C,         // lwz r7, 0x9C(r11) (left)
+                    0x90E50000 | rect,  // stw r7, rect(r5)
+                    0x80EB00A0,         // lwz r7, 0xA0(r11) (top)
+                    0x90E50000 | (rect + 4), // stw r7, rect + 4(r5)
+                    0x80EB00A4,         // lwz r7, 0xA4(r11) (right)
+                    0x90E50000 | (rect + 8), // stw r7, rect + 8(r5)
+                    0x80EB00A8,         // lwz r7, 0xA8(r11) (bottom)
+                    0x90E50000 | (rect + 12), // stw r7, rect + 12(r5)
+                    0x88E50000 | addr.viewFlagsOffset, // lbz r7, flags(r5)
+                    0x60E70080,         // ori r7, r7, 0x80 (rebuild)
+                    0x98E50000 | addr.viewFlagsOffset, // stb r7, flags(r5)
+                    0x4200FFC0,         // next: bdnz -0x40 (to loop)
+                });
+            }
+            words.AddRange(new uint[]
+            {
+                0xE8010090,             // end: ld r0, 0x90(r1)
+                0x7C0803A6,             // mtlr r0
+                0x38210080,             // addi r1, r1, 0x80
+                0x4E800020,             // blr
+            });
+            byte[] code = new byte[words.Count * 4];
+            for (int i = 0; i < words.Count; i++)
             {
                 Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
             }
             return code;
+        }
+
+        /// <summary>A bc (beq, bne...) at word <paramref name="from"/> of a stub to word <paramref name="to"/>.</summary>
+        private static uint ConditionalBranch(uint opcode, int from, int to)
+        {
+            return opcode | ((uint)((to - from) * 4) & 0xFFFC);
         }
 
         private static uint Branch(uint from, uint to, bool link)

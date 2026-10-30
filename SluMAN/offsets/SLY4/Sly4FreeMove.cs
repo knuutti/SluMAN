@@ -215,8 +215,7 @@ namespace SluMAN
         /// <summary>
         /// How many world units the free camera shows from the top of the screen to the bottom
         /// when it's orthographic, or 0 for perspective. Applies at once while the camera is on,
-        /// and stays set when it's turned off and on. Not in the hacking minigames, whose layer
-        /// views are set up from the main view's field of view.
+        /// and stays set when it's turned off and on.
         /// </summary>
         public float OrthoHeight
         {
@@ -847,7 +846,7 @@ namespace SluMAN
         /// </summary>
         private float[] OrthoRect()
         {
-            if (orthoHeight <= 0 || inHack || !game.OrthoSupported)
+            if (orthoHeight <= 0 || !game.OrthoSupported)
             {
                 return null;
             }
