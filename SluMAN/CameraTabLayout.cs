@@ -103,6 +103,8 @@ namespace SluMAN
         public Action<float> setOrthoHeight;
         public Func<float> getOrthoNear;
         public Action<float> setOrthoNear;
+        /// <summary>The height the Camera tab's Orthographic row starts at, in the game's units.</summary>
+        public float defaultOrthoHeight = 20;
 
         /// <summary>
         /// The Practice tab's Freeze Game Clock, for the script API's /clock (not on the Camera

@@ -540,7 +540,7 @@ namespace SluMAN
             orthoHeightUpDown.Minimum = 0.01m;
             orthoHeightUpDown.Maximum = 10000000;
             orthoHeightUpDown.Increment = 1;
-            orthoHeightUpDown.Value = 20;
+            orthoHeightUpDown.Value = (decimal)layout.defaultOrthoHeight;
             orthoHeightUpDown.Location = new Point(156, y);
             orthoHeightUpDown.Size = new Size(80, 20);
             orthoHeightUpDown.ValueChanged += (sender, e) =>
