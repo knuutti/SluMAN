@@ -14,7 +14,7 @@ namespace SluMAN
     /// down. Each frame the player is put at the flown position and stopped, so they float.</item>
     /// <item>Free camera: the main view is drawn from SluMAN's camera (see sly4's view
     /// override). The left stick moves it, the right stick turns it, R1 and L1 move up and down,
-    /// R2 and L2 zoom (the field of view), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood; in the
+    /// R2 and L2 zoom (the field of view, or the height shown while orthographic), R3 asks for a keyframe (KeyframeRequested). The player is held where they stood; in the
     /// hacking minigames, which have no character to hold, the game's time is held nearly still
     /// instead (sly4.SetTimeFrozen), so the ship, ball or avatar the sticks also drive stays put.
     /// It can also play a camera path instead of following the sticks.</item>
@@ -39,6 +39,8 @@ namespace SluMAN
         private const float DefaultFov = 0.9338f;
         // For when the view's aspect ratio can't be read.
         private const float DefaultAspect = 16f / 9f;
+        // Zooming in orthographically stops at this height, as the Camera tab's box does.
+        private const float MinOrthoHeight = 0.01f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
         private const float MaxPitch = (float)(Math.PI / 2);
         // A facing with less horizontal length than this counts as straight up or down.
@@ -793,7 +795,16 @@ namespace SluMAN
             {
                 zoom -= 1;
             }
-            fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
+            float zoomFactor = (float)Math.Exp(zoom * ZoomSpeed * step);
+            if (OrthoRect() != null)
+            {
+                // The field of view does nothing while orthographic, so zoom changes what it shows.
+                orthoHeight = Math.Max(MinOrthoHeight, orthoHeight * zoomFactor);
+            }
+            else
+            {
+                fov = ClampFov(fov * zoomFactor);
+            }
             WriteCamera();
         }
 

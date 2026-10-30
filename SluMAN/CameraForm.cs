@@ -32,6 +32,10 @@ namespace SluMAN
         private readonly TextBox[] cameraBoxes = new TextBox[6];
         private readonly NumericUpDown farUpDown = new NumericUpDown();
         private bool updatingFar;
+        private readonly CheckBox orthoCheckBox = new CheckBox();
+        private readonly NumericUpDown orthoHeightUpDown = new NumericUpDown();
+        private readonly NumericUpDown orthoNearUpDown = new NumericUpDown();
+        private bool updatingOrtho;
         private readonly CheckBox apiCheckBox = new CheckBox();
         private readonly CheckBox noFogCheckBox = new CheckBox();
         // No fog is checked again every this many field-of-view refreshes (a load sets the fog).
@@ -126,6 +130,10 @@ namespace SluMAN
                 if (freeCamera.IsOn && layout.getFarDistance != null)
                 {
                     ShowFar();
+                }
+                if (layout.getOrthoHeight != null)
+                {
+                    ShowOrtho();
                 }
                 if (noFogCheckBox.Checked && ++noFogTick % NoFogRefreshTicks == 0)
                 {
@@ -414,7 +422,8 @@ namespace SluMAN
             group.Text = "Camera";
             group.Location = location;
             bool hasFar = layout.getFarDistance != null;
-            group.Size = new Size(352, hasFar ? 130 : 106);
+            bool hasOrtho = layout.getOrthoHeight != null;
+            group.Size = new Size(352, (hasFar ? 130 : 106) + (hasOrtho ? 26 : 0));
             Controls.Add(group);
 
             string[] labels = { "X", "Y", "Z", "Yaw", "Pitch", "FOV" };
@@ -447,6 +456,10 @@ namespace SluMAN
             if (hasFar)
             {
                 BuildFarRow(group, tip);
+            }
+            if (hasOrtho)
+            {
+                BuildOrthoRow(group, tip, hasFar ? 130 : 104);
             }
 
             noFogCheckBox.Text = "No fog";
@@ -506,6 +519,97 @@ namespace SluMAN
 
             tip.SetToolTip(farUpDown, "How far the free camera draws. Distance fog may follow it.");
             tip.SetToolTip(gameFarButton, "Back to the game's own far distance.");
+        }
+
+        /// <summary>Orthographic on or off, how much it shows top to bottom, and its near distance.</summary>
+        private void BuildOrthoRow(GroupBox group, ToolTip tip, int y)
+        {
+            orthoCheckBox.Text = "Orthographic";
+            orthoCheckBox.AutoSize = true;
+            orthoCheckBox.Location = new Point(10, y + 2);
+            orthoCheckBox.Click += (sender, e) => SetOrtho();
+            group.Controls.Add(orthoCheckBox);
+
+            Label heightLabel = new Label();
+            heightLabel.Text = "Height:";
+            heightLabel.AutoSize = true;
+            heightLabel.Location = new Point(112, y + 3);
+            group.Controls.Add(heightLabel);
+
+            orthoHeightUpDown.DecimalPlaces = 2;
+            orthoHeightUpDown.Minimum = 0.01m;
+            orthoHeightUpDown.Maximum = 10000000;
+            orthoHeightUpDown.Increment = 1;
+            orthoHeightUpDown.Value = 20;
+            orthoHeightUpDown.Location = new Point(156, y);
+            orthoHeightUpDown.Size = new Size(80, 20);
+            orthoHeightUpDown.ValueChanged += (sender, e) =>
+            {
+                if (!updatingOrtho && orthoCheckBox.Checked)
+                {
+                    SetOrtho();
+                }
+            };
+            group.Controls.Add(orthoHeightUpDown);
+
+            Label nearLabel = new Label();
+            nearLabel.Text = "Near:";
+            nearLabel.AutoSize = true;
+            nearLabel.Location = new Point(244, y + 3);
+            group.Controls.Add(nearLabel);
+
+            orthoNearUpDown.DecimalPlaces = 2;
+            orthoNearUpDown.Minimum = 0;
+            orthoNearUpDown.Maximum = 10000000;
+            orthoNearUpDown.Increment = 1;
+            orthoNearUpDown.Location = new Point(280, y);
+            orthoNearUpDown.Size = new Size(64, 20);
+            orthoNearUpDown.ValueChanged += (sender, e) =>
+            {
+                if (!updatingOrtho)
+                {
+                    SetOrtho();
+                }
+            };
+            group.Controls.Add(orthoNearUpDown);
+
+            tip.SetToolTip(orthoCheckBox, "Draws the free camera orthographically: no perspective, so heights don't shift
+anything, whatever the camera's distance. R2 / L2 zoom the height instead of the field of view.\nApplies while the free camera is on, and stays set until unticked (Sly 4, not in hacks).");
+            tip.SetToolTip(orthoHeightUpDown, "How many world units the view shows from the top of the screen to the bottom.");
+            tip.SetToolTip(orthoNearUpDown, "How close to the camera the orthographic view starts drawing; 0 for the game's.
+Everything from here to the far distance is drawn.");
+            ShowOrtho();
+        }
+
+        private void SetOrtho()
+        {
+            try
+            {
+                layout.setOrthoNear((float)orthoNearUpDown.Value);
+                layout.setOrthoHeight(orthoCheckBox.Checked ? (float)orthoHeightUpDown.Value : 0);
+            }
+            catch (Exception ex)
+            {
+                statusLine.Error(ex.Message);
+            }
+        }
+
+        /// <summary>Shows the orthographic settings in use, which the script API may have changed.</summary>
+        private void ShowOrtho()
+        {
+            float height = layout.getOrthoHeight();
+            float near = layout.getOrthoNear();
+            updatingOrtho = true;
+            orthoCheckBox.Checked = height > 0;
+            if (height > 0 && !orthoHeightUpDown.Focused)
+            {
+                orthoHeightUpDown.Value = Math.Max(orthoHeightUpDown.Minimum, Math.Min(orthoHeightUpDown.Maximum, (decimal)Math.Round(height, 2)));
+            }
+            if (!orthoNearUpDown.Focused)
+            {
+                orthoNearUpDown.Value = Math.Max(orthoNearUpDown.Minimum, Math.Min(orthoNearUpDown.Maximum, (decimal)Math.Round(near, 2)));
+            }
+            updatingOrtho = false;
         }
 
         private void ReadCameraBoxes()
