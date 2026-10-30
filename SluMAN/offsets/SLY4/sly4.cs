@@ -569,7 +569,7 @@ namespace SluMAN
         /// </summary>
         public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove)
         {
-            return new CameraTabLayout
+            CameraTabLayout layout = new CameraTabLayout
             {
                 freeCamera = new Sly4FreeCamera(freeMove),
                 pathFolder = CameraPathFolder,
@@ -602,6 +602,14 @@ namespace SluMAN
                 setFarDistance = (far) => freeMove.FarDistance = far,
                 getGameFar = () => freeMove.GameFar,
             };
+            if (freeMove.OrthoSupported)
+            {
+                layout.getOrthoHeight = () => freeMove.OrthoHeight;
+                layout.setOrthoHeight = (height) => freeMove.OrthoHeight = height;
+                layout.getOrthoNear = () => freeMove.OrthoNear;
+                layout.setOrthoNear = (near) => freeMove.OrthoNear = near;
+            }
+            return layout;
         }
 
         /// <summary>The character controller's velocity (Y is up), or null when the player isn't loaded.</summary>
@@ -748,13 +756,14 @@ namespace SluMAN
         /// in and rebuilds the render matrices from them. That's after the game's camera has
         /// written the view, so it can't overwrite them, and before anything is drawn.
         /// </summary>
-        public void StartViewOverride(uint view, byte[] matrices, float fov, float far)
+        public void StartViewOverride(uint view, byte[] matrices, float fov, float far, float[] orthoRect, float orthoNear)
         {
             uint call = addr.viewUpdateCopyCall;
             uint original = Branch(call, addr.viewCopyFunction, true);
             uint hooked = Branch(call, addr.viewOverrideStub, true);
             uint instruction = ReadUInt(call);
-            if (instruction != original && instruction != hooked)
+            bool legacy = addr.legacyViewOverrideStub != 0 && instruction == Branch(call, addr.legacyViewOverrideStub, true);
+            if (instruction != original && instruction != hooked && !legacy)
             {
                 throw new InvalidOperationException("The game's camera code isn't what SluMAN expects, so the free camera isn't available on this version.");
             }
@@ -763,7 +772,6 @@ namespace SluMAN
             byte[] header = new byte[0x10];
             Array.Copy(BitConverter.GetBytes(view).Reverse().ToArray(), 0, header, 4, 4);
             api.WriteMemory(pid, addr.viewOverrideData, header);
-            SetViewOverride(matrices, fov, far);
 
             // To put back if the game doesn't draw its own camera again by itself (see
             // StopViewOverride).
@@ -771,6 +779,12 @@ namespace SluMAN
             viewBeforeOverride = api.ReadMemory(pid, view + addr.viewMatrixOffset, 0x80);
             fovBeforeOverride = api.ReadMemory(pid, view + addr.viewFovOffset, 4);
             farBeforeOverride = api.ReadMemory(pid, view + addr.viewFarOffset, 4);
+            if (OrthoSupported)
+            {
+                projectionBeforeOrtho = ReadProjection(view);
+                layersBeforeOrtho = HackLayerViews().Select(ReadProjection).ToList();
+            }
+            SetViewOverride(matrices, fov, far, orthoRect, orthoNear);
 
             byte[] stub = ViewOverrideStub();
             api.WriteMemory(pid, addr.viewOverrideStub, stub);
@@ -876,52 +890,174 @@ namespace SluMAN
             uint original = Branch(call, addr.hackPreRenderFunction, true);
             uint hooked = Branch(call, addr.hackPreRenderStub, true);
             uint instruction = ReadUInt(call);
-            if (instruction != original && instruction != hooked)
+            bool legacy = addr.legacyHackPreRenderStub != 0 && instruction == Branch(call, addr.legacyHackPreRenderStub, true);
+            if (instruction != original && instruction != hooked && !legacy)
             {
                 return;
             }
 
-            byte[] stub = HackPreRenderStub();
-            byte[] written = api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length);
-            if (!written.SequenceEqual(stub))
+            // The hack stub calls the layer loop when it's apart, so that goes in first.
+            if (OrthoSupported && addr.hackOrthoLayersStub != 0
+                && !WriteUnusedCode(addr.hackOrthoLayersStub, OrthoLayersStub(), instruction == hooked))
             {
-                // Only into unused memory, and never rewritten in place: RPCS3 keeps running code
-                // it has run as it was decoded then.
-                if (instruction == hooked || written.Any(b => b != 0))
-                {
-                    return;
-                }
-                api.WriteMemory(pid, addr.hackPreRenderStub, stub);
-                if (!api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length).SequenceEqual(stub))
-                {
-                    return;
-                }
+                return;
+            }
+            if (!WriteUnusedCode(addr.hackPreRenderStub, HackPreRenderStub(), instruction == hooked))
+            {
+                return;
             }
             api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
         }
 
         /// <summary>
+        /// Puts code into memory that's still unused, or finds it there already. Never rewrites
+        /// code in place (nor while <paramref name="inUse"/>): RPCS3 keeps running code it has run
+        /// as it was decoded then.
+        /// </summary>
+        private bool WriteUnusedCode(uint address, byte[] code, bool inUse)
+        {
+            byte[] written = api.ReadMemory(pid, address, (uint)code.Length);
+            if (written.SequenceEqual(code))
+            {
+                return true;
+            }
+            if (inUse || written.Any(b => b != 0))
+            {
+                return false;
+            }
+            api.WriteMemory(pid, address, code);
+            return api.ReadMemory(pid, address, (uint)code.Length).SequenceEqual(code);
+        }
+
+        /// <summary>
         /// The matrices (see ViewMatrices) and vertical field of view (radians; 0 keeps the
         /// game's) the main view is drawn with, from the next frame. One write, so a frame never
-        /// mixes old and new.
+        /// mixes old and new. With <paramref name="orthoRect"/> (left, top, right, bottom in view
+        /// space) the view is orthographic, with <paramref name="orthoNear"/> as its near distance
+        /// (0 keeps the game's); null draws it in perspective, putting back the game's projection
+        /// if it was orthographic.
         /// </summary>
-        public void SetViewOverride(byte[] matrices, float fov, float far)
+        public void SetViewOverride(byte[] matrices, float fov, float far, float[] orthoRect, float orthoNear)
         {
-            byte[] data = new byte[0x88];
+            if (orthoRect != null && !OrthoSupported)
+            {
+                throw new InvalidOperationException("This game version has no orthographic camera.");
+            }
+            byte[] data = new byte[0xA0];
             Array.Copy(matrices, 0, data, 0, 0x80);
             Array.Copy(ConvertFloatToBytes(fov), 0, data, 0x80, 4);
             Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
+            if (orthoRect != null)
+            {
+                Array.Copy(BitConverter.GetBytes(1u).Reverse().ToArray(), 0, data, 0x88, 4);
+                for (int i = 0; i < 4; i++)
+                {
+                    Array.Copy(ConvertFloatToBytes(orthoRect[i]), 0, data, 0x8C + i * 4, 4);
+                }
+                Array.Copy(ConvertFloatToBytes(orthoNear), 0, data, 0x9C, 4);
+            }
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
             lastOverride = data;
+            if (orthoRect != null)
+            {
+                orthoWritten = true;
+            }
+            else if (orthoWritten)
+            {
+                PutBackProjection();
+            }
         }
 
-        // The main view the free camera draws, its matrices, field of view and far distance before
-        // it started, and what the free camera last drew with (as SetViewOverride writes it).
+        /// <summary>Whether the free camera can draw this version's main view orthographically.</summary>
+        public bool OrthoSupported => addr.viewProjectionTypeOffset != 0;
+
+        private class ViewProjection
+        {
+            public uint view;
+            public byte type;
+            public byte[] rect;
+            public byte[] near;
+        }
+
+        private ViewProjection ReadProjection(uint view)
+        {
+            return new ViewProjection
+            {
+                view = view,
+                type = ReadByte(view + addr.viewProjectionTypeOffset),
+                rect = api.ReadMemory(pid, view + addr.viewOrthoRectOffset, 0x10),
+                near = api.ReadMemory(pid, view + addr.viewNearOffset, 4),
+            };
+        }
+
+        /// <summary>The hacking minigame's layer views (see hackMechanicOffset); none outside the minigames.</summary>
+        private List<uint> HackLayerViews()
+        {
+            List<uint> views = new List<uint>();
+            uint gameManager = ReadUInt(addr.gameManagerPtr);
+            uint mechanic = gameManager == 0 || addr.hackMechanicOffset == 0 ? 0 : ReadUInt(gameManager + addr.hackMechanicOffset);
+            if (mechanic == 0)
+            {
+                return views;
+            }
+            for (uint i = 0; i < 3; i++)
+            {
+                uint view = ReadUInt(mechanic + addr.hackLayerViewsOffset + i * 4);
+                if (view != 0)
+                {
+                    views.Add(view);
+                }
+            }
+            return views;
+        }
+
+        /// <summary>
+        /// Puts back the projection type, rectangle and near distance the main view had before the
+        /// free camera, and the type and rectangle of the hacking minigame's layer views (the game
+        /// sets their near distance every frame). The game doesn't set these every frame as it does
+        /// the matrices, so they'd otherwise stay as the orthographic camera left them.
+        /// </summary>
+        private void PutBackProjection()
+        {
+            orthoWritten = false;
+            ViewProjection before = projectionBeforeOrtho;
+            uint view = overrideView;
+            if (before == null || view == 0 || GetMainView() != view)
+            {
+                return;
+            }
+            WriteProjection(before, true);
+            List<uint> layers = HackLayerViews();
+            foreach (ViewProjection layer in layersBeforeOrtho.Where(layer => layers.Contains(layer.view)))
+            {
+                WriteProjection(layer, false);
+            }
+        }
+
+        private void WriteProjection(ViewProjection projection, bool withNear)
+        {
+            uint view = projection.view;
+            api.WriteMemory(pid, view + addr.viewProjectionTypeOffset, new byte[] { projection.type });
+            api.WriteMemory(pid, view + addr.viewOrthoRectOffset, projection.rect);
+            if (withNear)
+            {
+                api.WriteMemory(pid, view + addr.viewNearOffset, projection.near);
+            }
+            uint flags = view + addr.viewFlagsOffset;
+            api.WriteMemory(pid, flags, new byte[] { (byte)(ReadByte(flags) | 0x80) });
+        }
+
+        // The main view the free camera draws, its matrices, field of view, far distance and
+        // projection before it started, what the free camera last drew with (as SetViewOverride
+        // writes it), and whether it has drawn orthographically since the projection was put back.
         private uint overrideView;
         private byte[] viewBeforeOverride;
         private byte[] fovBeforeOverride;
         private byte[] farBeforeOverride;
+        private ViewProjection projectionBeforeOrtho;
+        private List<ViewProjection> layersBeforeOrtho = new List<ViewProjection>();
         private byte[] lastOverride;
+        private bool orthoWritten;
 
         // How long StopViewOverride gives the game to draw its own camera again.
         private const int ViewRestoreWaitMs = 150;
@@ -984,6 +1120,12 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, view + addr.viewFarOffset, 4), 0);
         }
 
+        /// <summary>A view's aspect ratio (width over height).</summary>
+        public float ReadViewAspect(uint view)
+        {
+            return ToFloat(api.ReadMemory(pid, view + addr.viewAspectOffset, 4), 0);
+        }
+
         /// <summary>A view's vertical field of view, in radians.</summary>
         public float ReadViewFov(uint view)
         {
@@ -1000,16 +1142,24 @@ namespace SluMAN
         {
             api.WriteMemory(pid, addr.viewOverrideData, new byte[4]);
             uint call = addr.viewUpdateCopyCall;
-            if (ReadUInt(call) == Branch(call, addr.viewOverrideStub, true))
+            uint instruction = ReadUInt(call);
+            if (instruction == Branch(call, addr.viewOverrideStub, true)
+                || (addr.legacyViewOverrideStub != 0 && instruction == Branch(call, addr.legacyViewOverrideStub, true)))
             {
                 api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
             }
             uint hackCall = addr.hackPreRenderCall;
-            if (ReadUInt(hackCall) == Branch(hackCall, addr.hackPreRenderStub, true))
+            uint hackInstruction = ReadUInt(hackCall);
+            if (hackInstruction == Branch(hackCall, addr.hackPreRenderStub, true)
+                || (addr.legacyHackPreRenderStub != 0 && hackInstruction == Branch(hackCall, addr.legacyHackPreRenderStub, true)))
             {
                 api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
             }
             StopDrawListGuard();
+            if (orthoWritten)
+            {
+                PutBackProjection();
+            }
             RestoreViewAfterOverride();
         }
 
@@ -1024,6 +1174,8 @@ namespace SluMAN
             viewBeforeOverride = null;
             fovBeforeOverride = null;
             farBeforeOverride = null;
+            projectionBeforeOrtho = null;
+            layersBeforeOrtho = new List<ViewProjection>();
             lastOverride = null;
             if (view == 0 || last == null)
             {
@@ -1072,7 +1224,8 @@ namespace SluMAN
         /// The view override's stub, called instead of the view copy with the view in r3. Data:
         /// +0x0 on, +0x4 the main view, +0x10 its view matrix then its camera matrix (0x80 bytes,
         /// the view's +0x2F0 to +0x36F), +0x90 its field of view and +0x94 its far distance (0
-        /// keeps the game's).
+        /// keeps the game's), +0x98 orthographic (0 leaves the projection type alone), +0x9C its
+        /// rectangle (left, top, right, bottom) and +0xAC its near distance (0 keeps the game's).
         /// </summary>
         private byte[] ViewOverrideStub()
         {
@@ -1080,6 +1233,7 @@ namespace SluMAN
             uint data = addr.viewOverrideData;
             uint high = ((data + 0x8000) >> 16) & 0xFFFF;
             uint low = data & 0xFFFF;
+            uint rect = addr.viewOrthoRectOffset;
 
             uint[] words =
             {
@@ -1091,10 +1245,10 @@ namespace SluMAN
                 0x396B0000 | low,       //  5 addi r11, r11, data@l
                 0x818B0000,             //  6 lwz r12, 0(r11)
                 0x2C0C0000,             //  7 cmpwi r12, 0
-                0x41820054,             //  8 beq +0x54 (to 29: off)
+                0x41820098,             //  8 beq +0x98 (to 46: off)
                 0x818B0004,             //  9 lwz r12, 4(r11)
                 0x7C036000,             // 10 cmpw r3, r12
-                0x40820048,             // 11 bne +0x48 (to 29: another view)
+                0x4082008C,             // 11 bne +0x8C (to 46: another view)
                 0x38C00020,             // 12 li r6, 32 (words)
                 0x7CC903A6,             // 13 mtctr r6
                 0x38A302EC,             // 14 addi r5, r3, view matrix - 4
@@ -1110,13 +1264,30 @@ namespace SluMAN
                 0x2C070000,             // 24 cmpwi r7, 0
                 0x41820008,             // 25 beq +8 (0: keep the game's)
                 0x90E30000 | addr.viewFarOffset, // 26 stw r7, far(r3)
-                0x38800001,             // 27 li r4, 1 (rebuild even if not marked)
-                Branch(stub + 28 * 4, addr.calcRenderMatricesFunction, true),
-                0xE8610070,             // 29 ld r3, 0x70(r1)
-                0xE8010090,             // 30 ld r0, 0x90(r1)
-                0x7C0803A6,             // 31 mtlr r0
-                0x38210080,             // 32 addi r1, r1, 0x80
-                Branch(stub + 33 * 4, addr.viewCopyFunction, false),
+                0x80EB0098,             // 27 lwz r7, 0x98(r11) (orthographic)
+                0x2C070000,             // 28 cmpwi r7, 0
+                0x4182003C,             // 29 beq +0x3C (to 44: perspective)
+                0x38E00000,             // 30 li r7, 0
+                0x98E30000 | addr.viewProjectionTypeOffset, // 31 stb r7, projection type(r3)
+                0x80EB009C,             // 32 lwz r7, 0x9C(r11) (left)
+                0x90E30000 | rect,      // 33 stw r7, rect(r3)
+                0x80EB00A0,             // 34 lwz r7, 0xA0(r11) (top)
+                0x90E30000 | (rect + 4), // 35 stw r7, rect + 4(r3)
+                0x80EB00A4,             // 36 lwz r7, 0xA4(r11) (right)
+                0x90E30000 | (rect + 8), // 37 stw r7, rect + 8(r3)
+                0x80EB00A8,             // 38 lwz r7, 0xA8(r11) (bottom)
+                0x90E30000 | (rect + 12), // 39 stw r7, rect + 12(r3)
+                0x80EB00AC,             // 40 lwz r7, 0xAC(r11) (near distance)
+                0x2C070000,             // 41 cmpwi r7, 0
+                0x41820008,             // 42 beq +8 (0: keep the game's)
+                0x90E30000 | addr.viewNearOffset, // 43 stw r7, near(r3)
+                0x38800001,             // 44 li r4, 1 (rebuild even if not marked)
+                Branch(stub + 45 * 4, addr.calcRenderMatricesFunction, true),
+                0xE8610070,             // 46 ld r3, 0x70(r1)
+                0xE8010090,             // 47 ld r0, 0x90(r1)
+                0x7C0803A6,             // 48 mtlr r0
+                0x38210080,             // 49 addi r1, r1, 0x80
+                Branch(stub + 50 * 4, addr.viewCopyFunction, false),
             };
             byte[] code = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)
@@ -1133,6 +1304,11 @@ namespace SluMAN
         /// override stub does it again later, for the main view's own copy) and turns the main
         /// view's depth of field off; after the setup, it turns the bottom layer's off. The game
         /// turns both on again each frame, so nothing stays changed once the hook is gone.
+        /// Where the free camera can be orthographic, it also puts the orthographic near distance
+        /// into the main view before the setup (the top layer copies it), and after the setup
+        /// makes the three layer views orthographic with the override's rectangle (the setup's
+        /// setters have marked them to be rebuilt), inline or by calling hackOrthoLayersStub.
+        /// Elsewhere the stub is as it always was.
         /// </summary>
         private byte[] HackPreRenderStub()
         {
@@ -1143,8 +1319,14 @@ namespace SluMAN
             uint effects = addr.viewEffectsOffset;
             uint dof = addr.effectDofOffset;
             uint enabled = addr.effectEnabledOffset;
+            bool ortho = OrthoSupported;
+            bool layersApart = ortho && addr.hackOrthoLayersStub != 0;
+            // Where the branches go: the layer setup call, the orthographic layers and the end.
+            int call = ortho ? 43 : 36;
+            int layers = call + 18;
+            int end = !ortho ? layers : layersApart ? layers + 1 : layers + OrthoLayerWords().Count;
 
-            uint[] words =
+            List<uint> words = new List<uint>
             {
                 0xF821FF81,             //  0 stdu r1, -0x80(r1)
                 0x7C0802A6,             //  1 mflr r0
@@ -1154,10 +1336,10 @@ namespace SluMAN
                 0x396B0000 | low,       //  5 addi r11, r11, data@l
                 0x818B0000,             //  6 lwz r12, 0(r11)
                 0x2C0C0000,             //  7 cmpwi r12, 0
-                0x41820070,             //  8 beq +0x70 (to 36: off)
+                ConditionalBranch(0x41820000, 8, call), //  8 beq call (off)
                 0x818B0004,             //  9 lwz r12, 4(r11)
                 0x7C046000,             // 10 cmpw r4, r12
-                0x40820064,             // 11 bne +0x64 (to 36: another view)
+                ConditionalBranch(0x40820000, 11, call), // 11 bne call (another view)
                 0x38C00020,             // 12 li r6, 32 (words)
                 0x7CC903A6,             // 13 mtctr r6
                 0x38A40000 | (addr.viewMatrixOffset - 4), // 14 addi r5, r4, view matrix - 4
@@ -1173,44 +1355,127 @@ namespace SluMAN
                 0x2C080000,             // 24 cmpwi r8, 0
                 0x41820008,             // 25 beq +8 (0: keep the game's)
                 0x91040000 | addr.viewFarOffset, // 26 stw r8, far(r4)
-                0x80A40000 | effects,   // 27 lwz r5, effects(r4)
-                0x2C050000,             // 28 cmpwi r5, 0
-                0x4182001C,             // 29 beq +0x1C (to 36)
-                0x80A50000 | dof,       // 30 lwz r5, dof(r5)
-                0x2C050000,             // 31 cmpwi r5, 0
-                0x41820010,             // 32 beq +0x10 (to 36)
-                0x38C00000,             // 33 li r6, 0
-                0x98C50000 | enabled,   // 34 stb r6, enabled(r5)
-                0xE8610070,             // 35 ld r3, 0x70(r1)
-                Branch(stub + 36 * 4, addr.hackPreRenderFunction, true), // 36 bl layer setup
-                0x3D600000 | high,      // 37 lis r11, data@ha
-                0x396B0000 | low,       // 38 addi r11, r11, data@l
-                0x818B0000,             // 39 lwz r12, 0(r11)
-                0x2C0C0000,             // 40 cmpwi r12, 0
-                0x41820034,             // 41 beq +0x34 (to 54: off)
-                0xE8610070,             // 42 ld r3, 0x70(r1)
-                0x80A30000 | addr.hackBottomLayerOffset, // 43 lwz r5, bottom layer(r3)
-                0x2C050000,             // 44 cmpwi r5, 0
-                0x41820024,             // 45 beq +0x24 (to 54)
-                0x80A50000 | effects,   // 46 lwz r5, effects(r5)
-                0x2C050000,             // 47 cmpwi r5, 0
-                0x41820018,             // 48 beq +0x18 (to 54)
-                0x80A50000 | dof,       // 49 lwz r5, dof(r5)
-                0x2C050000,             // 50 cmpwi r5, 0
-                0x4182000C,             // 51 beq +0xC (to 54)
-                0x38C00000,             // 52 li r6, 0
-                0x98C50000 | enabled,   // 53 stb r6, enabled(r5)
-                0xE8010090,             // 54 ld r0, 0x90(r1)
-                0x7C0803A6,             // 55 mtlr r0
-                0x38210080,             // 56 addi r1, r1, 0x80
-                0x4E800020,             // 57 blr
             };
-            byte[] code = new byte[words.Length * 4];
-            for (int i = 0; i < words.Length; i++)
+            if (ortho)
+            {
+                words.AddRange(new uint[]
+                {
+                    0x810B0098,         // 27 lwz r8, 0x98(r11) (orthographic)
+                    0x2C080000,         // 28 cmpwi r8, 0
+                    0x41820014,         // 29 beq +0x14 (to 34: perspective)
+                    0x810B00AC,         // 30 lwz r8, 0xAC(r11) (near distance)
+                    0x2C080000,         // 31 cmpwi r8, 0
+                    0x41820008,         // 32 beq +8 (0: keep the game's)
+                    0x91040000 | addr.viewNearOffset, // 33 stw r8, near(r4)
+                });
+            }
+            int at = words.Count;
+            words.AddRange(new uint[]
+            {
+                0x80A40000 | effects,   // lwz r5, effects(r4)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, at + 2, call), // beq call
+                0x80A50000 | dof,       // lwz r5, dof(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, at + 5, call), // beq call
+                0x38C00000,             // li r6, 0
+                0x98C50000 | enabled,   // stb r6, enabled(r5)
+                0xE8610070,             // ld r3, 0x70(r1)
+                Branch(stub + (uint)call * 4, addr.hackPreRenderFunction, true), // call: bl layer setup
+                0x3D600000 | high,      // lis r11, data@ha
+                0x396B0000 | low,       // addi r11, r11, data@l
+                0x818B0000,             // lwz r12, 0(r11)
+                0x2C0C0000,             // cmpwi r12, 0
+                ConditionalBranch(0x41820000, call + 5, end), // beq end (off)
+                0xE8610070,             // ld r3, 0x70(r1)
+                0x80A30000 | addr.hackBottomLayerOffset, // lwz r5, bottom layer(r3)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 9, layers), // beq layers
+                0x80A50000 | effects,   // lwz r5, effects(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 12, layers), // beq layers
+                0x80A50000 | dof,       // lwz r5, dof(r5)
+                0x2C050000,             // cmpwi r5, 0
+                ConditionalBranch(0x41820000, call + 15, layers), // beq layers
+                0x38C00000,             // li r6, 0
+                0x98C50000 | enabled,   // stb r6, enabled(r5)
+            });
+            if (layersApart)
+            {
+                words.Add(Branch(stub + (uint)layers * 4, addr.hackOrthoLayersStub, true)); // layers: bl orthographic layers
+            }
+            else if (ortho)
+            {
+                words.AddRange(OrthoLayerWords());
+            }
+            words.AddRange(new uint[]
+            {
+                0xE8010090,             // end: ld r0, 0x90(r1)
+                0x7C0803A6,             // mtlr r0
+                0x38210080,             // addi r1, r1, 0x80
+                0x4E800020,             // blr
+            });
+            byte[] code = new byte[words.Count * 4];
+            for (int i = 0; i < words.Count; i++)
             {
                 Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
             }
             return code;
+        }
+
+        /// <summary>
+        /// Makes the hacking minigame's three layer views orthographic when the override is (with
+        /// the mechanic in r3 and the override's data in r11), then goes on after its last word.
+        /// In the hack stub, or with a blr after it as a function of its own (hackOrthoLayersStub).
+        /// </summary>
+        private List<uint> OrthoLayerWords()
+        {
+            uint rect = addr.viewOrthoRectOffset;
+            return new List<uint>
+            {
+                0x80EB0098,             //  0 lwz r7, 0x98(r11) (orthographic)
+                0x2C070000,             //  1 cmpwi r7, 0
+                0x41820054,             //  2 beq +0x54 (to 23: after)
+                0x39030000 | (addr.hackLayerViewsOffset - 4), //  3 addi r8, r3, layer views - 4
+                0x38C00003,             //  4 li r6, 3
+                0x7CC903A6,             //  5 mtctr r6
+                0x84A80004,             //  6 lwzu r5, 4(r8)
+                0x2C050000,             //  7 cmpwi r5, 0
+                0x41820038,             //  8 beq +0x38 (to 22: no layer)
+                0x38E00000,             //  9 li r7, 0
+                0x98E50000 | addr.viewProjectionTypeOffset, // 10 stb r7, projection type(r5)
+                0x80EB009C,             // 11 lwz r7, 0x9C(r11) (left)
+                0x90E50000 | rect,      // 12 stw r7, rect(r5)
+                0x80EB00A0,             // 13 lwz r7, 0xA0(r11) (top)
+                0x90E50000 | (rect + 4), // 14 stw r7, rect + 4(r5)
+                0x80EB00A4,             // 15 lwz r7, 0xA4(r11) (right)
+                0x90E50000 | (rect + 8), // 16 stw r7, rect + 8(r5)
+                0x80EB00A8,             // 17 lwz r7, 0xA8(r11) (bottom)
+                0x90E50000 | (rect + 12), // 18 stw r7, rect + 12(r5)
+                0x88E50000 | addr.viewFlagsOffset, // 19 lbz r7, flags(r5)
+                0x60E70080,             // 20 ori r7, r7, 0x80 (rebuild)
+                0x98E50000 | addr.viewFlagsOffset, // 21 stb r7, flags(r5)
+                0x4200FFC0,             // 22 bdnz -0x40 (to 6)
+            };
+        }
+
+        /// <summary>The layer loop as a function of its own, for hackOrthoLayersStub.</summary>
+        private byte[] OrthoLayersStub()
+        {
+            List<uint> words = OrthoLayerWords();
+            words.Add(0x4E800020);      // blr
+            byte[] code = new byte[words.Count * 4];
+            for (int i = 0; i < words.Count; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        /// <summary>A bc (beq, bne...) at word <paramref name="from"/> of a stub to word <paramref name="to"/>.</summary>
+        private static uint ConditionalBranch(uint opcode, int from, int to)
+        {
+            return opcode | ((uint)((to - from) * 4) & 0xFFFC);
         }
 
         private static uint Branch(uint from, uint to, bool link)

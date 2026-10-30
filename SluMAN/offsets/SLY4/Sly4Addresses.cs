@@ -126,6 +126,21 @@ namespace SluMAN
         public uint calcRenderMatricesFunction { get; private set; }
         public uint viewOverrideStub { get; private set; }
         public uint viewOverrideData { get; private set; }
+        // Where SluMAN 1.1.6 and earlier put the view override stub, before it set the projection
+        // too. A game that ran that stub keeps running it as RPCS3 decoded it then, so the new one
+        // goes elsewhere, and a call still pointed here is put back like the new one's.
+        public uint legacyViewOverrideStub { get; private set; }
+        // The view's projection type byte: CalcRenderMatrices builds an orthographic projection
+        // from the rectangle at +viewOrthoRectOffset (left, top, right, bottom in view space) and
+        // near / far when it's 0, and a perspective one from the field of view otherwise (1 for the
+        // game's cameras). Culling takes its frustum planes from the view-projection matrix, so an
+        // orthographic view is culled as a box. 0 when the version hasn't been checked: the free
+        // camera then has no orthographic mode.
+        public uint viewProjectionTypeOffset { get; private set; }
+        public uint viewOrthoRectOffset { get; private set; }
+        public uint viewNearOffset { get; private set; }
+        // Width over height, which the orthographic rectangle is made from
+        public uint viewAspectOffset { get; private set; }
         // The view's flag byte: bit 0x80 has CalcRenderMatrices rebuild it (the fov, near, far and
         // aspect setters set it)
         public uint viewFlagsOffset { get; private set; }
@@ -150,6 +165,19 @@ namespace SluMAN
         public uint hackPreRenderFunction { get; private set; }
         public uint hackPreRenderStub { get; private set; }
         public uint hackBottomLayerOffset { get; private set; }
+        // Where SluMAN 1.1.6 and earlier put the hack stub, before it made the layer views
+        // orthographic too (see legacyViewOverrideStub).
+        public uint legacyHackPreRenderStub { get; private set; }
+        // The mechanic (game manager + hackMechanicOffset, 0 outside the minigames) and its first
+        // layer view (+hackLayerViewsOffset, the other two after it). hackPreRenderFunction sets
+        // the layers' matrix, fov, aspect, near and far, but not their projection type or
+        // rectangle, so the stub writes those after it when the free camera is orthographic, and
+        // SluMAN puts them back. 0 where the free camera has no orthographic mode.
+        public uint hackMechanicOffset { get; private set; }
+        public uint hackLayerViewsOffset { get; private set; }
+        // Where the stub's layer loop goes when it doesn't fit in the hack stub (a function the
+        // hack stub calls), or 0 to have it in the hack stub.
+        public uint hackOrthoLayersStub { get; private set; }
 
         // The renderer's draw lists: begin and end of the entries (8 bytes each: sort key, item)
         // at +4 and +8, and the number of entries their storage was allocated for at
@@ -334,10 +362,17 @@ namespace SluMAN
                 viewUpdateCopyCall = 0x512078,
                 viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,
-                // Not 0xF05300: earlier versions put other code there, which a game left running
-                // since then may still call.
-                viewOverrideStub = 0xF05400,
+                // After the draw list guards (0xF05700, 5 x 0x30 bytes); never used before. Not
+                // 0xF05300 or 0xF05400: earlier versions put other code there, which a game left
+                // running since then may still call.
+                viewOverrideStub = 0xF05800,
+                legacyViewOverrideStub = 0xF05400,
                 viewOverrideData = 0x11F8A40,
+                // The orthographic projection is built by 0x56A358.
+                viewProjectionTypeOffset = 0x31,
+                viewOrthoRectOffset = 0x50,
+                viewNearOffset = 0x3C,
+                viewAspectOffset = 0x70,
                 viewFlagsOffset = 0x34,
                 viewEffectsOffset = 0x290,
                 effectDofOffset = 0xC,
@@ -347,9 +382,14 @@ namespace SluMAN
                 // and the main view in r27.
                 hackPreRenderCall = 0x45A42C,
                 hackPreRenderFunction = 0x3DD2A0,
-                // After the code hook's stub (0xF05500, 0xB4 bytes); never used before.
-                hackPreRenderStub = 0xF05600,
+                // After the view override stub (0xF05800, 0xCC bytes); never used before. Earlier
+                // versions put it at 0xF05600, after the code hook's stub.
+                hackPreRenderStub = 0xF05900,
+                legacyHackPreRenderStub = 0xF05600,
                 hackBottomLayerOffset = 0x12C,
+                // The render submission reads it at 0x45A3FC.
+                hackMechanicOffset = 0x1281F4,
+                hackLayerViewsOffset = 0x128,
 
                 drawListCapacityOffset = 0x9C,
                 drawListPushDescriptors = new uint[] { 0xF3B408, 0xF3B410, 0xF3BA08, 0xF3BA18, 0xF3BA28 },

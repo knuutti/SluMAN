@@ -594,6 +594,14 @@ namespace SluMAN
                 layout.setFarDistance = (far) => freeCamera.FarDistance = far;
                 layout.getGameFar = () => freeCamera.GameFar;
             }
+            if (OrthoSupported)
+            {
+                layout.getOrthoHeight = () => freeCamera.OrthoHeight;
+                layout.setOrthoHeight = (height) => freeCamera.OrthoHeight = height;
+                layout.getOrthoNear = () => freeCamera.OrthoNear;
+                layout.setOrthoNear = (near) => freeCamera.OrthoNear = near;
+                layout.defaultOrthoHeight = 2000;
+            }
             return layout;
         }
 
@@ -708,9 +716,17 @@ namespace SluMAN
         }
 
         // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
-        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix.
+        // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix, +0x50
+        // orthographic (1, or 0 for the render stub to pass SetPerspective on), +0x54 what the
+        // frustum stub widens the culling cone by (0 while perspective), +0x60 the orthographic
+        // projection.
         private const uint CameraHookMark = 0x534C4D32; // "SLM2"
-        private const uint CameraHookDataSize = 0x50;
+        private const uint CameraHookDataSize = 0xA0;
+        private const uint OrthoFlagOffset = 0x50;
+        // Added to the culling cone's width each way (the tangent of its half angle): it then
+        // takes in everything in front of the camera.
+        private const float OrthoConeWidening = 1000000f;
+        private const uint OrthoProjectionOffset = 0x60;
 
         /// <summary>
         /// Starts the camera hook: from the next time the game sets its camera, the matrix given
@@ -748,11 +764,12 @@ namespace SluMAN
             {
                 throw new InvalidOperationException($"The memory at 0x{data:X} SluMAN keeps its camera in is in use.");
             }
-            // Off while the stub and matrix are written, then on.
+            // Off while the stub and matrix are written, then on. Perspective until asked.
             byte[] header = new byte[0x10];
             Array.Copy(UInt32Bytes(sly2.addr.cameraObject), 0, header, 4, 4);
             Array.Copy(UInt32Bytes(CameraHookMark), 0, header, 0xC, 4);
             api.WriteMemory(pid, data, header);
+            api.WriteMemory(pid, data + OrthoFlagOffset, new byte[4]);
             SetCameraHookMatrix(matrix);
             if (!codeThere.SequenceEqual(code))
             {
@@ -795,6 +812,217 @@ namespace SluMAN
                     api.WriteMemory(pid, site, UInt32Bytes(Branch(site, sly2.addr.cameraRebuildFunction, link)));
                 }
             }
+            StopOrtho();
+        }
+
+        /// <summary>Whether the free camera can draw this version orthographically.</summary>
+        public bool OrthoSupported => addr.orthoRenderStub != 0;
+
+        // Whether the ortho stubs are in and the game's calls point at them.
+        private bool orthoHooked;
+
+        /// <summary>
+        /// Makes the camera hook's camera orthographic, showing <paramref name="width"/> by
+        /// <paramref name="height"/> world units around its centre from <paramref name="near"/>
+        /// to <paramref name="far"/>, or perspective again with a width of 0. The first time puts
+        /// the ortho stubs in and points the game's calls at them. Needs the camera hook on.
+        /// </summary>
+        public void SetCameraHookOrtho(float width, float height, float near, float far)
+        {
+            uint data = addr.cameraHookData;
+            if (width <= 0)
+            {
+                if (orthoHooked)
+                {
+                    api.WriteMemory(pid, data + OrthoFlagOffset, new byte[8]);
+                }
+                return;
+            }
+            if (!OrthoSupported)
+            {
+                throw new InvalidOperationException("This game version has no orthographic camera.");
+            }
+            api.WriteMemory(pid, data + OrthoProjectionOffset, OrthoProjection(width, height, near, far));
+            if (!orthoHooked)
+            {
+                HookOrtho();
+            }
+            byte[] on = new byte[8];
+            Array.Copy(UInt32Bytes(1), 0, on, 0, 4);
+            Array.Copy(ConvertFloatToBytes(OrthoConeWidening), 0, on, 4, 4);
+            api.WriteMemory(pid, data + OrthoFlagOffset, on);
+        }
+
+        /// <summary>
+        /// The renderer's projection matrix for an orthographic view, as its own orthographic
+        /// builder (0x1D773C) makes them: view space looks down -Z, depth runs 0 to 1 from near
+        /// to far.
+        /// </summary>
+        private static byte[] OrthoProjection(float width, float height, float near, float far)
+        {
+            float[] m = new float[16];
+            m[0] = 2 / width;
+            m[5] = 2 / height;
+            m[10] = 1 / (near - far);
+            m[14] = near / (near - far);
+            m[15] = 1;
+            byte[] bytes = new byte[0x40];
+            for (int i = 0; i < m.Length; i++)
+            {
+                Array.Copy(ConvertFloatToBytes(m[i]), 0, bytes, i * 4, 4);
+            }
+            return bytes;
+        }
+
+        /// <summary>
+        /// Puts the ortho stubs in and points SetPerspective's call and the frustum builder's
+        /// calls at them. Throws, leaving the game's calls alone, when the code or memory isn't
+        /// what's expected.
+        /// </summary>
+        private void HookOrtho()
+        {
+            uint renderStub = addr.orthoRenderStub;
+            uint frustumStub = addr.orthoFrustumStub;
+            CheckCall(addr.setPerspectiveCall, addr.setPerspectiveFunction, renderStub);
+            foreach (uint site in addr.frustumBuildCalls)
+            {
+                CheckCall(site, addr.frustumBuildFunction, frustumStub);
+            }
+            WriteUnusedCode(renderStub, OrthoRenderStub());
+            WriteUnusedCode(addr.orthoRenderStubTail, OrthoRenderStubTail());
+            WriteUnusedCode(frustumStub, OrthoFrustumStub());
+
+            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[8]);
+            api.WriteMemory(pid, addr.setPerspectiveCall, UInt32Bytes(Branch(addr.setPerspectiveCall, renderStub, true)));
+            foreach (uint site in addr.frustumBuildCalls)
+            {
+                api.WriteMemory(pid, site, UInt32Bytes(Branch(site, frustumStub, true)));
+            }
+            orthoHooked = true;
+        }
+
+        /// <summary>Perspective again, with the game's calls pointed back.</summary>
+        private void StopOrtho()
+        {
+            if (!OrthoSupported)
+            {
+                return;
+            }
+            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[8]);
+            UnhookCall(addr.setPerspectiveCall, addr.setPerspectiveFunction, addr.orthoRenderStub);
+            foreach (uint site in addr.frustumBuildCalls)
+            {
+                UnhookCall(site, addr.frustumBuildFunction, addr.orthoFrustumStub);
+            }
+            orthoHooked = false;
+        }
+
+        /// <summary>Throws unless the call at <paramref name="site"/> is a bl to the function or the stub.</summary>
+        private void CheckCall(uint site, uint function, uint stub)
+        {
+            uint instruction = ReadUInt(site);
+            if (instruction != Branch(site, function, true) && instruction != Branch(site, stub, true))
+            {
+                throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the orthographic camera isn't available on this version.");
+            }
+        }
+
+        private void UnhookCall(uint site, uint function, uint stub)
+        {
+            if (ReadUInt(site) == Branch(site, stub, true))
+            {
+                api.WriteMemory(pid, site, UInt32Bytes(Branch(site, function, true)));
+            }
+        }
+
+        /// <summary>
+        /// Puts code into memory nothing has used: zeros, or the same code from before. Throws
+        /// when something else is there.
+        /// </summary>
+        private void WriteUnusedCode(uint address, uint[] words)
+        {
+            byte[] code = new byte[words.Length * 4];
+            for (int i = 0; i < words.Length; i++)
+            {
+                Array.Copy(UInt32Bytes(words[i]), 0, code, i * 4, 4);
+            }
+            byte[] there = api.ReadMemory(pid, address, (uint)code.Length);
+            if (there.SequenceEqual(code))
+            {
+                return;
+            }
+            if (there.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{address:X} SluMAN puts its orthographic camera code in isn't empty. Restart the game, or the orthographic camera isn't available on this version.");
+            }
+            api.WriteMemory(pid, address, code);
+            VerifyBytes(address, code, "orthographic camera stub");
+        }
+
+        /// <summary>
+        /// Called instead of SetPerspective for the main view (view in r3, camera in r4). While
+        /// orthographic, does what it does with SluMAN's projection: the view's type 1
+        /// (perspective, which has the view update work out its inverse projection; the frame
+        /// setup set it to 0 before, and the flag is 1), the matrix at +0xB0 (copied in the
+        /// tail), then on into the view update. Uses r5, r6, r11, r12 and the count register,
+        /// which the call may change.
+        /// </summary>
+        private uint[] OrthoRenderStub()
+        {
+            uint stub = addr.orthoRenderStub;
+            uint data = addr.cameraHookData;
+            return new uint[]
+            {
+                0x3D600000 | High(data),                                // 0 lis r11, data@ha
+                0x818B0000 | ((data + OrthoFlagOffset) & 0xFFFF),       // 1 lwz r12, ortho@l(r11)
+                0x2C0C0000,                                             // 2 cmpwi r12, 0
+                0x40820008,                                             // 3 bne +8 (to 5: orthographic)
+                Branch(stub + 4 * 4, addr.setPerspectiveFunction, false), // 4 b to SetPerspective
+                0x91830030,                                             // 5 stw r12, 0x30(r3) (type 1)
+                0x39800010,                                             // 6 li r12, 16 (words)
+                0x7D8903A6,                                             // 7 mtctr r12
+                0x38AB0000 | ((data + OrthoProjectionOffset - 4) & 0xFFFF), // 8 addi r5, r11, projection@l - 4
+                0x38C300AC,                                             // 9 addi r6, r3, 0xB0 - 4
+                Branch(stub + 10 * 4, addr.orthoRenderStubTail, false), // 10 b to the tail
+            };
+        }
+
+        /// <summary>The render stub's tail: copies the projection, then goes on into the view update.</summary>
+        private uint[] OrthoRenderStubTail()
+        {
+            uint tail = addr.orthoRenderStubTail;
+            return new uint[]
+            {
+                0x85850004,                                             // 0 lwzu r12, 4(r5)
+                0x95860004,                                             // 1 stwu r12, 4(r6)
+                0x4200FFF8,                                             // 2 bdnz -8
+                Branch(tail + 3 * 4, addr.viewUpdateFunction, false),   // 3 b to the view update
+            };
+        }
+
+        /// <summary>
+        /// Called instead of the frustum builder in the camera rebuild, which takes the cone's
+        /// width each way in f1 and f2: adds the hook data's widening to both (0 while
+        /// perspective) and goes on into it. Uses r11 and f0.
+        /// </summary>
+        private uint[] OrthoFrustumStub()
+        {
+            uint stub = addr.orthoFrustumStub;
+            uint widening = addr.cameraHookData + OrthoFlagOffset + 4;
+            return new uint[]
+            {
+                0x3D600000 | High(widening),                            // 0 lis r11, widening@ha
+                0xC00B0000 | (widening & 0xFFFF),                       // 1 lfs f0, widening@l(r11)
+                0xEC21002A,                                             // 2 fadds f1, f1, f0
+                0xEC42002A,                                             // 3 fadds f2, f2, f0
+                Branch(stub + 4 * 4, addr.frustumBuildFunction, false), // 4 b to the builder
+            };
+        }
+
+        /// <summary>The high half of an address for lis, adjusted for the signed low half.</summary>
+        private static uint High(uint address)
+        {
+            return ((address + 0x8000) >> 16) & 0xFFFF;
         }
         /// <summary>
         /// The camera hook's stub, branched to instead of the rebuild with the camera object in
@@ -1171,6 +1399,21 @@ namespace SluMAN
             {
                 api.WriteMemory(pid, addr.renderDistance, ConvertFloatToBytes(distance));
             }
+        }
+
+        // In the camera object: the aspect ratio (width / height) and near distance the camera
+        // rebuild hands the renderer.
+        private const uint CameraAspectOffset = 0x3C;
+        private const uint CameraNearOffset = 0x4C;
+
+        public float ReadCameraAspect()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.cameraObject + CameraAspectOffset, 4), 0);
+        }
+
+        public float ReadCameraNear()
+        {
+            return ToFloat(api.ReadMemory(pid, addr.cameraObject + CameraNearOffset, 4), 0);
         }
 
         public float ReadCameraFov()
