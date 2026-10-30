@@ -569,7 +569,7 @@ namespace SluMAN
         /// </summary>
         public CameraTabLayout GetCameraTabLayout(Sly4FreeMove freeMove)
         {
-            return new CameraTabLayout
+            CameraTabLayout layout = new CameraTabLayout
             {
                 freeCamera = new Sly4FreeCamera(freeMove),
                 pathFolder = CameraPathFolder,
@@ -602,6 +602,14 @@ namespace SluMAN
                 setFarDistance = (far) => freeMove.FarDistance = far,
                 getGameFar = () => freeMove.GameFar,
             };
+            if (freeMove.OrthoSupported)
+            {
+                layout.getOrthoHeight = () => freeMove.OrthoHeight;
+                layout.setOrthoHeight = (height) => freeMove.OrthoHeight = height;
+                layout.getOrthoNear = () => freeMove.OrthoNear;
+                layout.setOrthoNear = (near) => freeMove.OrthoNear = near;
+            }
+            return layout;
         }
 
         /// <summary>The character controller's velocity (Y is up), or null when the player isn't loaded.</summary>
@@ -748,13 +756,14 @@ namespace SluMAN
         /// in and rebuilds the render matrices from them. That's after the game's camera has
         /// written the view, so it can't overwrite them, and before anything is drawn.
         /// </summary>
-        public void StartViewOverride(uint view, byte[] matrices, float fov, float far)
+        public void StartViewOverride(uint view, byte[] matrices, float fov, float far, float[] orthoRect, float orthoNear)
         {
             uint call = addr.viewUpdateCopyCall;
             uint original = Branch(call, addr.viewCopyFunction, true);
             uint hooked = Branch(call, addr.viewOverrideStub, true);
             uint instruction = ReadUInt(call);
-            if (instruction != original && instruction != hooked)
+            bool legacy = addr.legacyViewOverrideStub != 0 && instruction == Branch(call, addr.legacyViewOverrideStub, true);
+            if (instruction != original && instruction != hooked && !legacy)
             {
                 throw new InvalidOperationException("The game's camera code isn't what SluMAN expects, so the free camera isn't available on this version.");
             }
@@ -763,7 +772,6 @@ namespace SluMAN
             byte[] header = new byte[0x10];
             Array.Copy(BitConverter.GetBytes(view).Reverse().ToArray(), 0, header, 4, 4);
             api.WriteMemory(pid, addr.viewOverrideData, header);
-            SetViewOverride(matrices, fov, far);
 
             // To put back if the game doesn't draw its own camera again by itself (see
             // StopViewOverride).
@@ -771,6 +779,16 @@ namespace SluMAN
             viewBeforeOverride = api.ReadMemory(pid, view + addr.viewMatrixOffset, 0x80);
             fovBeforeOverride = api.ReadMemory(pid, view + addr.viewFovOffset, 4);
             farBeforeOverride = api.ReadMemory(pid, view + addr.viewFarOffset, 4);
+            if (OrthoSupported)
+            {
+                projectionBeforeOrtho = new ViewProjection
+                {
+                    type = ReadByte(view + addr.viewProjectionTypeOffset),
+                    rect = api.ReadMemory(pid, view + addr.viewOrthoRectOffset, 0x10),
+                    near = api.ReadMemory(pid, view + addr.viewNearOffset, 4),
+                };
+            }
+            SetViewOverride(matrices, fov, far, orthoRect, orthoNear);
 
             byte[] stub = ViewOverrideStub();
             api.WriteMemory(pid, addr.viewOverrideStub, stub);
@@ -903,25 +921,83 @@ namespace SluMAN
         /// <summary>
         /// The matrices (see ViewMatrices) and vertical field of view (radians; 0 keeps the
         /// game's) the main view is drawn with, from the next frame. One write, so a frame never
-        /// mixes old and new.
+        /// mixes old and new. With <paramref name="orthoRect"/> (left, top, right, bottom in view
+        /// space) the view is orthographic, with <paramref name="orthoNear"/> as its near distance
+        /// (0 keeps the game's); null draws it in perspective, putting back the game's projection
+        /// if it was orthographic.
         /// </summary>
-        public void SetViewOverride(byte[] matrices, float fov, float far)
+        public void SetViewOverride(byte[] matrices, float fov, float far, float[] orthoRect, float orthoNear)
         {
-            byte[] data = new byte[0x88];
+            if (orthoRect != null && !OrthoSupported)
+            {
+                throw new InvalidOperationException("This game version has no orthographic camera.");
+            }
+            byte[] data = new byte[0xA0];
             Array.Copy(matrices, 0, data, 0, 0x80);
             Array.Copy(ConvertFloatToBytes(fov), 0, data, 0x80, 4);
             Array.Copy(ConvertFloatToBytes(far), 0, data, 0x84, 4);
+            if (orthoRect != null)
+            {
+                Array.Copy(BitConverter.GetBytes(1u).Reverse().ToArray(), 0, data, 0x88, 4);
+                for (int i = 0; i < 4; i++)
+                {
+                    Array.Copy(ConvertFloatToBytes(orthoRect[i]), 0, data, 0x8C + i * 4, 4);
+                }
+                Array.Copy(ConvertFloatToBytes(orthoNear), 0, data, 0x9C, 4);
+            }
             api.WriteMemory(pid, addr.viewOverrideData + 0x10, data);
             lastOverride = data;
+            if (orthoRect != null)
+            {
+                orthoWritten = true;
+            }
+            else if (orthoWritten)
+            {
+                PutBackProjection();
+            }
         }
 
-        // The main view the free camera draws, its matrices, field of view and far distance before
-        // it started, and what the free camera last drew with (as SetViewOverride writes it).
+        /// <summary>Whether the free camera can draw this version's main view orthographically.</summary>
+        public bool OrthoSupported => addr.viewProjectionTypeOffset != 0;
+
+        private class ViewProjection
+        {
+            public byte type;
+            public byte[] rect;
+            public byte[] near;
+        }
+
+        /// <summary>
+        /// Puts back the main view's projection type, rectangle and near distance from before the
+        /// free camera. The game doesn't set them every frame as it does the matrices, so they'd
+        /// otherwise stay as the orthographic camera left them.
+        /// </summary>
+        private void PutBackProjection()
+        {
+            orthoWritten = false;
+            ViewProjection before = projectionBeforeOrtho;
+            uint view = overrideView;
+            if (before == null || view == 0 || GetMainView() != view)
+            {
+                return;
+            }
+            api.WriteMemory(pid, view + addr.viewProjectionTypeOffset, new byte[] { before.type });
+            api.WriteMemory(pid, view + addr.viewOrthoRectOffset, before.rect);
+            api.WriteMemory(pid, view + addr.viewNearOffset, before.near);
+            uint flags = view + addr.viewFlagsOffset;
+            api.WriteMemory(pid, flags, new byte[] { (byte)(ReadByte(flags) | 0x80) });
+        }
+
+        // The main view the free camera draws, its matrices, field of view, far distance and
+        // projection before it started, what the free camera last drew with (as SetViewOverride
+        // writes it), and whether it has drawn orthographically since the projection was put back.
         private uint overrideView;
         private byte[] viewBeforeOverride;
         private byte[] fovBeforeOverride;
         private byte[] farBeforeOverride;
+        private ViewProjection projectionBeforeOrtho;
         private byte[] lastOverride;
+        private bool orthoWritten;
 
         // How long StopViewOverride gives the game to draw its own camera again.
         private const int ViewRestoreWaitMs = 150;
@@ -984,6 +1060,12 @@ namespace SluMAN
             return ToFloat(api.ReadMemory(pid, view + addr.viewFarOffset, 4), 0);
         }
 
+        /// <summary>A view's aspect ratio (width over height).</summary>
+        public float ReadViewAspect(uint view)
+        {
+            return ToFloat(api.ReadMemory(pid, view + addr.viewAspectOffset, 4), 0);
+        }
+
         /// <summary>A view's vertical field of view, in radians.</summary>
         public float ReadViewFov(uint view)
         {
@@ -1000,7 +1082,9 @@ namespace SluMAN
         {
             api.WriteMemory(pid, addr.viewOverrideData, new byte[4]);
             uint call = addr.viewUpdateCopyCall;
-            if (ReadUInt(call) == Branch(call, addr.viewOverrideStub, true))
+            uint instruction = ReadUInt(call);
+            if (instruction == Branch(call, addr.viewOverrideStub, true)
+                || (addr.legacyViewOverrideStub != 0 && instruction == Branch(call, addr.legacyViewOverrideStub, true)))
             {
                 api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, addr.viewCopyFunction, true)).Reverse().ToArray());
             }
@@ -1010,6 +1094,10 @@ namespace SluMAN
                 api.WriteMemory(pid, hackCall, BitConverter.GetBytes(Branch(hackCall, addr.hackPreRenderFunction, true)).Reverse().ToArray());
             }
             StopDrawListGuard();
+            if (orthoWritten)
+            {
+                PutBackProjection();
+            }
             RestoreViewAfterOverride();
         }
 
@@ -1024,6 +1112,7 @@ namespace SluMAN
             viewBeforeOverride = null;
             fovBeforeOverride = null;
             farBeforeOverride = null;
+            projectionBeforeOrtho = null;
             lastOverride = null;
             if (view == 0 || last == null)
             {
@@ -1072,7 +1161,8 @@ namespace SluMAN
         /// The view override's stub, called instead of the view copy with the view in r3. Data:
         /// +0x0 on, +0x4 the main view, +0x10 its view matrix then its camera matrix (0x80 bytes,
         /// the view's +0x2F0 to +0x36F), +0x90 its field of view and +0x94 its far distance (0
-        /// keeps the game's).
+        /// keeps the game's), +0x98 orthographic (0 leaves the projection type alone), +0x9C its
+        /// rectangle (left, top, right, bottom) and +0xAC its near distance (0 keeps the game's).
         /// </summary>
         private byte[] ViewOverrideStub()
         {
@@ -1080,6 +1170,7 @@ namespace SluMAN
             uint data = addr.viewOverrideData;
             uint high = ((data + 0x8000) >> 16) & 0xFFFF;
             uint low = data & 0xFFFF;
+            uint rect = addr.viewOrthoRectOffset;
 
             uint[] words =
             {
@@ -1091,10 +1182,10 @@ namespace SluMAN
                 0x396B0000 | low,       //  5 addi r11, r11, data@l
                 0x818B0000,             //  6 lwz r12, 0(r11)
                 0x2C0C0000,             //  7 cmpwi r12, 0
-                0x41820054,             //  8 beq +0x54 (to 29: off)
+                0x41820098,             //  8 beq +0x98 (to 46: off)
                 0x818B0004,             //  9 lwz r12, 4(r11)
                 0x7C036000,             // 10 cmpw r3, r12
-                0x40820048,             // 11 bne +0x48 (to 29: another view)
+                0x4082008C,             // 11 bne +0x8C (to 46: another view)
                 0x38C00020,             // 12 li r6, 32 (words)
                 0x7CC903A6,             // 13 mtctr r6
                 0x38A302EC,             // 14 addi r5, r3, view matrix - 4
@@ -1110,13 +1201,30 @@ namespace SluMAN
                 0x2C070000,             // 24 cmpwi r7, 0
                 0x41820008,             // 25 beq +8 (0: keep the game's)
                 0x90E30000 | addr.viewFarOffset, // 26 stw r7, far(r3)
-                0x38800001,             // 27 li r4, 1 (rebuild even if not marked)
-                Branch(stub + 28 * 4, addr.calcRenderMatricesFunction, true),
-                0xE8610070,             // 29 ld r3, 0x70(r1)
-                0xE8010090,             // 30 ld r0, 0x90(r1)
-                0x7C0803A6,             // 31 mtlr r0
-                0x38210080,             // 32 addi r1, r1, 0x80
-                Branch(stub + 33 * 4, addr.viewCopyFunction, false),
+                0x80EB0098,             // 27 lwz r7, 0x98(r11) (orthographic)
+                0x2C070000,             // 28 cmpwi r7, 0
+                0x4182003C,             // 29 beq +0x3C (to 44: perspective)
+                0x38E00000,             // 30 li r7, 0
+                0x98E30000 | addr.viewProjectionTypeOffset, // 31 stb r7, projection type(r3)
+                0x80EB009C,             // 32 lwz r7, 0x9C(r11) (left)
+                0x90E30000 | rect,      // 33 stw r7, rect(r3)
+                0x80EB00A0,             // 34 lwz r7, 0xA0(r11) (top)
+                0x90E30000 | (rect + 4), // 35 stw r7, rect + 4(r3)
+                0x80EB00A4,             // 36 lwz r7, 0xA4(r11) (right)
+                0x90E30000 | (rect + 8), // 37 stw r7, rect + 8(r3)
+                0x80EB00A8,             // 38 lwz r7, 0xA8(r11) (bottom)
+                0x90E30000 | (rect + 12), // 39 stw r7, rect + 12(r3)
+                0x80EB00AC,             // 40 lwz r7, 0xAC(r11) (near distance)
+                0x2C070000,             // 41 cmpwi r7, 0
+                0x41820008,             // 42 beq +8 (0: keep the game's)
+                0x90E30000 | addr.viewNearOffset, // 43 stw r7, near(r3)
+                0x38800001,             // 44 li r4, 1 (rebuild even if not marked)
+                Branch(stub + 45 * 4, addr.calcRenderMatricesFunction, true),
+                0xE8610070,             // 46 ld r3, 0x70(r1)
+                0xE8010090,             // 47 ld r0, 0x90(r1)
+                0x7C0803A6,             // 48 mtlr r0
+                0x38210080,             // 49 addi r1, r1, 0x80
+                Branch(stub + 50 * 4, addr.viewCopyFunction, false),
             };
             byte[] code = new byte[words.Length * 4];
             for (int i = 0; i < words.Length; i++)

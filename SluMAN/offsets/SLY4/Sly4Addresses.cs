@@ -126,6 +126,21 @@ namespace SluMAN
         public uint calcRenderMatricesFunction { get; private set; }
         public uint viewOverrideStub { get; private set; }
         public uint viewOverrideData { get; private set; }
+        // Where SluMAN 1.1.6 and earlier put the view override stub, before it set the projection
+        // too. A game that ran that stub keeps running it as RPCS3 decoded it then, so the new one
+        // goes elsewhere, and a call still pointed here is put back like the new one's.
+        public uint legacyViewOverrideStub { get; private set; }
+        // The view's projection type byte: CalcRenderMatrices builds an orthographic projection
+        // from the rectangle at +viewOrthoRectOffset (left, top, right, bottom in view space) and
+        // near / far when it's 0, and a perspective one from the field of view otherwise (1 for the
+        // game's cameras). Culling takes its frustum planes from the view-projection matrix, so an
+        // orthographic view is culled as a box. 0 when the version hasn't been checked: the free
+        // camera then has no orthographic mode.
+        public uint viewProjectionTypeOffset { get; private set; }
+        public uint viewOrthoRectOffset { get; private set; }
+        public uint viewNearOffset { get; private set; }
+        // Width over height, which the orthographic rectangle is made from
+        public uint viewAspectOffset { get; private set; }
         // The view's flag byte: bit 0x80 has CalcRenderMatrices rebuild it (the fov, near, far and
         // aspect setters set it)
         public uint viewFlagsOffset { get; private set; }
@@ -334,10 +349,17 @@ namespace SluMAN
                 viewUpdateCopyCall = 0x512078,
                 viewCopyFunction = 0x5109B0,
                 calcRenderMatricesFunction = 0x5115F0,
-                // Not 0xF05300: earlier versions put other code there, which a game left running
-                // since then may still call.
-                viewOverrideStub = 0xF05400,
+                // After the draw list guards (0xF05700, 5 x 0x30 bytes); never used before. Not
+                // 0xF05300 or 0xF05400: earlier versions put other code there, which a game left
+                // running since then may still call.
+                viewOverrideStub = 0xF05800,
+                legacyViewOverrideStub = 0xF05400,
                 viewOverrideData = 0x11F8A40,
+                // The orthographic projection is built by 0x56A358.
+                viewProjectionTypeOffset = 0x31,
+                viewOrthoRectOffset = 0x50,
+                viewNearOffset = 0x3C,
+                viewAspectOffset = 0x70,
                 viewFlagsOffset = 0x34,
                 viewEffectsOffset = 0x290,
                 effectDofOffset = 0xC,

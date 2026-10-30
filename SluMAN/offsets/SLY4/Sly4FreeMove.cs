@@ -37,6 +37,8 @@ namespace SluMAN
         // The game's usual field of view (Camera.Default.FOV, 53.5 degrees), for when the view's
         // can't be read.
         private const float DefaultFov = 0.9338f;
+        // For when the view's aspect ratio can't be read.
+        private const float DefaultAspect = 16f / 9f;
         // Straight up and down: the camera's right comes from the yaw alone, so it's defined there.
         private const float MaxPitch = (float)(Math.PI / 2);
         // A facing with less horizontal length than this counts as straight up or down.
@@ -70,6 +72,11 @@ namespace SluMAN
         // Far clipping distance; 0 keeps the game's. And the game's when the camera started.
         private float farDistance;
         private float gameFar;
+        // Orthographic: how many world units the view shows top to bottom (0 for perspective), the
+        // near distance (0 for the game's), and the view's aspect ratio when the camera started.
+        private float orthoHeight;
+        private float orthoNear;
+        private float aspect = DefaultAspect;
         private float forwardSign;
         // The forward direction last worked out from the player, for when there's none (0: not yet).
         private static float learnedForwardSign;
@@ -192,6 +199,67 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     farDistance = Math.Max(0, value);
+                    if (mode == Mode.FreeCamera && playingPath == null)
+                    {
+                        WriteCamera();
+                    }
+                }
+            }
+        }
+
+        /// <summary>Whether this game version's free camera can be orthographic.</summary>
+        public bool OrthoSupported => game.OrthoSupported;
+
+        /// <summary>
+        /// How many world units the free camera shows from the top of the screen to the bottom
+        /// when it's orthographic, or 0 for perspective. Applies at once while the camera is on,
+        /// and stays set when it's turned off and on. Not in the hacking minigames, whose layer
+        /// views are set up from the main view's field of view.
+        /// </summary>
+        public float OrthoHeight
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoHeight;
+                }
+            }
+            set
+            {
+                if (value > 0 && !game.OrthoSupported)
+                {
+                    throw new InvalidOperationException("This game version has no orthographic camera.");
+                }
+                lock (stateLock)
+                {
+                    orthoHeight = Math.Max(0, value);
+                    if (mode == Mode.FreeCamera && playingPath == null)
+                    {
+                        WriteCamera();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The orthographic camera's near clipping distance, or 0 for the game's. Applies at once
+        /// while the camera is on and orthographic.
+        /// </summary>
+        public float OrthoNear
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoNear;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    orthoNear = Math.Max(0, value);
                     if (mode == Mode.FreeCamera && playingPath == null)
                     {
                         WriteCamera();
@@ -577,6 +645,11 @@ namespace SluMAN
             gameFov = viewFov >= MinFov && viewFov <= MaxFov ? viewFov : DefaultFov;
             fov = gameFov;
             gameFar = game.ReadViewFar(view);
+            if (game.OrthoSupported)
+            {
+                float viewAspect = game.ReadViewAspect(view);
+                aspect = viewAspect > 0.1f && viewAspect < 10f ? viewAspect : DefaultAspect;
+            }
 
             // Which way along its Z axis the camera looks. A game camera following the player looks
             // at them, which tells it; with no player near (hideout, title screen, a character the
@@ -746,14 +819,30 @@ namespace SluMAN
                 Scale(forward, forwardSign),
             };
             byte[] matrices = sly4.ViewMatrices(axes, cameraPosition, viewW, cameraW);
+            float[] orthoRect = OrthoRect();
             if (start)
             {
-                game.StartViewOverride(view, matrices, fov, farDistance);
+                game.StartViewOverride(view, matrices, fov, farDistance, orthoRect, orthoNear);
             }
             else
             {
-                game.SetViewOverride(matrices, fov, farDistance);
+                game.SetViewOverride(matrices, fov, farDistance, orthoRect, orthoNear);
             }
+        }
+
+        /// <summary>
+        /// The orthographic rectangle (left, top, right, bottom in view space) centred on the
+        /// camera, or null for perspective.
+        /// </summary>
+        private float[] OrthoRect()
+        {
+            if (orthoHeight <= 0 || inHack || !game.OrthoSupported)
+            {
+                return null;
+            }
+            float halfHeight = orthoHeight / 2;
+            float halfWidth = halfHeight * aspect;
+            return new float[] { -halfWidth, halfHeight, halfWidth, -halfHeight };
         }
 
         /// <summary>One of the camera's axes (0 X, 1 Y, 2 Z): a row of its matrix.</summary>

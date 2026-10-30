@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -20,9 +21,11 @@ namespace SluMAN
     /// <list type="bullet">
     /// <item><c>/</c>: the list of requests, and which axis is up.</item>
     /// <item><c>/camera</c>: the free camera: on, x, y, z, yaw, pitch, fov, the game's own fov,
-    /// and far and gameFar for games with a far distance.</item>
-    /// <item><c>/camera/set?x=&amp;y=&amp;z=&amp;yaw=&amp;pitch=&amp;fov=&amp;far=</c>: moves the free
-    /// camera, turning it on first. Values left out stay as they are; fov=0 and far=0 are the game's.</item>
+    /// far and gameFar for games with a far distance, and ortho and near for games whose free
+    /// camera can be orthographic.</item>
+    /// <item><c>/camera/set?x=&amp;y=&amp;z=&amp;yaw=&amp;pitch=&amp;fov=&amp;far=&amp;ortho=&amp;near=</c>:
+    /// moves the free camera, turning it on first. Values left out stay as they are; fov=0, far=0
+    /// and near=0 are the game's, ortho=0 is perspective.</item>
     /// <item><c>/camera/off</c>: turns the free camera off.</item>
     /// <item><c>/hud?hidden=1</c> or <c>0</c>, <c>/fog?off=1</c> or <c>0</c>: Hide HUD and No fog.</item>
     /// <item><c>/clock</c>, <c>/clock?frozen=1</c> or <c>0</c>: the Practice tab's Freeze Game Clock.</item>
@@ -281,12 +284,28 @@ namespace SluMAN
             switch (path)
             {
                 case "":
+                    List<string> setKeys = new List<string> { "x", "y", "z", "yaw", "pitch", "fov" };
+                    List<string> gameDefaults = new List<string> { "fov=0" };
+                    if (layout.setFarDistance != null)
+                    {
+                        setKeys.Add("far");
+                        gameDefaults.Add("far=0");
+                    }
+                    if (layout.setOrthoHeight != null)
+                    {
+                        setKeys.Add("ortho");
+                        setKeys.Add("near");
+                        gameDefaults.Add("near=0");
+                    }
+                    string setNotes = $"any of them; degrees; {string.Join(", ", gameDefaults)} {(gameDefaults.Count == 1 ? "is" : "are")} the game's";
+                    if (layout.setOrthoHeight != null)
+                    {
+                        setNotes += "; ortho is the height shown in world units, 0 for perspective";
+                    }
                     List<string> requests = new List<string>
                     {
                         "/camera",
-                        layout.setFarDistance != null
-                            ? "/camera/set?x=&y=&z=&yaw=&pitch=&fov=&far= (any of them; degrees; fov=0 and far=0 are the game's)"
-                            : "/camera/set?x=&y=&z=&yaw=&pitch=&fov= (any of them; degrees; fov=0 is the game's)",
+                        $"/camera/set?{string.Join("&", setKeys.Select(key => key + "="))} ({setNotes})",
                         "/camera/off",
                     };
                     if (layout.setHudHidden != null)
@@ -375,6 +394,11 @@ namespace SluMAN
                 camera["far"] = layout.getFarDistance();
                 camera["gameFar"] = layout.getGameFar();
             }
+            if (layout.getOrthoHeight != null)
+            {
+                camera["ortho"] = layout.getOrthoHeight();
+                camera["near"] = layout.getOrthoNear();
+            }
             return camera;
         }
 
@@ -412,6 +436,30 @@ namespace SluMAN
                     throw new FormatException("This game has no far distance to set.");
                 }
                 layout.setFarDistance(Value(values, "far", 0));
+            }
+            foreach (string key in new[] { "ortho", "near" })
+            {
+                if (!values.ContainsKey(key))
+                {
+                    continue;
+                }
+                if (layout.setOrthoHeight == null)
+                {
+                    throw new FormatException("This game's free camera can't be orthographic.");
+                }
+                float value = Value(values, key, 0);
+                if (value < 0)
+                {
+                    throw new FormatException($"{key} can't be below 0.");
+                }
+                if (key == "ortho")
+                {
+                    layout.setOrthoHeight(value);
+                }
+                else
+                {
+                    layout.setOrthoNear(value);
+                }
             }
             freeCamera.SetCamera(position, yaw, pitch, CameraPath.Radians(fovDegrees));
         }

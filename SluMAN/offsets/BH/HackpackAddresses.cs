@@ -99,7 +99,11 @@ namespace SluMAN
                 viewUpdateCopyCall = 0x3DC458,
                 viewCopyFunction = 0x3DAD90,
                 calcRenderMatricesFunction = 0x3DB9D0,
-                viewOverrideStub = 0xC86B00,
+                // After the draw list guards (0xC86D00, 5 x 0x30 bytes); earlier versions put it at
+                // 0xC86B00. The projection type hasn't been checked here, so there's no
+                // orthographic mode.
+                viewOverrideStub = 0xC86E00,
+                legacyViewOverrideStub = 0xC86B00,
                 viewOverrideData = 0x1026E40,
                 viewFlagsOffset = 0x34,
                 viewEffectsOffset = 0x290,
