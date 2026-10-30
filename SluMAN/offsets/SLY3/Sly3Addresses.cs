@@ -95,6 +95,19 @@ namespace SluMAN
         public uint[] worldMatrixUpdateCalls { get; private set; }
         public uint cameraHookStub { get; private set; }
         public uint cameraHookData { get; private set; }
+        // Orthographic free camera, as in Sly 2 (the same PS3 renderer): the frame setup's
+        // SetPerspective call for the renderer's main view (setPerspectiveCall to
+        // setPerspectiveFunction, which sets the view's type at +0x30 to 1, builds the matrix at
+        // +0xB0 from the field of view and ends in viewUpdateFunction) goes to a stub
+        // (orthoRenderStub, going on at orthoRenderStubTail) that puts in SluMAN's orthographic
+        // matrix instead. There's no room left for a stub on the game's culling cone, so the
+        // free camera widens it with the field of view instead. 0 means no orthographic camera.
+        public uint renderView { get; private set; }
+        public uint setPerspectiveCall { get; private set; }
+        public uint setPerspectiveFunction { get; private set; }
+        public uint viewUpdateFunction { get; private set; }
+        public uint orthoRenderStub { get; private set; }
+        public uint orthoRenderStubTail { get; private set; }
 
         // The HUD's scale (stretch) and position, 1.0 and 0.0 normally. A scale X of 0 hides it.
         public uint hudScaleX { get; private set; }
@@ -233,6 +246,14 @@ namespace SluMAN
                 cameraHookStub = 0x3CE590,
                 // The data segment ends at 0x8ABAC8, in a page the game has mapped.
                 cameraHookData = 0x8ABB00,
+                renderView = 0x7F8660,
+                setPerspectiveCall = 0x1F16BC,
+                setPerspectiveFunction = 0x24AEB4,
+                viewUpdateFunction = 0x24ABD4,
+                // The padding from 0x39E6D8 to 0x39E700 takes the head; the tail goes after the
+                // camera hook stub (0x3CE590, 0x54 bytes), to 0x3CE600.
+                orthoRenderStub = 0x39E6D8,
+                orthoRenderStubTail = 0x3CE5E4,
 
                 hudScaleX = 0x509050,
                 hudScaleY = 0x50905C,
