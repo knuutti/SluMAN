@@ -46,11 +46,13 @@ namespace SluMAN
         private const float DefaultFar = 100000f;
         // Zooming in orthographically stops at this height, as the Camera tab's box does.
         private const float MinOrthoHeight = 0.01f;
-        // The field of view the camera hook puts in while orthographic (about 178 degrees): it
-        // only widens the frustum the game culls with then, since SluMAN gives the renderer the
-        // projection, and one this wide takes in everything in front of the camera but its very
-        // edges.
-        private const float OrthoCullFov = 3.1f;
+        // While orthographic the field of view the camera hook puts in only shapes the cone the
+        // game culls with, since SluMAN gives the renderer the projection. The cone takes in the
+        // whole box from the near distance on (anything closer is clipped anyway), or from half
+        // the height shown when the near distance is the game's. It's no wider than this (about
+        // 178 degrees): a cone open to everything in front of the camera has the game draw so
+        // much that its per-frame render heap runs out and it crashes.
+        private const float MaxOrthoCullFov = 3.1f;
         // How long the camera hook gets to show it runs (its count goes up) before SluMAN says
         // it doesn't.
         private const int HookCheckMs = 500;
@@ -749,7 +751,7 @@ namespace SluMAN
             }
             if (fovKnown)
             {
-                state.SetFov(gameState, IsOrtho() ? OrthoCullFov : fov);
+                state.SetFov(gameState, IsOrtho() ? OrthoCullFov() : fov);
             }
             return state;
         }
@@ -758,6 +760,14 @@ namespace SluMAN
         {
             game.SetCameraHookState(BuildState());
             WriteOrtho();
+        }
+
+        /// <summary>The field of view whose cone takes in the orthographic box from the depth it's needed at.</summary>
+        private float OrthoCullFov()
+        {
+            float depth = orthoNear > 0 ? orthoNear : orthoHeight / 2;
+            float cullFov = 2 * (float)Math.Atan(orthoHeight / 2 / depth);
+            return Math.Min(MaxOrthoCullFov, cullFov);
         }
 
         /// <summary>Whether the camera is drawn orthographically.</summary>
