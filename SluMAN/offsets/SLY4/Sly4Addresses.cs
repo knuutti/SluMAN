@@ -175,6 +175,9 @@ namespace SluMAN
         // SluMAN puts them back. 0 where the free camera has no orthographic mode.
         public uint hackMechanicOffset { get; private set; }
         public uint hackLayerViewsOffset { get; private set; }
+        // Where the stub's layer loop goes when it doesn't fit in the hack stub (a function the
+        // hack stub calls), or 0 to have it in the hack stub.
+        public uint hackOrthoLayersStub { get; private set; }
 
         // The renderer's draw lists: begin and end of the entries (8 bytes each: sort key, item)
         // at +4 and +8, and the number of entries their storage was allocated for at

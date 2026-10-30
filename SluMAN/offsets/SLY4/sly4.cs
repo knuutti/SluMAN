@@ -896,23 +896,37 @@ namespace SluMAN
                 return;
             }
 
-            byte[] stub = HackPreRenderStub();
-            byte[] written = api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length);
-            if (!written.SequenceEqual(stub))
+            // The hack stub calls the layer loop when it's apart, so that goes in first.
+            if (OrthoSupported && addr.hackOrthoLayersStub != 0
+                && !WriteUnusedCode(addr.hackOrthoLayersStub, OrthoLayersStub(), instruction == hooked))
             {
-                // Only into unused memory, and never rewritten in place: RPCS3 keeps running code
-                // it has run as it was decoded then.
-                if (instruction == hooked || written.Any(b => b != 0))
-                {
-                    return;
-                }
-                api.WriteMemory(pid, addr.hackPreRenderStub, stub);
-                if (!api.ReadMemory(pid, addr.hackPreRenderStub, (uint)stub.Length).SequenceEqual(stub))
-                {
-                    return;
-                }
+                return;
+            }
+            if (!WriteUnusedCode(addr.hackPreRenderStub, HackPreRenderStub(), instruction == hooked))
+            {
+                return;
             }
             api.WriteMemory(pid, call, BitConverter.GetBytes(hooked).Reverse().ToArray());
+        }
+
+        /// <summary>
+        /// Puts code into memory that's still unused, or finds it there already. Never rewrites
+        /// code in place (nor while <paramref name="inUse"/>): RPCS3 keeps running code it has run
+        /// as it was decoded then.
+        /// </summary>
+        private bool WriteUnusedCode(uint address, byte[] code, bool inUse)
+        {
+            byte[] written = api.ReadMemory(pid, address, (uint)code.Length);
+            if (written.SequenceEqual(code))
+            {
+                return true;
+            }
+            if (inUse || written.Any(b => b != 0))
+            {
+                return false;
+            }
+            api.WriteMemory(pid, address, code);
+            return api.ReadMemory(pid, address, (uint)code.Length).SequenceEqual(code);
         }
 
         /// <summary>
@@ -1292,8 +1306,9 @@ namespace SluMAN
         /// turns both on again each frame, so nothing stays changed once the hook is gone.
         /// Where the free camera can be orthographic, it also puts the orthographic near distance
         /// into the main view before the setup (the top layer copies it), and after the setup
-        /// makes the three layer views orthographic with the override's rectangle; the setup's
-        /// setters have marked them to be rebuilt. Elsewhere the stub is as it always was.
+        /// makes the three layer views orthographic with the override's rectangle (the setup's
+        /// setters have marked them to be rebuilt), inline or by calling hackOrthoLayersStub.
+        /// Elsewhere the stub is as it always was.
         /// </summary>
         private byte[] HackPreRenderStub()
         {
@@ -1304,12 +1319,12 @@ namespace SluMAN
             uint effects = addr.viewEffectsOffset;
             uint dof = addr.effectDofOffset;
             uint enabled = addr.effectEnabledOffset;
-            uint rect = addr.viewOrthoRectOffset;
             bool ortho = OrthoSupported;
+            bool layersApart = ortho && addr.hackOrthoLayersStub != 0;
             // Where the branches go: the layer setup call, the orthographic layers and the end.
             int call = ortho ? 43 : 36;
             int layers = call + 18;
-            int end = ortho ? layers + 23 : layers;
+            int end = !ortho ? layers : layersApart ? layers + 1 : layers + OrthoLayerWords().Count;
 
             List<uint> words = new List<uint>
             {
@@ -1385,34 +1400,13 @@ namespace SluMAN
                 0x38C00000,             // li r6, 0
                 0x98C50000 | enabled,   // stb r6, enabled(r5)
             });
-            if (ortho)
+            if (layersApart)
             {
-                words.AddRange(new uint[]
-                {
-                    0x80EB0098,         // layers: lwz r7, 0x98(r11) (orthographic)
-                    0x2C070000,         // cmpwi r7, 0
-                    ConditionalBranch(0x41820000, layers + 2, end), // beq end
-                    0x39030000 | (addr.hackLayerViewsOffset - 4), // addi r8, r3, layer views - 4
-                    0x38C00003,         // li r6, 3
-                    0x7CC903A6,         // mtctr r6
-                    0x84A80004,         // loop: lwzu r5, 4(r8)
-                    0x2C050000,         // cmpwi r5, 0
-                    0x41820038,         // beq +0x38 (to next: no layer)
-                    0x38E00000,         // li r7, 0
-                    0x98E50000 | addr.viewProjectionTypeOffset, // stb r7, projection type(r5)
-                    0x80EB009C,         // lwz r7, 0x9C(r11) (left)
-                    0x90E50000 | rect,  // stw r7, rect(r5)
-                    0x80EB00A0,         // lwz r7, 0xA0(r11) (top)
-                    0x90E50000 | (rect + 4), // stw r7, rect + 4(r5)
-                    0x80EB00A4,         // lwz r7, 0xA4(r11) (right)
-                    0x90E50000 | (rect + 8), // stw r7, rect + 8(r5)
-                    0x80EB00A8,         // lwz r7, 0xA8(r11) (bottom)
-                    0x90E50000 | (rect + 12), // stw r7, rect + 12(r5)
-                    0x88E50000 | addr.viewFlagsOffset, // lbz r7, flags(r5)
-                    0x60E70080,         // ori r7, r7, 0x80 (rebuild)
-                    0x98E50000 | addr.viewFlagsOffset, // stb r7, flags(r5)
-                    0x4200FFC0,         // next: bdnz -0x40 (to loop)
-                });
+                words.Add(Branch(stub + (uint)layers * 4, addr.hackOrthoLayersStub, true)); // layers: bl orthographic layers
+            }
+            else if (ortho)
+            {
+                words.AddRange(OrthoLayerWords());
             }
             words.AddRange(new uint[]
             {
@@ -1421,6 +1415,55 @@ namespace SluMAN
                 0x38210080,             // addi r1, r1, 0x80
                 0x4E800020,             // blr
             });
+            byte[] code = new byte[words.Count * 4];
+            for (int i = 0; i < words.Count; i++)
+            {
+                Array.Copy(BitConverter.GetBytes(words[i]).Reverse().ToArray(), 0, code, i * 4, 4);
+            }
+            return code;
+        }
+
+        /// <summary>
+        /// Makes the hacking minigame's three layer views orthographic when the override is (with
+        /// the mechanic in r3 and the override's data in r11), then goes on after its last word.
+        /// In the hack stub, or with a blr after it as a function of its own (hackOrthoLayersStub).
+        /// </summary>
+        private List<uint> OrthoLayerWords()
+        {
+            uint rect = addr.viewOrthoRectOffset;
+            return new List<uint>
+            {
+                0x80EB0098,             //  0 lwz r7, 0x98(r11) (orthographic)
+                0x2C070000,             //  1 cmpwi r7, 0
+                0x41820054,             //  2 beq +0x54 (to 23: after)
+                0x39030000 | (addr.hackLayerViewsOffset - 4), //  3 addi r8, r3, layer views - 4
+                0x38C00003,             //  4 li r6, 3
+                0x7CC903A6,             //  5 mtctr r6
+                0x84A80004,             //  6 lwzu r5, 4(r8)
+                0x2C050000,             //  7 cmpwi r5, 0
+                0x41820038,             //  8 beq +0x38 (to 22: no layer)
+                0x38E00000,             //  9 li r7, 0
+                0x98E50000 | addr.viewProjectionTypeOffset, // 10 stb r7, projection type(r5)
+                0x80EB009C,             // 11 lwz r7, 0x9C(r11) (left)
+                0x90E50000 | rect,      // 12 stw r7, rect(r5)
+                0x80EB00A0,             // 13 lwz r7, 0xA0(r11) (top)
+                0x90E50000 | (rect + 4), // 14 stw r7, rect + 4(r5)
+                0x80EB00A4,             // 15 lwz r7, 0xA4(r11) (right)
+                0x90E50000 | (rect + 8), // 16 stw r7, rect + 8(r5)
+                0x80EB00A8,             // 17 lwz r7, 0xA8(r11) (bottom)
+                0x90E50000 | (rect + 12), // 18 stw r7, rect + 12(r5)
+                0x88E50000 | addr.viewFlagsOffset, // 19 lbz r7, flags(r5)
+                0x60E70080,             // 20 ori r7, r7, 0x80 (rebuild)
+                0x98E50000 | addr.viewFlagsOffset, // 21 stb r7, flags(r5)
+                0x4200FFC0,             // 22 bdnz -0x40 (to 6)
+            };
+        }
+
+        /// <summary>The layer loop as a function of its own, for hackOrthoLayersStub.</summary>
+        private byte[] OrthoLayersStub()
+        {
+            List<uint> words = OrthoLayerWords();
+            words.Add(0x4E800020);      // blr
             byte[] code = new byte[words.Count * 4];
             for (int i = 0; i < words.Count; i++)
             {

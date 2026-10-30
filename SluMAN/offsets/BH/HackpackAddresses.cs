@@ -100,11 +100,17 @@ namespace SluMAN
                 viewCopyFunction = 0x3DAD90,
                 calcRenderMatricesFunction = 0x3DB9D0,
                 // After the draw list guards (0xC86D00, 5 x 0x30 bytes); earlier versions put it at
-                // 0xC86B00. The projection type hasn't been checked here, so there's no
-                // orthographic mode.
+                // 0xC86B00. Its orthographic part only ran once the offsets below were set, so
+                // giving them values didn't need it moved again.
                 viewOverrideStub = 0xC86E00,
                 legacyViewOverrideStub = 0xC86B00,
                 viewOverrideData = 0x1026E40,
+                // As in Sly 4: CalcRenderMatrices (0x3DB9D0) builds the orthographic projection with
+                // 0x4345B0, and culls with planes from the view-projection matrix.
+                viewProjectionTypeOffset = 0x31,
+                viewOrthoRectOffset = 0x50,
+                viewNearOffset = 0x3C,
+                viewAspectOffset = 0x70,
                 viewFlagsOffset = 0x34,
                 viewEffectsOffset = 0x290,
                 effectDofOffset = 0xC,
@@ -115,8 +121,15 @@ namespace SluMAN
                 // views at +0x13C, +0x140 and +0x144.
                 hackPreRenderCall = 0x32780C,
                 hackPreRenderFunction = 0x2BCFA8,
-                hackPreRenderStub = 0xC86C00,
+                // After the view override stub (0xC86E00, 0xCC bytes); earlier versions put it at
+                // 0xC86C00. The page has no gap big enough for it with the layer loop, so that's a
+                // stub of its own, in the gap after the code segment's end.
+                hackPreRenderStub = 0xC86ED0,
+                legacyHackPreRenderStub = 0xC86C00,
+                hackOrthoLayersStub = 0xC86900,
                 hackBottomLayerOffset = 0x140,
+                hackMechanicOffset = 0x1287D4,
+                hackLayerViewsOffset = 0x13C,
 
                 drawListCapacityOffset = 0x9C,
                 drawListPushDescriptors = new uint[] { 0xCB83D8, 0xCB83E0, 0xCB89C8, 0xCB89D8, 0xCB89E8 },
