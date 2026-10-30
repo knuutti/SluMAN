@@ -573,11 +573,14 @@ namespace SluMAN
             };
             group.Controls.Add(orthoNearUpDown);
 
-            tip.SetToolTip(orthoCheckBox, "Draws the free camera orthographically: no perspective, so heights don't shift
-anything, whatever the camera's distance. R2 / L2 zoom the height instead of the field of view.\nApplies while the free camera is on, and stays set until unticked (Sly 4, not in hacks).");
+            tip.SetToolTip(orthoCheckBox,
+                "Draws the free camera orthographically: no perspective, so heights don't shift\n" +
+                "anything, whatever the camera's distance. R2 / L2 zoom the height instead of the\n" +
+                "field of view. Applies while the free camera is on, and stays set until unticked.");
             tip.SetToolTip(orthoHeightUpDown, "How many world units the view shows from the top of the screen to the bottom.");
-            tip.SetToolTip(orthoNearUpDown, "How close to the camera the orthographic view starts drawing; 0 for the game's.
-Everything from here to the far distance is drawn.");
+            tip.SetToolTip(orthoNearUpDown,
+                "How close to the camera the orthographic view starts drawing; 0 for the game's.\n" +
+                "Everything from here to the far distance is drawn.");
             ShowOrtho();
         }
 
