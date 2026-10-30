@@ -72,11 +72,13 @@ namespace SluMAN
         // the camera rebuild hands it: the frame setup calls SetPerspective (setPerspectiveCall
         // to setPerspectiveFunction, which sets the view's type at +0x30 to 1, puts the matrix
         // at +0xB0 and ends in viewUpdateFunction, which works out everything else from it). The
-        // render stub (orthoRenderStub) puts in SluMAN's orthographic matrix instead. The game's
-        // own culling uses a cone from the camera, built by frustumBuildFunction (its two calls
-        // in the rebuild, frustumBuildCalls); the frustum stub (orthoFrustumStub, which goes on
-        // at orthoFrustumStubTail) gives it planes of 0 instead, which cull nothing. Both stubs
-        // read the hook data, and 0 here means no orthographic camera.
+        // render stub (orthoRenderStub, which goes on at orthoRenderStubTail) puts in SluMAN's
+        // orthographic matrix instead. The game's own culling uses a cone from the camera, built
+        // by frustumBuildFunction (its two calls in the rebuild, frustumBuildCalls) from how wide
+        // it is each way; the frustum stub (orthoFrustumStub) widens it to the half of the world
+        // in front of the camera. Both stubs read the hook data, and 0 here means no
+        // orthographic camera. NTSC's padding is the smallest, which is why the render stub is
+        // in two parts.
         public uint renderView { get; private set; }
         public uint setPerspectiveCall { get; private set; }
         public uint setPerspectiveFunction { get; private set; }
@@ -84,8 +86,8 @@ namespace SluMAN
         public uint[] frustumBuildCalls { get; private set; }
         public uint frustumBuildFunction { get; private set; }
         public uint orthoRenderStub { get; private set; }
+        public uint orthoRenderStubTail { get; private set; }
         public uint orthoFrustumStub { get; private set; }
-        public uint orthoFrustumStubTail { get; private set; }
         public uint loadingState { get; private set; }
         public uint currentJobId { get; private set; }
         public uint currentCheckpointId { get; private set; }
@@ -220,11 +222,10 @@ namespace SluMAN
                 viewUpdateFunction = 0x1C7F70,
                 frustumBuildCalls = new uint[] { 0x3EFC8, 0x3F054 },
                 frustumBuildFunction = 0x3E938,
-                // In padding between ELF sections: 0x317D28 to 0x317D80 (the render stub, then
-                // the frustum stub's tail) and after the camera hook stub, to 0x344A00.
+                // In padding between ELF sections, 0x317D28 to 0x317D80.
                 orthoRenderStub = 0x317D28,
-                orthoFrustumStub = 0x3449DC,
-                orthoFrustumStubTail = 0x317D68,
+                orthoRenderStubTail = 0x317D54,
+                orthoFrustumStub = 0x317D64,
                 loadingState = 0x7A7200,
                 currentJobId = 0x4FEBF4,
                 currentCheckpointId = 0x4FEBF8,
@@ -274,8 +275,15 @@ namespace SluMAN
             Sly2Addresses palDigital = korDigital.CopyAs(GameIdPalDigital, "SLY 2 (PAL, PSN)");
 
             ntscDigital.cameraHookCaveAddress = 0x344290;
-            // Only looked for on the KOR version.
-            ntscDigital.orthoRenderStub = 0;
+            // The renderer's code is 0x69C earlier than KOR's; the camera rebuild is where KOR
+            // has it. The padding at 0x317650 only fits the render stub's head; its tail and the
+            // frustum stub go after the camera hook stub, to 0x344300.
+            ntscDigital.setPerspectiveCall = 0x1B01D0;
+            ntscDigital.setPerspectiveFunction = 0x1C7BB4;
+            ntscDigital.viewUpdateFunction = 0x1C78D4;
+            ntscDigital.orthoRenderStub = 0x317650;
+            ntscDigital.orthoRenderStubTail = 0x3442DC;
+            ntscDigital.orthoFrustumStub = 0x3442EC;
             ntscDigital.hudScaleX = 0x45DB60;
             ntscDigital.hudScaleY = 0x45DB6C;
             ntscDigital.hudPositionX = 0x45DB70;
@@ -324,8 +332,15 @@ namespace SluMAN
             palDigital.cameraRenderMatrix = 0x8C2190;
             palDigital.cameraObject = 0x49DFB0;
             palDigital.cameraHookCaveAddress = 0x344310;
-            // Only looked for on the KOR version.
-            palDigital.orthoRenderStub = 0;
+            // The renderer's code is 0x698 earlier than KOR's, its view 0x80 earlier; the
+            // camera rebuild is where KOR has it. Padding from 0x317688 to 0x317700.
+            palDigital.renderView = 0x8C2430;
+            palDigital.setPerspectiveCall = 0x1B01D4;
+            palDigital.setPerspectiveFunction = 0x1C7BB8;
+            palDigital.viewUpdateFunction = 0x1C78D8;
+            palDigital.orthoRenderStub = 0x317688;
+            palDigital.orthoRenderStubTail = 0x3176B4;
+            palDigital.orthoFrustumStub = 0x3176C4;
             // palDigital.cameraHookData = 0;
 
             palDigital.episodeData = new uint[]

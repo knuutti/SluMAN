@@ -717,11 +717,15 @@ namespace SluMAN
 
         // The camera hook's data: +0x0 on, +0x4 the camera, +0x8 how many times the stub has put
         // the matrix in (so SluMAN can tell it runs), +0xC SluMAN's mark, +0x10 the matrix, +0x50
-        // orthographic (the ortho stubs pass the game's calls on while it's 0), +0x60 the
-        // orthographic projection.
+        // orthographic (1, or 0 for the render stub to pass SetPerspective on), +0x54 what the
+        // frustum stub widens the culling cone by (0 while perspective), +0x60 the orthographic
+        // projection.
         private const uint CameraHookMark = 0x534C4D32; // "SLM2"
         private const uint CameraHookDataSize = 0xA0;
         private const uint OrthoFlagOffset = 0x50;
+        // Added to the culling cone's width each way (the tangent of its half angle): it then
+        // takes in everything in front of the camera.
+        private const float OrthoConeWidening = 1000000f;
         private const uint OrthoProjectionOffset = 0x60;
 
         /// <summary>
@@ -830,7 +834,7 @@ namespace SluMAN
             {
                 if (orthoHooked)
                 {
-                    api.WriteMemory(pid, data + OrthoFlagOffset, new byte[4]);
+                    api.WriteMemory(pid, data + OrthoFlagOffset, new byte[8]);
                 }
                 return;
             }
@@ -843,7 +847,10 @@ namespace SluMAN
             {
                 HookOrtho();
             }
-            api.WriteMemory(pid, data + OrthoFlagOffset, UInt32Bytes(1));
+            byte[] on = new byte[8];
+            Array.Copy(UInt32Bytes(1), 0, on, 0, 4);
+            Array.Copy(ConvertFloatToBytes(OrthoConeWidening), 0, on, 4, 4);
+            api.WriteMemory(pid, data + OrthoFlagOffset, on);
         }
 
         /// <summary>
@@ -882,10 +889,10 @@ namespace SluMAN
                 CheckCall(site, addr.frustumBuildFunction, frustumStub);
             }
             WriteUnusedCode(renderStub, OrthoRenderStub());
-            WriteUnusedCode(addr.orthoFrustumStubTail, OrthoFrustumStubTail());
+            WriteUnusedCode(addr.orthoRenderStubTail, OrthoRenderStubTail());
             WriteUnusedCode(frustumStub, OrthoFrustumStub());
 
-            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[4]);
+            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[8]);
             api.WriteMemory(pid, addr.setPerspectiveCall, UInt32Bytes(Branch(addr.setPerspectiveCall, renderStub, true)));
             foreach (uint site in addr.frustumBuildCalls)
             {
@@ -901,7 +908,7 @@ namespace SluMAN
             {
                 return;
             }
-            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[4]);
+            api.WriteMemory(pid, addr.cameraHookData + OrthoFlagOffset, new byte[8]);
             UnhookCall(addr.setPerspectiveCall, addr.setPerspectiveFunction, addr.orthoRenderStub);
             foreach (uint site in addr.frustumBuildCalls)
             {
@@ -955,9 +962,10 @@ namespace SluMAN
         /// <summary>
         /// Called instead of SetPerspective for the main view (view in r3, camera in r4). While
         /// orthographic, does what it does with SluMAN's projection: the view's type 1
-        /// (perspective, which has the view update work out its inverse projection; the
-        /// frame setup set it to 0 before), the matrix at +0xB0, then on into the view update.
-        /// Uses r5, r6, r11, r12 and the count register, which the call may change.
+        /// (perspective, which has the view update work out its inverse projection; the frame
+        /// setup set it to 0 before, and the flag is 1), the matrix at +0xB0 (copied in the
+        /// tail), then on into the view update. Uses r5, r6, r11, r12 and the count register,
+        /// which the call may change.
         /// </summary>
         private uint[] OrthoRenderStub()
         {
@@ -965,59 +973,49 @@ namespace SluMAN
             uint data = addr.cameraHookData;
             return new uint[]
             {
-                0x3D600000 | High(data),                    //  0 lis r11, data@ha
-                0x396B0000 | (data & 0xFFFF),               //  1 addi r11, r11, data@l
-                0x818B0000 | OrthoFlagOffset,               //  2 lwz r12, ortho(r11)
-                0x2C0C0000,                                 //  3 cmpwi r12, 0
-                0x4182002C,                                 //  4 beq +0x2C (to 15: perspective)
-                0x39800001,                                 //  5 li r12, 1
-                0x91830030,                                 //  6 stw r12, 0x30(r3) (type)
-                0x39800010,                                 //  7 li r12, 16 (words)
-                0x7D8903A6,                                 //  8 mtctr r12
-                0x38AB0000 | (OrthoProjectionOffset - 4),   //  9 addi r5, r11, projection - 4
-                0x38C300AC,                                 // 10 addi r6, r3, 0xB0 - 4
-                0x85850004,                                 // 11 lwzu r12, 4(r5)
-                0x95860004,                                 // 12 stwu r12, 4(r6)
-                0x4200FFF8,                                 // 13 bdnz -8
-                Branch(stub + 14 * 4, addr.viewUpdateFunction, false),     // 14 b to the view update
-                Branch(stub + 15 * 4, addr.setPerspectiveFunction, false), // 15 b to SetPerspective
+                0x3D600000 | High(data),                                // 0 lis r11, data@ha
+                0x818B0000 | ((data + OrthoFlagOffset) & 0xFFFF),       // 1 lwz r12, ortho@l(r11)
+                0x2C0C0000,                                             // 2 cmpwi r12, 0
+                0x40820008,                                             // 3 bne +8 (to 5: orthographic)
+                Branch(stub + 4 * 4, addr.setPerspectiveFunction, false), // 4 b to SetPerspective
+                0x91830030,                                             // 5 stw r12, 0x30(r3) (type 1)
+                0x39800010,                                             // 6 li r12, 16 (words)
+                0x7D8903A6,                                             // 7 mtctr r12
+                0x38AB0000 | ((data + OrthoProjectionOffset - 4) & 0xFFFF), // 8 addi r5, r11, projection@l - 4
+                0x38C300AC,                                             // 9 addi r6, r3, 0xB0 - 4
+                Branch(stub + 10 * 4, addr.orthoRenderStubTail, false), // 10 b to the tail
+            };
+        }
+
+        /// <summary>The render stub's tail: copies the projection, then goes on into the view update.</summary>
+        private uint[] OrthoRenderStubTail()
+        {
+            uint tail = addr.orthoRenderStubTail;
+            return new uint[]
+            {
+                0x85850004,                                             // 0 lwzu r12, 4(r5)
+                0x95860004,                                             // 1 stwu r12, 4(r6)
+                0x4200FFF8,                                             // 2 bdnz -8
+                Branch(tail + 3 * 4, addr.viewUpdateFunction, false),   // 3 b to the view update
             };
         }
 
         /// <summary>
-        /// Called instead of the frustum builder in the camera rebuild (the planes go to r6, 16
-        /// floats). While orthographic, makes them all 0 instead, which the game's culling lets
-        /// everything through; goes on in the tail. Uses r11, r12 and v0.
+        /// Called instead of the frustum builder in the camera rebuild, which takes the cone's
+        /// width each way in f1 and f2: adds the hook data's widening to both (0 while
+        /// perspective) and goes on into it. Uses r11 and f0.
         /// </summary>
         private uint[] OrthoFrustumStub()
         {
             uint stub = addr.orthoFrustumStub;
-            uint flag = addr.cameraHookData + OrthoFlagOffset;
+            uint widening = addr.cameraHookData + OrthoFlagOffset + 4;
             return new uint[]
             {
-                0x3D600000 | High(flag),                    // 0 lis r11, ortho@ha
-                0x818B0000 | (flag & 0xFFFF),               // 1 lwz r12, ortho@l(r11)
-                0x2C0C0000,                                 // 2 cmpwi r12, 0
-                0x40820008,                                 // 3 bne +8 (to 5: orthographic)
+                0x3D600000 | High(widening),                            // 0 lis r11, widening@ha
+                0xC00B0000 | (widening & 0xFFFF),                       // 1 lfs f0, widening@l(r11)
+                0xEC21002A,                                             // 2 fadds f1, f1, f0
+                0xEC42002A,                                             // 3 fadds f2, f2, f0
                 Branch(stub + 4 * 4, addr.frustumBuildFunction, false), // 4 b to the builder
-                0x100004C4,                                 // 5 vxor v0, v0, v0
-                0x7C0031CE,                                 // 6 stvx v0, 0, r6
-                0x39800010,                                 // 7 li r12, 0x10
-                Branch(stub + 8 * 4, addr.orthoFrustumStubTail, false), // 8 b to the tail
-            };
-        }
-
-        /// <summary>The frustum stub's tail: the other three planes, then back.</summary>
-        private static uint[] OrthoFrustumStubTail()
-        {
-            return new uint[]
-            {
-                0x7C0661CE, // 0 stvx v0, r6, r12
-                0x39800020, // 1 li r12, 0x20
-                0x7C0661CE, // 2 stvx v0, r6, r12
-                0x39800030, // 3 li r12, 0x30
-                0x7C0661CE, // 4 stvx v0, r6, r12
-                0x4E800020, // 5 blr
             };
         }
 

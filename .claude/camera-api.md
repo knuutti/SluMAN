@@ -63,7 +63,7 @@ Lists the requests this game supports and which world axis is up.
 }
 ```
 
-Sly 2, Sly 4 and the Hackpack list `&far=` in `/camera/set` as well, and Sly 2 (KOR), Sly 4 and the Hackpack `&ortho=&near=`. Use `upAxis` to tell the two coordinate systems apart (see [Coordinates and angles](#coordinates-and-angles)).
+Sly 2, Sly 4 and the Hackpack list `&far=` in `/camera/set` as well, and Sly 2, Sly 4 and the Hackpack `&ortho=&near=`. Use `upAxis` to tell the two coordinate systems apart (see [Coordinates and angles](#coordinates-and-angles)).
 
 ### `GET /camera`
 
@@ -82,8 +82,8 @@ Reads the free camera.
 | `gameFov` | when the game's field of view is known | The game's own field of view in degrees, read when the free camera started |
 | `far` | Sly 2, Sly 4, Hackpack | The free camera's far distance. `0` means the game's |
 | `gameFar` | Sly 2, Sly 4, Hackpack | The game's own far distance, read when the free camera started (Sly 2: `0` until it has) |
-| `ortho` | Sly 2 (KOR), Sly 4, Hackpack | The orthographic camera's height in world units, `0` when it's in perspective |
-| `near` | Sly 2 (KOR), Sly 4, Hackpack | The orthographic camera's near distance. `0` means the game's |
+| `ortho` | Sly 2, Sly 4, Hackpack | The orthographic camera's height in world units, `0` when it's in perspective |
+| `near` | Sly 2, Sly 4, Hackpack | The orthographic camera's near distance. `0` means the game's |
 
 When the camera is off, only `on: false` and whichever of `gameFov` / `far` / `gameFar` / `ortho` / `near` apply are returned.
 
@@ -98,8 +98,8 @@ Moves the free camera, **turning it on first** if it's off (from where the game'
 | `pitch` | Degrees. Clamped to −90…90 (straight down to straight up) in every game |
 | `fov` | Degrees, above 0 and below 180 in every game: clamped to 0.0001°–179.9999°, since exactly 0° or 180° breaks the projection. `0` means the game's |
 | `far` | Sly 2, Sly 4 and Hackpack only (`400` elsewhere). `0` means the game's. It applies only while the free camera is on and stays set when it's turned off and on. In Sly 2 it's the game's render distance (75000 on at least one map), which SluMAN puts back when the camera stops. The PAL version's address hasn't been checked |
-| `ortho` | Sly 2 (KOR version), Sly 4 and the Hackpack only (`400` elsewhere). Above 0, the free camera is **orthographic**: it shows this many world units from the top of the screen to the bottom (the width follows the screen's aspect ratio), whatever its distance, and `fov` does nothing. `0` is perspective again. The game builds the projection itself (the view's projection type at +0x31 set to 0, its rectangle at +0x50), and culls with the box. Stays set when the camera is turned off and on. In the hacking minigames, the three layer views the world is drawn through are made orthographic too. In Sly 2 SluMAN gives the renderer's main view the projection itself (through a stub in place of its SetPerspective call) and turns the game's culling cone off, so everything within `far` is drawn; it needs the camera hook (RPCS3's Interpreter (static) PPU decoder) |
-| `near` | Sly 2 (KOR), Sly 4 and the Hackpack only. The orthographic camera's near distance, `0` for the game's. Everything between `near` and `far` in front of the camera is drawn, so put the camera just above the highest point and set `far` to reach the lowest |
+| `ortho` | Sly 2, Sly 4 and the Hackpack only (`400` elsewhere). Above 0, the free camera is **orthographic**: it shows this many world units from the top of the screen to the bottom (the width follows the screen's aspect ratio), whatever its distance, and `fov` does nothing. `0` is perspective again. The game builds the projection itself (the view's projection type at +0x31 set to 0, its rectangle at +0x50), and culls with the box. Stays set when the camera is turned off and on. In the hacking minigames, the three layer views the world is drawn through are made orthographic too. In Sly 2 SluMAN gives the renderer's main view the projection itself (through a stub in place of its SetPerspective call) and opens the game's culling cone to everything in front of the camera, so everything ahead within `far` is drawn; it needs the camera hook (RPCS3's Interpreter (static) PPU decoder) |
+| `near` | Sly 2, Sly 4 and the Hackpack only. The orthographic camera's near distance, `0` for the game's. Everything between `near` and `far` in front of the camera is drawn, so put the camera just above the highest point and set `far` to reach the lowest |
 
 Setting the camera **stops any camera path playing** on the Camera tab.
 
