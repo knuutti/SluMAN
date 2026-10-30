@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using SluMAN.Memory;
 
@@ -39,6 +40,17 @@ namespace SluMAN
         private const float MaxPitch = (float)(Math.PI / 2);
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
+        // For when the view's aspect ratio, near or far distance can't be read.
+        private const float DefaultAspect = 16f / 9f;
+        private const float DefaultNear = 10f;
+        private const float DefaultFar = 100000f;
+        // Zooming in orthographically stops at this height, as the Camera tab's box does.
+        private const float MinOrthoHeight = 0.01f;
+        // The field of view the camera hook puts in while orthographic (about 178 degrees): it
+        // only widens the frustum the game culls with then, since SluMAN gives the renderer the
+        // projection, and one this wide takes in everything in front of the camera but its very
+        // edges.
+        private const float OrthoCullFov = 3.1f;
         // How long the camera hook gets to show it runs (its count goes up) before SluMAN says
         // it doesn't.
         private const int HookCheckMs = 500;
@@ -65,6 +77,17 @@ namespace SluMAN
         // False when the camera's field of view or frustum isn't one SluMAN can work from, so the
         // game's projection is kept.
         private bool fovKnown;
+        // Orthographic: how many world units the view shows top to bottom (0 for perspective), the
+        // near distance (0 for the game's), and the view's aspect ratio, near and far distances
+        // when the camera started.
+        private float orthoHeight;
+        private float orthoNear;
+        private float aspect = DefaultAspect;
+        private float gameNear = DefaultNear;
+        private float gameFar = DefaultFar;
+        // The orthographic view last given to the camera hook (width, height, near, far), or null
+        // when it's perspective.
+        private float[] orthoWritten;
         // Which way the game's left and up rows point, as read when the camera started.
         private float leftSign = 1;
         private float upSign = 1;
@@ -202,6 +225,75 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     return gameFov;
+                }
+            }
+        }
+
+        /// <summary>Whether this game version's free camera can be orthographic.</summary>
+        public bool OrthoSupported => game.OrthoSupported;
+
+        /// <summary>
+        /// How many world units the free camera shows from the top of the screen to the bottom
+        /// when it's orthographic, or 0 for perspective. Applies at once while the camera is on,
+        /// and stays set when it's turned off and on.
+        /// </summary>
+        public float OrthoHeight
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoHeight;
+                }
+            }
+            set
+            {
+                if (value > 0 && !game.OrthoSupported)
+                {
+                    throw new InvalidOperationException("This game version has no orthographic camera.");
+                }
+                lock (stateLock)
+                {
+                    orthoHeight = Math.Max(0, value);
+                    if (on)
+                    {
+                        try
+                        {
+                            WriteCamera();
+                        }
+                        catch
+                        {
+                            // Perspective, rather than failing again every tick.
+                            orthoHeight = 0;
+                            throw;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The orthographic camera's near clipping distance, or 0 for the game's. Applies at once
+        /// while the camera is on and orthographic.
+        /// </summary>
+        public float OrthoNear
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoNear;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    orthoNear = Math.Max(0, value);
+                    if (on)
+                    {
+                        WriteCamera();
+                    }
                 }
             }
         }
@@ -409,6 +501,14 @@ namespace SluMAN
             fovKnown = state.fov >= MinFov && state.fov <= MaxFov && state.Clone().SetFov(state, state.fov);
             gameFov = fovKnown ? state.fov : DefaultFov;
             fov = gameFov;
+            orthoWritten = null;
+            if (game.OrthoSupported)
+            {
+                float[] view = game.ReadRenderAspectNearFar();
+                aspect = view[0] > 0.1f && view[0] < 10f ? view[0] : DefaultAspect;
+                gameNear = view[1] > 0 && view[1] < 10000f ? view[1] : DefaultNear;
+                gameFar = view[2] > gameNear ? view[2] : DefaultFar;
+            }
 
             game.StartCameraHook(camera, BuildState());
             hookConfirmed = false;
@@ -612,7 +712,16 @@ namespace SluMAN
             {
                 zoom -= 1;
             }
-            fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
+            float zoomFactor = (float)Math.Exp(zoom * ZoomSpeed * step);
+            if (IsOrtho())
+            {
+                // The field of view does nothing while orthographic, so zoom changes what it shows.
+                orthoHeight = Math.Max(MinOrthoHeight, orthoHeight * zoomFactor);
+            }
+            else
+            {
+                fov = ClampFov(fov * zoomFactor);
+            }
         }
 
         /// <summary>The free camera as the camera hook puts it in: the game's, with SluMAN's position, rotation and field of view.</summary>
@@ -640,7 +749,7 @@ namespace SluMAN
             }
             if (fovKnown)
             {
-                state.SetFov(gameState, fov);
+                state.SetFov(gameState, IsOrtho() ? OrthoCullFov : fov);
             }
             return state;
         }
@@ -648,6 +757,37 @@ namespace SluMAN
         private void WriteCamera()
         {
             game.SetCameraHookState(BuildState());
+            WriteOrtho();
+        }
+
+        /// <summary>Whether the camera is drawn orthographically.</summary>
+        private bool IsOrtho()
+        {
+            return orthoHeight > 0 && game.OrthoSupported;
+        }
+
+        /// <summary>
+        /// Makes the hooked camera orthographic while there's a height, or perspective again
+        /// once it was orthographic.
+        /// </summary>
+        private void WriteOrtho()
+        {
+            if (IsOrtho())
+            {
+                float near = orthoNear > 0 ? orthoNear : gameNear;
+                float far = Math.Max(gameFar, near + 1);
+                float[] ortho = { orthoHeight * aspect, orthoHeight, near, far };
+                if (orthoWritten == null || !ortho.SequenceEqual(orthoWritten))
+                {
+                    game.SetCameraHookOrtho(ortho[0], ortho[1], ortho[2], ortho[3]);
+                    orthoWritten = ortho;
+                }
+            }
+            else if (orthoWritten != null)
+            {
+                game.SetCameraHookOrtho(0, 0, 0, 0);
+                orthoWritten = null;
+            }
         }
 
         /// <summary>
