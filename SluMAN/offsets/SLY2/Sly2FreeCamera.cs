@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using SluMAN.Memory;
 
@@ -8,7 +9,8 @@ namespace SluMAN
     /// <summary>
     /// The Sly 2 free camera, steered with the controller as read for the input display (so its
     /// subscriptions must be running): the left stick moves it, the right stick turns it, R1 and
-    /// L1 move up and down, R2 and L2 zoom, R3 asks for a keyframe (KeyframeRequested). The player
+    /// L1 move up and down, R2 and L2 zoom (the field of view, or the height shown while
+    /// orthographic), R3 asks for a keyframe (KeyframeRequested). The player
     /// is made uncontrollable. It can also play a camera path instead of following the sticks.
     /// <para>
     /// The camera is driven through the camera hook (sly2.StartCameraHook): the game's world
@@ -42,6 +44,12 @@ namespace SluMAN
         private const float MaxPitch = (float)(Math.PI / 2);
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
+        // For when the camera's aspect ratio can't be read.
+        private const float DefaultAspect = 16f / 9f;
+        // Zooming in orthographically stops at this height, as the Camera tab's box does.
+        private const float MinOrthoHeight = 0.01f;
+        // The near distance when the game's can't be read.
+        private const float DefaultNear = 10f;
 
         private readonly sly2 game;
         private readonly int intervalMs;
@@ -69,6 +77,13 @@ namespace SluMAN
         private float farDistance;
         private float gameFar;
         private float farWritten;
+        // Orthographic: how many world units the view shows top to bottom (0 for perspective), the
+        // near distance (0 for the game's), and the camera's aspect ratio and near distance when
+        // it started.
+        private float orthoHeight;
+        private float orthoNear;
+        private float aspect = DefaultAspect;
+        private float gameNear = DefaultNear;
         // False when the camera's field of view isn't in radians as on the PS2 version, so it's
         // left to the game.
         private bool fovKnown;
@@ -91,6 +106,9 @@ namespace SluMAN
         // Whether the camera hook drives the camera, and whether it has been seen running.
         private bool hooked;
         private bool hookConfirmed;
+        // The orthographic view last given to the hooked camera (width, height, near, far), or
+        // null when it's perspective.
+        private float[] orthoWritten;
         private readonly Stopwatch sinceHook = new Stopwatch();
 
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
@@ -236,6 +254,75 @@ namespace SluMAN
                     if (on)
                     {
                         WriteFar();
+                    }
+                }
+            }
+        }
+
+        /// <summary>Whether this game version's free camera can be orthographic.</summary>
+        public bool OrthoSupported => game.OrthoSupported;
+
+        /// <summary>
+        /// How many world units the free camera shows from the top of the screen to the bottom
+        /// when it's orthographic, or 0 for perspective. Applies at once while the camera is on,
+        /// and stays set when it's turned off and on. Needs the camera hook.
+        /// </summary>
+        public float OrthoHeight
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoHeight;
+                }
+            }
+            set
+            {
+                if (value > 0 && !game.OrthoSupported)
+                {
+                    throw new InvalidOperationException("This game version has no orthographic camera.");
+                }
+                lock (stateLock)
+                {
+                    orthoHeight = Math.Max(0, value);
+                    if (on)
+                    {
+                        try
+                        {
+                            WriteCamera();
+                        }
+                        catch
+                        {
+                            // Perspective, rather than failing again every tick.
+                            orthoHeight = 0;
+                            throw;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The orthographic camera's near clipping distance, or 0 for the game's. Applies at once
+        /// while the camera is on and orthographic.
+        /// </summary>
+        public float OrthoNear
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoNear;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    orthoNear = Math.Max(0, value);
+                    if (on)
+                    {
+                        WriteCamera();
                     }
                 }
             }
@@ -439,6 +526,7 @@ namespace SluMAN
         {
             hooked = false;
             hookConfirmed = false;
+            orthoWritten = null;
             try
             {
                 game.StartCameraHook(BuildMatrix());
@@ -495,6 +583,10 @@ namespace SluMAN
             fov = gameFov;
             gameFar = game.ReadRenderDistance();
             farWritten = 0;
+            float cameraAspect = game.ReadCameraAspect();
+            aspect = cameraAspect > 0.1f && cameraAspect < 10f ? cameraAspect : DefaultAspect;
+            float cameraNear = game.ReadCameraNear();
+            gameNear = cameraNear > 0 && cameraNear < 10000f ? cameraNear : DefaultNear;
             WriteFar();
             Hook();
             WriteCamera();
@@ -737,7 +829,16 @@ namespace SluMAN
             {
                 zoom -= 1;
             }
-            fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
+            float zoomFactor = (float)Math.Exp(zoom * ZoomSpeed * step);
+            if (orthoHeight > 0 && hooked)
+            {
+                // The field of view does nothing while orthographic, so zoom changes what it shows.
+                orthoHeight = Math.Max(MinOrthoHeight, orthoHeight * zoomFactor);
+            }
+            else
+            {
+                fov = ClampFov(fov * zoomFactor);
+            }
         }
 
         /// <summary>The free camera's matrix, laid out as sly2.ReadCameraMatrix's.</summary>
@@ -770,13 +871,40 @@ namespace SluMAN
             if (hooked)
             {
                 game.SetCameraHookMatrix(m);
-                // Marked changed, so the game works out the drawn matrix again even when its own
-                // camera stays put.
+                WriteOrtho();
                 return;
             }
 
             game.WriteCameraMatrix(m);
             game.WriteRenderCameraMatrix(m);
+        }
+
+        /// <summary>
+        /// Makes the hooked camera orthographic while there's a height, or perspective again
+        /// once it was orthographic.
+        /// </summary>
+        private void WriteOrtho()
+        {
+            if (orthoHeight > 0 && game.OrthoSupported)
+            {
+                float near = orthoNear > 0 ? orthoNear : gameNear;
+                float far = farWritten > 0 ? farWritten : gameFar;
+                if (far <= near)
+                {
+                    far = near + 1000000f;
+                }
+                float[] ortho = { orthoHeight * aspect, orthoHeight, near, far };
+                if (orthoWritten == null || !ortho.SequenceEqual(orthoWritten))
+                {
+                    game.SetCameraHookOrtho(ortho[0], ortho[1], ortho[2], ortho[3]);
+                    orthoWritten = ortho;
+                }
+            }
+            else if (orthoWritten != null)
+            {
+                game.SetCameraHookOrtho(0, 0, 0, 0);
+                orthoWritten = null;
+            }
         }
 
         /// <summary>

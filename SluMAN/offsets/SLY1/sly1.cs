@@ -80,7 +80,7 @@ namespace SluMAN
         /// <summary>The Camera tab. Paths are saved under the level's title.</summary>
         public CameraTabLayout GetCameraTabLayout(Sly1FreeCamera freeCamera)
         {
-            return new CameraTabLayout
+            CameraTabLayout layout = new CameraTabLayout
             {
                 freeCamera = freeCamera,
                 pathFolder = CameraPath.Sly1Folder,
@@ -99,6 +99,15 @@ namespace SluMAN
                 minFov = Sly1FreeCamera.MinFov,
                 maxFov = Sly1FreeCamera.MaxFov,
             };
+            if (OrthoSupported)
+            {
+                layout.getOrthoHeight = () => freeCamera.OrthoHeight;
+                layout.setOrthoHeight = (height) => freeCamera.OrthoHeight = height;
+                layout.getOrthoNear = () => freeCamera.OrthoNear;
+                layout.setOrthoNear = (near) => freeCamera.OrthoNear = near;
+                layout.defaultOrthoHeight = 2000;
+            }
+            return layout;
         }
 
         /// <summary>Gives Sly another double jump. Does nothing to a vehicle.</summary>
@@ -874,9 +883,14 @@ namespace SluMAN
             return offsets;
         }
 
+        // After the list: +0x2A0 orthographic (1, or 0 for the render stub to pass SetPerspective
+        // on), +0x2B0 the orthographic projection.
+        private const uint OrthoFlagOffset = 0x2A0;
+        private const uint OrthoProjectionOffset = 0x2B0;
+
         private static uint CameraHookDataSize()
         {
-            return CameraHookListOffset + (uint)(CameraHookOffsets().Count + 1) * 4;
+            return OrthoProjectionOffset + 0x40;
         }
 
         /// <summary>
@@ -917,6 +931,7 @@ namespace SluMAN
             Array.Copy(BitConverter.GetBytes(camera).Reverse().ToArray(), 0, header, 4, 4);
             Array.Copy(BitConverter.GetBytes(CameraHookMark).Reverse().ToArray(), 0, header, 0xC, 4);
             api.WriteMemory(pid, data, header);
+            api.WriteMemory(pid, data + OrthoFlagOffset, new byte[4]);
             SetCameraHookState(state);
             List<uint> offsets = CameraHookOffsets();
             offsets.Add(0);
@@ -996,6 +1011,174 @@ namespace SluMAN
                     api.WriteMemory(pid, call, BitConverter.GetBytes(Branch(call, function, false)).Reverse().ToArray());
                 }
             }
+            StopOrtho();
+        }
+
+        /// <summary>Whether the free camera can draw this version orthographically.</summary>
+        public bool OrthoSupported => sly1.addr.orthoRenderStub != 0;
+
+        // Whether the render stub is in and SetPerspective's call points at it.
+        private bool orthoHooked;
+
+        // In the renderer's main view: its aspect ratio (width / height), then its near and far
+        // distances.
+        private const uint ViewAspectOffset = 0x24;
+
+        /// <summary>The renderer's main view's aspect ratio, near and far distances.</summary>
+        public float[] ReadRenderAspectNearFar()
+        {
+            byte[] bytes = api.ReadMemory(pid, sly1.addr.renderView + ViewAspectOffset, 12);
+            return new float[] { ToFloat(bytes, 0), ToFloat(bytes, 4), ToFloat(bytes, 8) };
+        }
+
+        /// <summary>
+        /// Makes the camera hook's camera orthographic, showing <paramref name="width"/> by
+        /// <paramref name="height"/> world units around its centre from <paramref name="near"/>
+        /// to <paramref name="far"/>, or perspective again with a width of 0. The first time puts
+        /// the render stub in and points SetPerspective's call at it. Needs the camera hook on.
+        /// </summary>
+        public void SetCameraHookOrtho(float width, float height, float near, float far)
+        {
+            uint data = sly1.addr.cameraHookData;
+            if (width <= 0)
+            {
+                if (orthoHooked)
+                {
+                    api.WriteMemory(pid, data + OrthoFlagOffset, new byte[4]);
+                }
+                return;
+            }
+            if (!OrthoSupported)
+            {
+                throw new InvalidOperationException("This game version has no orthographic camera.");
+            }
+            api.WriteMemory(pid, data + OrthoProjectionOffset, OrthoProjection(width, height, near, far));
+            if (!orthoHooked)
+            {
+                HookOrtho();
+            }
+            api.WriteMemory(pid, data + OrthoFlagOffset, WordsToBytes(new uint[] { 1 }));
+        }
+
+        /// <summary>
+        /// The renderer's projection matrix for an orthographic view, as its own orthographic
+        /// builder (0x19346C) makes them: view space looks down -Z, depth runs 0 to 1 from near
+        /// to far.
+        /// </summary>
+        private static byte[] OrthoProjection(float width, float height, float near, float far)
+        {
+            float[] m = new float[16];
+            m[0] = 2 / width;
+            m[5] = 2 / height;
+            m[10] = 1 / (near - far);
+            m[14] = near / (near - far);
+            m[15] = 1;
+            return FloatsToBytes(m);
+        }
+
+        /// <summary>
+        /// Puts the render stub in and points SetPerspective's call at it. Throws, leaving the
+        /// game's call alone, when the code or memory isn't what's expected.
+        /// </summary>
+        private void HookOrtho()
+        {
+            uint site = sly1.addr.setPerspectiveCall;
+            uint instruction = (uint)ReadInt(site);
+            if (instruction != Branch(site, sly1.addr.setPerspectiveFunction, true) && instruction != Branch(site, sly1.addr.orthoRenderStub, true))
+            {
+                throw new InvalidOperationException("The game's code isn't what SluMAN expects, so the orthographic camera isn't available on this version.");
+            }
+            WriteUnusedCode(sly1.addr.orthoRenderStub, OrthoRenderStub());
+            WriteUnusedCode(sly1.addr.orthoRenderStubTail, OrthoRenderStubTail());
+            api.WriteMemory(pid, sly1.addr.cameraHookData + OrthoFlagOffset, new byte[4]);
+            api.WriteMemory(pid, site, WordsToBytes(new uint[] { Branch(site, sly1.addr.orthoRenderStub, true) }));
+            orthoHooked = true;
+        }
+
+        /// <summary>Perspective again, with SetPerspective's call pointed back.</summary>
+        private void StopOrtho()
+        {
+            if (!OrthoSupported)
+            {
+                return;
+            }
+            api.WriteMemory(pid, sly1.addr.cameraHookData + OrthoFlagOffset, new byte[4]);
+            uint site = sly1.addr.setPerspectiveCall;
+            if ((uint)ReadInt(site) == Branch(site, sly1.addr.orthoRenderStub, true))
+            {
+                api.WriteMemory(pid, site, WordsToBytes(new uint[] { Branch(site, sly1.addr.setPerspectiveFunction, true) }));
+            }
+            orthoHooked = false;
+        }
+
+        /// <summary>
+        /// Puts code into memory nothing has used: zeros, or the same code from before. Throws
+        /// when something else is there.
+        /// </summary>
+        private void WriteUnusedCode(uint address, uint[] words)
+        {
+            byte[] code = WordsToBytes(words);
+            byte[] there = api.ReadMemory(pid, address, (uint)code.Length);
+            if (there.SequenceEqual(code))
+            {
+                return;
+            }
+            if (there.Any(b => b != 0))
+            {
+                throw new InvalidOperationException($"The memory at 0x{address:X} SluMAN puts its orthographic camera code in isn't empty. Restart the game, or the orthographic camera isn't available on this version.");
+            }
+            api.WriteMemory(pid, address, code);
+            if (!api.ReadMemory(pid, address, (uint)code.Length).SequenceEqual(code))
+            {
+                throw new InvalidOperationException("Couldn't write the orthographic camera code into the game's memory.");
+            }
+        }
+
+        /// <summary>
+        /// Called instead of SetPerspective for the main view (view in r3, camera in r4). While
+        /// orthographic, does what it does with SluMAN's projection: the view's type 1
+        /// (perspective, which has the view update work out its inverse projection; the frame
+        /// setup set it to 0 before, and the flag is 1), the matrix at +0xB0 (copied in the
+        /// tail), then on into the view update. Uses r5, r6, r11, r12 and the count register,
+        /// which the call may change.
+        /// </summary>
+        private uint[] OrthoRenderStub()
+        {
+            uint stub = sly1.addr.orthoRenderStub;
+            uint data = sly1.addr.cameraHookData;
+            return new uint[]
+            {
+                0x3D600000 | High(data),                                // 0 lis r11, data@ha
+                0x818B0000 | ((data + OrthoFlagOffset) & 0xFFFF),       // 1 lwz r12, ortho@l(r11)
+                0x2C0C0000,                                             // 2 cmpwi r12, 0
+                0x40820008,                                             // 3 bne +8 (to 5: orthographic)
+                Branch(stub + 4 * 4, sly1.addr.setPerspectiveFunction, false), // 4 b to SetPerspective
+                0x91830030,                                             // 5 stw r12, 0x30(r3) (type 1)
+                0x39800010,                                             // 6 li r12, 16 (words)
+                0x7D8903A6,                                             // 7 mtctr r12
+                0x38AB0000 | ((data + OrthoProjectionOffset - 4) & 0xFFFF), // 8 addi r5, r11, projection@l - 4
+                Branch(stub + 9 * 4, sly1.addr.orthoRenderStubTail, false), // 9 b to the tail
+            };
+        }
+
+        /// <summary>The render stub's tail: copies the projection, then goes on into the view update.</summary>
+        private uint[] OrthoRenderStubTail()
+        {
+            uint tail = sly1.addr.orthoRenderStubTail;
+            return new uint[]
+            {
+                0x38C300AC,                                             // 0 addi r6, r3, 0xB0 - 4
+                0x85850004,                                             // 1 lwzu r12, 4(r5)
+                0x95860004,                                             // 2 stwu r12, 4(r6)
+                0x4200FFF8,                                             // 3 bdnz -8
+                Branch(tail + 4 * 4, sly1.addr.viewUpdateFunction, false), // 4 b to the view update
+            };
+        }
+
+        /// <summary>The high half of an address for lis, adjusted for the signed low half.</summary>
+        private static uint High(uint address)
+        {
+            return ((address + 0x8000) >> 16) & 0xFFFF;
         }
 
         /// <summary>
