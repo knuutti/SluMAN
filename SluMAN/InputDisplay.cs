@@ -27,14 +27,10 @@ namespace SluMAN
             BuildSkinContextMenu();
             BuildObsMenu();
 
-            // controllerSkin = ControllerSkin.Load(Directory.EnumerateDirectories("controllerskins").First());
-            try
+            int selectedIndex = skinComboBox.Items.IndexOf(ControllerSkin.SelectedSkinName());
+            if (selectedIndex >= 0)
             {
-                skinComboBox.SelectedIndex = Convert.ToInt32(func.GetConfigData("config.txt", "InputDisplaySkin"));
-            }
-            catch
-            {
-                skinComboBox.SelectedIndex = 0;
+                skinComboBox.SelectedIndex = selectedIndex;
             }
 
             var savedBackColor = func.GetConfigData("config.txt", "InputDisplayBackColor");
@@ -71,30 +67,15 @@ namespace SluMAN
             this.Invalidate();
         }
 
-        // Skin parts drawn while their button is held. The sticks are drawn separately.
-        private static readonly KeyValuePair<Inputs.Buttons, string>[] buttonParts =
-        {
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.left, "dpadLeft"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.right, "dpadRight"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.down, "dpadDown"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.up, "dpadUp"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.cross, "cross"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.circle, "circle"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.triangle, "triangle"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.square, "square"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.select, "select"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.start, "start"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r1, "r1"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l1, "l1"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l2, "l2"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r2, "r2"),
-        };
-
         private const GraphicsUnit units = GraphicsUnit.Pixel;
 
         private void DrawPart(Graphics graphics, Image sprite, string part, float offsetX = 0, float offsetY = 0)
         {
-            InputPlot plot = controllerSkin.buttons[part];
+            InputPlot plot;
+            if (!controllerSkin.buttons.TryGetValue(part, out plot))
+            {
+                return;
+            }
             graphics.DrawImage(sprite, plot.drawX + offsetX, plot.drawY + offsetY, new Rectangle(plot.spriteX, plot.spriteY, plot.spriteWidth, plot.spriteHeight), units);
         }
 
@@ -108,6 +89,11 @@ namespace SluMAN
             drawnRx = rx;
             drawnRy = ry;
 
+            if (controllerSkin == null || controllerSkin.image == null)
+            {
+                return;
+            }
+
             Image sprite = controllerSkin.image;
             Graphics graphics = e.Graphics;
             float pitch = controllerSkin.analogPitch;
@@ -118,12 +104,10 @@ namespace SluMAN
             DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.r3) ? "r3" : "r3Press", rx * pitch, ry * pitch);
             DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.l3) ? "l3" : "l3Press", lx * pitch, ly * pitch);
 
-            foreach (KeyValuePair<Inputs.Buttons, string> part in buttonParts)
+            // A held button's part, otherwise its released part if the skin has one.
+            foreach (KeyValuePair<Inputs.Buttons, string> part in ControllerSkin.ButtonParts)
             {
-                if (IsHeld(inputs, part.Key))
-                {
-                    DrawPart(graphics, sprite, part.Value);
-                }
+                DrawPart(graphics, sprite, IsHeld(inputs, part.Key) ? part.Value : part.Value + ControllerSkin.ReleasedSuffix);
             }
         }
 
@@ -171,8 +155,19 @@ namespace SluMAN
 
             var skinName = skinComboBox.Items[skinIndex].ToString();
 
+            ControllerSkin loaded;
+            try
+            {
+                loaded = ControllerSkin.Load(skinName);
+            }
+            catch (Exception ex)
+            {
+                func.Status($"Couldn't load the skin \"{skinName}\": {ex.Message}", true);
+                return;
+            }
+
             ControllerSkin previous = controllerSkin;
-            controllerSkin = ControllerSkin.Load(skinName);
+            controllerSkin = loaded;
             ObsPadServer.SelectedSkin = skinName;
             if (previous != null && previous.image != null)
             {
@@ -181,7 +176,7 @@ namespace SluMAN
             drawnInputs = -1;
             Invalidate();
 
-            func.ChangeFileLines("config.txt", skinIndex.ToString(), "InputDisplaySkin");
+            ControllerSkin.SaveSelectedSkinName(skinName);
 
             this.Width = Math.Max(controllerSkin.buttons["base"].spriteWidth + 50, this.Width);
             this.Height = Math.Max(controllerSkin.buttons["base"].spriteHeight + 50, this.Height);

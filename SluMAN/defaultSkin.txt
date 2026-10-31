@@ -35,5 +35,10 @@ l1: 99, 73, 458, 654, 89, 27
 l2: 99, 0, 460, 586, 86, 65
 r2: 599, 0, 460, 586, 86, 65
 
+# Released buttons (optional). Add "Released" to a button's name for the part drawn while it
+# isn't held, e.g. crossReleased, dpadUpReleased, l2Released. Without them the base image shows
+# the released buttons, as in this skin.
+# crossReleased: 609, 303, 389, 620, 62, 62
+
 # Add in name of the image you used. Needs to be in the same folder as the .txt
 imageName: ds3b.png
