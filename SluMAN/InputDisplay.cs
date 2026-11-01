@@ -295,8 +295,13 @@ namespace SluMAN
             ToolStripMenuItem createSkinMenuItem = new ToolStripMenuItem("Create Skin...");
             createSkinMenuItem.ToolTipText = "Make a skin from your own PNG in the browser";
             createSkinMenuItem.Click += createSkinMenuItem_Click;
+            ToolStripMenuItem editSkinMenuItem = new ToolStripMenuItem("Edit This Skin...");
+            editSkinMenuItem.ToolTipText = "Open this skin in the skin editor (SluMAN's own skins open as a copy)";
+            editSkinMenuItem.Click += editSkinMenuItem_Click;
             contextMenuStrip1.Items.Add(new ToolStripSeparator());
             contextMenuStrip1.Items.Add(createSkinMenuItem);
+            contextMenuStrip1.Items.Add(editSkinMenuItem);
+            contextMenuStrip1.Opening += (sender, e) => editSkinMenuItem.Enabled = controllerSkin != null;
         }
 
         /// <summary>
@@ -304,6 +309,19 @@ namespace SluMAN
         /// so that is switched on first if it's off.
         /// </summary>
         private void createSkinMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenSkinEditor(ObsPadServer.EditorUrl);
+        }
+
+        private void editSkinMenuItem_Click(object sender, EventArgs e)
+        {
+            if (controllerSkin != null)
+            {
+                OpenSkinEditor(ObsPadServer.EditorUrl + "?skin=" + Uri.EscapeDataString(controllerSkin.name));
+            }
+        }
+
+        private void OpenSkinEditor(string url)
         {
             if (!ObsPadServer.IsRunning)
             {
@@ -318,11 +336,11 @@ namespace SluMAN
 
             try
             {
-                Process.Start(ObsPadServer.EditorUrl);
+                Process.Start(url);
             }
             catch (Exception ex)
             {
-                func.Status($"Couldn't open the browser ({ex.Message}). Open {ObsPadServer.EditorUrl} yourself.", true);
+                func.Status($"Couldn't open the browser ({ex.Message}). Open {url} yourself.", true);
             }
         }
 

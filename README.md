@@ -66,7 +66,7 @@ A skin is a folder holding a `skin.txt` and its sprite sheet; `defaultSkin.txt` 
 
 Each button can have a part drawn while it's held (`cross`) and, optionally, one drawn while it isn't (`crossReleased`). Skins without released parts show the released buttons in their base image.
 
-To make one without writing `skin.txt` by hand, right-click the Input Display and choose **Create Skin...**. It opens the skin editor in your browser: open a PNG holding the controller and every button and stick (released and pressed), crop each part out of it, place the parts on the controller, and save. The skin is saved to your skins folder and can be used right away, in the Input Display and in OBS.
+To make one without writing `skin.txt` by hand, right-click the Input Display and choose **Create Skin...**. It opens the skin editor in your browser: open a PNG holding the controller and every button and stick (released and pressed), crop each part out of it, place the parts on the controller, and save. Clicking a sprite crops it to its pixels, and **Live** shows your controller on the skin as you press it. The skin is saved to your skins folder and can be used right away, in the Input Display and in OBS. **Edit This Skin...** in the same menu opens the skin you're using; SluMAN's own skins open as a copy to save under a new name.
 
 ## Acknowledgements
 This project is a fork of [racman](https://github.com/MichaelRelaxen/racman). Huge thank you for the work of the racman and [Ratchetron](https://github.com/bordplate/Ratchetron) developers, without your contributions this project would not be possible!

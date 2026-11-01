@@ -284,11 +284,15 @@ namespace SluMAN
                 {
                     return $"{part.Key} has no size.";
                 }
-                // In longs, so huge numbers can't wrap around into the image.
-                if (plot.spriteX < 0 || plot.spriteY < 0
-                    || (long)plot.spriteX + plot.spriteWidth > width || (long)plot.spriteY + plot.spriteHeight > height)
+                // A crop may run past the sheet's edge: the renderers draw that bit transparent, and
+                // the DS3 skins' base is wider than their sheet (its size is the display's size).
+                if (plot.spriteX < 0 || plot.spriteY < 0 || plot.spriteX >= width || plot.spriteY >= height)
                 {
-                    return $"{part.Key} goes outside the sprite sheet ({width} × {height}).";
+                    return $"{part.Key} starts outside the sprite sheet ({width} × {height}).";
+                }
+                if (plot.spriteWidth > MaxImageSide || plot.spriteHeight > MaxImageSide)
+                {
+                    return $"{part.Key} can be at most {MaxImageSide} × {MaxImageSide} pixels.";
                 }
                 if (Math.Abs((long)plot.drawX) > MaxDrawOffset || Math.Abs((long)plot.drawY) > MaxDrawOffset)
                 {
