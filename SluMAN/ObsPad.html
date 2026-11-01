@@ -23,7 +23,8 @@ var BITS = {
   up: 0x1000, right: 0x2000, down: 0x4000, left: 0x8000
 };
 
-// Sprite name for each button that is drawn only while held.
+// Sprite name for each button, drawn while held. The same name + "Released" is drawn while not
+// held, if the skin has it; older skins have the released look in their base.
 var HELD = [
   ["left", "dpadLeft"], ["right", "dpadRight"], ["down", "dpadDown"], ["up", "dpadUp"],
   ["cross", "cross"], ["circle", "circle"], ["triangle", "triangle"], ["square", "square"],
@@ -90,7 +91,7 @@ function draw() {
   drawPlot(held("l3") ? "l3" : "l3Press", state.lx * pitch, state.ly * pitch);
 
   for (var i = 0; i < HELD.length; i++) {
-    if (held(HELD[i][0])) drawPlot(HELD[i][1]);
+    drawPlot(held(HELD[i][0]) ? HELD[i][1] : HELD[i][1] + "Released");
   }
 }
 
