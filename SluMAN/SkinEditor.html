@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SluMAN Skin Editor</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --panel: #ffffff; --fg: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
+    --accent: #2563eb; --accent-fg: #ffffff; --soft: #e8eefc; --danger: #b42318; --warn: #b54708; --ok: #1a7f37;
+    --crop: rgba(37, 99, 235, 0.55); --crop-label: rgba(29, 29, 27, 0.75);
+    --check-a: #e9e9e4; --check-b: #f8f8f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #20201f; --fg: #ececea; --muted: #9a9a94; --line: #34342f;
+      --accent: #5b8def; --accent-fg: #0d0d0c; --soft: #22304d; --danger: #f97066; --warn: #f5a34b; --ok: #4ac26b;
+      --crop: rgba(91, 141, 239, 0.6); --crop-label: rgba(10, 10, 10, 0.8);
+      --check-a: #262624; --check-b: #2e2e2b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  button, select {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  select { padding: 4px 6px; max-width: 100%; }
+  button:hover:not(:disabled), select:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled, select:disabled { opacity: 0.45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  button[aria-pressed="true"] { background: var(--soft); border-color: var(--accent); }
+  input[type="text"], input[type="number"] {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 7px; min-width: 0;
+  }
+  input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0 6px 0 0; }
+  header .name { display: flex; align-items: center; gap: 6px; }
+  header .name input { width: 190px; }
+  header label.check { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+  header .group { display: flex; gap: 4px; }
+  #status { color: var(--muted); }
+  #status.error { color: var(--danger); }
+  #status.ok { color: var(--ok); }
+
+  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) 260px; min-height: 0; }
+  aside { background: var(--panel); overflow: auto; padding: 12px; min-height: 0; }
+  aside.parts { border-right: 1px solid var(--line); }
+  aside.props { border-left: 1px solid var(--line); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
+  aside > h2:first-child, .parts-list > div:first-child > h2 { margin-top: 0; }
+
+  .part { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px; padding: 2px 0; }
+  .part.single { grid-template-columns: 1fr auto; }
+  .part .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; font-size: 12px; border-radius: 999px; }
+  .slot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); }
+  .slot.set::before { background: var(--accent); border-color: var(--accent); }
+  .slot.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .slot.selected::before { border-color: var(--accent-fg); }
+  .slot.selected.set::before { background: var(--accent-fg); }
+
+  .pane { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; border-right: 1px solid var(--line); }
+  .pane:last-of-type { border-right: 0; }
+  .pane .bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line);
+    background: var(--panel); font-size: 13px;
+  }
+  .pane .bar strong { margin-right: auto; }
+  .pane .bar button { padding: 2px 8px; font-size: 12px; }
+  #liveInfo { width: 100%; font-size: 12px; color: var(--muted); }
+  .stage {
+    position: relative; min-height: 0; overflow: hidden; touch-action: none;
+    background-color: var(--check-b);
+    background-image: linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%),
+      linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%);
+    background-size: 16px 16px; background-position: 0 0, 8px 8px;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage.active { box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .empty {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); z-index: 10; overflow: auto;
+  }
+  .empty .card { max-width: 540px; background: var(--panel); border: 2px dashed var(--line); border-radius: 12px; padding: 28px; }
+  .empty.drag .card { border-color: var(--accent); }
+  .empty h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--fg); margin: 0 0 8px; }
+  .empty ol { padding-left: 20px; color: var(--muted); }
+  .empty .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  #draftBox { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .hidden { display: none !important; }
+
+  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .field label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+  .field input { width: 100%; }
+  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .row button { padding: 3px 9px; }
+  #selectedTitle { font-weight: 600; margin-bottom: 6px; }
+  #copyFrom { width: 100%; margin-bottom: 8px; }
+  .keys { color: var(--muted); font-size: 12px; }
+  .keys kbd {
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font: 11px ui-monospace, monospace;
+  }
+  #checks { list-style: none; padding: 0; margin: 0 0 8px; font-size: 13px; }
+  #checks li { padding: 4px 6px 4px 18px; border-radius: 6px; position: relative; }
+  #checks li::before { content: ""; position: absolute; left: 6px; top: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  #checks li.error::before { background: var(--danger); }
+  #checks li.warn::before { background: var(--warn); }
+  #checks li[data-slot] { cursor: pointer; }
+  #checks li[data-slot]:hover { background: var(--soft); }
+
+  @media (max-width: 1100px) {
+    .app { height: auto; min-height: 100vh; }
+    main { grid-template-columns: 1fr; }
+    aside.parts, aside.props { border: 0; border-bottom: 1px solid var(--line); }
+    .parts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 16px; }
+    .pane { height: 70vh; border-right: 0; border-bottom: 1px solid var(--line); }
+    header .name input { width: 140px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Skin Editor</h1>
+    <button id="openButton" type="button">Open PNG…</button>
+    <input id="fileInput" type="file" accept="image/png,image/*" class="hidden">
+    <select id="skinSelect" aria-label="Open one of your skins"><option value="">Open a skin…</option></select>
+    <span class="name"><label for="nameInput">Name</label><input id="nameInput" type="text" maxlength="64" value="My Skin"></span>
+    <label class="check" title="Show it in the Input Display and the OBS page once saved"><input id="useNow" type="checkbox" checked> Use it now</label>
+    <span class="group">
+      <button id="undoButton" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
+      <button id="redoButton" type="button" title="Redo (Ctrl+Y)" disabled>Redo</button>
+    </span>
+    <button id="saveButton" type="button" class="primary" disabled>Save</button>
+    <span id="status" role="status" aria-live="polite"></span>
+  </header>
+
+  <main>
+    <aside class="parts">
+      <div id="partsList" class="parts-list"></div>
+    </aside>
+
+    <section class="pane">
+      <div class="bar">
+        <strong>Sprite sheet</strong>
+        <button type="button" data-zoom="sheet" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="sheet" data-step="out" title="Zoom out">−</button>
+        <button type="button" data-zoom="sheet" data-step="fit">Fit</button>
+      </div>
+      <div class="stage" id="sheetStage"><canvas id="sheetCanvas"></canvas></div>
+    </section>
+
+    <section class="pane">
+      <div class="bar">
+        <strong>Layout</strong>
+        <button type="button" id="previewReleased" title="Show every button released">Released</button>
+        <button type="button" id="previewPressed" title="Show every button pressed">Pressed</button>
+        <button type="button" id="liveButton" aria-pressed="false" title="Show your controller as SluMAN reads it">Live</button>
+        <button type="button" data-zoom="layout" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="layout" data-step="out" title="Zoom out">−</button>
+        <button type="button" data-zoom="layout" data-step="fit">Fit</button>
+        <span id="liveInfo" class="hidden"></span>
+      </div>
+      <div class="stage" id="layoutStage"><canvas id="layoutCanvas"></canvas></div>
+    </section>
+
+    <aside class="props">
+      <h2>Selected part</h2>
+      <div id="selectedTitle"></div>
+      <p id="selectedHint" class="hint"></p>
+      <div class="field" id="cropFields">
+        <label>Crop X<input type="number" id="cropX" step="1"></label>
+        <label>Crop Y<input type="number" id="cropY" step="1"></label>
+        <label>Width<input type="number" id="cropW" step="1" min="1"></label>
+        <label>Height<input type="number" id="cropH" step="1" min="1"></label>
+      </div>
+      <div class="field" id="placeFields">
+        <label>Position X<input type="number" id="drawX" step="1"></label>
+        <label>Position Y<input type="number" id="drawY" step="1"></label>
+      </div>
+      <div class="row">
+        <button type="button" id="trimButton" title="Shrink the crop to the sprite's visible pixels">Trim</button>
+        <button type="button" id="alignButton" title="Centre this slot on the part's other slot">Align with other slot</button>
+        <button type="button" id="clearButton">Clear</button>
+      </div>
+      <select id="copyFrom" aria-label="Copy another slot's crop"><option value="">Use the same crop as…</option></select>
+
+      <h2>Sticks</h2>
+      <div class="field">
+        <label title="How far the stick parts move when a stick is pushed all the way">Movement (px)<input type="number" id="pitchInput" min="0" max="1000" step="1" value="32"></label>
+      </div>
+
+      <h2>Checks</h2>
+      <ul id="checks"></ul>
+
+      <h2>Files</h2>
+      <div class="row">
+        <button type="button" id="downloadText">Download skin.txt</button>
+        <button type="button" id="downloadImage">Download skin.png</button>
+      </div>
+      <p class="hint">For sharing: the two files in a folder are a skin.</p>
+
+      <h2>How to</h2>
+      <p class="hint">Pick a slot on the left, then click its sprite on the sheet to crop it, or drag a box around it. Drag the part on the layout to place it. Click a crop on the sheet to select it; <kbd>Alt</kbd>+click crops the sprite under a crop.</p>
+      <p class="keys"><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> nudge 1 px, with <kbd>Shift</kbd> 10 px, in the pane you used last. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo. Scroll to zoom; drag with the middle button or hold <kbd>Space</kbd> to pan.</p>
+    </aside>
+  </main>
+</div>
+
+<div class="empty" id="empty">
+  <div class="card">
+    <h2>Make an input display skin</h2>
+    <p>Start from one PNG holding the controller's body and every button and stick, released and pressed.</p>
+    <ol>
+      <li>Crop the <strong>base</strong>: the controller body everything is placed on.</li>
+      <li>Crop each button's <strong>released</strong> and <strong>pressed</strong> look.</li>
+      <li>Place them on the layout, check them with Released / Pressed or Live, and save.</li>
+    </ol>
+    <div class="actions">
+      <button type="button" class="primary" id="emptyOpen">Open PNG…</button>
+      <span>or drop or paste an image here, or open one of your skins at the top.</span>
+    </div>
+    <div id="draftBox" class="hidden">
+      <p id="draftText"></p>
+      <div class="actions">
+        <button type="button" id="restoreDraft">Restore it</button>
+        <button type="button" id="discardDraft">Discard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// Skin parts, as skin.txt names them. Sticks: "l3"/"r3" is drawn while clicked in, "l3Press"/
+// "r3Press" otherwise. A button's part is drawn while held, "<part>Released" otherwise.
+const GROUPS = [
+  { title: "Base", parts: [{ id: "base", label: "Controller body", single: "base" }] },
+  { title: "Sticks", parts: [
+    { id: "l3", label: "L stick", released: "l3Press", pressed: "l3", stick: true },
+    { id: "r3", label: "R stick", released: "r3Press", pressed: "r3", stick: true },
+  ] },
+  { title: "D-pad", parts: [
+    { id: "dpadUp", label: "Up" }, { id: "dpadDown", label: "Down" },
+    { id: "dpadLeft", label: "Left" }, { id: "dpadRight", label: "Right" },
+  ] },
+  { title: "Face buttons", parts: [
+    { id: "cross", label: "Cross" }, { id: "circle", label: "Circle" },
+    { id: "square", label: "Square" }, { id: "triangle", label: "Triangle" },
+  ] },
+  { title: "Select / Start", parts: [{ id: "select", label: "Select" }, { id: "start", label: "Start" }] },
+  { title: "Shoulders", parts: [
+    { id: "l1", label: "L1" }, { id: "r1", label: "R1" }, { id: "l2", label: "L2" }, { id: "r2", label: "R2" },
+  ] },
+];
+// The order SluMAN draws them in (InputDisplay.cs, ObsPad.html): base, sticks, then buttons.
+const DRAW_ORDER = ["r3", "l3", "dpadLeft", "dpadRight", "dpadDown", "dpadUp", "cross", "circle", "triangle",
+  "square", "select", "start", "r1", "l1", "l2", "r2"];
+// Each part's bit in the input mask /events sends (Inputs.Buttons).
+const BITS = {
+  l2: 0x1, r2: 0x2, l1: 0x4, r1: 0x8, triangle: 0x10, circle: 0x20, cross: 0x40, square: 0x80,
+  select: 0x100, l3: 0x200, r3: 0x400, start: 0x800, dpadUp: 0x1000, dpadRight: 0x2000, dpadDown: 0x4000, dpadLeft: 0x8000,
+};
+
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
+const MAX_IMAGE_SIDE = 8192;
+// A pixel counts as part of a sprite above this alpha.
+const ALPHA = 16;
+const HISTORY_LIMIT = 200;
+
+const PARTS = {};      // id -> part definition
+const SLOTS = {};      // skin.txt name -> { part, kind: "released" | "pressed" | "single" }
+for (const group of GROUPS) {
+  for (const part of group.parts) {
+    if (!part.single && !part.stick) {
+      part.released = part.id + "Released";
+      part.pressed = part.id;
+    }
+    PARTS[part.id] = part;
+    if (part.single) {
+      SLOTS[part.single] = { part: part, kind: "single" };
+    } else {
+      SLOTS[part.released] = { part: part, kind: "released" };
+      SLOTS[part.pressed] = { part: part, kind: "pressed" };
+    }
+  }
+}
+
+// The skin being made. parts: skin.txt name -> { sx, sy, sw, sh, dx, dy }.
+const skin = { parts: {}, pitch: 32 };
+// Which parts the layout shows pressed (when not live).
+const held = {};
+let selected = "base";
+let image = null;          // the sprite sheet, decoded
+let pngBytes = null;       // its PNG bytes, sent as they are
+let pixels = null;         // its RGBA pixels, read when first needed
+let dirty = false;
+let activePane = "sheet";
+let spaceDown = false;
+let skinList = [];         // from /skins
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- Views (zoom and pan) ----------
+
+function makeView(stageId, canvasId, drawFn) {
+  const view = { stage: $(stageId), canvas: $(canvasId), scale: 1, ox: 0, oy: 0, draw: drawFn, width: 0, height: 0 };
+  view.ctx = view.canvas.getContext("2d");
+  new ResizeObserver(() => {
+    const ratio = window.devicePixelRatio || 1;
+    view.width = view.stage.clientWidth;
+    view.height = view.stage.clientHeight;
+    view.canvas.width = Math.max(1, Math.round(view.width * ratio));
+    view.canvas.height = Math.max(1, Math.round(view.height * ratio));
+    if (!view.fitted && view.contentSize()) fit(view);
+    redraw(view);
+  }).observe(view.stage);
+  return view;
+}
+
+function toWorld(view, event) {
+  const rect = view.canvas.getBoundingClientRect();
+  return { x: (event.clientX - rect.left - view.ox) / view.scale, y: (event.clientY - rect.top - view.oy) / view.scale };
+}
+
+function toScreen(view, x, y) {
+  return { x: x * view.scale + view.ox, y: y * view.scale + view.oy };
+}
+
+function fit(view) {
+  const size = view.contentSize();
+  if (!size || !view.width || !view.height) return;
+  const margin = 24;
+  view.scale = Math.min((view.width - margin * 2) / size.w, (view.height - margin * 2) / size.h);
+  view.scale = Math.max(0.02, Math.min(view.scale, 8));
+  view.ox = (view.width - size.w * view.scale) / 2 - size.x * view.scale;
+  view.oy = (view.height - size.h * view.scale) / 2 - size.y * view.scale;
+  view.fitted = true;
+  redraw(view);
+}
+
+function zoomAt(view, factor, sx, sy) {
+  const scale = Math.max(0.02, Math.min(view.scale * factor, 40));
+  factor = scale / view.scale;
+  view.ox = sx - (sx - view.ox) * factor;
+  view.oy = sy - (sy - view.oy) * factor;
+  view.scale = scale;
+  redraw(view);
+}
+
+function beginFrame(view) {
+  const ratio = window.devicePixelRatio || 1;
+  const ctx = view.ctx;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, view.canvas.width, view.canvas.height);
+  ctx.imageSmoothingEnabled = view.scale < 1;
+  return ratio;
+}
+
+function worldTransform(view, ratio) {
+  view.ctx.setTransform(ratio * view.scale, 0, 0, ratio * view.scale, ratio * view.ox, ratio * view.oy);
+}
+
+function screenTransform(view, ratio) {
+  view.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+const sheet = makeView("sheetStage", "sheetCanvas", drawSheet);
+const layout = makeView("layoutStage", "layoutCanvas", drawLayout);
+sheet.contentSize = () => image ? { x: 0, y: 0, w: image.width, h: image.height } : null;
+layout.contentSize = () => {
+  const base = skin.parts.base;
+  return base ? { x: 0, y: 0, w: base.sw, h: base.sh } : (image ? { x: 0, y: 0, w: 400, h: 300 } : null);
+};
+
+function redraw(view) {
+  if (view) {
+    view.draw(view);
+  } else {
+    drawSheet(sheet);
+    drawLayout(layout);
+  }
+}
+
+function contains(p, x, y) {
+  return x >= p.sx && x < p.sx + p.sw && y >= p.sy && y < p.sy + p.sh;
+}
+
+// ---------- Sprite sheet ----------
+
+const HANDLE = 5;
+
+function drawSheet(view) {
+  const ratio = beginFrame(view);
+  const ctx = view.ctx;
+  if (!image) return;
+
+  worldTransform(view, ratio);
+  ctx.drawImage(image, 0, 0);
+
+  screenTransform(view, ratio);
+  const topLeft = toScreen(view, 0, 0);
+  ctx.strokeStyle = cssVar("--line");
+  ctx.lineWidth = 1;
+  ctx.strokeRect(Math.round(topLeft.x) - 0.5, Math.round(topLeft.y) - 0.5, image.width * view.scale + 1, image.height * view.scale + 1);
+
+  // Pixel grid when zoomed far in.
+  if (view.scale >= 10) {
+    ctx.strokeStyle = "rgba(128, 128, 128, 0.25)";
+    ctx.beginPath();
+    const x0 = Math.max(0, Math.floor(-view.ox / view.scale)), x1 = Math.min(image.width, Math.ceil((view.width - view.ox) / view.scale));
+    const y0 = Math.max(0, Math.floor(-view.oy / view.scale)), y1 = Math.min(image.height, Math.ceil((view.height - view.oy) / view.scale));
+    for (let x = x0; x <= x1; x++) { const s = toScreen(view, x, 0).x; ctx.moveTo(s, toScreen(view, 0, y0).y); ctx.lineTo(s, toScreen(view, 0, y1).y); }
+    for (let y = y0; y <= y1; y++) { const s = toScreen(view, 0, y).y; ctx.moveTo(toScreen(view, x0, 0).x, s); ctx.lineTo(toScreen(view, x1, 0).x, s); }
+    ctx.stroke();
+  }
+
+  // Every crop, faintly, with its name.
+  for (const name in skin.parts) {
+    if (name === selected) continue;
+    const p = skin.parts[name];
+    const a = toScreen(view, p.sx, p.sy);
+    ctx.strokeStyle = cssVar("--crop");
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(a.x + 0.5, a.y + 0.5, p.sw * view.scale - 1, p.sh * view.scale - 1);
+    ctx.setLineDash([]);
+    // Only names that fit inside their crop, so small neighbours don't pile up.
+    ctx.font = "11px system-ui, sans-serif";
+    if (ctx.measureText(slotName(name)).width + 12 <= p.sw * view.scale && p.sh * view.scale >= 20) {
+      label(ctx, slotName(name), a.x + 2, a.y + 2);
+    }
+  }
+
+  const crop = cropDrag && cropDrag.rect ? cropDrag.rect : skin.parts[selected];
+  if (crop) {
+    const a = toScreen(view, crop.sx, crop.sy);
+    const w = crop.sw * view.scale, h = crop.sh * view.scale;
+    ctx.strokeStyle = cssVar("--accent");
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x, a.y, w, h);
+    ctx.lineWidth = 1;
+    ctx.fillStyle = cssVar("--accent");
+    for (const handle of handles(a.x, a.y, w, h)) {
+      ctx.fillRect(handle.x - HANDLE, handle.y - HANDLE, HANDLE * 2, HANDLE * 2);
+    }
+    label(ctx, slotName(selected) + "  " + crop.sw + " × " + crop.sh, a.x, a.y - 18, true);
+  }
+}
+
+function label(ctx, text, x, y, strong) {
+  ctx.font = (strong ? "600 " : "") + "11px system-ui, sans-serif";
+  const width = ctx.measureText(text).width + 8;
+  ctx.fillStyle = strong ? cssVar("--accent") : cssVar("--crop-label");
+  ctx.fillRect(x, y, width, 16);
+  ctx.fillStyle = strong ? cssVar("--accent-fg") : "#fff";
+  ctx.fillText(text, x + 4, y + 12);
+}
+
+function handles(x, y, w, h) {
+  return [
+    { id: "nw", x: x, y: y }, { id: "n", x: x + w / 2, y: y }, { id: "ne", x: x + w, y: y },
+    { id: "e", x: x + w, y: y + h / 2 }, { id: "se", x: x + w, y: y + h }, { id: "s", x: x + w / 2, y: y + h },
+    { id: "sw", x: x, y: y + h }, { id: "w", x: x, y: y + h / 2 },
+  ];
+}
+
+function handleAt(event) {
+  const crop = skin.parts[selected];
+  if (!crop) return null;
+  const rect = sheet.canvas.getBoundingClientRect();
+  const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+  const a = toScreen(sheet, crop.sx, crop.sy);
+  return handles(a.x, a.y, crop.sw * sheet.scale, crop.sh * sheet.scale)
+    .find((h) => Math.abs(sx - h.x) <= HANDLE + 2 && Math.abs(sy - h.y) <= HANDLE + 2) || null;
+}
+
+function clampCrop(rect) {
+  const sx = Math.max(0, Math.min(rect.sx, image.width - 1));
+  const sy = Math.max(0, Math.min(rect.sy, image.height - 1));
+  return {
+    sx: sx, sy: sy,
+    sw: Math.max(1, Math.min(rect.sw, image.width - sx)),
+    sh: Math.max(1, Math.min(rect.sh, image.height - sy)),
+  };
+}
+
+// ----- Finding sprites by their pixels -----
+
+function imagePixels() {
+  if (!pixels) {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0);
+    pixels = ctx.getImageData(0, 0, image.width, image.height).data;
+  }
+  return pixels;
+}
+
+/** The box around the visible pixels joined to (x, y), corners included, or null on a clear pixel. */
+function spriteAt(x, y) {
+  x = Math.floor(x);
+  y = Math.floor(y);
+  const w = image.width, h = image.height;
+  if (x < 0 || y < 0 || x >= w || y >= h) return null;
+  const data = imagePixels();
+  if (data[(y * w + x) * 4 + 3] <= ALPHA) return null;
+  const seen = new Uint8Array(w * h);
+  const stack = [y * w + x];
+  seen[y * w + x] = 1;
+  let minX = x, maxX = x, minY = y, maxY = y;
+  while (stack.length) {
+    const i = stack.pop();
+    const px = i % w, py = (i - px) / w;
+    if (px < minX) minX = px;
+    if (px > maxX) maxX = px;
+    if (py < minY) minY = py;
+    if (py > maxY) maxY = py;
+    for (let ny = Math.max(0, py - 1); ny <= Math.min(h - 1, py + 1); ny++) {
+      for (let nx = Math.max(0, px - 1); nx <= Math.min(w - 1, px + 1); nx++) {
+        const j = ny * w + nx;
+        if (!seen[j] && data[j * 4 + 3] > ALPHA) {
+          seen[j] = 1;
+          stack.push(j);
+        }
+      }
+    }
+  }
+  return { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 };
+}
+
+/** The crop shrunk to its visible pixels, or null when it has none. */
+function trimmed(p) {
+  const data = imagePixels(), w = image.width;
+  let minX = Infinity, maxX = -1, minY = Infinity, maxY = -1;
+  for (let y = p.sy; y < p.sy + p.sh; y++) {
+    for (let x = p.sx; x < p.sx + p.sw; x++) {
+      if (data[(y * w + x) * 4 + 3] > ALPHA) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  return maxX < 0 ? null : { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 };
+}
+
+function snapTo(point) {
+  const sprite = spriteAt(point.x, point.y);
+  if (!sprite) {
+    setStatus("There's no sprite there: click on a visible pixel, or drag a box.");
+    return;
+  }
+  checkpoint();
+  setCrop(selected, sprite);
+  setStatus("Cropped " + slotName(selected) + " to the sprite, " + sprite.sw + " × " + sprite.sh + ".");
+}
+
+// ----- Sheet pointer -----
+
+let cropDrag = null;
+
+function sheetDown(event) {
+  if (!image) return;
+  const point = toWorld(sheet, event);
+  const crop = skin.parts[selected];
+  const rect = sheet.canvas.getBoundingClientRect();
+  const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+
+  if (crop && !event.altKey) {
+    const handle = handleAt(event);
+    if (handle) {
+      checkpoint();
+      cropDrag = { mode: "resize", handle: handle.id, start: point, original: Object.assign({}, crop) };
+      return;
+    }
+    if (contains(crop, point.x, point.y)) {
+      checkpoint();
+      cropDrag = { mode: "move", start: point, original: Object.assign({}, crop) };
+      return;
+    }
+  }
+  cropDrag = { mode: "new", start: point, screen: { x: sx, y: sy }, alt: event.altKey };
+}
+
+function sheetMove(event) {
+  if (!cropDrag) {
+    updateSheetCursor(event);
+    return;
+  }
+  const point = toWorld(sheet, event);
+  if (cropDrag.mode === "new") {
+    const rect = sheet.canvas.getBoundingClientRect();
+    const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+    if (!cropDrag.rect && Math.hypot(sx - cropDrag.screen.x, sy - cropDrag.screen.y) < 4) return;
+    const x0 = Math.floor(Math.min(cropDrag.start.x, point.x)), y0 = Math.floor(Math.min(cropDrag.start.y, point.y));
+    const x1 = Math.ceil(Math.max(cropDrag.start.x, point.x)), y1 = Math.ceil(Math.max(cropDrag.start.y, point.y));
+    cropDrag.rect = clampCrop({ sx: x0, sy: y0, sw: x1 - x0, sh: y1 - y0 });
+  } else if (cropDrag.mode === "move") {
+    const o = cropDrag.original;
+    const sx = Math.max(0, Math.min(Math.round(o.sx + point.x - cropDrag.start.x), image.width - o.sw));
+    const sy = Math.max(0, Math.min(Math.round(o.sy + point.y - cropDrag.start.y), image.height - o.sh));
+    setCrop(selected, { sx: sx, sy: sy, sw: o.sw, sh: o.sh });
+  } else {
+    const o = cropDrag.original;
+    let x0 = o.sx, y0 = o.sy, x1 = o.sx + o.sw, y1 = o.sy + o.sh;
+    const h = cropDrag.handle;
+    const px = Math.round(point.x), py = Math.round(point.y);
+    if (h.indexOf("w") >= 0) x0 = px;
+    if (h.indexOf("e") >= 0) x1 = px;
+    if (h.indexOf("n") >= 0) y0 = py;
+    if (h.indexOf("s") >= 0) y1 = py;
+    const left = Math.max(0, Math.min(x0, x1)), top = Math.max(0, Math.min(y0, y1));
+    const right = Math.min(image.width, Math.max(x0, x1)), bottom = Math.min(image.height, Math.max(y0, y1));
+    setCrop(selected, { sx: left, sy: top, sw: Math.max(1, right - left), sh: Math.max(1, bottom - top) });
+  }
+  redraw();
+}
+
+function sheetUp(event) {
+  if (!cropDrag) return;
+  const drag = cropDrag;
+  cropDrag = null;
+  if (drag.mode === "new") {
+    if (drag.rect) {
+      checkpoint();
+      setCrop(selected, drag.rect);
+    } else {
+      // A click: select the smallest crop under it, or crop the sprite under it.
+      const point = toWorld(sheet, event);
+      const hits = Object.keys(skin.parts).filter((name) => contains(skin.parts[name], point.x, point.y));
+      hits.sort((a, b) => skin.parts[a].sw * skin.parts[a].sh - skin.parts[b].sw * skin.parts[b].sh);
+      if (hits.length && !drag.alt) select(hits[0]);
+      else snapTo(point);
+    }
+  }
+  if (!layout.fitted) fit(layout);
+  refresh();
+}
+
+function updateSheetCursor(event) {
+  if (spaceDown) { sheet.canvas.style.cursor = "grab"; return; }
+  const crop = skin.parts[selected];
+  let cursor = image ? "crosshair" : "default";
+  if (crop && image && !event.altKey) {
+    const handle = handleAt(event);
+    const point = toWorld(sheet, event);
+    if (handle) cursor = handle.id + "-resize";
+    else if (contains(crop, point.x, point.y)) cursor = "move";
+  }
+  sheet.canvas.style.cursor = cursor;
+}
+
+// ---------- Layout ----------
+
+const live = { on: false, source: null, mask: 0, lx: 0, ly: 0, rx: 0, ry: 0, last: 0 };
+
+function isHeld(partId) {
+  return live.on ? (live.mask & BITS[partId]) !== 0 : !!held[partId];
+}
+
+/** The slot a part shows now: pressed while held, released otherwise. */
+function shownSlot(partId) {
+  const part = PARTS[partId];
+  return part.single ? part.single : (isHeld(partId) ? part.pressed : part.released);
+}
+
+/** How far a stick part is pushed, live. */
+function stickOffset(partId) {
+  if (!live.on) return { x: 0, y: 0 };
+  return partId === "l3"
+    ? { x: live.lx * skin.pitch, y: live.ly * skin.pitch }
+    : { x: live.rx * skin.pitch, y: live.ry * skin.pitch };
+}
+
+function drawLayout(view) {
+  const ratio = beginFrame(view);
+  const ctx = view.ctx;
+  if (!image) return;
+  const base = skin.parts.base;
+
+  worldTransform(view, ratio);
+  if (base) {
+    ctx.drawImage(image, base.sx, base.sy, base.sw, base.sh, base.dx, base.dy, base.sw, base.sh);
+  }
+  for (const id of DRAW_ORDER) {
+    const p = skin.parts[shownSlot(id)];
+    if (!p || p.dx === undefined) continue;
+    const offset = PARTS[id].stick ? stickOffset(id) : { x: 0, y: 0 };
+    ctx.drawImage(image, p.sx, p.sy, p.sw, p.sh, p.dx + offset.x, p.dy + offset.y, p.sw, p.sh);
+  }
+
+  screenTransform(view, ratio);
+  if (base) {
+    // The base's size is the display's size: what's outside it is cut off.
+    const a = toScreen(view, 0, 0);
+    ctx.strokeStyle = cssVar("--muted");
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(a.x - 0.5, a.y - 0.5, base.sw * view.scale + 1, base.sh * view.scale + 1);
+    ctx.setLineDash([]);
+  } else {
+    ctx.fillStyle = cssVar("--muted");
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText("Crop the base on the sprite sheet first.", 16, 28);
+  }
+
+  const p = skin.parts[selected];
+  if (p && p.dx !== undefined && selected !== "base") {
+    const a = toScreen(view, p.dx, p.dy);
+    ctx.strokeStyle = cssVar("--accent");
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x, a.y, p.sw * view.scale, p.sh * view.scale);
+    ctx.lineWidth = 1;
+    label(ctx, slotName(selected) + "  " + p.dx + ", " + p.dy, a.x, a.y - 18, true);
+
+    // How far a stick moves: its offset is the stick's position times the movement.
+    if (SLOTS[selected].part.stick && skin.pitch > 0) {
+      const c = toScreen(view, p.dx + p.sw / 2, p.dy + p.sh / 2);
+      ctx.strokeStyle = cssVar("--accent");
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, skin.pitch * view.scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+let placeDrag = null;
+
+function layoutDown(event) {
+  if (!image) return;
+  const point = toWorld(layout, event);
+  // The topmost part under the pointer, as drawn (sticks where they rest).
+  const hit = DRAW_ORDER.slice().reverse().map(shownSlot).find((name) => {
+    const p = skin.parts[name];
+    return p && p.dx !== undefined && point.x >= p.dx && point.x < p.dx + p.sw && point.y >= p.dy && point.y < p.dy + p.sh;
+  });
+  if (hit) {
+    checkpoint();
+    select(hit);
+    const p = skin.parts[hit];
+    placeDrag = { start: point, dx: p.dx, dy: p.dy };
+  } else {
+    // Empty space pans.
+    startPan(layout, event);
+  }
+}
+
+function layoutMove(event) {
+  if (!placeDrag) {
+    layout.canvas.style.cursor = spaceDown ? "grab" : "default";
+    return;
+  }
+  const point = toWorld(layout, event);
+  const p = skin.parts[selected];
+  p.dx = Math.round(placeDrag.dx + point.x - placeDrag.start.x);
+  p.dy = Math.round(placeDrag.dy + point.y - placeDrag.start.y);
+  markDirty();
+  redraw(layout);
+  updateFields();
+}
+
+function layoutUp() {
+  if (placeDrag) {
+    placeDrag = null;
+    refresh();
+  }
+}
+
+// ----- Live preview from SluMAN -----
+
+function setLive(on) {
+  live.on = on;
+  $("liveButton").setAttribute("aria-pressed", on ? "true" : "false");
+  $("liveInfo").classList.toggle("hidden", !on);
+  if (on && !live.source) {
+    live.last = 0;
+    live.source = new EventSource("/events");
+    live.source.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      live.mask = data.mask;
+      live.lx = data.lx; live.ly = data.ly; live.rx = data.rx; live.ry = data.ry;
+      live.last = Date.now();
+      updateLiveInfo();
+      redraw(layout);
+    };
+    live.source.onerror = updateLiveInfo;
+  } else if (!on && live.source) {
+    live.source.close();
+    live.source = null;
+  }
+  updateLiveInfo();
+  refresh();
+}
+
+function updateLiveInfo() {
+  const info = $("liveInfo");
+  if (!live.on) return;
+  info.textContent = Date.now() - live.last > 3000
+    ? "Waiting for SluMAN…"
+    : "Live: the pad as SluMAN reads it. Buttons only show while a game is attached.";
+}
+
+setInterval(updateLiveInfo, 1000);
+$("liveButton").addEventListener("click", () => setLive(!live.on));
+
+// ---------- Panning and zooming ----------
+
+let pan = null;
+
+function startPan(view, event) {
+  pan = { view: view, x: event.clientX, y: event.clientY, ox: view.ox, oy: view.oy };
+  view.canvas.style.cursor = "grabbing";
+}
+
+function setupStage(view, down, move, up, name) {
+  const canvas = view.canvas;
+  canvas.addEventListener("pointerdown", (event) => {
+    activePane = name;
+    sheet.stage.classList.toggle("active", name === "sheet");
+    layout.stage.classList.toggle("active", name === "layout");
+    canvas.setPointerCapture(event.pointerId);
+    if (event.button === 1 || spaceDown) {
+      event.preventDefault();
+      startPan(view, event);
+    } else if (event.button === 0) {
+      down(event);
+    }
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (pan && pan.view === view) {
+      view.ox = pan.ox + event.clientX - pan.x;
+      view.oy = pan.oy + event.clientY - pan.y;
+      redraw(view);
+    } else {
+      move(event);
+    }
+  });
+  const end = (event) => {
+    if (pan && pan.view === view) {
+      pan = null;
+      canvas.style.cursor = "";
+    } else {
+      up(event);
+    }
+  };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    zoomAt(view, Math.exp(-event.deltaY * 0.0015), event.clientX - rect.left, event.clientY - rect.top);
+  }, { passive: false });
+  canvas.addEventListener("auxclick", (event) => event.preventDefault());
+}
+
+setupStage(sheet, sheetDown, sheetMove, sheetUp, "sheet");
+setupStage(layout, layoutDown, layoutMove, layoutUp, "layout");
+
+document.querySelectorAll("[data-zoom]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const view = button.dataset.zoom === "sheet" ? sheet : layout;
+    if (button.dataset.step === "fit") fit(view);
+    else zoomAt(view, button.dataset.step === "in" ? 1.5 : 1 / 1.5, view.width / 2, view.height / 2);
+  });
+});
+
+// ---------- Undo ----------
+
+// Snapshots of the skin from before each change. A snapshot equal to the skin as it is (a
+// drag that moved nothing) is skipped when undoing.
+let history = [];
+let future = [];
+let lastNudge = 0;
+
+function snapshot() {
+  return JSON.stringify({ parts: skin.parts, pitch: skin.pitch });
+}
+
+/** Call before changing the skin. */
+function checkpoint() {
+  const snap = snapshot();
+  if (history[history.length - 1] !== snap) {
+    history.push(snap);
+    if (history.length > HISTORY_LIMIT) history.shift();
+  }
+  future = [];
+  updateUndoButtons();
+}
+
+function restore(snap) {
+  const state = JSON.parse(snap);
+  skin.parts = state.parts;
+  skin.pitch = state.pitch;
+  $("pitchInput").value = skin.pitch;
+  markDirty();
+  layout.fitted = false;
+  fit(layout);
+  refresh();
+}
+
+function undo() {
+  const now = snapshot();
+  while (history.length) {
+    const snap = history.pop();
+    if (snap !== now) {
+      future.push(now);
+      restore(snap);
+      break;
+    }
+  }
+  updateUndoButtons();
+}
+
+function redo() {
+  const now = snapshot();
+  while (future.length) {
+    const snap = future.pop();
+    if (snap !== now) {
+      history.push(now);
+      restore(snap);
+      break;
+    }
+  }
+  updateUndoButtons();
+}
+
+function resetHistory() {
+  history = [];
+  future = [];
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  $("undoButton").disabled = history.length === 0;
+  $("redoButton").disabled = future.length === 0;
+}
+
+$("undoButton").addEventListener("click", undo);
+$("redoButton").addEventListener("click", redo);
+
+// ---------- Editing ----------
+
+function slotName(name) {
+  const slot = SLOTS[name];
+  if (slot.kind === "single") return "Base";
+  const kind = slot.kind === "released" ? "released" : (slot.part.stick ? "clicked in" : "pressed");
+  return slot.part.label + " " + kind;
+}
+
+/** The part's other slot (released ↔ pressed), or null for the base. */
+function otherSlot(name) {
+  const slot = SLOTS[name];
+  if (slot.kind === "single") return null;
+  return slot.kind === "released" ? slot.part.pressed : slot.part.released;
+}
+
+/** Sets a slot's crop. A slot cropped for the first time is placed too. */
+function setCrop(name, rect) {
+  const old = skin.parts[name];
+  const p = Object.assign({}, old || {}, { sx: rect.sx, sy: rect.sy, sw: rect.sw, sh: rect.sh });
+  if (!old || old.dx === undefined) {
+    placeNew(name, p);
+  }
+  skin.parts[name] = p;
+  markDirty();
+  // A new base changes the layout's size; it's fitted once the change is done.
+  if (name === "base") layout.fitted = false;
+}
+
+/** The base at 0, 0; a part over its other slot, centred if they differ in size; else the middle. */
+function placeNew(name, p) {
+  if (name === "base") {
+    p.dx = 0;
+    p.dy = 0;
+    return;
+  }
+  const other = skin.parts[otherSlot(name)];
+  if (other && other.dx !== undefined) {
+    p.dx = Math.round(other.dx + (other.sw - p.sw) / 2);
+    p.dy = Math.round(other.dy + (other.sh - p.sh) / 2);
+    return;
+  }
+  const base = skin.parts.base;
+  const w = base ? base.sw : 400, h = base ? base.sh : 300;
+  p.dx = Math.round((w - p.sw) / 2);
+  p.dy = Math.round((h - p.sh) / 2);
+}
+
+function select(name) {
+  selected = name;
+  const slot = SLOTS[name];
+  // Show the slot being edited on the layout.
+  if (slot.kind !== "single") held[slot.part.id] = slot.kind === "pressed";
+  refresh();
+}
+
+let draftTimer = 0;
+
+function markDirty() {
+  dirty = true;
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 800);
+}
+
+function refresh() {
+  renderParts();
+  updateFields();
+  renderChecks();
+  redraw();
+  const blocked = !image ? "Open a sprite sheet first" : (!skin.parts.base ? "Crop the base first" : "");
+  $("saveButton").disabled = !!blocked;
+  $("saveButton").title = blocked;
+  $("downloadText").disabled = !!blocked;
+  $("downloadImage").disabled = !image;
+}
+
+function renderParts() {
+  const list = $("partsList");
+  list.textContent = "";
+  for (const group of GROUPS) {
+    const section = document.createElement("div");
+    const heading = document.createElement("h2");
+    heading.textContent = group.title;
+    section.appendChild(heading);
+    for (const part of group.parts) {
+      const row = document.createElement("div");
+      row.className = "part" + (part.single ? " single" : "");
+      const text = document.createElement("span");
+      text.className = "label";
+      text.textContent = part.label;
+      row.appendChild(text);
+      const slots = part.single
+        ? [[part.single, "Set"]]
+        : [[part.released, "Released"], [part.pressed, part.stick ? "Clicked in" : "Pressed"]];
+      for (const entry of slots) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "slot" + (skin.parts[entry[0]] ? " set" : "") + (entry[0] === selected ? " selected" : "");
+        button.textContent = entry[1];
+        button.title = slotName(entry[0]) + (skin.parts[entry[0]] ? "" : ": not cropped yet");
+        button.addEventListener("click", () => select(entry[0]));
+        row.appendChild(button);
+      }
+      section.appendChild(row);
+    }
+    list.appendChild(section);
+  }
+}
+
+const cropInputs = { sx: $("cropX"), sy: $("cropY"), sw: $("cropW"), sh: $("cropH") };
+const placeInputs = { dx: $("drawX"), dy: $("drawY") };
+
+function updateFields() {
+  const p = skin.parts[selected];
+  $("selectedTitle").textContent = slotName(selected);
+  $("selectedHint").textContent = !image
+    ? "Open a sprite sheet first."
+    : (p ? "" : "Click its sprite on the sheet, or drag a box around it.");
+  for (const key in cropInputs) {
+    if (document.activeElement !== cropInputs[key]) cropInputs[key].value = p ? p[key] : "";
+    cropInputs[key].disabled = !p;
+  }
+  for (const key in placeInputs) {
+    if (document.activeElement !== placeInputs[key]) placeInputs[key].value = p ? p[key] : "";
+    // The base is where the display starts: everything else is placed relative to it.
+    placeInputs[key].disabled = !p || selected === "base";
+  }
+  const other = otherSlot(selected);
+  $("alignButton").disabled = !p || !other || !skin.parts[other];
+  $("clearButton").disabled = !p;
+  $("trimButton").disabled = !p;
+
+  const copy = $("copyFrom");
+  copy.textContent = "";
+  copy.appendChild(new Option("Use the same crop as…", ""));
+  for (const name in SLOTS) {
+    if (name !== selected && skin.parts[name]) copy.appendChild(new Option(slotName(name), name));
+  }
+  copy.disabled = !image || copy.options.length === 1;
+}
+
+for (const key in cropInputs) {
+  cropInputs[key].addEventListener("focus", checkpoint);
+  cropInputs[key].addEventListener("input", () => {
+    const p = skin.parts[selected];
+    const value = parseInt(cropInputs[key].value, 10);
+    if (!p || isNaN(value)) return;
+    const rect = { sx: p.sx, sy: p.sy, sw: p.sw, sh: p.sh };
+    rect[key] = value;
+    Object.assign(p, clampCrop(rect));
+    markDirty();
+    redraw();
+  });
+  cropInputs[key].addEventListener("change", () => {
+    if (selected === "base") fit(layout);
+    refresh();
+  });
+}
+for (const key in placeInputs) {
+  placeInputs[key].addEventListener("focus", checkpoint);
+  placeInputs[key].addEventListener("input", () => {
+    const p = skin.parts[selected];
+    const value = parseInt(placeInputs[key].value, 10);
+    if (!p || isNaN(value)) return;
+    p[key] = value;
+    markDirty();
+    redraw(layout);
+  });
+  placeInputs[key].addEventListener("change", refresh);
+}
+
+$("alignButton").addEventListener("click", () => {
+  const p = skin.parts[selected];
+  const other = skin.parts[otherSlot(selected)];
+  if (!p || !other) return;
+  checkpoint();
+  p.dx = Math.round(other.dx + (other.sw - p.sw) / 2);
+  p.dy = Math.round(other.dy + (other.sh - p.sh) / 2);
+  markDirty();
+  refresh();
+});
+
+$("trimButton").addEventListener("click", () => {
+  const p = skin.parts[selected];
+  if (!p) return;
+  const rect = trimmed(p);
+  if (!rect) {
+    setStatus("The crop has no visible pixels to trim to.", "error");
+    return;
+  }
+  checkpoint();
+  // Keep what's drawn where it was: move the position by what was cut off.
+  p.dx += rect.sx - p.sx;
+  p.dy += rect.sy - p.sy;
+  Object.assign(p, rect);
+  markDirty();
+  if (selected === "base") fit(layout);
+  refresh();
+});
+
+$("clearButton").addEventListener("click", () => {
+  checkpoint();
+  delete skin.parts[selected];
+  markDirty();
+  refresh();
+});
+
+$("copyFrom").addEventListener("change", () => {
+  const source = skin.parts[$("copyFrom").value];
+  if (source) {
+    checkpoint();
+    setCrop(selected, source);
+    if (!layout.fitted) fit(layout);
+  }
+  refresh();
+});
+
+$("pitchInput").addEventListener("focus", checkpoint);
+$("pitchInput").addEventListener("input", () => {
+  const value = parseInt($("pitchInput").value, 10);
+  if (!isNaN(value)) {
+    skin.pitch = Math.max(0, Math.min(value, 1000));
+    markDirty();
+    redraw(layout);
+  }
+});
+$("pitchInput").addEventListener("change", refresh);
+
+$("previewReleased").addEventListener("click", () => setAllHeld(false));
+$("previewPressed").addEventListener("click", () => setAllHeld(true));
+
+function setAllHeld(value) {
+  if (live.on) setLive(false);
+  for (const id in PARTS) held[id] = value;
+  // Keep the selection on the slot that's now shown.
+  if (SLOTS[selected].kind !== "single") selected = shownSlot(SLOTS[selected].part.id);
+  refresh();
+}
+
+document.addEventListener("keydown", (event) => {
+  const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement;
+  // Space pans unless a control has the focus (it presses buttons and ticks boxes there).
+  const onControl = typing || event.target instanceof HTMLButtonElement;
+  if (event.code === "Space" && !onControl) {
+    spaceDown = true;
+    event.preventDefault();
+    return;
+  }
+  if (typing) return;
+  const key = event.key.toLowerCase();
+  if ((event.ctrlKey || event.metaKey) && (key === "z" || key === "y")) {
+    event.preventDefault();
+    if (key === "y" || event.shiftKey) redo();
+    else undo();
+    return;
+  }
+  if (!image) return;
+  const step = event.shiftKey ? 10 : 1;
+  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+  const move = moves[event.key];
+  const p = skin.parts[selected];
+  if (!move || !p) return;
+  event.preventDefault();
+  // A run of nudges undoes as one step.
+  if (Date.now() - lastNudge > 1000) checkpoint();
+  lastNudge = Date.now();
+  if (activePane === "sheet") {
+    Object.assign(p, clampCrop({ sx: p.sx + move[0], sy: p.sy + move[1], sw: p.sw, sh: p.sh }));
+  } else if (selected !== "base") {
+    p.dx += move[0];
+    p.dy += move[1];
+  }
+  markDirty();
+  refresh();
+});
+document.addEventListener("keyup", (event) => {
+  if (event.code === "Space") spaceDown = false;
+});
+
+// ---------- Checks ----------
+
+function outsideBase(p, margin) {
+  const base = skin.parts.base;
+  return p.dx - margin < 0 || p.dy - margin < 0 || p.dx + p.sw + margin > base.sw || p.dy + p.sh + margin > base.sh;
+}
+
+/** What to look at before saving: errors stop the save, warnings don't. */
+function checks() {
+  const list = [];
+  if (!image) return list;
+  if (!skin.parts.base) {
+    list.push({ level: "error", text: "Crop the base: the controller body everything is placed on.", slot: "base" });
+    return list;
+  }
+  const missing = [];
+  for (const id in PARTS) {
+    const part = PARTS[id];
+    if (part.single) continue;
+    const released = skin.parts[part.released], pressed = skin.parts[part.pressed];
+    if (!released && !pressed) {
+      missing.push(part.label);
+      continue;
+    }
+    if (released && !pressed) {
+      list.push({ level: "warn", slot: part.pressed,
+        text: part.label + " has a released look but no " + (part.stick ? "clicked-in" : "pressed") + " one: it disappears while held." });
+    }
+    for (const name of [part.released, part.pressed]) {
+      const p = skin.parts[name];
+      if (!p) continue;
+      if (outsideBase(p, 0)) {
+        list.push({ level: "warn", slot: name, text: slotName(name) + " sticks out of the base, so OBS cuts it off." });
+      } else if (part.stick && outsideBase(p, skin.pitch)) {
+        list.push({ level: "warn", slot: name, text: slotName(name) + " moves out of the base when pushed all the way." });
+      }
+    }
+  }
+  for (const name in skin.parts) {
+    const p = skin.parts[name];
+    if (p.sx + p.sw > image.width || p.sy + p.sh > image.height) {
+      list.push({ level: "info", slot: name,
+        text: slotName(name) + "'s crop runs past the sheet's edge; that bit is transparent." });
+    }
+  }
+  if (missing.length) {
+    list.push({ level: "info", text: "Nothing shows for " + missing.join(", ") + ". Fine if your base already has them." });
+  }
+  return list;
+}
+
+function renderChecks() {
+  const list = $("checks");
+  list.textContent = "";
+  const found = checks();
+  if (!image) {
+    list.appendChild(Object.assign(document.createElement("li"), { textContent: "Open a sprite sheet to start." }));
+    return;
+  }
+  if (!found.length) {
+    list.appendChild(Object.assign(document.createElement("li"), { textContent: "Nothing to fix." }));
+  }
+  for (const check of found) {
+    const item = document.createElement("li");
+    item.className = check.level;
+    item.textContent = check.text;
+    if (check.slot) {
+      item.dataset.slot = check.slot;
+      item.title = "Select " + slotName(check.slot);
+      item.addEventListener("click", () => select(check.slot));
+    }
+    list.appendChild(item);
+  }
+}
+
+// ---------- Opening ----------
+
+function setStatus(text, kind) {
+  const status = $("status");
+  status.textContent = text;
+  status.className = kind || "";
+}
+
+function isPng(bytes) {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return bytes.length >= 8 && signature.every((b, i) => bytes[i] === b);
+}
+
+function decode(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file isn't an image this browser can read.")); };
+    img.src = url;
+  });
+}
+
+function toBase64(bytes) {
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(text);
+}
+
+function fromBase64(text) {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/** Makes the bytes the sprite sheet: a PNG as it is, anything else the browser reads as a PNG. */
+async function useImageBytes(bytes, sourceBlob) {
+  if (!isPng(bytes)) {
+    const decoded = await decode(sourceBlob || new Blob([bytes]));
+    const canvas = document.createElement("canvas");
+    canvas.width = decoded.naturalWidth;
+    canvas.height = decoded.naturalHeight;
+    canvas.getContext("2d").drawImage(decoded, 0, 0);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    bytes = new Uint8Array(await blob.arrayBuffer());
+  }
+  if (bytes.length > MAX_IMAGE_BYTES) {
+    throw new Error("The sprite sheet can be at most 16 MB.");
+  }
+  const decoded = await decode(new Blob([bytes], { type: "image/png" }));
+  if (decoded.naturalWidth > MAX_IMAGE_SIDE || decoded.naturalHeight > MAX_IMAGE_SIDE) {
+    throw new Error("The sprite sheet can be at most " + MAX_IMAGE_SIDE + " × " + MAX_IMAGE_SIDE + " pixels.");
+  }
+  image = decoded;
+  pngBytes = bytes;
+  pixels = null;
+  $("empty").classList.add("hidden");
+  sheet.fitted = false;
+  layout.fitted = false;
+}
+
+function fitBoth() {
+  fit(sheet);
+  fit(layout);
+}
+
+async function openFile(file) {
+  if (!file) return;
+  if (dirty && Object.keys(skin.parts).length && !confirm("Use this image as the sprite sheet? Your crops stay where they are.")) return;
+  try {
+    checkpoint();
+    await useImageBytes(new Uint8Array(await file.arrayBuffer()), file);
+    // Crops that don't fit a smaller sheet are pulled inside it.
+    for (const name in skin.parts) Object.assign(skin.parts[name], clampCrop(skin.parts[name]));
+    markDirty();
+    fitBoth();
+    refresh();
+    setStatus("Opened " + (file.name || "the pasted image") + ", " + image.width + " × " + image.height + ".");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+function fromSkinJson(buttons) {
+  const parts = {};
+  const left = [];
+  for (const name in buttons) {
+    const b = buttons[name];
+    if (!SLOTS[name]) {
+      left.push(name);
+      continue;
+    }
+    parts[name] = { sx: b.spriteX, sy: b.spriteY, sw: b.spriteWidth, sh: b.spriteHeight, dx: b.drawX, dy: b.drawY };
+  }
+  return { parts: parts, left: left };
+}
+
+/** Opens one of SluMAN's skins. Shipped skins are opened as a copy to save under a new name. */
+async function openSkin(name) {
+  if (dirty && Object.keys(skin.parts).length && !confirm("Open “" + name + "”? Changes you haven't saved are lost.")) return;
+  try {
+    const query = "?skin=" + encodeURIComponent(name);
+    const jsonResponse = await fetch("/skin.json" + query, { cache: "no-store" });
+    if (!jsonResponse.ok) throw new Error(await jsonResponse.text());
+    const json = await jsonResponse.json();
+    // The server answers with the skin in use for a name it doesn't know.
+    if (json.name !== name) throw new Error("SluMAN has no skin named “" + name + "”.");
+    const imageResponse = await fetch("/skin.png" + query, { cache: "no-store" });
+    if (!imageResponse.ok) throw new Error(await imageResponse.text());
+    const blob = await imageResponse.blob();
+    await useImageBytes(new Uint8Array(await blob.arrayBuffer()), blob);
+
+    const loaded = fromSkinJson(json.buttons);
+    skin.parts = loaded.parts;
+    skin.pitch = json.analogPitch;
+    $("pitchInput").value = skin.pitch;
+    const mine = skinList.some((s) => s.name === name && s.user);
+    $("nameInput").value = mine ? name : (name + " (custom)").slice(0, 64);
+    selected = "base";
+    resetHistory();
+    dirty = false;
+    fitBoth();
+    refresh();
+    setStatus("Opened “" + name + "”" + (mine ? "." : ", to save as your own copy.")
+      + (loaded.left.length ? " Left out parts SluMAN doesn't draw: " + loaded.left.join(", ") + "." : ""));
+  } catch (error) {
+    setStatus("Couldn't open “" + name + "”: " + error.message, "error");
+  }
+}
+
+async function loadSkinList() {
+  try {
+    const response = await fetch("/skins", { cache: "no-store" });
+    skinList = (await response.json()).skins;
+  } catch (error) {
+    skinList = [];
+  }
+  const select = $("skinSelect");
+  select.textContent = "";
+  select.appendChild(new Option("Open a skin…", ""));
+  const mine = skinList.filter((s) => s.user), shipped = skinList.filter((s) => !s.user);
+  for (const entry of [["Your skins", mine], ["Comes with SluMAN", shipped]]) {
+    if (!entry[1].length) continue;
+    const group = document.createElement("optgroup");
+    group.label = entry[0];
+    for (const s of entry[1]) group.appendChild(new Option(s.name, s.name));
+    select.appendChild(group);
+  }
+}
+
+$("skinSelect").addEventListener("change", () => {
+  const name = $("skinSelect").value;
+  $("skinSelect").value = "";
+  if (name) openSkin(name);
+});
+
+$("openButton").addEventListener("click", () => $("fileInput").click());
+$("emptyOpen").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", () => {
+  openFile($("fileInput").files[0]);
+  $("fileInput").value = "";
+});
+
+document.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  $("empty").classList.add("drag");
+});
+document.addEventListener("dragleave", (event) => {
+  if (!event.relatedTarget) $("empty").classList.remove("drag");
+});
+document.addEventListener("drop", (event) => {
+  event.preventDefault();
+  $("empty").classList.remove("drag");
+  const file = event.dataTransfer.files[0];
+  if (file) openFile(file);
+});
+document.addEventListener("paste", (event) => {
+  if (event.target instanceof HTMLInputElement) return;
+  const item = Array.from(event.clipboardData.items).find((i) => i.type.startsWith("image/"));
+  if (item) openFile(item.getAsFile());
+});
+
+// ---------- Drafts (this browser only) ----------
+
+// The skin being worked on is kept in IndexedDB, so a closed tab or a crash loses nothing.
+// Storage can be missing or blocked (private windows): then there are just no drafts.
+function draftStore(mode, work) {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open("sluman-skin-editor", 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("drafts");
+      open.onerror = () => resolve(null);
+      open.onsuccess = () => {
+        try {
+          const transaction = open.result.transaction("drafts", mode);
+          const request = work(transaction.objectStore("drafts"));
+          transaction.oncomplete = () => { open.result.close(); resolve(request ? request.result : null); };
+          transaction.onerror = () => { open.result.close(); resolve(null); };
+        } catch (error) {
+          resolve(null);
+        }
+      };
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
+
+function saveDraft() {
+  if (!image || !dirty) return;
+  const draft = { name: $("nameInput").value, pitch: skin.pitch, parts: skin.parts, png: pngBytes, time: Date.now() };
+  draftStore("readwrite", (store) => store.put(draft, "current"));
+}
+
+function deleteDraft() {
+  draftStore("readwrite", (store) => store.delete("current"));
+}
+
+async function offerDraft() {
+  const draft = await draftStore("readonly", (store) => store.get("current"));
+  if (!draft || !draft.png || image) return;
+  $("draftText").textContent = "You have an unsaved skin, “" + draft.name + "”, from "
+    + new Date(draft.time).toLocaleString() + ".";
+  $("draftBox").classList.remove("hidden");
+  $("restoreDraft").onclick = async () => {
+    try {
+      await useImageBytes(new Uint8Array(draft.png));
+      skin.parts = draft.parts;
+      skin.pitch = draft.pitch;
+      $("pitchInput").value = skin.pitch;
+      $("nameInput").value = draft.name;
+      resetHistory();
+      dirty = true;
+      fitBoth();
+      refresh();
+      setStatus("Restored your unsaved skin.");
+    } catch (error) {
+      setStatus("Couldn't restore it: " + error.message, "error");
+    }
+  };
+  $("discardDraft").onclick = () => {
+    deleteDraft();
+    $("draftBox").classList.add("hidden");
+  };
+}
+
+// ---------- Saving and files ----------
+
+function serverParts() {
+  const parts = {};
+  for (const key in skin.parts) {
+    const p = skin.parts[key];
+    parts[key] = { drawX: p.dx, drawY: p.dy, spriteX: p.sx, spriteY: p.sy, spriteWidth: p.sw, spriteHeight: p.sh };
+  }
+  return parts;
+}
+
+async function save(overwrite) {
+  const name = $("nameInput").value.trim();
+  if (!name) {
+    setStatus("Give the skin a name.", "error");
+    $("nameInput").focus();
+    return;
+  }
+  const errors = checks().filter((c) => c.level === "error");
+  if (errors.length) {
+    setStatus(errors[0].text, "error");
+    return;
+  }
+  $("saveButton").disabled = true;
+  setStatus("Saving…");
+  try {
+    const response = await fetch("/skins/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-SluMAN-Editor": "1" },
+      body: JSON.stringify({
+        name: name, overwrite: overwrite, select: $("useNow").checked,
+        analogPitch: skin.pitch, parts: serverParts(), png: toBase64(pngBytes),
+      }),
+    });
+    const result = await response.json();
+    if (result.ok) {
+      dirty = false;
+      clearTimeout(draftTimer);
+      deleteDraft();
+      setStatus("Saved “" + result.name + "”" + ($("useNow").checked ? " and switched to it." : "."), "ok");
+      loadSkinList();
+    } else if (result.reason === "exists" && !overwrite) {
+      if (confirm(result.error + " Replace it?")) {
+        await save(true);
+        return;
+      }
+      setStatus("Not saved. Pick another name to keep both.");
+    } else {
+      setStatus(result.error || "Couldn't save the skin.", "error");
+      if (result.reason === "name" || result.reason === "shipped") $("nameInput").focus();
+    }
+  } catch (error) {
+    setStatus("Couldn't reach SluMAN. Is it still running?", "error");
+  } finally {
+    refresh();
+  }
+}
+
+/** skin.txt as SluMAN writes it (ControllerSkin.SkinText). */
+function skinText() {
+  const lines = [
+    "# Made with SluMAN's skin editor. The structure, as in defaultSkin.txt:",
+    "# Name: drawX, drawY, spriteX, spriteY, spriteWidth, spriteHeight",
+    "# A button's \"Released\" part is drawn while it isn't held.",
+  ];
+  const part = (name) => {
+    const p = skin.parts[name];
+    if (p) lines.push(name + ": " + [p.dx, p.dy, p.sx, p.sy, p.sw, p.sh].join(", "));
+  };
+  const buttons = (heading, ids) => {
+    if (!ids.some((id) => skin.parts[id] || skin.parts[id + "Released"])) return;
+    lines.push("", "# " + heading);
+    for (const id of ids) { part(id); part(id + "Released"); }
+  };
+  lines.push("", "# Base controller image");
+  part("base");
+  const sticks = ["r3", "r3Press", "l3", "l3Press"];
+  if (sticks.some((name) => skin.parts[name])) {
+    lines.push("", "# Analog sticks: r3 / l3 while clicked in, r3Press / l3Press otherwise");
+    sticks.forEach(part);
+  }
+  lines.push("", "# How far the sticks move", "analogPitch: " + skin.pitch);
+  buttons("D-Pad buttons", ["dpadLeft", "dpadRight", "dpadDown", "dpadUp"]);
+  buttons("Face buttons", ["cross", "circle", "triangle", "square"]);
+  buttons("Pause buttons", ["select", "start"]);
+  buttons("Shoulder buttons", ["r1", "l1", "l2", "r2"]);
+  lines.push("", "# The sprite sheet, in the same folder as this file", "imageName: skin.png", "");
+  return lines.join("\r\n");
+}
+
+function download(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("downloadText").addEventListener("click", () => download(new Blob([skinText()], { type: "text/plain" }), "skin.txt"));
+$("downloadImage").addEventListener("click", () => download(new Blob([pngBytes], { type: "image/png" }), "skin.png"));
+$("saveButton").addEventListener("click", () => save(false));
+$("nameInput").addEventListener("input", () => { if (image) markDirty(); });
+
+window.addEventListener("beforeunload", (event) => {
+  if (dirty) {
+    saveDraft();
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+// ---------- Start ----------
+
+refresh();
+updateUndoButtons();
+loadSkinList().then(() => {
+  const requested = new URLSearchParams(location.search).get("skin");
+  if (requested) openSkin(requested);
+  else offerDraft();
+});
+</script>
+</body>
+</html>

@@ -42,6 +42,8 @@ var sheet = null;
 var loadingSkin = null;
 var state = { mask: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
 var lastEvent = 0;
+// SluMAN's skin revision when the shown skin was loaded; it goes up when a skin is saved.
+var skinRev = null;
 
 function skinQuery(name) {
   return name ? "?skin=" + encodeURIComponent(name) : "";
@@ -106,8 +108,11 @@ function connect() {
     setOnline(true);
     var data = JSON.parse(event.data);
     state = data;
-    if (!skin) {
-      // The first load failed, e.g. SluMAN wasn't running yet when OBS opened the page.
+    var saved = skinRev !== null && data.rev !== undefined && data.rev !== skinRev;
+    skinRev = data.rev;
+    if (!skin || saved) {
+      // The first load failed (e.g. SluMAN wasn't running yet when OBS opened the page), or a
+      // skin was saved, perhaps over this one.
       loadSkin(pinnedSkin || data.skin);
     } else if (!pinnedSkin && data.skin && data.skin !== skin.name) {
       loadSkin(data.skin);
