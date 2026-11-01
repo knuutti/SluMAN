@@ -1526,7 +1526,7 @@ namespace SluMAN
 
         // Frozen time: every frame's time step is clamped to 1 / this many seconds, so the game
         // runs about 1,700 times slower than at 60 frames a second and still draws every frame.
-        private const int FrozenClampFreq = 100000;
+        private const int FrozenClampFreq = Int32.MaxValue;
         private readonly object clockLock = new object();
         // The clock's ClampFreqMax and ClampFreqMin from before it was frozen, or null when it isn't.
         private byte[] clockBeforeFreeze;
