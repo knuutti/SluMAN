@@ -143,11 +143,22 @@ the PNG, for sharing or for a SluMAN without the editor. Two files, no zip libra
 
 1. ✅ **Format and renderers.** Released parts in both renderers, a parser that tolerates bad lines,
    selection by name, user skins folder. Shippable alone: people can hand-write Released parts.
-   Done on `skin-released-parts`. Not done yet from the app list below: the save, `SkinsChanged`
-   and the menu items, which belong to phases 2–3. Portable mode: the user skins folder is the
-   shipped one, so phase 2 can't tell shipped skins from user skins there; decide then.
-2. **Server.** Header parsing, POST with body limit, Host/header guard, `/editor`, `/skins`,
-   `/skins/save`, `SkinsChanged` → Input Display refresh.
+   Done on `skin-released-parts` (#73).
+2. ✅ **Server.** Header parsing, POST with body limit, Host/header guard, `/editor`, `/skins`,
+   `/skins/save`, `SkinsChanged` → Input Display refresh. Done on `skin-editor-server`, with:
+   - The event is `ControllerSkin.SkinSaved(name, select)`. `Save` itself remembers a `select`
+     and sets `ObsPadServer.SelectedSkin`, so it works with no Input Display open.
+   - `/events` carries `rev` (`ControllerSkin.Revision`, up on every save). The OBS page loads
+     its skin again when it changes, so saving over the skin on screen shows up there too.
+   - Portable copies keep user skins in `controllerskins-user` next to the exe, since their user
+     data folder is the app folder and shipped and user skins would otherwise share one folder.
+   - The save reads the whole body before answering anything: closing a connection with data
+     unread resets it on Windows, and the page would get a network error instead of the reason.
+     A body over the limit gets its 413 and is read and dropped (up to 4× the limit).
+   - Errors are `{ok: false, reason, error}`; `reason` is `forbidden`, `bad-request`,
+     `too-large`, `name`, `shipped`, `exists`, `image`, `parts` or `write`, and `error` is a
+     sentence for the user.
+   - `/editor` serves a stand-in page listing the skins until phase 3 replaces it.
 3. **Editor MVP.** Load PNG, parts list, crop on Sheet, place on Layout, numeric fields, preview
    toggles, save.
 4. **Editor polish.** Snap-to-sprite and trim, live preview from `/events`, open an existing skin,

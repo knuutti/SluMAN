@@ -139,6 +139,7 @@
     </Compile>
     <Compile Include="IGame.cs" />
     <Compile Include="ObsPadServer.cs" />
+    <Compile Include="SkinEditorApi.cs" />
     <Compile Include="StatusLine.cs" />
     <Compile Include="UserData.cs" />
     <Compile Include="InputDisplay.cs">
@@ -331,6 +332,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ObsPad.html">
       <LogicalName>ObsPad.html</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SkinEditor.html">
+      <LogicalName>SkinEditor.html</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="InputDisplay.resx">
       <DependentUpon>InputDisplay.cs</DependentUpon>

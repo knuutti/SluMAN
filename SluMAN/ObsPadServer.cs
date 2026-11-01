@@ -18,6 +18,8 @@ namespace SluMAN
     /// <item><c>/pad</c>: the page (ObsPad.html, embedded in SluMAN.exe).</item>
     /// <item><c>/skin.json</c>, <c>/skin.png</c>: the skin's layout and sprite sheet.</item>
     /// <item><c>/events</c>: the buttons and sticks as server-sent events.</item>
+    /// <item><c>/editor</c>, <c>/skins</c>, <c>POST /skins/save</c>: the skin editor
+    /// (SkinEditor.html, embedded too) and its <see cref="SkinEditorApi"/>.</item>
     /// </list>
     /// Each address takes <c>?skin=&lt;folder&gt;</c>; without it the skin chosen in the Input Display
     /// is used.
@@ -34,6 +36,7 @@ namespace SluMAN
         // Sent even when nothing changes, so the page can tell SluMAN is still there.
         private const int KeepAliveMs = 1000;
         private const int MaxRequestLineLength = 8192;
+        private const int MaxHeaderLines = 100;
 
         private static readonly object sync = new object();
         private static TcpListener listener;
@@ -212,26 +215,20 @@ namespace SluMAN
                     stream.ReadTimeout = 5000;
 
                     string requestLine = ReadLine(stream);
-                    // Skip the headers; nothing here needs them.
-                    string header;
-                    do
-                    {
-                        header = ReadLine(stream);
-                    }
-                    while (header != null && header.Length > 0);
-
                     if (requestLine == null)
                     {
                         return;
                     }
+                    Dictionary<string, string> headers = ReadHeaders(stream);
 
                     string[] parts = requestLine.Split(' ');
-                    if (parts.Length < 2 || parts[0] != "GET")
+                    if (parts.Length < 2)
                     {
-                        WriteResponse(stream, "405 Method Not Allowed", "text/plain", Encoding.UTF8.GetBytes("Only GET is supported."));
+                        WriteResponse(stream, "400 Bad Request", "text/plain", Encoding.UTF8.GetBytes("Bad request."), false);
                         return;
                     }
 
+                    string method = parts[0];
                     string path = parts[1];
                     string query = "";
                     int queryStart = path.IndexOf('?');
@@ -239,6 +236,18 @@ namespace SluMAN
                     {
                         query = path.Substring(queryStart + 1);
                         path = path.Substring(0, queryStart);
+                    }
+
+                    if (method == "POST" && path == "/skins/save")
+                    {
+                        SkinEditorApi.HandleSave(stream, headers, Port);
+                        return;
+                    }
+                    if (method != "GET")
+                    {
+                        // No CORS headers: a preflight from another site's page fails here.
+                        WriteResponse(stream, "405 Method Not Allowed", "text/plain", Encoding.UTF8.GetBytes("Only GET is supported here."), false);
+                        return;
                     }
 
                     string requestedSkin = QueryValue(query, "skin");
@@ -249,7 +258,13 @@ namespace SluMAN
                     {
                         case "/":
                         case "/pad":
-                            WriteResponse(stream, "200 OK", "text/html; charset=utf-8", PageBytes());
+                            WriteResponse(stream, "200 OK", "text/html; charset=utf-8", ResourceBytes("ObsPad.html"));
+                            break;
+                        case "/editor":
+                            WriteResponse(stream, "200 OK", "text/html; charset=utf-8", ResourceBytes("SkinEditor.html"), false);
+                            break;
+                        case "/skins":
+                            SkinEditorApi.WriteSkinList(stream);
                             break;
                         case "/skin.json":
                             WriteSkinJson(stream, skinName);
@@ -299,6 +314,26 @@ namespace SluMAN
             return line.ToString();
         }
 
+        /// <summary>The request's headers, by name in any case. A repeated header keeps its last value.</summary>
+        private static Dictionary<string, string> ReadHeaders(Stream stream)
+        {
+            Dictionary<string, string> headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < MaxHeaderLines; i++)
+            {
+                string header = ReadLine(stream);
+                if (header == null || header.Length == 0)
+                {
+                    break;
+                }
+                int colon = header.IndexOf(':');
+                if (colon > 0)
+                {
+                    headers[header.Substring(0, colon).Trim()] = header.Substring(colon + 1).Trim();
+                }
+            }
+            return headers;
+        }
+
         private static string QueryValue(string query, string key)
         {
             foreach (string pair in query.Split('&'))
@@ -312,13 +347,17 @@ namespace SluMAN
             return "";
         }
 
-        private static void WriteResponse(Stream stream, string status, string contentType, byte[] body)
+        /// <summary>
+        /// Sends a whole response. <paramref name="anyOrigin"/> lets pages elsewhere read it: fine
+        /// for the OBS page's files, not for the skin editor's.
+        /// </summary>
+        public static void WriteResponse(Stream stream, string status, string contentType, byte[] body, bool anyOrigin = true)
         {
             string headers = $"HTTP/1.1 {status}\r\n"
                 + $"Content-Type: {contentType}\r\n"
                 + $"Content-Length: {body.Length}\r\n"
                 + "Cache-Control: no-store\r\n"
-                + "Access-Control-Allow-Origin: *\r\n"
+                + (anyOrigin ? "Access-Control-Allow-Origin: *\r\n" : "")
                 + "Connection: close\r\n\r\n";
             byte[] headerBytes = Encoding.ASCII.GetBytes(headers);
             stream.Write(headerBytes, 0, headerBytes.Length);
@@ -326,20 +365,26 @@ namespace SluMAN
             stream.Flush();
         }
 
-        private static byte[] pageBytes;
+        private static readonly Dictionary<string, byte[]> resources = new Dictionary<string, byte[]>();
 
-        private static byte[] PageBytes()
+        /// <summary>A page embedded in SluMAN.exe, by its LogicalName.</summary>
+        private static byte[] ResourceBytes(string name)
         {
-            if (pageBytes == null)
+            lock (resources)
             {
-                using (Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("ObsPad.html"))
-                using (MemoryStream copy = new MemoryStream())
+                byte[] bytes;
+                if (!resources.TryGetValue(name, out bytes))
                 {
-                    resource.CopyTo(copy);
-                    pageBytes = copy.ToArray();
+                    using (Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(name))
+                    using (MemoryStream copy = new MemoryStream())
+                    {
+                        resource.CopyTo(copy);
+                        bytes = copy.ToArray();
+                    }
+                    resources[name] = bytes;
                 }
+                return bytes;
             }
-            return pageBytes;
         }
 
         private static void WriteSkinJson(Stream stream, string skinName)
@@ -384,10 +429,11 @@ namespace SluMAN
 
         private static string CurrentState()
         {
-            // Rounded so tiny stick noise doesn't send an update every frame.
+            // Rounded so tiny stick noise doesn't send an update every frame. "rev" goes up when a
+            // skin is saved, so a page showing it loads it again.
             return string.Format(CultureInfo.InvariantCulture,
-                "{{\"mask\":{0},\"lx\":{1:0.000},\"ly\":{2:0.000},\"rx\":{3:0.000},\"ry\":{4:0.000},\"skin\":{5}}}",
-                Inputs.RawInputs, Inputs.lx, Inputs.ly, Inputs.rx, Inputs.ry, JsonConvert.ToString(SelectedSkin));
+                "{{\"mask\":{0},\"lx\":{1:0.000},\"ly\":{2:0.000},\"rx\":{3:0.000},\"ry\":{4:0.000},\"skin\":{5},\"rev\":{6}}}",
+                Inputs.RawInputs, Inputs.lx, Inputs.ly, Inputs.rx, Inputs.ry, JsonConvert.ToString(SelectedSkin), ControllerSkin.Revision);
         }
 
         private static void StreamEvents(Stream stream)

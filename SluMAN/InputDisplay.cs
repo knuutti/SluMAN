@@ -26,6 +26,7 @@ namespace SluMAN
 
             BuildSkinContextMenu();
             BuildObsMenu();
+            ControllerSkin.SkinSaved += ControllerSkin_SkinSaved;
 
             int selectedIndex = skinComboBox.Items.IndexOf(ControllerSkin.SelectedSkinName());
             if (selectedIndex >= 0)
@@ -124,6 +125,58 @@ namespace SluMAN
         private void InputDisplay_FormClosing(object sender, FormClosingEventArgs e)
         {
             timer.Enabled = false;
+            ControllerSkin.SkinSaved -= ControllerSkin_SkinSaved;
+        }
+
+        /// <summary>A skin was saved in the skin editor, on the server's thread.</summary>
+        private void ControllerSkin_SkinSaved(string skinName, bool select)
+        {
+            if (!IsHandleCreated || IsDisposed)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke((Action)(() => RefreshSkins(select ? skinName : null)));
+            }
+            catch
+            {
+                // Closing.
+            }
+        }
+
+        /// <summary>
+        /// Lists the skins again and shows <paramref name="showSkin"/>, or the current skin when
+        /// null. The shown skin is always loaded again, in case it was the one saved over.
+        /// </summary>
+        private void RefreshSkins(string showSkin)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+            if (showSkin == null && controllerSkin != null)
+            {
+                showSkin = controllerSkin.name;
+            }
+
+            // Clearing leaves nothing selected, so selecting below always loads the skin.
+            skinComboBox.Items.Clear();
+            foreach (string skinName in ControllerSkin.SkinNames())
+            {
+                skinComboBox.Items.Add(skinName);
+            }
+            BuildSkinContextMenu();
+
+            int index = skinComboBox.Items.IndexOf(showSkin);
+            if (index < 0 && skinComboBox.Items.Count > 0)
+            {
+                index = 0;
+            }
+            if (index >= 0)
+            {
+                skinComboBox.SelectedIndex = index;
+            }
         }
 
         private void BuildSkinContextMenu()

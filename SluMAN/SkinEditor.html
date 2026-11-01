@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SluMAN Skin Editor</title>
+<style>
+  :root { --bg: #f6f6f4; --fg: #1d1d1b; --muted: #6b6b66; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1a; --fg: #ececea; --muted: #9a9a94; } }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>Skin Editor</h1>
+<!-- Served by SluMAN at /editor. Phase 2 of .claude/specs/skin-editor.md puts the server side in
+     place; the editor itself replaces this page in phase 3. -->
+<p>The skin editor isn't finished yet. These are the input display skins SluMAN has now:</p>
+<ul id="skins"><li class="muted">Loading…</li></ul>
+</main>
+<script>
+"use strict";
+fetch("/skins", { cache: "no-store" })
+  .then(function (response) { return response.json(); })
+  .then(function (json) {
+    var list = document.getElementById("skins");
+    list.textContent = "";
+    json.skins.forEach(function (skin) {
+      var item = document.createElement("li");
+      item.textContent = skin.name + (skin.user ? " (yours)" : "") + (skin.name === json.selected ? " — in use" : "");
+      list.appendChild(item);
+    });
+  })
+  .catch(function () {
+    document.getElementById("skins").textContent = "Couldn't reach SluMAN.";
+  });
+</script>
+</body>
+</html>

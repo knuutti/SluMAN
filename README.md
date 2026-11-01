@@ -62,7 +62,7 @@ The page follows the skin chosen in SluMAN. To give a source its own skin, add `
 The page is only reachable from your own PC, so it needs no firewall rule. **Serve for OBS** and **Change OBS Port...** are in the same right-click menu.
 
 ## Your own input display skins
-A skin is a folder holding a `skin.txt` and its sprite sheet; `defaultSkin.txt` in the SluMAN folder explains the format. Put your own skins in `controllerskins` in your user data folder (`%APPDATA%\SluMAN\controllerskins`), where updates don't touch them. They show up in the Input Display next to the ones SluMAN ships with, and one with the same name as a shipped skin is used instead of it.
+A skin is a folder holding a `skin.txt` and its sprite sheet; `defaultSkin.txt` in the SluMAN folder explains the format. Put your own skins in `controllerskins` in your user data folder (`%APPDATA%\SluMAN\controllerskins`, or `controllerskins-user` in the SluMAN folder for a portable copy), where updates don't touch them. They show up in the Input Display next to the ones SluMAN ships with, and one with the same name as a shipped skin is used instead of it.
 
 Each button can have a part drawn while it's held (`cross`) and, optionally, one drawn while it isn't (`crossReleased`). Skins without released parts show the released buttons in their base image.
 
