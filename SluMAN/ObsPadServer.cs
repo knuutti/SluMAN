@@ -52,6 +52,9 @@ namespace SluMAN
 
         public static string Url => $"http://127.0.0.1:{Port}/pad";
 
+        /// <summary>The skin editor page.</summary>
+        public static string EditorUrl => $"http://127.0.0.1:{Port}/editor";
+
         /// <summary>
         /// The skin chosen in the Input Display. Kept here so the event stream doesn't read
         /// config.txt 60 times a second.

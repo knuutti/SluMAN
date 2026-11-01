@@ -159,8 +159,22 @@ the PNG, for sharing or for a SluMAN without the editor. Two files, no zip libra
      `too-large`, `name`, `shipped`, `exists`, `image`, `parts` or `write`, and `error` is a
      sentence for the user.
    - `/editor` serves a stand-in page listing the skins until phase 3 replaces it.
-3. **Editor MVP.** Load PNG, parts list, crop on Sheet, place on Layout, numeric fields, preview
-   toggles, save.
+3. ✅ **Editor MVP.** Load PNG, parts list, crop on Sheet, place on Layout, numeric fields, preview
+   toggles, save. Done on `skin-editor-page`, with:
+   - The Input Display's **Create Skin...** menu item opens `/editor`, switching Serve for OBS on
+     first when it's off (one server serves both).
+   - A non-PNG image (JPEG, a pasted screenshot) is turned into a PNG in the browser; a PNG is sent
+     as it is.
+   - Selecting a slot shows that part released or pressed on the layout; Released / Pressed in the
+     layout's bar set them all. Clicking a crop on the sheet selects its slot; dragging on empty
+     layout pans.
+   - A slot cropped for the first time is placed over its other slot (centred), else in the middle
+     of the base. "Align with other slot" does the same later.
+   - The selected stick shows its movement as a circle; the movement is set under Sticks.
+   - The base is always drawn at 0, 0 (its position fields are off).
+   - Saving asks before replacing a skin of the same name (the 409), and the page warns before
+     closing with unsaved changes.
+   - Generated skin.txt leaves out the headings of groups with no parts.
 4. **Editor polish.** Snap-to-sprite and trim, live preview from `/events`, open an existing skin,
    undo/redo, drafts, checks, download, "use same crop as".
 5. **Docs and release.**

@@ -509,10 +509,13 @@ namespace SluMAN
             text.Append("\r\n# Base controller image\r\n");
             AppendPart(text, parts, "base");
 
-            text.Append("\r\n# Analog sticks: r3 / l3 while clicked in, r3Press / l3Press otherwise\r\n");
-            foreach (string stick in StickParts)
+            if (StickParts.Any(parts.ContainsKey))
             {
-                AppendPart(text, parts, stick);
+                text.Append("\r\n# Analog sticks: r3 / l3 while clicked in, r3Press / l3Press otherwise\r\n");
+                foreach (string stick in StickParts)
+                {
+                    AppendPart(text, parts, stick);
+                }
             }
             text.Append("\r\n# How far the sticks move\r\n");
             text.Append($"analogPitch: {pitch}\r\n");

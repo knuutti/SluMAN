@@ -1,41 +1,1065 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SluMAN Skin Editor</title>
 <style>
-  :root { --bg: #f6f6f4; --fg: #1d1d1b; --muted: #6b6b66; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1a; --fg: #ececea; --muted: #9a9a94; } }
-  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; }
-  .muted { color: var(--muted); }
+  :root {
+    --bg: #f4f4f1; --panel: #ffffff; --fg: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
+    --accent: #2563eb; --accent-fg: #ffffff; --soft: #e8eefc; --danger: #b42318; --ok: #1a7f37;
+    --crop: rgba(37, 99, 235, 0.55); --crop-label: rgba(29, 29, 27, 0.75);
+    --check-a: #e9e9e4; --check-b: #f8f8f5; --outside: rgba(0, 0, 0, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #20201f; --fg: #ececea; --muted: #9a9a94; --line: #34342f;
+      --accent: #5b8def; --accent-fg: #0d0d0c; --soft: #22304d; --danger: #f97066; --ok: #4ac26b;
+      --crop: rgba(91, 141, 239, 0.6); --crop-label: rgba(10, 10, 10, 0.8);
+      --check-a: #262624; --check-b: #2e2e2b; --outside: rgba(255, 255, 255, 0.04);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input { font: inherit; color: inherit; }
+  button {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  input[type="text"], input[type="number"] {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 7px; min-width: 0;
+  }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header .name { display: flex; align-items: center; gap: 6px; }
+  header .name input { width: 200px; }
+  header label.check { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+  .spacer { flex: 1; }
+  #status { color: var(--muted); }
+  #status.error { color: var(--danger); }
+  #status.ok { color: var(--ok); }
+
+  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) 250px; min-height: 0; }
+  aside { background: var(--panel); overflow: auto; padding: 12px; min-height: 0; }
+  aside.parts { border-right: 1px solid var(--line); }
+  aside.props { border-left: 1px solid var(--line); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
+  aside > h2:first-child, .parts-list > div:first-child > h2 { margin-top: 0; }
+
+  .part { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px; padding: 2px 0; }
+  .part.single { grid-template-columns: 1fr auto; }
+  .part .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot {
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; font-size: 12px; border-radius: 999px;
+  }
+  .slot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); }
+  .slot.set::before { background: var(--accent); border-color: var(--accent); }
+  .slot.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .slot.selected::before { border-color: var(--accent-fg); }
+  .slot.selected.set::before { background: var(--accent-fg); }
+
+  .pane { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; border-right: 1px solid var(--line); }
+  .pane:last-of-type { border-right: 0; }
+  .pane .bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line);
+    background: var(--panel); font-size: 13px;
+  }
+  .pane .bar strong { margin-right: auto; }
+  .pane .bar button { padding: 2px 8px; font-size: 12px; }
+  .stage {
+    position: relative; min-height: 0; overflow: hidden; touch-action: none;
+    background-color: var(--check-b);
+    background-image: linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%),
+      linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%);
+    background-size: 16px 16px; background-position: 0 0, 8px 8px;
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage.active { box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .empty {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); z-index: 10;
+  }
+  .empty .card {
+    max-width: 520px; background: var(--panel); border: 2px dashed var(--line); border-radius: 12px; padding: 28px;
+  }
+  .empty.drag .card { border-color: var(--accent); }
+  .empty h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--fg); margin: 0 0 8px; }
+  .empty ol { padding-left: 20px; color: var(--muted); }
+  .hidden { display: none !important; }
+
+  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .field label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+  .field input { width: 100%; }
+  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  #selectedTitle { font-weight: 600; margin-bottom: 6px; }
+  .keys { color: var(--muted); font-size: 12px; }
+  .keys kbd {
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font: 11px ui-monospace, monospace;
+  }
+
+  @media (max-width: 1100px) {
+    .app { height: auto; min-height: 100vh; }
+    main { grid-template-columns: 1fr; }
+    aside.parts, aside.props { border: 0; border-bottom: 1px solid var(--line); }
+    .parts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 16px; }
+    .pane { height: 70vh; border-right: 0; border-bottom: 1px solid var(--line); }
+    header .name input { width: 150px; }
+  }
 </style>
 </head>
 <body>
-<main>
-<h1>Skin Editor</h1>
-<!-- Served by SluMAN at /editor. Phase 2 of .claude/specs/skin-editor.md puts the server side in
-     place; the editor itself replaces this page in phase 3. -->
-<p>The skin editor isn't finished yet. These are the input display skins SluMAN has now:</p>
-<ul id="skins"><li class="muted">Loading…</li></ul>
-</main>
+<div class="app">
+  <header>
+    <h1>Skin Editor</h1>
+    <button id="openButton" type="button">Open PNG…</button>
+    <input id="fileInput" type="file" accept="image/png,image/*" class="hidden">
+    <span class="name"><label for="nameInput">Name</label><input id="nameInput" type="text" maxlength="64" value="My Skin"></span>
+    <label class="check" title="Show it in the Input Display and the OBS page once saved"><input id="useNow" type="checkbox" checked> Use it now</label>
+    <button id="saveButton" type="button" class="primary" disabled>Save</button>
+    <span id="status" role="status" aria-live="polite"></span>
+  </header>
+
+  <main>
+    <aside class="parts">
+      <div id="partsList" class="parts-list"></div>
+    </aside>
+
+    <section class="pane">
+      <div class="bar">
+        <strong>Sprite sheet</strong>
+        <button type="button" data-zoom="sheet" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="sheet" data-step="out" title="Zoom out">−</button>
+        <button type="button" data-zoom="sheet" data-step="fit">Fit</button>
+      </div>
+      <div class="stage" id="sheetStage"><canvas id="sheetCanvas"></canvas></div>
+    </section>
+
+    <section class="pane">
+      <div class="bar">
+        <strong>Layout</strong>
+        <button type="button" id="previewReleased" title="Show every button released">Released</button>
+        <button type="button" id="previewPressed" title="Show every button pressed">Pressed</button>
+        <button type="button" data-zoom="layout" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="layout" data-step="out" title="Zoom out">−</button>
+        <button type="button" data-zoom="layout" data-step="fit">Fit</button>
+      </div>
+      <div class="stage" id="layoutStage"><canvas id="layoutCanvas"></canvas></div>
+    </section>
+
+    <aside class="props">
+      <h2>Selected part</h2>
+      <div id="selectedTitle"></div>
+      <p id="selectedHint" class="hint"></p>
+      <div class="field" id="cropFields">
+        <label>Crop X<input type="number" id="cropX" step="1"></label>
+        <label>Crop Y<input type="number" id="cropY" step="1"></label>
+        <label>Width<input type="number" id="cropW" step="1" min="1"></label>
+        <label>Height<input type="number" id="cropH" step="1" min="1"></label>
+      </div>
+      <div class="field" id="placeFields">
+        <label>Position X<input type="number" id="drawX" step="1"></label>
+        <label>Position Y<input type="number" id="drawY" step="1"></label>
+      </div>
+      <div class="row">
+        <button type="button" id="alignButton" title="Centre this slot on the part's other slot">Align with other slot</button>
+        <button type="button" id="clearButton">Clear</button>
+      </div>
+
+      <h2>Sticks</h2>
+      <div class="field">
+        <label title="How far the stick parts move when a stick is pushed all the way">Movement (px)<input type="number" id="pitchInput" min="0" max="1000" step="1" value="32"></label>
+      </div>
+
+      <h2>How to</h2>
+      <p class="hint">Pick a slot on the left, then drag on the sprite sheet to crop it. Drag the part on the layout to place it. Click a crop on the sheet to select it.</p>
+      <p class="keys"><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> nudge 1 px, with <kbd>Shift</kbd> 10 px, in the pane you used last. Scroll to zoom; drag with the middle button or hold <kbd>Space</kbd> to pan.</p>
+    </aside>
+  </main>
+</div>
+
+<div class="empty" id="empty">
+  <div class="card">
+    <h2>Make an input display skin</h2>
+    <p>Start from one PNG holding the controller's body and every button and stick, released and pressed.</p>
+    <ol>
+      <li>Crop the <strong>base</strong>: the controller body everything is placed on.</li>
+      <li>Crop each button's <strong>released</strong> and <strong>pressed</strong> look.</li>
+      <li>Place them on the layout, check them with Released / Pressed, and save.</li>
+    </ol>
+    <p><button type="button" class="primary" id="emptyOpen">Open PNG…</button> or drop or paste an image here.</p>
+  </div>
+</div>
+
 <script>
 "use strict";
-fetch("/skins", { cache: "no-store" })
-  .then(function (response) { return response.json(); })
-  .then(function (json) {
-    var list = document.getElementById("skins");
-    list.textContent = "";
-    json.skins.forEach(function (skin) {
-      var item = document.createElement("li");
-      item.textContent = skin.name + (skin.user ? " (yours)" : "") + (skin.name === json.selected ? " — in use" : "");
-      list.appendChild(item);
-    });
-  })
-  .catch(function () {
-    document.getElementById("skins").textContent = "Couldn't reach SluMAN.";
+
+// Skin parts, as skin.txt names them. Sticks: "l3"/"r3" is drawn while clicked in, "l3Press"/
+// "r3Press" otherwise. A button's part is drawn while held, "<part>Released" otherwise.
+const GROUPS = [
+  { title: "Base", parts: [{ id: "base", label: "Controller body", single: "base" }] },
+  { title: "Sticks", parts: [
+    { id: "l3", label: "L stick", released: "l3Press", pressed: "l3", stick: true },
+    { id: "r3", label: "R stick", released: "r3Press", pressed: "r3", stick: true },
+  ] },
+  { title: "D-pad", parts: [
+    { id: "dpadUp", label: "Up" }, { id: "dpadDown", label: "Down" },
+    { id: "dpadLeft", label: "Left" }, { id: "dpadRight", label: "Right" },
+  ] },
+  { title: "Face buttons", parts: [
+    { id: "cross", label: "Cross" }, { id: "circle", label: "Circle" },
+    { id: "square", label: "Square" }, { id: "triangle", label: "Triangle" },
+  ] },
+  { title: "Select / Start", parts: [{ id: "select", label: "Select" }, { id: "start", label: "Start" }] },
+  { title: "Shoulders", parts: [
+    { id: "l1", label: "L1" }, { id: "r1", label: "R1" }, { id: "l2", label: "L2" }, { id: "r2", label: "R2" },
+  ] },
+];
+// The order SluMAN draws them in (InputDisplay.cs, ObsPad.html): base, sticks, then buttons.
+const DRAW_ORDER = ["r3", "l3", "dpadLeft", "dpadRight", "dpadDown", "dpadUp", "cross", "circle", "triangle",
+  "square", "select", "start", "r1", "l1", "l2", "r2"];
+
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
+const MAX_IMAGE_SIDE = 8192;
+
+const PARTS = {};      // id -> part definition
+const SLOTS = {};      // skin.txt name -> { part, kind: "released" | "pressed" | "single" }
+for (const group of GROUPS) {
+  for (const part of group.parts) {
+    if (!part.single && !part.stick) {
+      part.released = part.id + "Released";
+      part.pressed = part.id;
+    }
+    PARTS[part.id] = part;
+    if (part.single) {
+      SLOTS[part.single] = { part: part, kind: "single" };
+    } else {
+      SLOTS[part.released] = { part: part, kind: "released" };
+      SLOTS[part.pressed] = { part: part, kind: "pressed" };
+    }
+  }
+}
+
+// The skin being made. parts: skin.txt name -> { sx, sy, sw, sh, dx, dy }.
+const skin = { parts: {}, pitch: 32 };
+// Which parts the layout shows pressed.
+const held = {};
+let selected = "base";
+let image = null;          // the sprite sheet, decoded
+let pngBase64 = null;      // its PNG bytes, sent as they are
+let dirty = false;
+let activePane = "sheet";
+let spaceDown = false;
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- Views (zoom and pan) ----------
+
+function makeView(stageId, canvasId, drawFn) {
+  const view = { stage: $(stageId), canvas: $(canvasId), scale: 1, ox: 0, oy: 0, draw: drawFn, width: 0, height: 0 };
+  view.ctx = view.canvas.getContext("2d");
+  new ResizeObserver(() => {
+    const ratio = window.devicePixelRatio || 1;
+    view.width = view.stage.clientWidth;
+    view.height = view.stage.clientHeight;
+    view.canvas.width = Math.max(1, Math.round(view.width * ratio));
+    view.canvas.height = Math.max(1, Math.round(view.height * ratio));
+    if (!view.fitted && view.contentSize()) fit(view);
+    redraw(view);
+  }).observe(view.stage);
+  return view;
+}
+
+function toWorld(view, event) {
+  const rect = view.canvas.getBoundingClientRect();
+  return { x: (event.clientX - rect.left - view.ox) / view.scale, y: (event.clientY - rect.top - view.oy) / view.scale };
+}
+
+function toScreen(view, x, y) {
+  return { x: x * view.scale + view.ox, y: y * view.scale + view.oy };
+}
+
+function fit(view) {
+  const size = view.contentSize();
+  if (!size || !view.width || !view.height) return;
+  const margin = 24;
+  view.scale = Math.min((view.width - margin * 2) / size.w, (view.height - margin * 2) / size.h);
+  view.scale = Math.max(0.02, Math.min(view.scale, 8));
+  view.ox = (view.width - size.w * view.scale) / 2 - size.x * view.scale;
+  view.oy = (view.height - size.h * view.scale) / 2 - size.y * view.scale;
+  view.fitted = true;
+  redraw(view);
+}
+
+function zoomAt(view, factor, sx, sy) {
+  const scale = Math.max(0.02, Math.min(view.scale * factor, 40));
+  factor = scale / view.scale;
+  view.ox = sx - (sx - view.ox) * factor;
+  view.oy = sy - (sy - view.oy) * factor;
+  view.scale = scale;
+  redraw(view);
+}
+
+function beginFrame(view) {
+  const ratio = window.devicePixelRatio || 1;
+  const ctx = view.ctx;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, view.canvas.width, view.canvas.height);
+  ctx.imageSmoothingEnabled = view.scale < 1;
+  return ratio;
+}
+
+function worldTransform(view, ratio) {
+  view.ctx.setTransform(ratio * view.scale, 0, 0, ratio * view.scale, ratio * view.ox, ratio * view.oy);
+}
+
+function screenTransform(view, ratio) {
+  view.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+const sheet = makeView("sheetStage", "sheetCanvas", drawSheet);
+const layout = makeView("layoutStage", "layoutCanvas", drawLayout);
+sheet.contentSize = () => image ? { x: 0, y: 0, w: image.width, h: image.height } : null;
+layout.contentSize = () => {
+  const base = skin.parts.base;
+  return base ? { x: 0, y: 0, w: base.sw, h: base.sh } : (image ? { x: 0, y: 0, w: 400, h: 300 } : null);
+};
+
+function redraw(view) {
+  if (view) {
+    view.draw(view);
+  } else {
+    drawSheet(sheet);
+    drawLayout(layout);
+  }
+}
+
+// ---------- Sprite sheet ----------
+
+const HANDLE = 5;
+
+function drawSheet(view) {
+  const ratio = beginFrame(view);
+  const ctx = view.ctx;
+  if (!image) return;
+
+  worldTransform(view, ratio);
+  ctx.drawImage(image, 0, 0);
+
+  screenTransform(view, ratio);
+  // The sheet's edge.
+  const topLeft = toScreen(view, 0, 0);
+  ctx.strokeStyle = cssVar("--line");
+  ctx.lineWidth = 1;
+  ctx.strokeRect(Math.round(topLeft.x) - 0.5, Math.round(topLeft.y) - 0.5, image.width * view.scale + 1, image.height * view.scale + 1);
+
+  // Pixel grid when zoomed far in.
+  if (view.scale >= 10) {
+    ctx.strokeStyle = "rgba(128, 128, 128, 0.25)";
+    ctx.beginPath();
+    const x0 = Math.max(0, Math.floor(-view.ox / view.scale)), x1 = Math.min(image.width, Math.ceil((view.width - view.ox) / view.scale));
+    const y0 = Math.max(0, Math.floor(-view.oy / view.scale)), y1 = Math.min(image.height, Math.ceil((view.height - view.oy) / view.scale));
+    for (let x = x0; x <= x1; x++) { const s = toScreen(view, x, 0).x; ctx.moveTo(s, toScreen(view, 0, y0).y); ctx.lineTo(s, toScreen(view, 0, y1).y); }
+    for (let y = y0; y <= y1; y++) { const s = toScreen(view, 0, y).y; ctx.moveTo(toScreen(view, x0, 0).x, s); ctx.lineTo(toScreen(view, x1, 0).x, s); }
+    ctx.stroke();
+  }
+
+  // Every crop, faintly, with its name.
+  ctx.font = "11px system-ui, sans-serif";
+  for (const name in skin.parts) {
+    if (name === selected) continue;
+    const p = skin.parts[name];
+    const a = toScreen(view, p.sx, p.sy);
+    ctx.strokeStyle = cssVar("--crop");
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(a.x + 0.5, a.y + 0.5, p.sw * view.scale - 1, p.sh * view.scale - 1);
+    ctx.setLineDash([]);
+    if (p.sw * view.scale > 30) label(ctx, slotName(name), a.x + 2, a.y + 2);
+  }
+
+  const crop = cropDrag && cropDrag.rect ? cropDrag.rect : skin.parts[selected];
+  if (crop) {
+    const a = toScreen(view, crop.sx, crop.sy);
+    const w = crop.sw * view.scale, h = crop.sh * view.scale;
+    ctx.strokeStyle = cssVar("--accent");
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x, a.y, w, h);
+    ctx.lineWidth = 1;
+    ctx.fillStyle = cssVar("--accent");
+    for (const handle of handles(a.x, a.y, w, h)) {
+      ctx.fillRect(handle.x - HANDLE, handle.y - HANDLE, HANDLE * 2, HANDLE * 2);
+    }
+    label(ctx, slotName(selected) + "  " + crop.sw + " × " + crop.sh, a.x, a.y - 18, true);
+  }
+}
+
+function label(ctx, text, x, y, strong) {
+  ctx.font = (strong ? "600 " : "") + "11px system-ui, sans-serif";
+  const width = ctx.measureText(text).width + 8;
+  ctx.fillStyle = strong ? cssVar("--accent") : cssVar("--crop-label");
+  ctx.fillRect(x, y, width, 16);
+  ctx.fillStyle = strong ? cssVar("--accent-fg") : "#fff";
+  ctx.fillText(text, x + 4, y + 12);
+}
+
+function handles(x, y, w, h) {
+  return [
+    { id: "nw", x: x, y: y }, { id: "n", x: x + w / 2, y: y }, { id: "ne", x: x + w, y: y },
+    { id: "e", x: x + w, y: y + h / 2 }, { id: "se", x: x + w, y: y + h }, { id: "s", x: x + w / 2, y: y + h },
+    { id: "sw", x: x, y: y + h }, { id: "w", x: x, y: y + h / 2 },
+  ];
+}
+
+function clampCrop(rect) {
+  const sx = Math.max(0, Math.min(rect.sx, image.width - 1));
+  const sy = Math.max(0, Math.min(rect.sy, image.height - 1));
+  return {
+    sx: sx, sy: sy,
+    sw: Math.max(1, Math.min(rect.sw, image.width - sx)),
+    sh: Math.max(1, Math.min(rect.sh, image.height - sy)),
+  };
+}
+
+let cropDrag = null;
+
+function sheetDown(event) {
+  if (!image) return;
+  const point = toWorld(sheet, event);
+  const crop = skin.parts[selected];
+  const rect = sheet.canvas.getBoundingClientRect();
+  const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+
+  if (crop) {
+    const a = toScreen(sheet, crop.sx, crop.sy);
+    for (const handle of handles(a.x, a.y, crop.sw * sheet.scale, crop.sh * sheet.scale)) {
+      if (Math.abs(sx - handle.x) <= HANDLE + 2 && Math.abs(sy - handle.y) <= HANDLE + 2) {
+        cropDrag = { mode: "resize", handle: handle.id, start: point, original: Object.assign({}, crop) };
+        return;
+      }
+    }
+    if (point.x >= crop.sx && point.x < crop.sx + crop.sw && point.y >= crop.sy && point.y < crop.sy + crop.sh) {
+      cropDrag = { mode: "move", start: point, original: Object.assign({}, crop) };
+      return;
+    }
+  }
+  cropDrag = { mode: "new", start: point, screen: { x: sx, y: sy } };
+}
+
+function sheetMove(event) {
+  if (!cropDrag) {
+    updateSheetCursor(event);
+    return;
+  }
+  const point = toWorld(sheet, event);
+  if (cropDrag.mode === "new") {
+    const rect = sheet.canvas.getBoundingClientRect();
+    const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+    if (!cropDrag.rect && Math.hypot(sx - cropDrag.screen.x, sy - cropDrag.screen.y) < 4) return;
+    const x0 = Math.floor(Math.min(cropDrag.start.x, point.x)), y0 = Math.floor(Math.min(cropDrag.start.y, point.y));
+    const x1 = Math.ceil(Math.max(cropDrag.start.x, point.x)), y1 = Math.ceil(Math.max(cropDrag.start.y, point.y));
+    cropDrag.rect = clampCrop({ sx: x0, sy: y0, sw: x1 - x0, sh: y1 - y0 });
+  } else if (cropDrag.mode === "move") {
+    const o = cropDrag.original;
+    const sx = Math.max(0, Math.min(Math.round(o.sx + point.x - cropDrag.start.x), image.width - o.sw));
+    const sy = Math.max(0, Math.min(Math.round(o.sy + point.y - cropDrag.start.y), image.height - o.sh));
+    setCrop(selected, { sx: sx, sy: sy, sw: o.sw, sh: o.sh });
+  } else {
+    const o = cropDrag.original;
+    let x0 = o.sx, y0 = o.sy, x1 = o.sx + o.sw, y1 = o.sy + o.sh;
+    const h = cropDrag.handle;
+    const px = Math.round(point.x), py = Math.round(point.y);
+    if (h.indexOf("w") >= 0) x0 = px;
+    if (h.indexOf("e") >= 0) x1 = px;
+    if (h.indexOf("n") >= 0) y0 = py;
+    if (h.indexOf("s") >= 0) y1 = py;
+    const left = Math.max(0, Math.min(x0, x1)), top = Math.max(0, Math.min(y0, y1));
+    const right = Math.min(image.width, Math.max(x0, x1)), bottom = Math.min(image.height, Math.max(y0, y1));
+    setCrop(selected, { sx: left, sy: top, sw: Math.max(1, right - left), sh: Math.max(1, bottom - top) });
+  }
+  redraw();
+}
+
+function sheetUp(event) {
+  if (!cropDrag) return;
+  const drag = cropDrag;
+  cropDrag = null;
+  if (drag.mode === "new") {
+    if (drag.rect) {
+      setCrop(selected, drag.rect);
+    } else {
+      // A click: select the crop under it.
+      const point = toWorld(sheet, event);
+      const hit = Object.keys(skin.parts).reverse().find((name) => {
+        const p = skin.parts[name];
+        return point.x >= p.sx && point.x < p.sx + p.sw && point.y >= p.sy && point.y < p.sy + p.sh;
+      });
+      if (hit) select(hit);
+    }
+  }
+  if (!layout.fitted) fit(layout);
+  refresh();
+}
+
+function updateSheetCursor(event) {
+  if (spaceDown) { sheet.canvas.style.cursor = "grab"; return; }
+  const crop = skin.parts[selected];
+  let cursor = image ? "crosshair" : "default";
+  if (crop && image) {
+    const rect = sheet.canvas.getBoundingClientRect();
+    const sx = event.clientX - rect.left, sy = event.clientY - rect.top;
+    const a = toScreen(sheet, crop.sx, crop.sy);
+    const handle = handles(a.x, a.y, crop.sw * sheet.scale, crop.sh * sheet.scale)
+      .find((h) => Math.abs(sx - h.x) <= HANDLE + 2 && Math.abs(sy - h.y) <= HANDLE + 2);
+    const point = toWorld(sheet, event);
+    if (handle) cursor = handle.id + "-resize";
+    else if (point.x >= crop.sx && point.x < crop.sx + crop.sw && point.y >= crop.sy && point.y < crop.sy + crop.sh) cursor = "move";
+  }
+  sheet.canvas.style.cursor = cursor;
+}
+
+// ---------- Layout ----------
+
+/** The slot a part shows now: pressed while held, released otherwise. */
+function shownSlot(partId) {
+  const part = PARTS[partId];
+  return part.single ? part.single : (held[partId] ? part.pressed : part.released);
+}
+
+function drawLayout(view) {
+  const ratio = beginFrame(view);
+  const ctx = view.ctx;
+  if (!image) return;
+  const base = skin.parts.base;
+
+  worldTransform(view, ratio);
+  if (base) {
+    ctx.drawImage(image, base.sx, base.sy, base.sw, base.sh, 0, 0, base.sw, base.sh);
+  }
+  for (const id of DRAW_ORDER) {
+    const p = skin.parts[shownSlot(id)];
+    if (p && p.dx !== undefined) ctx.drawImage(image, p.sx, p.sy, p.sw, p.sh, p.dx, p.dy, p.sw, p.sh);
+  }
+
+  screenTransform(view, ratio);
+  if (base) {
+    // The base's size is the display's size: what's outside it is cut off.
+    const a = toScreen(view, 0, 0);
+    ctx.strokeStyle = cssVar("--muted");
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(a.x - 0.5, a.y - 0.5, base.sw * view.scale + 1, base.sh * view.scale + 1);
+    ctx.setLineDash([]);
+  } else {
+    ctx.fillStyle = cssVar("--muted");
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText("Crop the base on the sprite sheet first.", 16, 28);
+  }
+
+  const p = skin.parts[selected];
+  if (p && p.dx !== undefined && selected !== "base") {
+    const a = toScreen(view, p.dx, p.dy);
+    ctx.strokeStyle = cssVar("--accent");
+    ctx.lineWidth = 2;
+    ctx.strokeRect(a.x, a.y, p.sw * view.scale, p.sh * view.scale);
+    ctx.lineWidth = 1;
+    label(ctx, slotName(selected) + "  " + p.dx + ", " + p.dy, a.x, a.y - 18, true);
+
+    // How far a stick moves: its offset is the stick's position times the movement.
+    if (SLOTS[selected].part.stick && skin.pitch > 0) {
+      const c = toScreen(view, p.dx + p.sw / 2, p.dy + p.sh / 2);
+      ctx.strokeStyle = cssVar("--accent");
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, skin.pitch * view.scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+let placeDrag = null;
+
+function layoutDown(event) {
+  if (!image) return;
+  const point = toWorld(layout, event);
+  // The topmost part under the pointer, as drawn.
+  const hit = DRAW_ORDER.slice().reverse().map(shownSlot).find((name) => {
+    const p = skin.parts[name];
+    return p && p.dx !== undefined && point.x >= p.dx && point.x < p.dx + p.sw && point.y >= p.dy && point.y < p.dy + p.sh;
   });
+  if (hit) {
+    select(hit);
+    const p = skin.parts[hit];
+    placeDrag = { start: point, dx: p.dx, dy: p.dy };
+  } else {
+    // Empty space pans.
+    startPan(layout, event);
+  }
+}
+
+function layoutMove(event) {
+  if (!placeDrag) {
+    layout.canvas.style.cursor = spaceDown ? "grab" : "default";
+    return;
+  }
+  const point = toWorld(layout, event);
+  const p = skin.parts[selected];
+  p.dx = Math.round(placeDrag.dx + point.x - placeDrag.start.x);
+  p.dy = Math.round(placeDrag.dy + point.y - placeDrag.start.y);
+  markDirty();
+  redraw(layout);
+  updateFields();
+}
+
+function layoutUp() {
+  if (placeDrag) {
+    placeDrag = null;
+    refresh();
+  }
+}
+
+// ---------- Panning and zooming ----------
+
+let pan = null;
+
+function startPan(view, event) {
+  pan = { view: view, x: event.clientX, y: event.clientY, ox: view.ox, oy: view.oy };
+  view.canvas.style.cursor = "grabbing";
+}
+
+function setupStage(view, down, move, up, name) {
+  const canvas = view.canvas;
+  canvas.addEventListener("pointerdown", (event) => {
+    activePane = name;
+    sheet.stage.classList.toggle("active", name === "sheet");
+    layout.stage.classList.toggle("active", name === "layout");
+    canvas.setPointerCapture(event.pointerId);
+    if (event.button === 1 || spaceDown) {
+      event.preventDefault();
+      startPan(view, event);
+    } else if (event.button === 0) {
+      down(event);
+    }
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (pan && pan.view === view) {
+      view.ox = pan.ox + event.clientX - pan.x;
+      view.oy = pan.oy + event.clientY - pan.y;
+      redraw(view);
+    } else {
+      move(event);
+    }
+  });
+  const end = (event) => {
+    if (pan && pan.view === view) {
+      pan = null;
+      canvas.style.cursor = "";
+    } else {
+      up(event);
+    }
+  };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    zoomAt(view, Math.exp(-event.deltaY * 0.0015), event.clientX - rect.left, event.clientY - rect.top);
+  }, { passive: false });
+  canvas.addEventListener("auxclick", (event) => event.preventDefault());
+}
+
+setupStage(sheet, sheetDown, sheetMove, sheetUp, "sheet");
+setupStage(layout, layoutDown, layoutMove, layoutUp, "layout");
+
+document.querySelectorAll("[data-zoom]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const view = button.dataset.zoom === "sheet" ? sheet : layout;
+    if (button.dataset.step === "fit") fit(view);
+    else zoomAt(view, button.dataset.step === "in" ? 1.5 : 1 / 1.5, view.width / 2, view.height / 2);
+  });
+});
+
+// ---------- Editing ----------
+
+function slotName(name) {
+  const slot = SLOTS[name];
+  if (slot.kind === "single") return "Base";
+  const kind = slot.kind === "released" ? "released" : (slot.part.stick ? "clicked in" : "pressed");
+  return slot.part.label + " " + kind;
+}
+
+/** The part's other slot (released ↔ pressed), or null for the base. */
+function otherSlot(name) {
+  const slot = SLOTS[name];
+  if (slot.kind === "single") return null;
+  return slot.kind === "released" ? slot.part.pressed : slot.part.released;
+}
+
+/** Sets a slot's crop. A slot cropped for the first time is placed too. */
+function setCrop(name, rect) {
+  const old = skin.parts[name];
+  const p = Object.assign({}, old || {}, rect);
+  if (!old || old.dx === undefined) {
+    placeNew(name, p);
+  }
+  skin.parts[name] = p;
+  markDirty();
+  // A new base changes the layout's size; fit it once the drag is over (sheetUp).
+  if (name === "base") layout.fitted = false;
+}
+
+/** The base at 0, 0; a part over its other slot, centred if they differ in size; else the middle. */
+function placeNew(name, p) {
+  if (name === "base") {
+    p.dx = 0;
+    p.dy = 0;
+    return;
+  }
+  const other = skin.parts[otherSlot(name)];
+  if (other && other.dx !== undefined) {
+    p.dx = Math.round(other.dx + (other.sw - p.sw) / 2);
+    p.dy = Math.round(other.dy + (other.sh - p.sh) / 2);
+    return;
+  }
+  const base = skin.parts.base;
+  const w = base ? base.sw : 400, h = base ? base.sh : 300;
+  p.dx = Math.round((w - p.sw) / 2);
+  p.dy = Math.round((h - p.sh) / 2);
+}
+
+function select(name) {
+  selected = name;
+  const slot = SLOTS[name];
+  // Show the slot being edited on the layout.
+  if (slot.kind !== "single") held[slot.part.id] = slot.kind === "pressed";
+  refresh();
+}
+
+function markDirty() {
+  dirty = true;
+}
+
+function refresh() {
+  renderParts();
+  updateFields();
+  redraw();
+  $("saveButton").disabled = !image || !skin.parts.base;
+  $("saveButton").title = !image ? "Open a sprite sheet first" : (!skin.parts.base ? "Crop the base first" : "");
+}
+
+function renderParts() {
+  const list = $("partsList");
+  list.textContent = "";
+  for (const group of GROUPS) {
+    const section = document.createElement("div");
+    const heading = document.createElement("h2");
+    heading.textContent = group.title;
+    section.appendChild(heading);
+    for (const part of group.parts) {
+      const row = document.createElement("div");
+      row.className = "part" + (part.single ? " single" : "");
+      const text = document.createElement("span");
+      text.className = "label";
+      text.textContent = part.label;
+      row.appendChild(text);
+      const slots = part.single
+        ? [[part.single, "Set"]]
+        : [[part.released, "Released"], [part.pressed, part.stick ? "Clicked in" : "Pressed"]];
+      for (const entry of slots) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "slot" + (skin.parts[entry[0]] ? " set" : "") + (entry[0] === selected ? " selected" : "");
+        button.textContent = entry[1];
+        button.title = slotName(entry[0]) + (skin.parts[entry[0]] ? "" : ": not cropped yet");
+        button.addEventListener("click", () => select(entry[0]));
+        row.appendChild(button);
+      }
+      section.appendChild(row);
+    }
+    list.appendChild(section);
+  }
+}
+
+const cropInputs = { sx: $("cropX"), sy: $("cropY"), sw: $("cropW"), sh: $("cropH") };
+const placeInputs = { dx: $("drawX"), dy: $("drawY") };
+
+function updateFields() {
+  const p = skin.parts[selected];
+  $("selectedTitle").textContent = slotName(selected);
+  $("selectedHint").textContent = !image
+    ? "Open a sprite sheet first."
+    : (p ? "" : "Drag on the sprite sheet to crop it.");
+  for (const key in cropInputs) {
+    if (document.activeElement !== cropInputs[key]) cropInputs[key].value = p ? p[key] : "";
+    cropInputs[key].disabled = !p;
+  }
+  for (const key in placeInputs) {
+    if (document.activeElement !== placeInputs[key]) placeInputs[key].value = p ? p[key] : "";
+    // The base is always at 0, 0: everything else is placed relative to it.
+    placeInputs[key].disabled = !p || selected === "base";
+  }
+  const other = otherSlot(selected);
+  $("alignButton").disabled = !p || !other || !skin.parts[other];
+  $("clearButton").disabled = !p;
+}
+
+for (const key in cropInputs) {
+  cropInputs[key].addEventListener("input", () => {
+    const p = skin.parts[selected];
+    const value = parseInt(cropInputs[key].value, 10);
+    if (!p || isNaN(value)) return;
+    const rect = { sx: p.sx, sy: p.sy, sw: p.sw, sh: p.sh };
+    rect[key] = value;
+    Object.assign(p, clampCrop(rect));
+    markDirty();
+    redraw();
+  });
+  cropInputs[key].addEventListener("change", () => {
+    if (selected === "base") fit(layout);
+    updateFields();
+  });
+}
+for (const key in placeInputs) {
+  placeInputs[key].addEventListener("input", () => {
+    const p = skin.parts[selected];
+    const value = parseInt(placeInputs[key].value, 10);
+    if (!p || isNaN(value)) return;
+    p[key] = value;
+    markDirty();
+    redraw(layout);
+  });
+  placeInputs[key].addEventListener("change", updateFields);
+}
+
+$("alignButton").addEventListener("click", () => {
+  const p = skin.parts[selected];
+  const other = skin.parts[otherSlot(selected)];
+  if (!p || !other) return;
+  p.dx = Math.round(other.dx + (other.sw - p.sw) / 2);
+  p.dy = Math.round(other.dy + (other.sh - p.sh) / 2);
+  markDirty();
+  refresh();
+});
+
+$("clearButton").addEventListener("click", () => {
+  delete skin.parts[selected];
+  markDirty();
+  refresh();
+});
+
+$("pitchInput").addEventListener("input", () => {
+  const value = parseInt($("pitchInput").value, 10);
+  if (!isNaN(value)) {
+    skin.pitch = Math.max(0, Math.min(value, 1000));
+    markDirty();
+    redraw(layout);
+  }
+});
+
+$("previewReleased").addEventListener("click", () => setAllHeld(false));
+$("previewPressed").addEventListener("click", () => setAllHeld(true));
+
+function setAllHeld(value) {
+  for (const id in PARTS) held[id] = value;
+  // Keep the selection on the slot that's now shown.
+  if (SLOTS[selected].kind !== "single") selected = shownSlot(SLOTS[selected].part.id);
+  refresh();
+}
+
+document.addEventListener("keydown", (event) => {
+  const typing = event.target instanceof HTMLInputElement;
+  // Space pans unless a control has the focus (it presses buttons and ticks boxes there).
+  const onControl = event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement;
+  if (event.code === "Space" && !onControl) {
+    spaceDown = true;
+    event.preventDefault();
+    return;
+  }
+  if (typing || !image) return;
+  const step = event.shiftKey ? 10 : 1;
+  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+  const move = moves[event.key];
+  const p = skin.parts[selected];
+  if (!move || !p) return;
+  event.preventDefault();
+  if (activePane === "sheet") {
+    Object.assign(p, clampCrop({ sx: p.sx + move[0], sy: p.sy + move[1], sw: p.sw, sh: p.sh }));
+  } else if (selected !== "base") {
+    p.dx += move[0];
+    p.dy += move[1];
+  }
+  markDirty();
+  refresh();
+});
+document.addEventListener("keyup", (event) => {
+  if (event.code === "Space") spaceDown = false;
+});
+
+// ---------- Opening a sprite sheet ----------
+
+function setStatus(text, kind) {
+  const status = $("status");
+  status.textContent = text;
+  status.className = kind || "";
+}
+
+function isPng(bytes) {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return bytes.length >= 8 && signature.every((b, i) => bytes[i] === b);
+}
+
+function decode(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file isn't an image this browser can read.")); };
+    img.src = url;
+  });
+}
+
+function toBase64(bytes) {
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(text);
+}
+
+async function openFile(file) {
+  if (!file) return;
+  if (dirty && Object.keys(skin.parts).length && !confirm("Use this image as the sprite sheet? Your crops stay where they are.")) return;
+  try {
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isPng(bytes)) {
+      // SluMAN takes PNGs: anything else the browser can read becomes one.
+      const decoded = await decode(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = decoded.naturalWidth;
+      canvas.height = decoded.naturalHeight;
+      canvas.getContext("2d").drawImage(decoded, 0, 0);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      bytes = new Uint8Array(await blob.arrayBuffer());
+    }
+    if (bytes.length > MAX_IMAGE_BYTES) {
+      throw new Error("The sprite sheet can be at most 16 MB.");
+    }
+    const decoded = await decode(new Blob([bytes], { type: "image/png" }));
+    if (decoded.naturalWidth > MAX_IMAGE_SIDE || decoded.naturalHeight > MAX_IMAGE_SIDE) {
+      throw new Error("The sprite sheet can be at most " + MAX_IMAGE_SIDE + " × " + MAX_IMAGE_SIDE + " pixels.");
+    }
+    image = decoded;
+    pngBase64 = toBase64(bytes);
+    // Crops that don't fit a smaller sheet are pulled inside it.
+    for (const name in skin.parts) Object.assign(skin.parts[name], clampCrop(skin.parts[name]));
+    $("empty").classList.add("hidden");
+    markDirty();
+    sheet.fitted = false;
+    layout.fitted = false;
+    fit(sheet);
+    fit(layout);
+    refresh();
+    setStatus("Opened " + (file.name || "the pasted image") + ", " + image.width + " × " + image.height + ".");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+$("openButton").addEventListener("click", () => $("fileInput").click());
+$("emptyOpen").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", () => {
+  openFile($("fileInput").files[0]);
+  $("fileInput").value = "";
+});
+
+document.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  $("empty").classList.add("drag");
+});
+document.addEventListener("dragleave", (event) => {
+  if (!event.relatedTarget) $("empty").classList.remove("drag");
+});
+document.addEventListener("drop", (event) => {
+  event.preventDefault();
+  $("empty").classList.remove("drag");
+  const file = event.dataTransfer.files[0];
+  if (file) openFile(file);
+});
+document.addEventListener("paste", (event) => {
+  if (event.target instanceof HTMLInputElement) return;
+  const item = Array.from(event.clipboardData.items).find((i) => i.type.startsWith("image/"));
+  if (item) openFile(item.getAsFile());
+});
+
+// ---------- Saving ----------
+
+async function save(overwrite) {
+  const name = $("nameInput").value.trim();
+  if (!name) {
+    setStatus("Give the skin a name.", "error");
+    $("nameInput").focus();
+    return;
+  }
+  const parts = {};
+  for (const key in skin.parts) {
+    const p = skin.parts[key];
+    parts[key] = { drawX: p.dx, drawY: p.dy, spriteX: p.sx, spriteY: p.sy, spriteWidth: p.sw, spriteHeight: p.sh };
+  }
+  $("saveButton").disabled = true;
+  setStatus("Saving…");
+  try {
+    const response = await fetch("/skins/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-SluMAN-Editor": "1" },
+      body: JSON.stringify({
+        name: name, overwrite: overwrite, select: $("useNow").checked,
+        analogPitch: skin.pitch, parts: parts, png: pngBase64,
+      }),
+    });
+    const result = await response.json();
+    if (result.ok) {
+      dirty = false;
+      setStatus("Saved “" + result.name + "”" + ($("useNow").checked ? " and switched to it." : "."), "ok");
+    } else if (result.reason === "exists" && !overwrite) {
+      if (confirm(result.error + " Replace it?")) {
+        await save(true);
+        return;
+      }
+      setStatus("Not saved. Pick another name to keep both.");
+    } else {
+      setStatus(result.error || "Couldn't save the skin.", "error");
+    }
+  } catch (error) {
+    setStatus("Couldn't reach SluMAN. Is it still running?", "error");
+  } finally {
+    refresh();
+  }
+}
+
+$("saveButton").addEventListener("click", () => save(false));
+$("nameInput").addEventListener("input", markDirty);
+
+window.addEventListener("beforeunload", (event) => {
+  if (dirty) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+refresh();
 </script>
 </body>
 </html>

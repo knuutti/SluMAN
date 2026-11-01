@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -290,6 +291,39 @@ namespace SluMAN
             contextMenuStrip1.Items.Add(copyObsUrlMenuItem);
             contextMenuStrip1.Items.Add(changeObsPortMenuItem);
             contextMenuStrip1.Opening += (sender, e) => UpdateObsMenu();
+
+            ToolStripMenuItem createSkinMenuItem = new ToolStripMenuItem("Create Skin...");
+            createSkinMenuItem.ToolTipText = "Make a skin from your own PNG in the browser";
+            createSkinMenuItem.Click += createSkinMenuItem_Click;
+            contextMenuStrip1.Items.Add(new ToolStripSeparator());
+            contextMenuStrip1.Items.Add(createSkinMenuItem);
+        }
+
+        /// <summary>
+        /// Opens the skin editor in the browser. It's served by the same server as the OBS page,
+        /// so that is switched on first if it's off.
+        /// </summary>
+        private void createSkinMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!ObsPadServer.IsRunning)
+            {
+                ObsPadServer.Enabled = true;
+                if (!ObsPadServer.IsRunning)
+                {
+                    func.Status(ObsPadServer.LastError, true);
+                    return;
+                }
+                func.Status("Turned Serve for OBS on: the skin editor runs on the same server.");
+            }
+
+            try
+            {
+                Process.Start(ObsPadServer.EditorUrl);
+            }
+            catch (Exception ex)
+            {
+                func.Status($"Couldn't open the browser ({ex.Message}). Open {ObsPadServer.EditorUrl} yourself.", true);
+            }
         }
 
         private void UpdateObsMenu()
