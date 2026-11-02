@@ -43,6 +43,7 @@ namespace SluMAN
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox infiniteJumpCheckBox = new CheckBox();
+        private readonly CheckBox autoSkipCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
         private readonly Label livesValueLabel = new Label();
         private readonly Label charmsValueLabel = new Label();
@@ -174,7 +175,8 @@ namespace SluMAN
                 layout.PlaceholderToggle("Freeze Game Clock"),
                 PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", (sender, e) => StartPlayerTool(flyModeCheckBox)),
                 PracticeLayout.Toggle(infiniteJumpCheckBox, "Infinite Jump", (sender, e) => StartPlayerTool(infiniteJumpCheckBox)),
-                layout.PlaceholderToggle("Auto-skip Cutscenes"),
+                PracticeLayout.Toggle(autoSkipCheckBox, "Auto-skip Cutscenes",
+                    (sender, e) => Toggle(autoSkipCheckBox, () => game.SetAutoSkip(autoSkipCheckBox.Checked))),
                 PracticeLayout.Toggle(freezeLivesCheckBox, "Freeze Lives",
                     (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked))),
                 PracticeLayout.Toggle(freezeCharmsCheckBox, "Freeze Gold Charm",
@@ -189,6 +191,7 @@ namespace SluMAN
             tip.SetToolTip(freezeCharmsCheckBox, "Holds a gold charm, so hits don't cost a life.");
             tip.SetToolTip(flyModeCheckBox, "Holds Sly's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
             tip.SetToolTip(infiniteJumpCheckBox, "Sly can double jump again and again.");
+            tip.SetToolTip(autoSkipCheckBox, "Does what Skip Cinematic does whenever dialogue or an FMV plays.");
         }
 
         private void Run(string done, Action action)
@@ -445,6 +448,14 @@ namespace SluMAN
             {
                 game.SetLivesFrozen(false);
                 game.SetCharmsFrozen(false);
+            }
+            catch
+            {
+                // The connection may already be closing.
+            }
+            try
+            {
+                game.SetAutoSkip(false);
             }
             catch
             {

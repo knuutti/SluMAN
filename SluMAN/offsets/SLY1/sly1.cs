@@ -447,6 +447,79 @@ namespace SluMAN
             }
         }
 
+        // Auto-skip: a background thread does what Skip Cinematic does a few times a second, so
+        // neither the UI thread nor the subscription thread waits on the console. Sly 1 has no
+        // known "an FMV is playing" value, so with no dialogue it keeps the FMV skip set, as
+        // pressing Skip Cinematic would.
+        private const int AutoSkipPollMs = 100;
+        // At most one skip of each kind this often, in case a write doesn't take.
+        private const int AutoSkipMinIntervalMs = 250;
+        private readonly object autoSkipLock = new object();
+        private System.Threading.ManualResetEvent autoSkipStop;
+
+        /// <summary>Starts or stops skipping dialogue and FMVs by itself.</summary>
+        public void SetAutoSkip(bool enabled)
+        {
+            lock (autoSkipLock)
+            {
+                if (autoSkipStop != null)
+                {
+                    autoSkipStop.Set();
+                    autoSkipStop = null;
+                }
+                if (!enabled)
+                {
+                    return;
+                }
+                System.Threading.ManualResetEvent stop = new System.Threading.ManualResetEvent(false);
+                autoSkipStop = stop;
+                System.Threading.Thread worker = new System.Threading.Thread(() => RunAutoSkip(stop));
+                worker.IsBackground = true;
+                worker.Name = "Sly 1 auto-skipper";
+                worker.Start();
+            }
+        }
+
+        private void RunAutoSkip(System.Threading.ManualResetEvent stop)
+        {
+            Console.WriteLine("Auto-skip cinematics on.");
+            DateTime lastDialogueSkip = DateTime.MinValue;
+            DateTime lastFmvSkip = DateTime.MinValue;
+            // Woken early only by Stop; otherwise time to look again.
+            while (!stop.WaitOne(AutoSkipPollMs))
+            {
+                try
+                {
+                    // The dialogue pointer may point at a freed scene while a level loads.
+                    if (IsLevelLoading())
+                    {
+                        continue;
+                    }
+                    uint dialogue = (uint)ReadInt(sly1.addr.dialoguePtr);
+                    if (dialogue != 0)
+                    {
+                        if ((DateTime.Now - lastDialogueSkip).TotalMilliseconds >= AutoSkipMinIntervalMs)
+                        {
+                            api.WriteMemory(pid, dialogue + sly1.addr.dialogueSkipOffset, ConvertIntToBytes(0));
+                            lastDialogueSkip = DateTime.Now;
+                        }
+                    }
+                    else if ((DateTime.Now - lastFmvSkip).TotalMilliseconds >= AutoSkipMinIntervalMs
+                        && ReadInt(sly1.addr.fmvSkip) != 1)
+                    {
+                        api.WriteMemory(pid, sly1.addr.fmvSkip, ConvertIntToBytes(1));
+                        lastFmvSkip = DateTime.Now;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Keep running: the console may only be busy or reconnecting.
+                    Console.WriteLine($"Auto-skip couldn't skip a cutscene: {ex.Message}");
+                }
+            }
+            Console.WriteLine("Auto-skip cinematics off.");
+        }
+
         // World states. Worlds 1 to 5 are the five gangs' worlds, in LevelNames' order; each has
         // LevelsPerWorld level saves, in the order of its levels there.
         public const int WorldCount = 5;
