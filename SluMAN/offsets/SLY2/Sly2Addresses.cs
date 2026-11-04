@@ -99,6 +99,10 @@ namespace SluMAN
         public uint dialogueState { get; private set; }
         public uint dialogueFrameCounter { get; private set; }
         public uint fmvState { get; private set; }
+        // Where to look for the cutscene script's completion check (sly2.SkipCinematic), which
+        // is found by its code. Its switch is at 0x1002E0 on KOR, 0xFFE70 on PAL, 0xFFE6C on NTSC.
+        public uint seqeCompleteSearchStart { get; private set; }
+        public uint seqeCompleteSearchEnd { get; private set; }
 
         // Loading
         public uint mapAOB { get; private set; }
@@ -236,6 +240,8 @@ namespace SluMAN
                 dialogueState = 0x39E4BF70,
                 dialogueFrameCounter = 0x39E4BF54,
                 fmvState = 0x9066FC,
+                seqeCompleteSearchStart = 0xFF000,
+                seqeCompleteSearchEnd = 0x101000,
 
                 mapAOB = 0x7B4C58,
                 spawnLocation = 0x7B4C98,
