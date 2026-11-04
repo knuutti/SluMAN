@@ -200,6 +200,9 @@ namespace SluMAN
         /// </summary>
         public bool combosActive = false;
 
+        /// <summary>What the Skip Cutscene combo does, on the games that have it.</summary>
+        protected virtual Action ComboSkipCutscene => null;
+
         public abstract void SavePosition();
         public abstract void LoadPosition();
 
@@ -340,6 +343,12 @@ namespace SluMAN
             {
                 action = LoadGame;
                 actionName = "Load game";
+            }
+
+            else if (input == ConfigureCombos.skipCutsceneCombo && ComboSkipCutscene != null)
+            {
+                action = ComboSkipCutscene;
+                actionName = "Skip cutscene";
             }
 
             if (action == null)

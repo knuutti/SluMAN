@@ -1541,11 +1541,185 @@ namespace SluMAN
                 api.WriteMemory(pid, sly2.addr.fmvState, (uint)2);
             }
 
-            // Skip dialogue
+            // Skip the cutscene's script
+            if (OpenSeqeSkipWindow())
+            {
+                return;
+            }
+
+            // Without it, skip the dialogue line
             if (api.ReadMemory(pid, sly2.addr.dialogueFrameCounter + 0x3, 1)[0] > 10)
             {
                 api.WriteMemory(pid, sly2.addr.dialogueState, (uint)0);
             }
+        }
+
+        protected override Action ComboSkipCutscene => SkipCinematic;
+
+        // Cutscene skip, the method of the PS4 release (.claude/sly2-cutscene-skip-research.md).
+        // A cutscene is a script of commands, and each frame the script's thread asks
+        // FIsSeqeComplete whether the command it's on is done. For a while after a press, that
+        // answers yes for the commands that wait on dialogue and voice, so the script runs on
+        // until something else holds it. FIsSeqeComplete is a switch on the command through a
+        // jump table: the window points these commands' entries at the function's default case,
+        // which returns true. The table is data, so this works with every PPU decoder.
+        private const int SeqeSkipWindowMs = 500; // About the PS4 release's 30 checks a press.
+        private const uint SeqeFirstCommand = 3; // The table's first entry is this command's.
+        private const uint SeqeReturnTrueCode = 0x3BA00001; // li r29, 1
+        private static readonly uint[] SeqeSkipCommands = { 59, 69, 82 };
+        // The first instruction of each command's case, to check the table is the right one.
+        private static readonly uint[] SeqeSkipCaseCode = { 0x807C00A0, 0x809F0010, 0x807C0068 };
+        // FIsSeqeComplete's switch up to the table; 0 is an instruction that differs by version.
+        private static readonly uint[] SeqeSwitchCode =
+        {
+            0x2B800057, 0, 0, 0x78091788, 0x7C09582E, 0x7C0007B4, 0x7C005A14, 0x7C0903A6, 0x4E800420,
+        };
+
+        private readonly object seqeSkipLock = new object();
+        private System.Threading.Timer seqeSkipTimer;
+        private uint seqeTable;
+        private uint seqeTableReturnTrue;
+        private uint[] seqeTableEntries;
+        private bool seqeSkipOpen;
+
+        /// <summary>
+        /// Opens the skip window, or makes one that's open last longer. False when this version's
+        /// table wasn't found.
+        /// </summary>
+        private bool OpenSeqeSkipWindow()
+        {
+            lock (seqeSkipLock)
+            {
+                if (seqeTable == 0 && !FindSeqeTable())
+                {
+                    Console.WriteLine("Sly 2 cutscene skip: FIsSeqeComplete's jump table wasn't found.");
+                    return false;
+                }
+                if (seqeSkipTimer == null)
+                {
+                    seqeSkipTimer = new System.Threading.Timer(seqeSkipTimer_Tick);
+                }
+                // Before the writes: a window that only partly opened still has to close.
+                seqeSkipTimer.Change(SeqeSkipWindowMs, System.Threading.Timeout.Infinite);
+                if (!seqeSkipOpen)
+                {
+                    seqeSkipOpen = true;
+                    foreach (uint command in SeqeSkipCommands)
+                    {
+                        api.WriteMemory(pid, SeqeTableEntry(command), UInt32Bytes(seqeTableReturnTrue));
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Puts the jump table back. It stays marked open if that fails, so the next press
+        /// closes it again.
+        /// </summary>
+        public void CloseSeqeSkipWindow()
+        {
+            lock (seqeSkipLock)
+            {
+                if (!seqeSkipOpen)
+                {
+                    return;
+                }
+                for (int i = 0; i < SeqeSkipCommands.Length; i++)
+                {
+                    api.WriteMemory(pid, SeqeTableEntry(SeqeSkipCommands[i]), UInt32Bytes(seqeTableEntries[i]));
+                }
+                seqeSkipOpen = false;
+                seqeSkipTimer.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+            }
+        }
+
+        private void seqeSkipTimer_Tick(object state)
+        {
+            try
+            {
+                CloseSeqeSkipWindow();
+            }
+            catch (Exception ex)
+            {
+                // A game reset puts the table back by itself.
+                Console.WriteLine($"Sly 2 cutscene skip couldn't close: {ex.Message}");
+            }
+        }
+
+        private uint SeqeTableEntry(uint command)
+        {
+            return seqeTable + (command - SeqeFirstCommand) * 4;
+        }
+
+        /// <summary>
+        /// Finds FIsSeqeComplete's jump table by the code of its switch, and checks where its
+        /// entries and default case lead. False, with nothing set, if anything isn't as expected.
+        /// </summary>
+        private bool FindSeqeTable()
+        {
+            const uint ChunkSize = 1024; // A single read is limited to about 2 KB.
+            uint start = sly2.addr.seqeCompleteSearchStart;
+            uint size = sly2.addr.seqeCompleteSearchEnd - start;
+            byte[] code = new byte[size];
+            for (uint done = 0; done < size; done += ChunkSize)
+            {
+                byte[] chunk = api.ReadMemory(pid, start + done, Math.Min(ChunkSize, size - done));
+                Array.Copy(chunk, 0, code, done, chunk.Length);
+            }
+
+            for (uint at = 0; at + SeqeSwitchCode.Length * 4 <= size; at += 4)
+            {
+                if (IsSeqeSwitch(code, at) && ReadSeqeTable(start + at, CodeWord(code, at + 4)))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool IsSeqeSwitch(byte[] code, uint at)
+        {
+            for (uint i = 0; i < SeqeSwitchCode.Length; i++)
+            {
+                if (SeqeSwitchCode[i] != 0 && CodeWord(code, at + i * 4) != SeqeSwitchCode[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static uint CodeWord(byte[] code, uint at)
+        {
+            return (uint)(code[at] << 24 | code[at + 1] << 16 | code[at + 2] << 8 | code[at + 3]);
+        }
+
+        /// <param name="switchAddress">Where the switch's code starts.</param>
+        /// <param name="branch">Its second instruction, the bgt to the default case.</param>
+        private bool ReadSeqeTable(uint switchAddress, uint branch)
+        {
+            uint table = switchAddress + (uint)SeqeSwitchCode.Length * 4;
+            uint returnTrue = switchAddress + 4 + (branch & 0xFFFC);
+            if (branch >> 16 != 0x419D || ReadUInt(returnTrue) != SeqeReturnTrueCode)
+            {
+                return false;
+            }
+
+            uint[] entries = new uint[SeqeSkipCommands.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                entries[i] = ReadUInt(table + (SeqeSkipCommands[i] - SeqeFirstCommand) * 4);
+                if (ReadUInt(table + entries[i]) != SeqeSkipCaseCode[i])
+                {
+                    return false;
+                }
+            }
+
+            seqeTable = table;
+            seqeTableReturnTrue = returnTrue - table;
+            seqeTableEntries = entries;
+            return true;
         }
 
         private AutoSkipper autoSkipper;

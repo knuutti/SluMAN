@@ -11,16 +11,18 @@ namespace SluMAN
         private const string SaveComboKey = "savePosCombo";
         private const string LoadComboKey = "loadPosCombo";
         private const string LoadGameComboKey = "loadGameCombo";
+        private const string SkipCutsceneComboKey = "skipCutsceneCombo";
         private const string CombosEnabledKey = "combosEnabled";
 
         private const string WaitingText = "Press a combo...";
 
-        // L2 + R2 + R1, L2 + R2 + L1 and L3 + R3. 0 means no combo.
+        // L2 + R2 + R1, L2 + R2 + L1, L3 + R3 and L2 + R2 + Select. 0 means no combo.
         private const int DefaultSaveCombo = 0xb;
         private const int DefaultLoadCombo = 0x7;
         private const int DefaultLoadGameCombo = 0x600;
+        private const int DefaultSkipCutsceneCombo = 0x103;
 
-        public static int saveCombo, loadCombo, loadGameCombo;
+        public static int saveCombo, loadCombo, loadGameCombo, skipCutsceneCombo;
         public static bool combosEnabled = true;
 
         /// <summary>
@@ -50,6 +52,7 @@ namespace SluMAN
             saveCombo = ReadCombo(SaveComboKey, DefaultSaveCombo);
             loadCombo = ReadCombo(LoadComboKey, DefaultLoadCombo);
             loadGameCombo = ReadCombo(LoadGameComboKey, DefaultLoadGameCombo);
+            skipCutsceneCombo = ReadCombo(SkipCutsceneComboKey, DefaultSkipCutsceneCombo);
 
             string enabled = func.GetConfigData("config.txt", CombosEnabledKey);
             combosEnabled = enabled != "false";
@@ -71,6 +74,7 @@ namespace SluMAN
             func.ChangeFileLines("config.txt", saveCombo.ToString(), SaveComboKey);
             func.ChangeFileLines("config.txt", loadCombo.ToString(), LoadComboKey);
             func.ChangeFileLines("config.txt", loadGameCombo.ToString(), LoadGameComboKey);
+            func.ChangeFileLines("config.txt", skipCutsceneCombo.ToString(), SkipCutsceneComboKey);
         }
 
         public static string Describe(int combo)
@@ -87,12 +91,14 @@ namespace SluMAN
             savePositionTextBox.Text = Describe(saveCombo);
             loadPositionTextBox.Text = Describe(loadCombo);
             loadGameTextBox.Text = Describe(loadGameCombo);
+            skipCutsceneTextBox.Text = Describe(skipCutsceneCombo);
         }
 
         private string ActionName(TextBox textBox)
         {
             if (textBox == savePositionTextBox) return "Save Position";
             if (textBox == loadPositionTextBox) return "Load Position";
+            if (textBox == skipCutsceneTextBox) return "Skip Cutscene";
             return "Load Game";
         }
 
@@ -100,6 +106,7 @@ namespace SluMAN
         {
             if (textBox == savePositionTextBox) return saveCombo;
             if (textBox == loadPositionTextBox) return loadCombo;
+            if (textBox == skipCutsceneTextBox) return skipCutsceneCombo;
             return loadGameCombo;
         }
 
@@ -107,12 +114,13 @@ namespace SluMAN
         {
             if (textBox == savePositionTextBox) saveCombo = combo;
             else if (textBox == loadPositionTextBox) loadCombo = combo;
+            else if (textBox == skipCutsceneTextBox) skipCutsceneCombo = combo;
             else loadGameCombo = combo;
         }
 
         private List<TextBox> ComboTextBoxes()
         {
-            return new List<TextBox> { savePositionTextBox, loadPositionTextBox, loadGameTextBox };
+            return new List<TextBox> { savePositionTextBox, loadPositionTextBox, loadGameTextBox, skipCutsceneTextBox };
         }
 
         private void StartCapture(TextBox textBox)
@@ -213,6 +221,7 @@ namespace SluMAN
             TextBox textBox;
             if (sender == savePositionClearButton) textBox = savePositionTextBox;
             else if (sender == loadPositionClearButton) textBox = loadPositionTextBox;
+            else if (sender == skipCutsceneClearButton) textBox = skipCutsceneTextBox;
             else textBox = loadGameTextBox;
 
             StopCapture();
