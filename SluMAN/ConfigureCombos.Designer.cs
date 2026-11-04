@@ -152,7 +152,7 @@ namespace SluMAN
             this.skipCutsceneLabel.AutoSize = true;
             this.skipCutsceneLabel.Location = new System.Drawing.Point(12, 152);
             this.skipCutsceneLabel.Name = "skipCutsceneLabel";
-            this.skipCutsceneLabel.Size = new System.Drawing.Size(92, 13);
+            this.skipCutsceneLabel.Size = new System.Drawing.Size(78, 13);
             this.skipCutsceneLabel.TabIndex = 10;
             this.skipCutsceneLabel.Text = "Skip Cutscene:";
             //

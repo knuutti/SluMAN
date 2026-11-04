@@ -1,8 +1,9 @@
-# Sly 2 cutscene skip research
+# Sly 2 and 3 cutscene skip research
 
 The PS4/PS5 release of Sly 2 shipped a cutscene skip on START in its emulator's Lua patches.
 [andshrew/Sly2-Cutscene-Skip](https://github.com/andshrew/Sly2-Cutscene-Skip) has those scripts and
-a PS2 port on SELECT. SluMAN does the same thing on PS3 by a different mechanism.
+a PS2 port on SELECT. SluMAN does the same thing on PS3 by a different mechanism (`SeqeSkipWindow`). Sly 3 has no official
+skip that we know of; it's at the end of this file.
 
 ## What the PS4 method does
 
@@ -51,7 +52,7 @@ recompiler or a PS3.
 
 Differences from the PS4 patch:
 
-- The window is 500 ms (`SeqeSkipWindowMs`), not 30 checks: nothing runs in the game to count them.
+- The window is 500 ms (`SeqeSkipWindow.WindowMs`), not 30 checks: nothing runs in the game to count them.
   Commands can chain further within it.
 - It also answers yes to the check for a thread's pending command (0x101360).
 - There's no hook for a sequence ending (0x20F060 on NTSC PS2, not found on PS3). The window just
@@ -59,12 +60,12 @@ Differences from the PS4 patch:
 
 ## Other versions
 
-`FindSeqeTable` searches 0xFF000 to 0x101000 for the switch and checks the default case and each
+`SeqeSkipWindow.FindTable` searches 0xFF000 to 0x101000 for the switch and checks the default case and each
 command's first instruction. If it isn't found, Skip Cinematic falls back to the old dialogue write,
 and says so on the console.
 
 Checked against each version's decrypted EBOOT; the switch occurs once in each, the entry values are
-the same (0x8C8, 0xA48, 0x9C4), and every check `FindSeqeTable` makes passes:
+the same (0x8C8, 0xA48, 0x9C4), and every check `FindTable` makes passes:
 
 | Version | Switch | Table | Default case |
 |---------|--------|-------|--------------|
@@ -87,3 +88,34 @@ From the PS4 release's reports, likely the same here since the skip is the same:
 - Episode 6, Aerial Assault, first cutscene on the train: the chopper doesn't get into position.
 - Skipping on the first possible frame of some job-ending cutscenes can softlock (Steal a Tuxedo,
   Cabin Crimes).
+
+## Sly 3 (NPEA00343, from EBOOT.elf)
+
+The same code, with its own command numbers. Unlike Sly 2's, this hasn't been checked against an
+official skip: the commands come from comparing the code, and no list of cutscenes that break exists.
+
+Commands are packed: `+0` is a word with the command in its top byte and a flag `0x00800000` that
+means wait for it, then arguments from `+8`.
+
+| What | Address |
+|------|---------|
+| `FIsSeqeComplete(thread r3, seqe r4)`; returns r3 | 0x154B64 |
+| Its switch (`cmplwi cr7, r0, 0x68`, command - 12) | 0x154BB0 |
+| Its jump table | 0x154BD4 |
+| Default case, returns 1 (`li r28, 1`) | 0x154DE4, entry value 0x210 |
+| `UpdateSeqe(thread)`; wait check at 0x1560D8 | 0x156058 |
+| Finishes the thread's pending command at `+0x48`, which also calls it (0x155FF4) | 0x155FCC |
+| Voice manager; 0x17FE1C and 0x180390 read it | 0x788A90 |
+
+| Sly 2 | Sly 3 | Table entry | Value | Why |
+|-------|-------|-------------|-------|-----|
+| 59 | 70 | 0x154CBC | 0x24C | Both start by looking up an object with type 0x405, and wait on the dialogue object's flag (`+0xF08` / `+0xF70`) |
+| 69 | 82 | 0x154CEC | 0xFD0 | Both start a sound, and wait in "is it playing" (0x12218C / 0x17FE1C, the same code) |
+| 82 | 91 | 0x154D10 | 0x27C | Neither has a start action; both wait for a voice's time to reach a value, though Sly 3 reads the time through a stack of voices (0x180390) |
+| none | 95 | 0x154D20 | 0xD58 | Waits for any voice to finish (`17FE1C(-1)`) |
+
+Left out for now: 77 shares 70's wait and 88 shares 91's, but their starts do something else.
+
+The old skip's `dialogueState` (0x788CB8) is the voice manager's current voice pointer (`+0x228`).
+Writing 0 there makes "is it playing" say no, which only gets past 82 and 95, not the dialogue object
+wait (70).

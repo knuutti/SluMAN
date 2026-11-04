@@ -467,7 +467,7 @@ namespace SluMAN
             game.SetAutoSkip(false);
             try
             {
-                game.CloseSeqeSkipWindow();
+                game.cutsceneSkip.Close();
             }
             catch
             {
