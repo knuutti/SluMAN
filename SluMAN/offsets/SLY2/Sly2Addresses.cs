@@ -308,7 +308,7 @@ namespace SluMAN
             palDigital.gadgetBindsBentley = 0x7A8304;
             palDigital.gadgetBindsMurray = 0x7A831C;
             palDigital.language = 0x819E88;
-            palDigital.gameSpeed = 0x49DF14;
+            palDigital.gameSpeed = 0x49DF00;
             palDigital.loadTrigger = 0x7B4BD0;
             palDigital.mapAOB = 0x7B4BD8;
             palDigital.spawnLocation = 0x7B4C18;
