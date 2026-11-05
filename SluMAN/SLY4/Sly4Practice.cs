@@ -31,6 +31,7 @@ namespace SluMAN
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
         private readonly Label episodeValueLabel = new Label();
@@ -139,6 +140,7 @@ namespace SluMAN
 
             session = new GameSession(this, game, gameNameId, "Sly 4", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.BindAutosplitter(autosplitterCheckBox);
             session.Reconnected += session_Reconnected;
 
             game.GoalsChanged += game_GoalsChanged;
@@ -222,7 +224,11 @@ namespace SluMAN
                 PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", null),
                 layout.PlaceholderToggle("Infinite Jump"),
                 PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
+                PracticeLayout.Toggle(autosplitterCheckBox, "Autosplitter", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+            layout.ToolTip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/sly4-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter. Off each time Practice Mode opens.");
 
             // Click, not CheckedChanged: showing the fly's mode sets Checked too.
             flyModeCheckBox.Click += flyModeCheckBox_Click;

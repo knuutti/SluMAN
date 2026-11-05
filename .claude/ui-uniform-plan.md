@@ -50,7 +50,8 @@ Toggle order:
 7. Infinite Jump
 8. Auto-skip Cutscenes
 9. Game-only toggles: Disable Death Barriers (Sly 3), Freeze Lives and Freeze Gold Charm (Sly 1)
-10. Always On Top (always last)
+10. Autosplitter
+11. Always On Top (always last)
 
 Shared labels: "Invulnerability" (not "Invulnerable"), "Auto-skip Cutscenes" (not "Skip
 Cutscenes" / "Auto-skip Cinematics"), "Skip Cinematic", "Load" on every load button, "Toggles"

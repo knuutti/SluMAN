@@ -87,17 +87,21 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Loads the saved autosplitter setting into <paramref name="checkBox"/>, starts the
-        /// autosplitter if it's on, and starts or stops it when the box changes. The session restarts
-        /// it after the game restarts.
+        /// Starts or stops the autosplitter when <paramref name="checkBox"/> changes, and restarts it
+        /// after the game restarts. Speedrun Mode saves the setting and starts with it. Practice Mode
+        /// always starts with it off and saves nothing, so practice doesn't split by surprise or
+        /// change the setting for the next run.
         /// </summary>
         public void BindAutosplitter(CheckBox checkBox)
         {
             autosplitterCheckBox = checkBox;
-            checkBox.Checked = ReadPreference(PrefersAutosplitterKey);
+            checkBox.Checked = speedrunMode && ReadPreference(PrefersAutosplitterKey);
             checkBox.CheckedChanged += (sender, e) =>
             {
-                func.ChangeFileLines("config.txt", checkBox.Checked ? "true" : "false", PrefersAutosplitterKey);
+                if (speedrunMode)
+                {
+                    func.ChangeFileLines("config.txt", checkBox.Checked ? "true" : "false", PrefersAutosplitterKey);
+                }
                 StopAutosplitter();
                 if (checkBox.Checked)
                 {
