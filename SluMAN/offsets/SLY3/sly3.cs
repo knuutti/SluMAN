@@ -51,7 +51,7 @@ namespace SluMAN
                 FirstCommand = 12,
                 Commands = new uint[] { 70, 82, 91, 95 },
                 CaseCode = new uint[] { 0x78630020, 0x81240008, 0x8062D554, 0x8062D554 },
-            }, addr.pauseMenuState != 0 ? IsPauseMenuOpen : (Func<bool>)null);
+            }, IsPauseMenuOpen);
 
             this.maps = new MapData[]
             {
@@ -1343,12 +1343,27 @@ namespace SluMAN
         protected override Action ComboSkipCutscene => SkipCinematic;
 
         /// <summary>
-        /// Whether the pause menu is open: pauseMenuState is 0 in play. Only used where the
-        /// version has the address.
+        /// Whether the pause menu is open: its screen (pauseScreen) is in the UI manager's list
+        /// of active screens (activeScreenList), as the Start handler (0x14D4B4) checks. The list
+        /// is intrusive: the header's +4 is its tail and +8 the offset of the link in each screen,
+        /// so a screen is in it if its link is set or it's the tail. The offset is set at run
+        /// time; while it isn't, nothing counts as paused. Found statically; checked in game:
+        /// not yet.
         /// </summary>
         private bool IsPauseMenuOpen()
         {
-            return ReadUInt(sly3.addr.pauseMenuState) != 0;
+            uint screen = sly3.addr.pauseScreen;
+            uint list = sly3.addr.activeScreenList;
+            if (ReadUInt(list + 4) == screen)
+            {
+                return true;
+            }
+            uint linkOffset = ReadUInt(list + 8);
+            if (linkOffset == 0 || linkOffset >= 0x1000)
+            {
+                return false;
+            }
+            return ReadUInt(screen + linkOffset) != 0;
         }
 
         private AutoSkipper autoSkipper;
