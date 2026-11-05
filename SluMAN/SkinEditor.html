@@ -5,238 +5,398 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SluMAN Skin Editor</title>
 <style>
+  /* A plain desktop-application look, dark only: menu bar, toolbar, panels with group boxes, status bar. */
   :root {
-    --bg: #f4f4f1; --panel: #ffffff; --fg: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
-    --accent: #2563eb; --accent-fg: #ffffff; --soft: #e8eefc; --danger: #b42318; --warn: #b54708; --ok: #1a7f37;
-    --crop: rgba(37, 99, 235, 0.55); --crop-label: rgba(29, 29, 27, 0.75);
-    --check-a: #e9e9e4; --check-b: #f8f8f5;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #20201f; --fg: #ececea; --muted: #9a9a94; --line: #34342f;
-      --accent: #5b8def; --accent-fg: #0d0d0c; --soft: #22304d; --danger: #f97066; --warn: #f5a34b; --ok: #4ac26b;
-      --crop: rgba(91, 141, 239, 0.6); --crop-label: rgba(10, 10, 10, 0.8);
-      --check-a: #262624; --check-b: #2e2e2b;
-    }
+    color-scheme: dark;
+    --window: #252526; --panel: #2d2d2d; --control: #3a3a3a; --control-hover: #454545; --input: #1e1e1e;
+    --canvas: #1b1b1b; --fg: #e0e0e0; --muted: #a0a0a0; --line: #454545; --line-soft: #383838;
+    --accent: #3d8ee6; --accent-fg: #ffffff; --highlight: #094771; --menu: #2b2b2b;
+    --danger: #f2765f; --warn: #e5b442; --info: #8fb4e3; --ok: #7cc47f;
+    --crop: rgba(61, 142, 230, 0.6); --crop-label: rgba(0, 0, 0, 0.75);
+    --check-a: #222222; --check-b: #262626;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  button, input, select { font: inherit; color: inherit; }
-  button, select {
-    border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  body {
+    margin: 0; background: var(--window); color: var(--fg);
+    font: 12px/1.4 "Segoe UI", Tahoma, Arial, sans-serif; user-select: none;
   }
-  select { padding: 4px 6px; max-width: 100%; }
-  button:hover:not(:disabled), select:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled, select:disabled { opacity: 0.45; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
-  button[aria-pressed="true"] { background: var(--soft); border-color: var(--accent); }
-  input[type="text"], input[type="number"] {
-    border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 7px; min-width: 0;
+  input, select, button { font: inherit; color: inherit; }
+  input[type="text"], input[type="number"], select {
+    height: 22px; border: 1px solid var(--line); background: var(--input); border-radius: 2px; padding: 0 4px; min-width: 0;
   }
-  input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-  header {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px;
-    border-bottom: 1px solid var(--line); background: var(--panel);
+  select { padding: 0 2px; }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: var(--accent); }
+  input:disabled, select:disabled { color: var(--muted); opacity: 0.6; }
+  input { user-select: text; }
+  input[type="checkbox"] { margin: 0; accent-color: var(--accent); }
+  button {
+    height: 22px; padding: 0 10px; border: 1px solid var(--line); border-radius: 2px;
+    background: var(--control); cursor: default; white-space: nowrap;
   }
-  header h1 { font-size: 16px; margin: 0 6px 0 0; }
-  header .name { display: flex; align-items: center; gap: 6px; }
-  header .name input { width: 190px; }
-  header label.check { display: flex; align-items: center; gap: 5px; color: var(--muted); }
-  header .group { display: flex; gap: 4px; }
-  #status { color: var(--muted); }
-  #status.error { color: var(--danger); }
-  #status.ok { color: var(--ok); }
+  button:hover:not(:disabled) { background: var(--control-hover); }
+  button:active:not(:disabled), button[aria-pressed="true"] { background: var(--input); border-color: var(--accent); }
+  button:disabled { color: var(--muted); opacity: 0.55; }
+  button:focus-visible { outline: 1px dotted var(--fg); outline-offset: -4px; }
+  .hidden { display: none !important; }
+  kbd { font: inherit; }
 
-  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) 260px; min-height: 0; }
-  aside { background: var(--panel); overflow: auto; padding: 12px; min-height: 0; }
-  aside.parts { border-right: 1px solid var(--line); }
-  aside.props { border-left: 1px solid var(--line); }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
-  aside > h2:first-child, .parts-list > div:first-child > h2 { margin-top: 0; }
+  .app { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
 
-  .part { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px; padding: 2px 0; }
-  .part.single { grid-template-columns: 1fr auto; }
-  .part .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .slot { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; font-size: 12px; border-radius: 999px; }
-  .slot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); }
-  .slot.set::before { background: var(--accent); border-color: var(--accent); }
-  .slot.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-  .slot.selected::before { border-color: var(--accent-fg); }
-  .slot.selected.set::before { background: var(--accent-fg); }
-
-  .pane { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; border-right: 1px solid var(--line); }
-  .pane:last-of-type { border-right: 0; }
-  .pane .bar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line);
-    background: var(--panel); font-size: 13px;
+  /* Menu bar */
+  .menubar { display: flex; background: var(--menu); border-bottom: 1px solid var(--line-soft); padding: 0 2px; }
+  .menu { position: relative; }
+  .menu > button { height: 22px; border: 0; background: none; padding: 0 8px; border-radius: 0; }
+  .menu > button:hover, .menu.open > button { background: var(--control-hover); }
+  .menu .items {
+    display: none; position: absolute; left: 0; top: 100%; z-index: 30; min-width: 220px; padding: 2px;
+    background: var(--menu); border: 1px solid var(--line); box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5);
   }
-  .pane .bar strong { margin-right: auto; }
-  .pane .bar button { padding: 2px 8px; font-size: 12px; }
-  #liveInfo { width: 100%; font-size: 12px; color: var(--muted); }
+  .menu.open .items { display: block; }
+  .items button {
+    display: flex; width: 100%; height: 22px; padding: 0 8px 0 22px; border: 0; background: none;
+    text-align: left; position: relative;
+  }
+  .items button:hover:not(:disabled) { background: var(--highlight); }
+  .items button span { margin-left: auto; padding-left: 24px; color: var(--muted); }
+  .items button[aria-checked="true"]::before { content: "✓"; position: absolute; left: 7px; }
+  .items hr { border: 0; border-top: 1px solid var(--line); margin: 2px 4px; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 4px;
+    background: var(--panel); border-bottom: 1px solid var(--line-soft);
+  }
+  .toolbar .sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+  .toolbar label { display: flex; align-items: center; gap: 5px; }
+  #nameInput { width: 180px; }
+
+  /* Work area: parts | sprite sheet | layout | properties */
+  main { display: grid; grid-template-columns: 250px minmax(0, 1fr) minmax(0, 1fr) 250px; gap: 3px; padding: 3px; min-height: 0; }
+  .panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); border: 1px solid var(--line-soft); }
+  .caption {
+    display: flex; align-items: center; gap: 3px; height: 26px; padding: 0 3px 0 8px; flex: none;
+    background: var(--menu); border-bottom: 1px solid var(--line-soft);
+  }
+  .caption .title { margin-right: auto; font-weight: 600; }
+  .caption button { height: 20px; padding: 0 6px; }
+  .caption button.icon { width: 22px; padding: 0; }
+  .caption .sep { width: 1px; height: 16px; background: var(--line); margin: 0 3px; }
+  .zoom { width: 44px; text-align: right; color: var(--muted); margin-right: 3px; }
+  .scroll { overflow: auto; min-height: 0; flex: 1; }
+
+  /* Parts list */
+  table.parts { width: 100%; border-collapse: collapse; }
+  .parts th {
+    position: sticky; top: 0; z-index: 1; height: 22px; padding: 0 6px; text-align: left; font-weight: normal;
+    color: var(--muted); background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .parts th.slotcol { width: 72px; text-align: center; }
+  .parts td { height: 21px; padding: 0 6px; white-space: nowrap; }
+  .parts tr.group td { padding-top: 6px; font-weight: 600; color: var(--muted); }
+  .parts td.label { padding-left: 16px; }
+  .parts td.cell { padding: 1px 2px; }
+  .slot {
+    width: 100%; height: 19px; padding: 0 4px; border: 1px solid transparent; background: none; color: var(--muted);
+    text-align: center;
+  }
+  .slot:hover:not(:disabled) { background: var(--control); border-color: var(--line); }
+  .slot.set { color: var(--fg); }
+  .slot.selected, .slot.selected:hover:not(:disabled) { background: var(--highlight); border-color: var(--accent); color: var(--accent-fg); }
+
+  /* Canvases */
   .stage {
-    position: relative; min-height: 0; overflow: hidden; touch-action: none;
+    position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none;
     background-color: var(--check-b);
     background-image: linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%),
       linear-gradient(45deg, var(--check-a) 25%, transparent 25%, transparent 75%, var(--check-a) 75%);
-    background-size: 16px 16px; background-position: 0 0, 8px 8px;
+    background-size: 12px 12px; background-position: 0 0, 6px 6px;
   }
   .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .stage.active { box-shadow: inset 0 0 0 2px var(--accent); }
+  .panel.active { border-color: var(--accent); }
 
-  .empty {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
-    background: color-mix(in srgb, var(--bg) 92%, transparent); z-index: 10; overflow: auto;
+  /* Properties */
+  .props .scroll { padding: 6px 8px 8px; }
+  fieldset { border: 1px solid var(--line); border-radius: 2px; margin: 0 0 8px; padding: 4px 8px 8px; min-width: 0; }
+  legend { padding: 0 4px; color: var(--fg); }
+  .grid { display: grid; grid-template-columns: auto 1fr auto 1fr; align-items: center; gap: 4px 6px; }
+  .grid label { color: var(--muted); }
+  .grid input { width: 100%; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  #selectedTitle { font-weight: 600; margin: 2px 0 4px; }
+  #selectedHint { color: var(--muted); margin: 0 0 4px; }
+  #selectedHint:empty { display: none; }
+  #copyFrom { width: 100%; margin-top: 6px; }
+  #checks {
+    list-style: none; margin: 0; padding: 0; min-height: 60px; max-height: 220px; overflow: auto;
+    background: var(--input); border: 1px solid var(--line);
   }
-  .empty .card { max-width: 540px; background: var(--panel); border: 2px dashed var(--line); border-radius: 12px; padding: 28px; }
-  .empty.drag .card { border-color: var(--accent); }
-  .empty h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--fg); margin: 0 0 8px; }
-  .empty ol { padding-left: 20px; color: var(--muted); }
-  .empty .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  #draftBox { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-  .hidden { display: none !important; }
+  #checks li { display: flex; gap: 6px; padding: 2px 5px; }
+  #checks li::before { content: "•"; color: var(--muted); width: 12px; flex: none; text-align: center; }
+  #checks li.error::before { content: "✖"; color: var(--danger); }
+  #checks li.warn::before { content: "⚠"; color: var(--warn); }
+  #checks li.info::before { content: "ℹ"; color: var(--info); }
+  #checks li[data-slot]:hover { background: var(--highlight); }
 
-  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-  .field label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
-  .field input { width: 100%; }
-  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
-  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .row button { padding: 3px 9px; }
-  #selectedTitle { font-weight: 600; margin-bottom: 6px; }
-  #copyFrom { width: 100%; margin-bottom: 8px; }
-  .keys { color: var(--muted); font-size: 12px; }
-  .keys kbd {
-    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font: 11px ui-monospace, monospace;
+  /* Status bar */
+  .statusbar {
+    display: flex; align-items: center; height: 22px; background: var(--menu); border-top: 1px solid var(--line-soft);
+    color: var(--muted); white-space: nowrap; overflow: hidden;
   }
-  #checks { list-style: none; padding: 0; margin: 0 0 8px; font-size: 13px; }
-  #checks li { padding: 4px 6px 4px 18px; border-radius: 6px; position: relative; }
-  #checks li::before { content: ""; position: absolute; left: 6px; top: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-  #checks li.error::before { background: var(--danger); }
-  #checks li.warn::before { background: var(--warn); }
-  #checks li[data-slot] { cursor: pointer; }
-  #checks li[data-slot]:hover { background: var(--soft); }
+  .statusbar > span { padding: 0 8px; border-left: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; }
+  .statusbar > span:first-child { flex: 1; border-left: 0; }
+  #status.error { color: var(--danger); }
+  #status.ok { color: var(--ok); }
+  #liveInfo { color: var(--fg); }
+  #cursorInfo { width: 120px; }
+  #zoomInfo { width: 120px; }
+
+  /* Dialogs */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(0, 0, 0, 0.45);
+  }
+  .dialog {
+    width: 460px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+  .dialog.wide { width: 560px; }
+  .dialog .titlebar {
+    display: flex; align-items: center; height: 28px; padding: 0 2px 0 10px; flex: none;
+    background: var(--menu); border-bottom: 1px solid var(--line-soft);
+  }
+  .dialog .titlebar span { margin-right: auto; }
+  .dialog .titlebar button { border: 0; background: none; width: 28px; padding: 0; }
+  .dialog .titlebar button:hover { background: #c42b1c; }
+  .dialog .body { padding: 10px 12px; overflow: auto; }
+  .dialog .body p { margin: 0 0 8px; }
+  .dialog .footer { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line-soft); flex: none; }
+  .dialog .footer button { min-width: 75px; }
+  .dialog .footer .left { margin-right: auto; }
+  #skinSelect { width: 100%; height: 190px; padding: 0; }
+  #skinSelect optgroup { font-style: normal; color: var(--muted); }
+  #skinSelect option { color: var(--fg); padding: 1px 4px; }
+  .empty.drag .dialog { border-color: var(--accent); }
+  .note { color: var(--muted); }
+  #draftBox { margin-top: 10px; padding: 8px; border: 1px solid var(--line); background: var(--input); }
+  #draftBox p { margin: 0 0 6px; }
+  #draftBox .buttons { margin: 0; }
+  table.keys { border-collapse: collapse; width: 100%; margin-top: 4px; }
+  .keys td { padding: 3px 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  .keys td:first-child { white-space: nowrap; color: var(--muted); width: 1%; }
+  .help h3 { font-size: 12px; margin: 10px 0 4px; }
+  .help h3:first-child { margin-top: 0; }
+  .help ol { margin: 0; padding-left: 20px; }
+  .help li { margin-bottom: 3px; }
 
   @media (max-width: 1100px) {
     .app { height: auto; min-height: 100vh; }
     main { grid-template-columns: 1fr; }
-    aside.parts, aside.props { border: 0; border-bottom: 1px solid var(--line); }
-    .parts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 16px; }
-    .pane { height: 70vh; border-right: 0; border-bottom: 1px solid var(--line); }
-    header .name input { width: 140px; }
+    .panel.stagepanel { height: 70vh; }
+    .parts-panel .scroll { max-height: 320px; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <header>
-    <h1>Skin Editor</h1>
-    <button id="openButton" type="button">Open PNG…</button>
+  <nav class="menubar" id="menubar">
+    <div class="menu">
+      <button type="button">File</button>
+      <div class="items">
+        <button type="button" data-run="openButton">Open PNG…<span>Ctrl+O</span></button>
+        <button type="button" data-run="openSkinButton">Open Skin…</button>
+        <hr>
+        <button type="button" data-run="saveButton">Save<span>Ctrl+S</span></button>
+        <hr>
+        <button type="button" data-run="downloadText">Download skin.txt</button>
+        <button type="button" data-run="downloadImage">Download skin.png</button>
+      </div>
+    </div>
+    <div class="menu">
+      <button type="button">Edit</button>
+      <div class="items">
+        <button type="button" data-run="undoButton">Undo<span>Ctrl+Z</span></button>
+        <button type="button" data-run="redoButton">Redo<span>Ctrl+Y</span></button>
+        <hr>
+        <button type="button" data-run="trimButton">Trim Crop</button>
+        <button type="button" data-run="alignButton">Align with Other Slot</button>
+        <button type="button" data-run="clearButton">Clear Slot</button>
+      </div>
+    </div>
+    <div class="menu">
+      <button type="button">View</button>
+      <div class="items">
+        <button type="button" data-run="previewReleased">All Released</button>
+        <button type="button" data-run="previewPressed">All Pressed</button>
+        <button type="button" data-run="liveButton" data-check="liveButton">Live Controller</button>
+        <hr>
+        <button type="button" data-zoom-active="in">Zoom In<span>Wheel up</span></button>
+        <button type="button" data-zoom-active="out">Zoom Out<span>Wheel down</span></button>
+        <button type="button" data-zoom-active="fit">Fit to Pane</button>
+      </div>
+    </div>
+    <div class="menu">
+      <button type="button">Help</button>
+      <div class="items">
+        <button type="button" data-run="helpButton">How to Use<span>F1</span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="toolbar">
+    <button id="openButton" type="button" title="Open a PNG as the sprite sheet (Ctrl+O)">Open PNG…</button>
     <input id="fileInput" type="file" accept="image/png,image/*" class="hidden">
-    <select id="skinSelect" aria-label="Open one of your skins"><option value="">Open a skin…</option></select>
-    <span class="name"><label for="nameInput">Name</label><input id="nameInput" type="text" maxlength="64" value="My Skin"></span>
-    <label class="check" title="Show it in the Input Display and the OBS page once saved"><input id="useNow" type="checkbox" checked> Use it now</label>
-    <span class="group">
-      <button id="undoButton" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
-      <button id="redoButton" type="button" title="Redo (Ctrl+Y)" disabled>Redo</button>
-    </span>
-    <button id="saveButton" type="button" class="primary" disabled>Save</button>
-    <span id="status" role="status" aria-live="polite"></span>
-  </header>
+    <button id="openSkinButton" type="button" title="Open one of your skins or one that comes with SluMAN">Open Skin…</button>
+    <button id="saveButton" type="button" title="Save to your skins folder (Ctrl+S)" disabled>Save</button>
+    <span class="sep"></span>
+    <button id="undoButton" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
+    <button id="redoButton" type="button" title="Redo (Ctrl+Y)" disabled>Redo</button>
+    <span class="sep"></span>
+    <label for="nameInput">Skin name:</label>
+    <input id="nameInput" type="text" maxlength="64" value="My Skin">
+    <label title="Show it in the Input Display and the OBS page once saved"><input id="useNow" type="checkbox" checked> Use it after saving</label>
+    <button id="helpButton" type="button" class="hidden">Help</button>
+    <button id="downloadText" type="button" class="hidden">Download skin.txt</button>
+    <button id="downloadImage" type="button" class="hidden">Download skin.png</button>
+  </div>
 
   <main>
-    <aside class="parts">
-      <div id="partsList" class="parts-list"></div>
-    </aside>
+    <section class="panel parts-panel">
+      <div class="caption"><span class="title">Parts</span></div>
+      <div class="scroll">
+        <table class="parts">
+          <thead><tr><th>Part</th><th class="slotcol">Released</th><th class="slotcol">Pressed</th></tr></thead>
+          <tbody id="partsList"></tbody>
+        </table>
+      </div>
+    </section>
 
-    <section class="pane">
-      <div class="bar">
-        <strong>Sprite sheet</strong>
-        <button type="button" data-zoom="sheet" data-step="in" title="Zoom in">+</button>
-        <button type="button" data-zoom="sheet" data-step="out" title="Zoom out">−</button>
-        <button type="button" data-zoom="sheet" data-step="fit">Fit</button>
+    <section class="panel stagepanel" id="sheetPanel">
+      <div class="caption">
+        <span class="title">Sprite Sheet</span>
+        <span class="zoom" id="sheetZoom"></span>
+        <button type="button" class="icon" data-zoom="sheet" data-step="out" title="Zoom out">−</button>
+        <button type="button" class="icon" data-zoom="sheet" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="sheet" data-step="fit" title="Fit the sheet to the pane">Fit</button>
       </div>
       <div class="stage" id="sheetStage"><canvas id="sheetCanvas"></canvas></div>
     </section>
 
-    <section class="pane">
-      <div class="bar">
-        <strong>Layout</strong>
+    <section class="panel stagepanel" id="layoutPanel">
+      <div class="caption">
+        <span class="title">Layout</span>
         <button type="button" id="previewReleased" title="Show every button released">Released</button>
         <button type="button" id="previewPressed" title="Show every button pressed">Pressed</button>
         <button type="button" id="liveButton" aria-pressed="false" title="Show your controller as SluMAN reads it">Live</button>
-        <button type="button" data-zoom="layout" data-step="in" title="Zoom in">+</button>
-        <button type="button" data-zoom="layout" data-step="out" title="Zoom out">−</button>
-        <button type="button" data-zoom="layout" data-step="fit">Fit</button>
-        <span id="liveInfo" class="hidden"></span>
+        <span class="sep"></span>
+        <span class="zoom" id="layoutZoom"></span>
+        <button type="button" class="icon" data-zoom="layout" data-step="out" title="Zoom out">−</button>
+        <button type="button" class="icon" data-zoom="layout" data-step="in" title="Zoom in">+</button>
+        <button type="button" data-zoom="layout" data-step="fit" title="Fit the layout to the pane">Fit</button>
       </div>
       <div class="stage" id="layoutStage"><canvas id="layoutCanvas"></canvas></div>
     </section>
 
-    <aside class="props">
-      <h2>Selected part</h2>
-      <div id="selectedTitle"></div>
-      <p id="selectedHint" class="hint"></p>
-      <div class="field" id="cropFields">
-        <label>Crop X<input type="number" id="cropX" step="1"></label>
-        <label>Crop Y<input type="number" id="cropY" step="1"></label>
-        <label>Width<input type="number" id="cropW" step="1" min="1"></label>
-        <label>Height<input type="number" id="cropH" step="1" min="1"></label>
-      </div>
-      <div class="field" id="placeFields">
-        <label>Position X<input type="number" id="drawX" step="1"></label>
-        <label>Position Y<input type="number" id="drawY" step="1"></label>
-      </div>
-      <div class="row">
-        <button type="button" id="trimButton" title="Shrink the crop to the sprite's visible pixels">Trim</button>
-        <button type="button" id="alignButton" title="Centre this slot on the part's other slot">Align with other slot</button>
-        <button type="button" id="clearButton">Clear</button>
-      </div>
-      <select id="copyFrom" aria-label="Copy another slot's crop"><option value="">Use the same crop as…</option></select>
+    <section class="panel props">
+      <div class="caption"><span class="title">Properties</span></div>
+      <div class="scroll">
+        <fieldset>
+          <legend>Selected slot</legend>
+          <div id="selectedTitle"></div>
+          <p id="selectedHint"></p>
+          <div class="grid" id="cropFields">
+            <label for="cropX">Crop X</label><input type="number" id="cropX" step="1">
+            <label for="cropY">Y</label><input type="number" id="cropY" step="1">
+            <label for="cropW">Width</label><input type="number" id="cropW" step="1" min="1">
+            <label for="cropH">Height</label><input type="number" id="cropH" step="1" min="1">
+          </div>
+          <div class="grid" id="placeFields" style="margin-top: 4px">
+            <label for="drawX">Pos. X</label><input type="number" id="drawX" step="1">
+            <label for="drawY">Y</label><input type="number" id="drawY" step="1">
+          </div>
+          <div class="buttons">
+            <button type="button" id="trimButton" title="Shrink the crop to the sprite's visible pixels">Trim</button>
+            <button type="button" id="alignButton" title="Centre this slot on the part's other slot">Align</button>
+            <button type="button" id="clearButton" title="Remove this slot's crop">Clear</button>
+          </div>
+          <select id="copyFrom" aria-label="Copy another slot's crop"><option value="">Use the same crop as…</option></select>
+        </fieldset>
 
-      <h2>Sticks</h2>
-      <div class="field">
-        <label title="How far the stick parts move when a stick is pushed all the way">Movement (px)<input type="number" id="pitchInput" min="0" max="1000" step="1" value="32"></label>
+        <fieldset>
+          <legend>Sticks</legend>
+          <div class="grid" style="grid-template-columns: auto 70px">
+            <label for="pitchInput" title="How far the stick parts move when a stick is pushed all the way">Movement (px)</label>
+            <input type="number" id="pitchInput" min="0" max="1000" step="1" value="32">
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Checks</legend>
+          <ul id="checks"></ul>
+        </fieldset>
       </div>
-
-      <h2>Checks</h2>
-      <ul id="checks"></ul>
-
-      <h2>Files</h2>
-      <div class="row">
-        <button type="button" id="downloadText">Download skin.txt</button>
-        <button type="button" id="downloadImage">Download skin.png</button>
-      </div>
-      <p class="hint">For sharing: the two files in a folder are a skin.</p>
-
-      <h2>How to</h2>
-      <p class="hint">Pick a slot on the left, then click its sprite on the sheet to crop it, or drag a box around it. Drag the part on the layout to place it. Click a crop on the sheet to select it; <kbd>Alt</kbd>+click crops the sprite under a crop.</p>
-      <p class="keys"><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> nudge 1 px, with <kbd>Shift</kbd> 10 px, in the pane you used last. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo. Scroll to zoom; drag with the middle button or hold <kbd>Space</kbd> to pan.</p>
-    </aside>
+    </section>
   </main>
+
+  <footer class="statusbar">
+    <span id="status" role="status" aria-live="polite">Ready</span>
+    <span id="liveInfo" class="hidden"></span>
+    <span id="cursorInfo"></span>
+    <span id="zoomInfo"></span>
+  </footer>
 </div>
 
-<div class="empty" id="empty">
-  <div class="card">
-    <h2>Make an input display skin</h2>
-    <p>Start from one PNG holding the controller's body and every button and stick, released and pressed.</p>
-    <ol>
-      <li>Crop the <strong>base</strong>: the controller body everything is placed on.</li>
-      <li>Crop each button's <strong>released</strong> and <strong>pressed</strong> look.</li>
-      <li>Place them on the layout, check them with Released / Pressed or Live, and save.</li>
-    </ol>
-    <div class="actions">
-      <button type="button" class="primary" id="emptyOpen">Open PNG…</button>
-      <span>or drop or paste an image here, or open one of your skins at the top.</span>
-    </div>
-    <div id="draftBox" class="hidden">
-      <p id="draftText"></p>
-      <div class="actions">
-        <button type="button" id="restoreDraft">Restore it</button>
-        <button type="button" id="discardDraft">Discard</button>
+<div class="overlay empty" id="empty">
+  <div class="dialog" role="dialog" aria-labelledby="emptyTitle">
+    <div class="titlebar"><span id="emptyTitle">Open Skin</span><button type="button" id="emptyClose" title="Close">✕</button></div>
+    <div class="body">
+      <p>Start a new skin from a PNG holding the controller's body and every button and stick, released and pressed. You can also drop or paste an image into the editor.</p>
+      <div class="buttons" style="margin: 0 0 12px"><button type="button" id="emptyOpen">Open PNG…</button></div>
+      <p style="margin-bottom: 4px">Or open an existing skin:</p>
+      <select id="skinSelect" size="10" aria-label="Skins"></select>
+      <div id="draftBox" class="hidden">
+        <p id="draftText"></p>
+        <div class="buttons">
+          <button type="button" id="restoreDraft">Restore</button>
+          <button type="button" id="discardDraft">Discard</button>
+        </div>
       </div>
     </div>
+    <div class="footer">
+      <button type="button" id="emptyHelp" class="left">Help</button>
+      <button type="button" id="skinOpen" disabled>Open</button>
+      <button type="button" id="emptyCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="helpDialog">
+  <div class="dialog wide help" role="dialog" aria-labelledby="helpTitle">
+    <div class="titlebar"><span id="helpTitle">How to Use</span><button type="button" data-close="helpDialog" title="Close">✕</button></div>
+    <div class="body">
+      <h3>Making a skin</h3>
+      <ol>
+        <li>Open a PNG holding the controller's body and every button and stick, released and pressed.</li>
+        <li>Crop the <b>base</b>: the controller body everything is placed on.</li>
+        <li>Pick a slot in the Parts list, then click its sprite on the sprite sheet to crop it, or drag a box around it.</li>
+        <li>Drag the part on the layout to place it. Check it with Released / Pressed, or Live with your controller.</li>
+        <li>Name the skin and save. It goes to your skins folder and shows in the Input Display and on the OBS page.</li>
+      </ol>
+      <h3>Mouse and keyboard</h3>
+      <table class="keys">
+        <tr><td>Click a sprite</td><td>Crop the selected slot to it.</td></tr>
+        <tr><td>Click a crop</td><td>Select its slot. Alt+click crops the sprite under it instead.</td></tr>
+        <tr><td>Drag on the sheet</td><td>Draw a crop; drag its handles to resize it.</td></tr>
+        <tr><td>Arrow keys</td><td>Nudge 1 px in the pane used last; with Shift, 10 px.</td></tr>
+        <tr><td>Mouse wheel</td><td>Zoom.</td></tr>
+        <tr><td>Middle drag, Space+drag</td><td>Pan. Dragging empty layout pans too.</td></tr>
+        <tr><td>Ctrl+Z, Ctrl+Y</td><td>Undo, redo.</td></tr>
+        <tr><td>Ctrl+O, Ctrl+S</td><td>Open PNG, save.</td></tr>
+      </table>
+      <h3>Files</h3>
+      <p>File › Download skin.txt and skin.png give you the skin to share: the two files in a folder are a skin. Unsaved work is kept as a draft in this browser and offered when the editor opens.</p>
+    </div>
+    <div class="footer"><button type="button" data-close="helpDialog">OK</button></div>
   </div>
 </div>
 
@@ -248,12 +408,12 @@
 const GROUPS = [
   { title: "Base", parts: [{ id: "base", label: "Controller body", single: "base" }] },
   { title: "Sticks", parts: [
-    { id: "l3", label: "L stick", released: "l3Press", pressed: "l3", stick: true },
-    { id: "r3", label: "R stick", released: "r3Press", pressed: "r3", stick: true },
+    { id: "l3", label: "Left stick", released: "l3Press", pressed: "l3", stick: true },
+    { id: "r3", label: "Right stick", released: "r3Press", pressed: "r3", stick: true },
   ] },
   { title: "D-pad", parts: [
-    { id: "dpadUp", label: "Up" }, { id: "dpadDown", label: "Down" },
-    { id: "dpadLeft", label: "Left" }, { id: "dpadRight", label: "Right" },
+    { id: "dpadUp", label: "Up", full: "D-pad up" }, { id: "dpadDown", label: "Down", full: "D-pad down" },
+    { id: "dpadLeft", label: "Left", full: "D-pad left" }, { id: "dpadRight", label: "Right", full: "D-pad right" },
   ] },
   { title: "Face buttons", parts: [
     { id: "cross", label: "Cross" }, { id: "circle", label: "Circle" },
@@ -395,6 +555,28 @@ function redraw(view) {
     drawSheet(sheet);
     drawLayout(layout);
   }
+  updateZoomInfo();
+}
+
+function zoomText(view) {
+  return view.contentSize() ? Math.round(view.scale * 100) + "%" : "";
+}
+
+function updateZoomInfo() {
+  $("sheetZoom").textContent = zoomText(sheet);
+  $("layoutZoom").textContent = zoomText(layout);
+  const view = activePane === "sheet" ? sheet : layout;
+  $("zoomInfo").textContent = view.contentSize() ? (activePane === "sheet" ? "Sheet " : "Layout ") + zoomText(view) : "";
+}
+
+/** The pointer's position in sprite sheet or layout pixels, in the status bar. */
+function updateCursorInfo(view, event) {
+  if (!image || !event) {
+    $("cursorInfo").textContent = "";
+    return;
+  }
+  const point = toWorld(view, event);
+  $("cursorInfo").textContent = Math.floor(point.x) + ", " + Math.floor(point.y) + " px";
 }
 
 function contains(p, x, y) {
@@ -408,7 +590,13 @@ const HANDLE = 5;
 function drawSheet(view) {
   const ratio = beginFrame(view);
   const ctx = view.ctx;
-  if (!image) return;
+  if (!image) {
+    screenTransform(view, ratio);
+    ctx.fillStyle = cssVar("--muted");
+    ctx.font = "12px \"Segoe UI\", Tahoma, sans-serif";
+    ctx.fillText("No sprite sheet. Use File › Open PNG…, or drop or paste an image here.", 12, 22);
+    return;
+  }
 
   worldTransform(view, ratio);
   ctx.drawImage(image, 0, 0);
@@ -440,7 +628,7 @@ function drawSheet(view) {
     ctx.strokeRect(a.x + 0.5, a.y + 0.5, p.sw * view.scale - 1, p.sh * view.scale - 1);
     ctx.setLineDash([]);
     // Only names that fit inside their crop, so small neighbours don't pile up.
-    ctx.font = "11px system-ui, sans-serif";
+    ctx.font = "11px \"Segoe UI\", Tahoma, sans-serif";
     if (ctx.measureText(slotName(name)).width + 12 <= p.sw * view.scale && p.sh * view.scale >= 20) {
       label(ctx, slotName(name), a.x + 2, a.y + 2);
     }
@@ -463,7 +651,7 @@ function drawSheet(view) {
 }
 
 function label(ctx, text, x, y, strong) {
-  ctx.font = (strong ? "600 " : "") + "11px system-ui, sans-serif";
+  ctx.font = (strong ? "600 " : "") + "11px \"Segoe UI\", Tahoma, sans-serif";
   const width = ctx.measureText(text).width + 8;
   ctx.fillStyle = strong ? cssVar("--accent") : cssVar("--crop-label");
   ctx.fillRect(x, y, width, 16);
@@ -717,7 +905,7 @@ function drawLayout(view) {
     ctx.setLineDash([]);
   } else {
     ctx.fillStyle = cssVar("--muted");
-    ctx.font = "13px system-ui, sans-serif";
+    ctx.font = "13px \"Segoe UI\", Tahoma, sans-serif";
     ctx.fillText("Crop the base on the sprite sheet first.", 16, 28);
   }
 
@@ -835,8 +1023,9 @@ function setupStage(view, down, move, up, name) {
   const canvas = view.canvas;
   canvas.addEventListener("pointerdown", (event) => {
     activePane = name;
-    sheet.stage.classList.toggle("active", name === "sheet");
-    layout.stage.classList.toggle("active", name === "layout");
+    $("sheetPanel").classList.toggle("active", name === "sheet");
+    $("layoutPanel").classList.toggle("active", name === "layout");
+    updateZoomInfo();
     canvas.setPointerCapture(event.pointerId);
     if (event.button === 1 || spaceDown) {
       event.preventDefault();
@@ -846,6 +1035,7 @@ function setupStage(view, down, move, up, name) {
     }
   });
   canvas.addEventListener("pointermove", (event) => {
+    updateCursorInfo(view, event);
     if (pan && pan.view === view) {
       view.ox = pan.ox + event.clientX - pan.x;
       view.oy = pan.oy + event.clientY - pan.y;
@@ -864,6 +1054,7 @@ function setupStage(view, down, move, up, name) {
   };
   canvas.addEventListener("pointerup", end);
   canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("pointerleave", () => updateCursorInfo(view, null));
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -963,7 +1154,7 @@ function slotName(name) {
   const slot = SLOTS[name];
   if (slot.kind === "single") return "Base";
   const kind = slot.kind === "released" ? "released" : (slot.part.stick ? "clicked in" : "pressed");
-  return slot.part.label + " " + kind;
+  return (slot.part.full || slot.part.label) + " " + kind;
 }
 
 /** The part's other slot (released ↔ pressed), or null for the base. */
@@ -1037,32 +1228,38 @@ function renderParts() {
   const list = $("partsList");
   list.textContent = "";
   for (const group of GROUPS) {
-    const section = document.createElement("div");
-    const heading = document.createElement("h2");
-    heading.textContent = group.title;
-    section.appendChild(heading);
+    const heading = document.createElement("tr");
+    heading.className = "group";
+    const headingCell = document.createElement("td");
+    headingCell.colSpan = 3;
+    headingCell.textContent = group.title;
+    heading.appendChild(headingCell);
+    list.appendChild(heading);
     for (const part of group.parts) {
-      const row = document.createElement("div");
-      row.className = "part" + (part.single ? " single" : "");
-      const text = document.createElement("span");
+      const row = document.createElement("tr");
+      const text = document.createElement("td");
       text.className = "label";
       text.textContent = part.label;
       row.appendChild(text);
-      const slots = part.single
-        ? [[part.single, "Set"]]
-        : [[part.released, "Released"], [part.pressed, part.stick ? "Clicked in" : "Pressed"]];
-      for (const entry of slots) {
+      // The base has one slot, across both columns; sticks' pressed slot is "clicked in".
+      const slots = part.single ? [part.single] : [part.released, part.pressed];
+      for (const name of slots) {
+        const cell = document.createElement("td");
+        cell.className = "cell";
+        if (part.single) cell.colSpan = 2;
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "slot" + (skin.parts[entry[0]] ? " set" : "") + (entry[0] === selected ? " selected" : "");
-        button.textContent = entry[1];
-        button.title = slotName(entry[0]) + (skin.parts[entry[0]] ? "" : ": not cropped yet");
-        button.addEventListener("click", () => select(entry[0]));
-        row.appendChild(button);
+        const set = !!skin.parts[name];
+        button.className = "slot" + (set ? " set" : "") + (name === selected ? " selected" : "");
+        button.textContent = set ? "✓" : "–";
+        button.title = slotName(name) + (set ? "" : ": not cropped yet");
+        button.setAttribute("aria-label", button.title);
+        button.addEventListener("click", () => select(name));
+        cell.appendChild(button);
+        row.appendChild(cell);
       }
-      section.appendChild(row);
+      list.appendChild(row);
     }
-    list.appendChild(section);
   }
 }
 
@@ -1257,12 +1454,12 @@ function checks() {
     if (part.single) continue;
     const released = skin.parts[part.released], pressed = skin.parts[part.pressed];
     if (!released && !pressed) {
-      missing.push(part.label);
+      missing.push(part.full || part.label);
       continue;
     }
     if (released && !pressed) {
       list.push({ level: "warn", slot: part.pressed,
-        text: part.label + " has a released look but no " + (part.stick ? "clicked-in" : "pressed") + " one: it disappears while held." });
+        text: (part.full || part.label) + " has a released look but no " + (part.stick ? "clicked-in" : "pressed") + " one: it disappears while held." });
     }
     for (const name of [part.released, part.pressed]) {
       const p = skin.parts[name];
@@ -1453,7 +1650,6 @@ async function loadSkinList() {
   }
   const select = $("skinSelect");
   select.textContent = "";
-  select.appendChild(new Option("Open a skin…", ""));
   const mine = skinList.filter((s) => s.user), shipped = skinList.filter((s) => !s.user);
   for (const entry of [["Your skins", mine], ["Comes with SluMAN", shipped]]) {
     if (!entry[1].length) continue;
@@ -1464,11 +1660,34 @@ async function loadSkinList() {
   }
 }
 
-$("skinSelect").addEventListener("change", () => {
-  const name = $("skinSelect").value;
+// ----- Open dialog -----
+
+function showOpenDialog() {
   $("skinSelect").value = "";
-  if (name) openSkin(name);
-});
+  $("skinOpen").disabled = true;
+  $("empty").classList.remove("hidden");
+  loadSkinList();
+}
+
+function hideOpenDialog() {
+  $("empty").classList.add("hidden");
+}
+
+function openSelectedSkin() {
+  const name = $("skinSelect").value;
+  if (!name) return;
+  hideOpenDialog();
+  openSkin(name);
+}
+
+$("skinSelect").addEventListener("change", () => { $("skinOpen").disabled = !$("skinSelect").value; });
+$("skinSelect").addEventListener("dblclick", openSelectedSkin);
+$("skinSelect").addEventListener("keydown", (event) => { if (event.key === "Enter") openSelectedSkin(); });
+$("skinOpen").addEventListener("click", openSelectedSkin);
+$("emptyCancel").addEventListener("click", hideOpenDialog);
+$("emptyClose").addEventListener("click", hideOpenDialog);
+$("emptyHelp").addEventListener("click", () => $("helpDialog").classList.remove("hidden"));
+$("openSkinButton").addEventListener("click", showOpenDialog);
 
 $("openButton").addEventListener("click", () => $("fileInput").click());
 $("emptyOpen").addEventListener("click", () => $("fileInput").click());
@@ -1673,6 +1892,78 @@ window.addEventListener("beforeunload", (event) => {
     event.returnValue = "";
   }
 });
+
+// ---------- Menus and dialogs ----------
+
+let openMenu = null;
+
+function closeMenus() {
+  if (openMenu) openMenu.classList.remove("open");
+  openMenu = null;
+}
+
+/** Opens a menu, with each item enabled and checked as the control it runs is. */
+function showMenu(menu) {
+  closeMenus();
+  for (const item of menu.querySelectorAll("[data-run]")) {
+    item.disabled = $(item.dataset.run).disabled;
+  }
+  for (const item of menu.querySelectorAll("[data-check]")) {
+    item.setAttribute("aria-checked", $(item.dataset.check).getAttribute("aria-pressed") === "true" ? "true" : "false");
+  }
+  for (const item of menu.querySelectorAll("[data-zoom-active]")) {
+    item.disabled = !(activePane === "sheet" ? sheet : layout).contentSize();
+  }
+  menu.classList.add("open");
+  openMenu = menu;
+}
+
+for (const menu of document.querySelectorAll(".menu")) {
+  const title = menu.querySelector(":scope > button");
+  title.addEventListener("click", () => { if (openMenu === menu) closeMenus(); else showMenu(menu); });
+  title.addEventListener("mouseenter", () => { if (openMenu && openMenu !== menu) showMenu(menu); });
+}
+for (const item of document.querySelectorAll(".items button")) {
+  item.addEventListener("click", () => {
+    closeMenus();
+    if (item.dataset.run) {
+      $(item.dataset.run).click();
+    } else if (item.dataset.zoomActive) {
+      const view = activePane === "sheet" ? sheet : layout;
+      if (item.dataset.zoomActive === "fit") fit(view);
+      else zoomAt(view, item.dataset.zoomActive === "in" ? 1.5 : 1 / 1.5, view.width / 2, view.height / 2);
+    }
+  });
+}
+document.addEventListener("pointerdown", (event) => {
+  if (openMenu && !openMenu.contains(event.target)) closeMenus();
+});
+
+$("helpButton").addEventListener("click", () => $("helpDialog").classList.remove("hidden"));
+for (const button of document.querySelectorAll("[data-close]")) {
+  button.addEventListener("click", () => $(button.dataset.close).classList.add("hidden"));
+}
+
+// Shortcuts that work everywhere, even while typing in a field.
+document.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  if (event.key === "Escape") {
+    if (openMenu) closeMenus();
+    else if (!$("helpDialog").classList.contains("hidden")) $("helpDialog").classList.add("hidden");
+    else if (!$("empty").classList.contains("hidden")) hideOpenDialog();
+    else return;
+  } else if (event.key === "F1") {
+    $("helpDialog").classList.remove("hidden");
+  } else if ((event.ctrlKey || event.metaKey) && key === "s") {
+    if (!$("saveButton").disabled) save(false);
+  } else if ((event.ctrlKey || event.metaKey) && key === "o") {
+    $("fileInput").click();
+  } else {
+    return;
+  }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
 
 // ---------- Start ----------
 
