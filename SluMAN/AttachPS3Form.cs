@@ -174,6 +174,21 @@ namespace SluMAN
             }
         }
 
+        /// <summary>Opens the skin editor, which needs no game: only the local server it runs on.</summary>
+        private void skinEditorLinkLabel_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            bool reported = false;
+            ObsPadServer.OpenSkinEditor(null, (message, isError) =>
+            {
+                reported = true;
+                SetStatus(message, isError);
+            });
+            if (!reported)
+            {
+                SetStatus("Opened the skin editor in the browser.", false);
+            }
+        }
+
         public static string ip;
         public static int pid;
         public static string game;
@@ -378,6 +393,8 @@ namespace SluMAN
         {
             statusLabel.Text = text;
             statusLabel.ForeColor = isError ? Color.Firebrick : SystemColors.ControlText;
+            // The status line is narrow and cuts long messages off; the tooltip has all of it.
+            toolTip.SetToolTip(statusLabel, text);
         }
 
         /// <summary>Shows a connect step on the status line, unless the attempt was cancelled.</summary>

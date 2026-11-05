@@ -40,6 +40,7 @@ namespace SluMAN
             this.updateLinkLabel = new System.Windows.Forms.LinkLabel();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.statusLabel = new System.Windows.Forms.Label();
+            this.skinEditorLinkLabel = new System.Windows.Forms.LinkLabel();
             this.SuspendLayout();
             // 
             // IPTextBox
@@ -122,11 +123,24 @@ namespace SluMAN
             this.statusLabel.Size = new System.Drawing.Size(162, 13);
             this.statusLabel.TabIndex = 7;
             // 
+            // skinEditorLinkLabel
+            // 
+            this.skinEditorLinkLabel.Location = new System.Drawing.Point(88, 156);
+            this.skinEditorLinkLabel.Name = "skinEditorLinkLabel";
+            this.skinEditorLinkLabel.Size = new System.Drawing.Size(80, 13);
+            this.skinEditorLinkLabel.TabIndex = 8;
+            this.skinEditorLinkLabel.TabStop = true;
+            this.skinEditorLinkLabel.Text = "Skin Editor...";
+            this.skinEditorLinkLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.toolTip.SetToolTip(this.skinEditorLinkLabel, "Make or edit input display skins in the browser. No game needed.");
+            this.skinEditorLinkLabel.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.skinEditorLinkLabel_LinkClicked);
+            // 
             // AttachPS3Form
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(194, 230);
+            this.Controls.Add(this.skinEditorLinkLabel);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.updateLinkLabel);
             this.Controls.Add(this.rpcs3CheckBox);
@@ -160,5 +174,6 @@ namespace SluMAN
         private System.Windows.Forms.Button attachRestrictedButton;
         private System.Windows.Forms.CheckBox rpcs3CheckBox;
         private System.Windows.Forms.Label statusLabel;
+        private System.Windows.Forms.LinkLabel skinEditorLinkLabel;
     }
 }
