@@ -185,9 +185,7 @@ layout already matches; making it work means adding the game method and wiring t
 
 | Feature | Missing in | Notes |
 |---|---|---|
-| Fly Mode | Sly 2 | Make `Sly2Practice` an `IPositionEditorHost`, as `Sly3Practice` is. |
 | Undetectable | Sly 3 | `sly3.SetUndetectable` exists, unused. Decide how it sits next to "Disable Guard AI". |
-| Auto-skip Cutscenes | Sly 1 | Needs a `sly1` auto-skip, like `sly2` / `sly3.SetAutoSkip`. |
 | Skip Cinematic (one-shot) | Sly 4, Hackpack | Needs a `sly4.SkipCinematic`. |
 | Reload | Sly 4 | Reload the current level / checkpoint in place; Retry Checkpoint covers jobs only. |
 | Invulnerability, Infinite Health | Sly 1 | Only if they mean something beyond Freeze Gold Charm / Freeze Lives (decision 2). |
