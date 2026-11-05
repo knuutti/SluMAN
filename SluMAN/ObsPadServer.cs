@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -55,35 +54,6 @@ namespace SluMAN
 
         /// <summary>The skin editor page.</summary>
         public static string EditorUrl => $"http://127.0.0.1:{Port}/editor";
-
-        /// <summary>
-        /// Opens the skin editor in the browser, with the named skin open, or the Open Skin dialog
-        /// when skinName is null. It's served by the same server as the OBS page, so that is
-        /// switched on first if it's off. What happened goes to status (message, is error).
-        /// </summary>
-        public static void OpenSkinEditor(string skinName, Action<string, bool> status)
-        {
-            if (!IsRunning)
-            {
-                Enabled = true;
-                if (!IsRunning)
-                {
-                    status(LastError, true);
-                    return;
-                }
-                status("Turned Serve for OBS on: the skin editor runs on the same server.", false);
-            }
-
-            string url = skinName == null ? EditorUrl : EditorUrl + "?skin=" + Uri.EscapeDataString(skinName);
-            try
-            {
-                Process.Start(url);
-            }
-            catch (Exception ex)
-            {
-                status($"Couldn't open the browser ({ex.Message}). Open {url} yourself.", true);
-            }
-        }
 
         /// <summary>
         /// The skin chosen in the Input Display. Kept here so the event stream doesn't read
