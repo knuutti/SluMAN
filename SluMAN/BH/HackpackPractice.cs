@@ -32,6 +32,7 @@ namespace SluMAN
         private readonly ComboBox jobComboBox = new ComboBox();
         private readonly CheckBox slowMotionCheckBox = new CheckBox();
         private readonly CheckBox skipCutscenesCheckBox = new CheckBox();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label levelValueLabel = new Label();
         private readonly Label jobValueLabel = new Label();
@@ -89,6 +90,7 @@ namespace SluMAN
 
             session = new GameSession(this, game, gameNameId, "Hackpack", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.BindAutosplitter(autosplitterCheckBox);
             session.Reconnected += session_Reconnected;
             session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
 
@@ -157,7 +159,11 @@ namespace SluMAN
             layout.AddTogglesGroup(
                 PracticeLayout.Toggle(slowMotionCheckBox, "Slow Motion", null),
                 PracticeLayout.Toggle(skipCutscenesCheckBox, "Auto-skip Cutscenes", null),
+                PracticeLayout.Toggle(autosplitterCheckBox, "Autosplitter", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+            layout.ToolTip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/hackpack-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter. Off each time Practice Mode opens.");
 
             layout.ToolTip.SetToolTip(jobComboBox,
                 "Every job in the game's job list: each minigame stage is one. Jobs start the way the\n" +

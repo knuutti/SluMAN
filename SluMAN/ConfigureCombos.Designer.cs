@@ -40,6 +40,9 @@ namespace SluMAN
             this.loadGameLabel = new System.Windows.Forms.Label();
             this.loadGameTextBox = new System.Windows.Forms.TextBox();
             this.loadGameClearButton = new System.Windows.Forms.Button();
+            this.skipCutsceneLabel = new System.Windows.Forms.Label();
+            this.skipCutsceneTextBox = new System.Windows.Forms.TextBox();
+            this.skipCutsceneClearButton = new System.Windows.Forms.Button();
             this.combosEnabledCheckBox = new System.Windows.Forms.CheckBox();
             this.statusLabel = new System.Windows.Forms.Label();
             this.closeButton = new System.Windows.Forms.Button();
@@ -144,10 +147,40 @@ namespace SluMAN
             this.loadGameClearButton.UseVisualStyleBackColor = true;
             this.loadGameClearButton.Click += new System.EventHandler(this.clearButton_Click);
             //
+            // skipCutsceneLabel
+            //
+            this.skipCutsceneLabel.AutoSize = true;
+            this.skipCutsceneLabel.Location = new System.Drawing.Point(12, 152);
+            this.skipCutsceneLabel.Name = "skipCutsceneLabel";
+            this.skipCutsceneLabel.Size = new System.Drawing.Size(78, 13);
+            this.skipCutsceneLabel.TabIndex = 10;
+            this.skipCutsceneLabel.Text = "Skip Cutscene:";
+            //
+            // skipCutsceneTextBox
+            //
+            this.skipCutsceneTextBox.BackColor = System.Drawing.SystemColors.Window;
+            this.skipCutsceneTextBox.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.skipCutsceneTextBox.Location = new System.Drawing.Point(110, 149);
+            this.skipCutsceneTextBox.Name = "skipCutsceneTextBox";
+            this.skipCutsceneTextBox.ReadOnly = true;
+            this.skipCutsceneTextBox.Size = new System.Drawing.Size(140, 20);
+            this.skipCutsceneTextBox.TabIndex = 11;
+            this.skipCutsceneTextBox.Click += new System.EventHandler(this.comboTextBox_Click);
+            //
+            // skipCutsceneClearButton
+            //
+            this.skipCutsceneClearButton.Location = new System.Drawing.Point(256, 147);
+            this.skipCutsceneClearButton.Name = "skipCutsceneClearButton";
+            this.skipCutsceneClearButton.Size = new System.Drawing.Size(56, 23);
+            this.skipCutsceneClearButton.TabIndex = 12;
+            this.skipCutsceneClearButton.Text = "Clear";
+            this.skipCutsceneClearButton.UseVisualStyleBackColor = true;
+            this.skipCutsceneClearButton.Click += new System.EventHandler(this.clearButton_Click);
+            //
             // combosEnabledCheckBox
             //
             this.combosEnabledCheckBox.AutoSize = true;
-            this.combosEnabledCheckBox.Location = new System.Drawing.Point(15, 154);
+            this.combosEnabledCheckBox.Location = new System.Drawing.Point(15, 184);
             this.combosEnabledCheckBox.Name = "combosEnabledCheckBox";
             this.combosEnabledCheckBox.Size = new System.Drawing.Size(103, 17);
             this.combosEnabledCheckBox.TabIndex = 13;
@@ -157,7 +190,7 @@ namespace SluMAN
             //
             // statusLabel
             //
-            this.statusLabel.Location = new System.Drawing.Point(12, 180);
+            this.statusLabel.Location = new System.Drawing.Point(12, 210);
             this.statusLabel.Name = "statusLabel";
             this.statusLabel.Size = new System.Drawing.Size(300, 30);
             this.statusLabel.TabIndex = 14;
@@ -165,7 +198,7 @@ namespace SluMAN
             // closeButton
             //
             this.closeButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.closeButton.Location = new System.Drawing.Point(237, 215);
+            this.closeButton.Location = new System.Drawing.Point(237, 245);
             this.closeButton.Name = "closeButton";
             this.closeButton.Size = new System.Drawing.Size(75, 23);
             this.closeButton.TabIndex = 15;
@@ -177,10 +210,13 @@ namespace SluMAN
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.closeButton;
-            this.ClientSize = new System.Drawing.Size(324, 250);
+            this.ClientSize = new System.Drawing.Size(324, 280);
             this.Controls.Add(this.closeButton);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.combosEnabledCheckBox);
+            this.Controls.Add(this.skipCutsceneClearButton);
+            this.Controls.Add(this.skipCutsceneTextBox);
+            this.Controls.Add(this.skipCutsceneLabel);
             this.Controls.Add(this.loadGameClearButton);
             this.Controls.Add(this.loadGameTextBox);
             this.Controls.Add(this.loadGameLabel);
@@ -216,6 +252,9 @@ namespace SluMAN
         private System.Windows.Forms.Label loadGameLabel;
         private System.Windows.Forms.TextBox loadGameTextBox;
         private System.Windows.Forms.Button loadGameClearButton;
+        private System.Windows.Forms.Label skipCutsceneLabel;
+        private System.Windows.Forms.TextBox skipCutsceneTextBox;
+        private System.Windows.Forms.Button skipCutsceneClearButton;
         private System.Windows.Forms.CheckBox combosEnabledCheckBox;
         private System.Windows.Forms.Label statusLabel;
         private System.Windows.Forms.Button closeButton;

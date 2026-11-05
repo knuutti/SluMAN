@@ -48,7 +48,8 @@ namespace SluMAN
         public uint entranceListOffset { get; private set; }
 
         // Cutscenes: *dialoguePtr is the dialogue playing (0 when none), ended by writing 0 at
-        // +dialogueSkipOffset. With no dialogue, writing 1 to fmvSkip ends an FMV.
+        // +dialogueSkipOffset. fmvSkip is the Bink movie player's state: 0 while an FMV plays,
+        // 1 at its end, 2 when closed. The movie loop runs while it's 0, so writing 1 ends an FMV.
         public uint dialoguePtr { get; private set; }
         public uint dialogueSkipOffset { get; private set; }
         public uint fmvSkip { get; private set; }
@@ -129,6 +130,20 @@ namespace SluMAN
         public uint[] cameraMatrixUpdateTailCalls { get; private set; }
         public uint cameraHookStub { get; private set; }
         public uint cameraHookData { get; private set; }
+        // Orthographic free camera, as in Sly 2 and 3 (the same PS3 renderer): the frame
+        // setup's SetPerspective call for the renderer's main view (setPerspectiveCall to
+        // setPerspectiveFunction, which sets the view's type at +0x30 to 1, builds the matrix at
+        // +0xB0 from the field of view and ends in viewUpdateFunction) goes to a stub
+        // (orthoRenderStub, going on at orthoRenderStubTail) that puts in SluMAN's orthographic
+        // matrix instead. The game's culling is built from the frustum the camera hook already
+        // puts in, so the free camera widens it with the field of view. 0 means no orthographic
+        // camera.
+        public uint renderView { get; private set; }
+        public uint setPerspectiveCall { get; private set; }
+        public uint setPerspectiveFunction { get; private set; }
+        public uint viewUpdateFunction { get; private set; }
+        public uint orthoRenderStub { get; private set; }
+        public uint orthoRenderStubTail { get; private set; }
 
         // Hide HUD: every HUD element is a blot, drawn through its vtable's Draw entry (a function
         // descriptor's address) at +blotDrawSlotOffset. Each row is a blot vtable and the Draw
@@ -249,6 +264,14 @@ namespace SluMAN
                 cameraHookStub = 0x2FA298,
                 // BSS ends at 0xFC02C8.
                 cameraHookData = 0xFC0300,
+                // The frame setup (0x1794A0) calls SetOrtho, then SetPerspective for the view.
+                renderView = 0xEA18F0,
+                setPerspectiveCall = 0x179A24,
+                setPerspectiveFunction = 0x172B1C,
+                viewUpdateFunction = 0x17283C,
+                // Padding between two ELF sections, 0x2CD3B8 to 0x2CD400.
+                orthoRenderStub = 0x2CD3B8,
+                orthoRenderStubTail = 0x2CD3E0,
 
                 blotVtableDraws = new uint[,]
                 {

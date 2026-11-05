@@ -23,7 +23,8 @@ var BITS = {
   up: 0x1000, right: 0x2000, down: 0x4000, left: 0x8000
 };
 
-// Sprite name for each button that is drawn only while held.
+// Sprite name for each button, drawn while held. The same name + "Released" is drawn while not
+// held, if the skin has it; older skins have the released look in their base.
 var HELD = [
   ["left", "dpadLeft"], ["right", "dpadRight"], ["down", "dpadDown"], ["up", "dpadUp"],
   ["cross", "cross"], ["circle", "circle"], ["triangle", "triangle"], ["square", "square"],
@@ -41,6 +42,8 @@ var sheet = null;
 var loadingSkin = null;
 var state = { mask: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
 var lastEvent = 0;
+// SluMAN's skin revision when the shown skin was loaded; it goes up when a skin is saved.
+var skinRev = null;
 
 function skinQuery(name) {
   return name ? "?skin=" + encodeURIComponent(name) : "";
@@ -90,7 +93,7 @@ function draw() {
   drawPlot(held("l3") ? "l3" : "l3Press", state.lx * pitch, state.ly * pitch);
 
   for (var i = 0; i < HELD.length; i++) {
-    if (held(HELD[i][0])) drawPlot(HELD[i][1]);
+    drawPlot(held(HELD[i][0]) ? HELD[i][1] : HELD[i][1] + "Released");
   }
 }
 
@@ -105,8 +108,11 @@ function connect() {
     setOnline(true);
     var data = JSON.parse(event.data);
     state = data;
-    if (!skin) {
-      // The first load failed, e.g. SluMAN wasn't running yet when OBS opened the page.
+    var saved = skinRev !== null && data.rev !== undefined && data.rev !== skinRev;
+    skinRev = data.rev;
+    if (!skin || saved) {
+      // The first load failed (e.g. SluMAN wasn't running yet when OBS opened the page), or a
+      // skin was saved, perhaps over this one.
       loadSkin(pinnedSkin || data.skin);
     } else if (!pinnedSkin && data.skin && data.skin !== skin.name) {
       loadSkin(data.skin);

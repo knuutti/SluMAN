@@ -95,6 +95,18 @@ namespace SluMAN
         public Func<float> getGameFar;
 
         /// <summary>
+        /// The free camera's orthographic height (world units from the top of the screen to the
+        /// bottom, 0 for perspective) and near distance (0 for the game's), for the script API.
+        /// Null in games whose free camera can't be orthographic.
+        /// </summary>
+        public Func<float> getOrthoHeight;
+        public Action<float> setOrthoHeight;
+        public Func<float> getOrthoNear;
+        public Action<float> setOrthoNear;
+        /// <summary>The height the Camera tab's Orthographic row starts at, in the game's units.</summary>
+        public float defaultOrthoHeight = 20;
+
+        /// <summary>
         /// The Practice tab's Freeze Game Clock, for the script API's /clock (not on the Camera
         /// tab). Set by the Practice window with CameraScriptApi.BindClockToggle; null in games
         /// without it.

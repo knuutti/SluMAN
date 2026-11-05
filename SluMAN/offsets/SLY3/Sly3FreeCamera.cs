@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using SluMAN.Memory;
 
@@ -17,20 +18,18 @@ namespace SluMAN
     /// data each tick.
     /// </para>
     /// <para>
-    /// When the hook can't run (on RPCS3 it needs the Interpreter PPU decoder), the camera's
-    /// matrix and the copies the game draws from (cameraDrawMatrixOffset, cameraDrawMatrix) are
-    /// written directly instead; on RPCS3 nonstop, which keeps one CPU core busy. The game copies
-    /// its own camera into them just before drawing, so it shows through now and then.
+    /// When the hook can't run on a PS3, the camera's matrix and the copies the game draws from
+    /// (cameraDrawMatrixOffset, cameraDrawMatrix) are written directly instead. The game copies
+    /// its own camera into them just before drawing, so it shows through now and then. On RPCS3
+    /// (where the hook needs the Interpreter PPU decoder) the free camera turns off instead: there
+    /// the game's camera shows through too often to be of use.
     /// </para>
     /// Runs on its own thread and keeps going whichever tab shows. Sly3Practice owns the one
     /// instance. It turns itself off when a load starts.
     /// </summary>
     public class Sly3FreeCamera : IFreeCamera
     {
-        // How often the sticks move the camera (and the player is held). On RPCS3 the camera's
-        // matrices are also rewritten nonstop in between: the game copies its own camera into
-        // them just before drawing, and only writing over and over wins against that (a sleep
-        // between writes lasts about 15 ms on Windows, and the game's camera shows through).
+        // How often the sticks move the camera (and the player is held).
         private const int Rpcs3IntervalMs = 5;
         private const int PS3IntervalMs = 30;
         private const float DeadZone = 0.2f;
@@ -44,12 +43,21 @@ namespace SluMAN
         private const float MaxPitch = (float)(Math.PI / 2);
         // A tick after a stall moves at most this much time's worth.
         private const float MaxStep = 0.1f;
+        // For when the view's aspect ratio, near or far distance can't be read.
+        private const float DefaultAspect = 16f / 9f;
+        private const float DefaultNear = 10f;
+        private const float DefaultFar = 100000f;
+        // Zooming in orthographically stops at this height, as the Camera tab's box does.
+        private const float MinOrthoHeight = 0.01f;
+        // The game's field of view while orthographic (about 178 degrees): it only widens the
+        // game's culling cone then, since SluMAN gives the renderer the projection, and a cone
+        // this wide takes in everything in front of the camera but its very edges.
+        private const float OrthoCullFov = 3.1f;
 
         private readonly sly3 game;
         private readonly int intervalMs;
-        private readonly bool rewriteNonstop;
         // How long the camera hook gets to show it runs (its count goes up) before SluMAN falls
-        // back to writing the camera directly.
+        // back to writing the camera directly (or, on RPCS3, turns it off).
         private const int HookCheckMs = 500;
         private readonly SynchronizationContext uiContext;
         private readonly Stopwatch clock = new Stopwatch();
@@ -68,6 +76,14 @@ namespace SluMAN
         private float yaw;
         private float pitch;
         private float fov;
+        // Orthographic: how many world units the view shows top to bottom (0 for perspective), the
+        // near distance (0 for the game's), and the view's aspect ratio, near and far distances
+        // when the camera started.
+        private float orthoHeight;
+        private float orthoNear;
+        private float aspect = DefaultAspect;
+        private float gameNear = DefaultNear;
+        private float gameFar = DefaultFar;
         // False when the camera's field of view isn't in radians as on the PS2 version, so it's
         // left to the game.
         private bool fovKnown;
@@ -95,6 +111,9 @@ namespace SluMAN
         // Whether the camera hook drives the camera, and whether it has been seen running.
         private bool hooked;
         private bool hookConfirmed;
+        // The orthographic view last given to the hooked camera (width, height, near, far), or
+        // null when it's perspective.
+        private float[] orthoWritten;
         private readonly Stopwatch sinceHook = new Stopwatch();
 
         /// <summary>How fast the camera moves: units per second at full stick (the PS2 freecam's 1x).</summary>
@@ -111,8 +130,6 @@ namespace SluMAN
         {
             this.game = game;
             intervalMs = game.api is RPCS3 ? Rpcs3IntervalMs : PS3IntervalMs;
-            // On a PS3 each write is a round trip over the network, so it's ticks only.
-            rewriteNonstop = game.api is RPCS3;
             uiContext = SynchronizationContext.Current ?? new SynchronizationContext();
         }
 
@@ -221,6 +238,76 @@ namespace SluMAN
             }
         }
 
+        /// <summary>Whether this game version's free camera can be orthographic.</summary>
+        public bool OrthoSupported => game.OrthoSupported;
+
+        /// <summary>
+        /// How many world units the free camera shows from the top of the screen to the bottom
+        /// when it's orthographic, or 0 for perspective. Applies at once while the camera is on,
+        /// and stays set when it's turned off and on. Needs the camera hook.
+        /// </summary>
+        public float OrthoHeight
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoHeight;
+                }
+            }
+            set
+            {
+                if (value > 0 && !game.OrthoSupported)
+                {
+                    throw new InvalidOperationException("This game version has no orthographic camera.");
+                }
+                lock (stateLock)
+                {
+                    orthoHeight = Math.Max(0, value);
+                    if (on)
+                    {
+                        try
+                        {
+                            WriteCamera();
+                            WriteFov();
+                        }
+                        catch
+                        {
+                            // Perspective, rather than failing again every tick.
+                            orthoHeight = 0;
+                            throw;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The orthographic camera's near clipping distance, or 0 for the game's. Applies at once
+        /// while the camera is on and orthographic.
+        /// </summary>
+        public float OrthoNear
+        {
+            get
+            {
+                lock (stateLock)
+                {
+                    return orthoNear;
+                }
+            }
+            set
+            {
+                lock (stateLock)
+                {
+                    orthoNear = Math.Max(0, value);
+                    if (on)
+                    {
+                        WriteCamera();
+                    }
+                }
+            }
+        }
+
         /// <summary>The free camera's field of view in radians. Applies at once while it's on.</summary>
         public float Fov
         {
@@ -236,9 +323,9 @@ namespace SluMAN
                 lock (stateLock)
                 {
                     fov = ClampFov(value);
-                    if (on && fovKnown)
+                    if (on)
                     {
-                        game.WriteCameraFov(camera, fov);
+                        WriteFov();
                     }
                 }
             }
@@ -393,15 +480,17 @@ namespace SluMAN
         }
 
         /// <summary>
-        /// Starts the camera hook, or leaves it off (writing the camera directly) and says why.
+        /// Starts the camera hook, or leaves it off (writing the camera directly) and says why. On
+        /// RPCS3 it throws instead, so the free camera doesn't start.
         /// </summary>
         private void Hook()
         {
             hooked = false;
             hookConfirmed = false;
+            orthoWritten = null;
             if (matrixOffset != (int)sly3.addr.cameraMatrixOffset)
             {
-                PostNotice($"The camera's matrix is at +0x{matrixOffset:X}, not where the camera hook puts it, so the game's camera shows through now and then.", true);
+                HookFailed($"The camera's matrix is at +0x{matrixOffset:X}, not where the camera hook puts it.");
                 return;
             }
             try
@@ -412,8 +501,21 @@ namespace SluMAN
             }
             catch (Exception ex)
             {
-                PostNotice($"{ex.Message} The game's camera shows through now and then.", true);
+                HookFailed(ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Leaves the camera written directly, and says why. On RPCS3 the game's camera shows
+        /// through too often for that, so it throws instead.
+        /// </summary>
+        private void HookFailed(string reason)
+        {
+            if (game.api is RPCS3)
+            {
+                throw new InvalidOperationException(reason);
+            }
+            PostNotice($"{reason} The game's camera shows through now and then.", true);
         }
 
         private void PostNotice(string message, bool isError)
@@ -474,8 +576,57 @@ namespace SluMAN
             fovKnown = cameraFov >= MinFov && cameraFov <= MaxFov;
             gameFov = fovKnown ? cameraFov : DefaultFov;
             fov = gameFov;
+            if (game.OrthoSupported)
+            {
+                float[] view = game.ReadRenderAspectNearFar();
+                aspect = view[0] > 0.1f && view[0] < 10f ? view[0] : DefaultAspect;
+                gameNear = view[1] > 0 && view[1] < 10000f ? view[1] : DefaultNear;
+                gameFar = view[2] > gameNear ? view[2] : DefaultFar;
+            }
             Hook();
             WriteCamera();
+        }
+
+        /// <summary>Whether the camera is drawn orthographically: a height set and the hook running.</summary>
+        private bool IsOrtho()
+        {
+            return orthoHeight > 0 && hooked && game.OrthoSupported;
+        }
+
+        /// <summary>
+        /// The free camera's field of view, or while orthographic the wide one that opens the
+        /// game's culling cone. Left alone when the game's isn't in radians.
+        /// </summary>
+        private void WriteFov()
+        {
+            if (fovKnown)
+            {
+                game.WriteCameraFov(camera, IsOrtho() ? OrthoCullFov : fov);
+            }
+        }
+
+        /// <summary>
+        /// Makes the hooked camera orthographic while there's a height, or perspective again
+        /// once it was orthographic.
+        /// </summary>
+        private void WriteOrtho()
+        {
+            if (IsOrtho())
+            {
+                float near = orthoNear > 0 ? orthoNear : gameNear;
+                float far = Math.Max(gameFar, near + 1);
+                float[] ortho = { orthoHeight * aspect, orthoHeight, near, far };
+                if (orthoWritten == null || !ortho.SequenceEqual(orthoWritten))
+                {
+                    game.SetCameraHookOrtho(ortho[0], ortho[1], ortho[2], ortho[3]);
+                    orthoWritten = ortho;
+                }
+            }
+            else if (orthoWritten != null)
+            {
+                game.SetCameraHookOrtho(0, 0, 0, 0);
+                orthoWritten = null;
+            }
         }
 
         /// <summary>Lets the game's camera ease back to its own field of view.</summary>
@@ -501,27 +652,8 @@ namespace SluMAN
 
         private void Run()
         {
-            Stopwatch sinceTick = new Stopwatch();
             while (running)
             {
-                if (rewriteNonstop && !hooked && sinceTick.IsRunning && sinceTick.ElapsedMilliseconds < intervalMs)
-                {
-                    lock (stateLock)
-                    {
-                        try
-                        {
-                            WriteCamera();
-                        }
-                        catch
-                        {
-                            // The next tick finds out why.
-                        }
-                    }
-                    Thread.Yield();
-                    continue;
-                }
-                sinceTick.Restart();
-
                 string stopReason;
                 lock (stateLock)
                 {
@@ -548,10 +680,7 @@ namespace SluMAN
                     RaiseModeChanged();
                     return;
                 }
-                if (!rewriteNonstop || hooked)
-                {
-                    Thread.Sleep(intervalMs);
-                }
+                Thread.Sleep(intervalMs);
             }
         }
 
@@ -585,10 +714,7 @@ namespace SluMAN
                 // The game writes its own camera every frame, so the free one is written every
                 // tick, also while it stays put.
                 WriteCamera();
-                if (fovKnown)
-                {
-                    game.WriteCameraFov(camera, fov);
-                }
+                WriteFov();
                 return null;
             }
             catch (Exception ex)
@@ -691,7 +817,16 @@ namespace SluMAN
             {
                 zoom -= 1;
             }
-            fov = ClampFov(fov * (float)Math.Exp(zoom * ZoomSpeed * step));
+            float zoomFactor = (float)Math.Exp(zoom * ZoomSpeed * step);
+            if (IsOrtho())
+            {
+                // The field of view does nothing while orthographic, so zoom changes what it shows.
+                orthoHeight = Math.Max(MinOrthoHeight, orthoHeight * zoomFactor);
+            }
+            else
+            {
+                fov = ClampFov(fov * zoomFactor);
+            }
         }
 
         /// <summary>The free camera's matrix, laid out as sly3.ReadCameraMatrix's.</summary>
@@ -727,6 +862,7 @@ namespace SluMAN
                 // Marked changed, so the game works out the drawn matrix again even when its own
                 // camera stays put.
                 game.MarkObjectChanged(camera);
+                WriteOrtho();
                 return;
             }
 
@@ -749,7 +885,7 @@ namespace SluMAN
 
         /// <summary>
         /// Once the camera hook has had time to run, checks that it did; if it didn't, falls back
-        /// to writing the camera directly.
+        /// to writing the camera directly, or on RPCS3 throws, which turns the free camera off.
         /// </summary>
         private void CheckHook()
         {
@@ -764,9 +900,11 @@ namespace SluMAN
                 return;
             }
             Unhook();
-            PostNotice(game.api is RPCS3
-                ? "The camera hook isn't running: set RPCS3's PPU decoder to Interpreter (static). Until then the game's camera shows through now and then."
-                : "The camera hook isn't running, so the game's camera shows through now and then.", true);
+            if (game.api is RPCS3)
+            {
+                throw new InvalidOperationException("The camera hook isn't running: set RPCS3's PPU decoder to Interpreter (static) and start the free camera again.");
+            }
+            PostNotice("The camera hook isn't running, so the game's camera shows through now and then.", true);
         }
 
         /// <summary>Where the camera looks. Z is up.</summary>

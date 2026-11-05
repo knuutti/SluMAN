@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -26,15 +27,12 @@ namespace SluMAN
 
             BuildSkinContextMenu();
             BuildObsMenu();
+            ControllerSkin.SkinSaved += ControllerSkin_SkinSaved;
 
-            // controllerSkin = ControllerSkin.Load(Directory.EnumerateDirectories("controllerskins").First());
-            try
+            int selectedIndex = skinComboBox.Items.IndexOf(ControllerSkin.SelectedSkinName());
+            if (selectedIndex >= 0)
             {
-                skinComboBox.SelectedIndex = Convert.ToInt32(func.GetConfigData("config.txt", "InputDisplaySkin"));
-            }
-            catch
-            {
-                skinComboBox.SelectedIndex = 0;
+                skinComboBox.SelectedIndex = selectedIndex;
             }
 
             var savedBackColor = func.GetConfigData("config.txt", "InputDisplayBackColor");
@@ -71,30 +69,15 @@ namespace SluMAN
             this.Invalidate();
         }
 
-        // Skin parts drawn while their button is held. The sticks are drawn separately.
-        private static readonly KeyValuePair<Inputs.Buttons, string>[] buttonParts =
-        {
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.left, "dpadLeft"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.right, "dpadRight"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.down, "dpadDown"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.up, "dpadUp"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.cross, "cross"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.circle, "circle"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.triangle, "triangle"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.square, "square"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.select, "select"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.start, "start"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r1, "r1"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l1, "l1"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.l2, "l2"),
-            new KeyValuePair<Inputs.Buttons, string>(Inputs.Buttons.r2, "r2"),
-        };
-
         private const GraphicsUnit units = GraphicsUnit.Pixel;
 
         private void DrawPart(Graphics graphics, Image sprite, string part, float offsetX = 0, float offsetY = 0)
         {
-            InputPlot plot = controllerSkin.buttons[part];
+            InputPlot plot;
+            if (!controllerSkin.buttons.TryGetValue(part, out plot))
+            {
+                return;
+            }
             graphics.DrawImage(sprite, plot.drawX + offsetX, plot.drawY + offsetY, new Rectangle(plot.spriteX, plot.spriteY, plot.spriteWidth, plot.spriteHeight), units);
         }
 
@@ -108,6 +91,11 @@ namespace SluMAN
             drawnRx = rx;
             drawnRy = ry;
 
+            if (controllerSkin == null || controllerSkin.image == null)
+            {
+                return;
+            }
+
             Image sprite = controllerSkin.image;
             Graphics graphics = e.Graphics;
             float pitch = controllerSkin.analogPitch;
@@ -118,12 +106,10 @@ namespace SluMAN
             DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.r3) ? "r3" : "r3Press", rx * pitch, ry * pitch);
             DrawPart(graphics, sprite, IsHeld(inputs, Inputs.Buttons.l3) ? "l3" : "l3Press", lx * pitch, ly * pitch);
 
-            foreach (KeyValuePair<Inputs.Buttons, string> part in buttonParts)
+            // A held button's part, otherwise its released part if the skin has one.
+            foreach (KeyValuePair<Inputs.Buttons, string> part in ControllerSkin.ButtonParts)
             {
-                if (IsHeld(inputs, part.Key))
-                {
-                    DrawPart(graphics, sprite, part.Value);
-                }
+                DrawPart(graphics, sprite, IsHeld(inputs, part.Key) ? part.Value : part.Value + ControllerSkin.ReleasedSuffix);
             }
         }
 
@@ -140,6 +126,58 @@ namespace SluMAN
         private void InputDisplay_FormClosing(object sender, FormClosingEventArgs e)
         {
             timer.Enabled = false;
+            ControllerSkin.SkinSaved -= ControllerSkin_SkinSaved;
+        }
+
+        /// <summary>A skin was saved in the skin editor, on the server's thread.</summary>
+        private void ControllerSkin_SkinSaved(string skinName, bool select)
+        {
+            if (!IsHandleCreated || IsDisposed)
+            {
+                return;
+            }
+            try
+            {
+                BeginInvoke((Action)(() => RefreshSkins(select ? skinName : null)));
+            }
+            catch
+            {
+                // Closing.
+            }
+        }
+
+        /// <summary>
+        /// Lists the skins again and shows <paramref name="showSkin"/>, or the current skin when
+        /// null. The shown skin is always loaded again, in case it was the one saved over.
+        /// </summary>
+        private void RefreshSkins(string showSkin)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+            if (showSkin == null && controllerSkin != null)
+            {
+                showSkin = controllerSkin.name;
+            }
+
+            // Clearing leaves nothing selected, so selecting below always loads the skin.
+            skinComboBox.Items.Clear();
+            foreach (string skinName in ControllerSkin.SkinNames())
+            {
+                skinComboBox.Items.Add(skinName);
+            }
+            BuildSkinContextMenu();
+
+            int index = skinComboBox.Items.IndexOf(showSkin);
+            if (index < 0 && skinComboBox.Items.Count > 0)
+            {
+                index = 0;
+            }
+            if (index >= 0)
+            {
+                skinComboBox.SelectedIndex = index;
+            }
         }
 
         private void BuildSkinContextMenu()
@@ -171,8 +209,19 @@ namespace SluMAN
 
             var skinName = skinComboBox.Items[skinIndex].ToString();
 
+            ControllerSkin loaded;
+            try
+            {
+                loaded = ControllerSkin.Load(skinName);
+            }
+            catch (Exception ex)
+            {
+                func.Status($"Couldn't load the skin \"{skinName}\": {ex.Message}", true);
+                return;
+            }
+
             ControllerSkin previous = controllerSkin;
-            controllerSkin = ControllerSkin.Load(skinName);
+            controllerSkin = loaded;
             ObsPadServer.SelectedSkin = skinName;
             if (previous != null && previous.image != null)
             {
@@ -181,7 +230,7 @@ namespace SluMAN
             drawnInputs = -1;
             Invalidate();
 
-            func.ChangeFileLines("config.txt", skinIndex.ToString(), "InputDisplaySkin");
+            ControllerSkin.SaveSelectedSkinName(skinName);
 
             this.Width = Math.Max(controllerSkin.buttons["base"].spriteWidth + 50, this.Width);
             this.Height = Math.Max(controllerSkin.buttons["base"].spriteHeight + 50, this.Height);
@@ -242,6 +291,57 @@ namespace SluMAN
             contextMenuStrip1.Items.Add(copyObsUrlMenuItem);
             contextMenuStrip1.Items.Add(changeObsPortMenuItem);
             contextMenuStrip1.Opening += (sender, e) => UpdateObsMenu();
+
+            ToolStripMenuItem createSkinMenuItem = new ToolStripMenuItem("Create Skin...");
+            createSkinMenuItem.ToolTipText = "Make a skin from your own PNG in the browser";
+            createSkinMenuItem.Click += createSkinMenuItem_Click;
+            ToolStripMenuItem editSkinMenuItem = new ToolStripMenuItem("Edit This Skin...");
+            editSkinMenuItem.ToolTipText = "Open this skin in the skin editor (SluMAN's own skins open as a copy)";
+            editSkinMenuItem.Click += editSkinMenuItem_Click;
+            contextMenuStrip1.Items.Add(new ToolStripSeparator());
+            contextMenuStrip1.Items.Add(createSkinMenuItem);
+            contextMenuStrip1.Items.Add(editSkinMenuItem);
+            contextMenuStrip1.Opening += (sender, e) => editSkinMenuItem.Enabled = controllerSkin != null;
+        }
+
+        /// <summary>
+        /// Opens the skin editor in the browser. It's served by the same server as the OBS page,
+        /// so that is switched on first if it's off.
+        /// </summary>
+        private void createSkinMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenSkinEditor(ObsPadServer.EditorUrl);
+        }
+
+        private void editSkinMenuItem_Click(object sender, EventArgs e)
+        {
+            if (controllerSkin != null)
+            {
+                OpenSkinEditor(ObsPadServer.EditorUrl + "?skin=" + Uri.EscapeDataString(controllerSkin.name));
+            }
+        }
+
+        private void OpenSkinEditor(string url)
+        {
+            if (!ObsPadServer.IsRunning)
+            {
+                ObsPadServer.Enabled = true;
+                if (!ObsPadServer.IsRunning)
+                {
+                    func.Status(ObsPadServer.LastError, true);
+                    return;
+                }
+                func.Status("Turned Serve for OBS on: the skin editor runs on the same server.");
+            }
+
+            try
+            {
+                Process.Start(url);
+            }
+            catch (Exception ex)
+            {
+                func.Status($"Couldn't open the browser ({ex.Message}). Open {url} yourself.", true);
+            }
         }
 
         private void UpdateObsMenu()

@@ -12,7 +12,7 @@ namespace SluMAN
     /// camera, gadgets, run files and the memory tools on tabs. The controls are built in code
     /// (PracticeLayout), in the layout every game shares.
     /// </summary>
-    public class Sly2Practice : Form
+    public class Sly2Practice : Form, IPositionEditorHost
     {
         public Form GadgetsWindow;
         private PositionEditor positionEditorWindow;
@@ -43,8 +43,10 @@ namespace SluMAN
         private readonly CheckBox infiniteHealthCheckBox = new CheckBox();
         private readonly CheckBox infiniteGadgetPowerCheckBox = new CheckBox();
         private readonly CheckBox gameClockCheckBox = new CheckBox();
+        private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox infiniteJumpCheckBox = new CheckBox();
         private readonly CheckBox autoSkipCheckBox = new CheckBox();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label mapValueLabel = new Label();
         private readonly Label coinsValueLabel = new Label();
@@ -91,6 +93,7 @@ namespace SluMAN
 
             session = new GameSession(this, game, gameNameId, "Sly 2", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.BindAutosplitter(autosplitterCheckBox);
             session.Reconnected += session_Reconnected;
 
             session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
@@ -122,7 +125,7 @@ namespace SluMAN
             // Every tab is the Practice tab's width; the height follows the selected tab's content.
             practiceTabs = new PracticeTabs(this, "Practice", true);
             // Every game's tabs go Practice, Player, Camera, the game's own, then the memory tools.
-            practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName));
+            practiceTabs.AddTool(PositionTab, () => new PositionEditor(game, game.GetPositionEditorLayout(), game.GetMapDisplayName, this));
             practiceTabs.AddTool(CameraTab, () => new CameraForm(cameraApi.Layout));
             practiceTabs.AddTool(GadgetsTab, () => new Sly2Gadgets(game));
             practiceTabs.AddTool(RunFilesTab, () => new Sly2RunFilesForm(game));
@@ -172,12 +175,43 @@ namespace SluMAN
                     (sender, e) => ApplyToggle(infiniteGadgetPowerCheckBox, () => game.SetInfiniteGadgetPower(infiniteGadgetPowerCheckBox.Checked))),
                 PracticeLayout.Toggle(gameClockCheckBox, "Freeze Game Clock",
                     (sender, e) => ApplyToggle(gameClockCheckBox, () => game.SetGameClockFrozen(gameClockCheckBox.Checked))),
-                layout.PlaceholderToggle("Fly Mode"),
+                PracticeLayout.Toggle(flyModeCheckBox, "Fly Mode", (sender, e) => StartPlayerTool(flyModeCheckBox)),
                 PracticeLayout.Toggle(infiniteJumpCheckBox, "Infinite Jump",
                     (sender, e) => ApplyToggle(infiniteJumpCheckBox, () => game.SetInfiniteJump(infiniteJumpCheckBox.Checked))),
                 PracticeLayout.Toggle(autoSkipCheckBox, "Auto-skip Cutscenes",
                     (sender, e) => ApplyToggle(autoSkipCheckBox, () => game.SetAutoSkip(autoSkipCheckBox.Checked))),
+                PracticeLayout.Toggle(autosplitterCheckBox, "Autosplitter", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+            layout.ToolTip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/sly2-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter. Off each time Practice Mode opens.");
+            layout.ToolTip.SetToolTip(flyModeCheckBox, "Holds the character's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
+        }
+
+        public bool FlyModeEnabled
+        {
+            get { return flyModeCheckBox.Checked; }
+        }
+
+        /// <summary>
+        /// False: Sly 2's Infinite Jump runs in the game class (sly2.SetInfiniteJump), not in the
+        /// Position Editor.
+        /// </summary>
+        public bool InfiniteJumpEnabled
+        {
+            get { return false; }
+        }
+
+        /// <summary>
+        /// Fly Mode runs in the Player tab's Position Editor, so it's created (without switching
+        /// to its tab) when Fly Mode is turned on.
+        /// </summary>
+        private void StartPlayerTool(CheckBox toggle)
+        {
+            if (toggle.Checked)
+            {
+                practiceTabs.Create(PositionTab);
+            }
         }
 
         /// <summary>
@@ -327,6 +361,8 @@ namespace SluMAN
                     if (positionEditorWindow != null && !positionEditorWindow.IsDisposed)
                     {
                         positionEditorWindow.ClearPositionFreezes();
+                        // Fly Mode takes the new map's height.
+                        positionEditorWindow.ResetFlyHeight();
                     }
                 }));
             }
@@ -416,6 +452,13 @@ namespace SluMAN
         /// </summary>
         private void ReapplyToggles()
         {
+            // Fly Mode holds the height it had when switched on; take the new map's height instead.
+            PositionEditor positionEditor = positionEditorWindow;
+            if (positionEditor != null && !positionEditor.IsDisposed)
+            {
+                positionEditor.ResetFlyHeight();
+            }
+
             List<string> applied = new List<string>();
             Reapply(invulnerabilityCheckBox, () => game.SetInvulnerability(true), applied);
             Reapply(infiniteHealthCheckBox, () => game.SetInfiniteHealth(true), applied);
@@ -465,6 +508,14 @@ namespace SluMAN
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();
             game.SetAutoSkip(false);
+            try
+            {
+                game.cutsceneSkip.Close();
+            }
+            catch
+            {
+                // The game may already be gone; a reset puts the table back by itself.
+            }
             // The session closes the other windows and disconnects after this.
         }
 
