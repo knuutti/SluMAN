@@ -29,7 +29,7 @@ Start the game in RPCS3, then run `SluMAN.exe` and click **RPCS3**.
 Some features need RPCS3's PPU decoder set to Interpreter: the free camera in Sly 2, Sly 3, Sly 4 and Bentley's Hackpack, and loading levels and jobs in Sly 4 and Bentley's Hackpack. Set it in `Configuration > CPU > PPU Decoder > Interpreter (static)`, then **Apply & Save**. Otherwise keep the default, `Recompiler (LLVM)`.
 
 ## Contributing
-Bug reports and feature requests are welcome as [issues](https://github.com/knuutti/SluMAN/issues), and code changes as pull requests.
+Bug reports and feature requests are welcome and can be issued in the [SluMAN Development Discord](http://slyspeedruns.com/discord/sluman). Direct code changes are welcome as pull requests (target `master` branch).
 
 ### Building
 SluMAN is a .NET Framework 4.7.2 WinForms app for Windows (x64 only).
