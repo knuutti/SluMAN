@@ -48,7 +48,8 @@ namespace SluMAN
         public uint entranceListOffset { get; private set; }
 
         // Cutscenes: *dialoguePtr is the dialogue playing (0 when none), ended by writing 0 at
-        // +dialogueSkipOffset. With no dialogue, writing 1 to fmvSkip ends an FMV.
+        // +dialogueSkipOffset. fmvSkip is the Bink movie player's state: 0 while an FMV plays,
+        // 1 at its end, 2 when closed. The movie loop runs while it's 0, so writing 1 ends an FMV.
         public uint dialoguePtr { get; private set; }
         public uint dialogueSkipOffset { get; private set; }
         public uint fmvSkip { get; private set; }

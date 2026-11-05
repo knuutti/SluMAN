@@ -448,9 +448,7 @@ namespace SluMAN
         }
 
         // Auto-skip: a background thread does what Skip Cinematic does a few times a second, so
-        // neither the UI thread nor the subscription thread waits on the console. Sly 1 has no
-        // known "an FMV is playing" value, so with no dialogue it keeps the FMV skip set, as
-        // pressing Skip Cinematic would.
+        // neither the UI thread nor the subscription thread waits on the console.
         private const int AutoSkipPollMs = 100;
         // At most one skip of each kind this often, in case a write doesn't take.
         private const int AutoSkipMinIntervalMs = 250;
@@ -490,25 +488,24 @@ namespace SluMAN
             {
                 try
                 {
+                    // FMVs can play while the game counts as loading, so this comes first.
+                    if ((DateTime.Now - lastFmvSkip).TotalMilliseconds >= AutoSkipMinIntervalMs
+                        && ReadInt(sly1.addr.fmvSkip) == 0)
+                    {
+                        api.WriteMemory(pid, sly1.addr.fmvSkip, ConvertIntToBytes(1));
+                        lastFmvSkip = DateTime.Now;
+                    }
                     // The dialogue pointer may point at a freed scene while a level loads.
                     if (IsLevelLoading())
                     {
                         continue;
                     }
                     uint dialogue = (uint)ReadInt(sly1.addr.dialoguePtr);
-                    if (dialogue != 0)
+                    if (dialogue != 0
+                        && (DateTime.Now - lastDialogueSkip).TotalMilliseconds >= AutoSkipMinIntervalMs)
                     {
-                        if ((DateTime.Now - lastDialogueSkip).TotalMilliseconds >= AutoSkipMinIntervalMs)
-                        {
-                            api.WriteMemory(pid, dialogue + sly1.addr.dialogueSkipOffset, ConvertIntToBytes(0));
-                            lastDialogueSkip = DateTime.Now;
-                        }
-                    }
-                    else if ((DateTime.Now - lastFmvSkip).TotalMilliseconds >= AutoSkipMinIntervalMs
-                        && ReadInt(sly1.addr.fmvSkip) != 1)
-                    {
-                        api.WriteMemory(pid, sly1.addr.fmvSkip, ConvertIntToBytes(1));
-                        lastFmvSkip = DateTime.Now;
+                        api.WriteMemory(pid, dialogue + sly1.addr.dialogueSkipOffset, ConvertIntToBytes(0));
+                        lastDialogueSkip = DateTime.Now;
                     }
                 }
                 catch (Exception ex)
