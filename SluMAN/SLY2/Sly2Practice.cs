@@ -503,6 +503,14 @@ namespace SluMAN
             game.LoadStarted -= game_LoadStarted;
             reapplyTimer.Stop();
             game.SetAutoSkip(false);
+            try
+            {
+                game.cutsceneSkip.Close();
+            }
+            catch
+            {
+                // The game may already be gone; a reset puts the table back by itself.
+            }
             // The session closes the other windows and disconnects after this.
         }
 

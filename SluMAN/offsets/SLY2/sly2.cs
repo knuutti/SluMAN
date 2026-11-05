@@ -17,6 +17,9 @@ namespace SluMAN
 
         public uint mapIndex;
 
+        /// <summary>Skip Cinematic's cutscene skip. Close it when Practice Mode closes.</summary>
+        public readonly SeqeSkipWindow cutsceneSkip;
+
         public struct MapData
         {
             public string naturalName;
@@ -36,6 +39,16 @@ namespace SluMAN
         public sly2(IPS3API api, string gameNameId) : base(api)
         {
             addr = Sly2Addresses.ForGame(gameNameId);
+            cutsceneSkip = new SeqeSkipWindow(this, new SeqeSkipWindow.Code
+            {
+                SearchStart = addr.seqeCompleteSearchStart,
+                SearchEnd = addr.seqeCompleteSearchEnd,
+                Switch = new uint[] { 0x2B800057, 0, 0, 0x78091788, 0x7C09582E, 0x7C0007B4, 0x7C005A14, 0x7C0903A6, 0x4E800420 },
+                ReturnTrue = 0x3BA00001, // li r29, 1
+                FirstCommand = 3,
+                Commands = new uint[] { 59, 69, 82 },
+                CaseCode = new uint[] { 0x807C00A0, 0x809F0010, 0x807C0068 },
+            });
 
             this.maps = new MapData[]
             {
@@ -1541,12 +1554,20 @@ namespace SluMAN
                 api.WriteMemory(pid, sly2.addr.fmvState, (uint)2);
             }
 
-            // Skip dialogue
+            // Skip the cutscene's script
+            if (cutsceneSkip.Open())
+            {
+                return;
+            }
+
+            // Without it, skip the dialogue line
             if (api.ReadMemory(pid, sly2.addr.dialogueFrameCounter + 0x3, 1)[0] > 10)
             {
                 api.WriteMemory(pid, sly2.addr.dialogueState, (uint)0);
             }
         }
+
+        protected override Action ComboSkipCutscene => SkipCinematic;
 
         private AutoSkipper autoSkipper;
 

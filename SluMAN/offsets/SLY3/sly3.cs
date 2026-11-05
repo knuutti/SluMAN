@@ -14,6 +14,9 @@ namespace SluMAN
         public static Sly3Addresses addr = Sly3Addresses.ForGame(Sly3Addresses.DefaultGameId);
 
         public uint mapIndex;
+
+        /// <summary>Skip Cinematic's cutscene skip. Close it when Practice Mode closes.</summary>
+        public readonly SeqeSkipWindow cutsceneSkip;
         public bool speedrunMode;
 
         public struct MapData
@@ -37,6 +40,18 @@ namespace SluMAN
         public sly3(IPS3API api, string gameNameId) : base(api)
         {
             addr = Sly3Addresses.ForGame(gameNameId);
+            // The commands are Sly 3's dialogue line (70), voice line (82), voice time (91) and
+            // any voice (95), matched to Sly 2's by what their code does.
+            cutsceneSkip = new SeqeSkipWindow(this, new SeqeSkipWindow.Code
+            {
+                SearchStart = addr.seqeCompleteSearchStart,
+                SearchEnd = addr.seqeCompleteSearchEnd,
+                Switch = new uint[] { 0x2B800068, 0, 0, 0x552915BA, 0x7C09582E, 0x7C0007B4, 0x7C005A14, 0x7C0903A6, 0x4E800420 },
+                ReturnTrue = 0x3B800001, // li r28, 1
+                FirstCommand = 12,
+                Commands = new uint[] { 70, 82, 91, 95 },
+                CaseCode = new uint[] { 0x78630020, 0x81240008, 0x8062D554, 0x8062D554 },
+            });
 
             this.maps = new MapData[]
             {
@@ -1312,12 +1327,20 @@ namespace SluMAN
                 api.WriteMemory(pid, sly3.addr.fmvState, (uint)2);
             }
 
-            // Skip dialogue
+            // Skip the cutscene's script
+            if (cutsceneSkip.Open())
+            {
+                return;
+            }
+
+            // Without it, skip the dialogue line
             if (api.ReadMemory(pid, sly3.addr.dialogueFrameCounter + 0x3, 1)[0] > 10)
             {
                 api.WriteMemory(pid, sly3.addr.dialogueState, (uint)0);
             }
         }
+
+        protected override Action ComboSkipCutscene => SkipCinematic;
 
         private AutoSkipper autoSkipper;
 
