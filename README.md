@@ -1,78 +1,48 @@
 # SluMAN
 
-SluMAN is speedrun tool for Sly Cooper games for PS3 and RPCS3. SluMAN is designed to help speedrunners practice the games by providing custom features that are not place in the vanilla game. 
+SluMAN is a speedrun tool for the Sly Cooper games on PS3 and RPCS3. It connects to the running game and gives speedrunners practice features the game doesn't have, such as loading levels and jobs, saving positions, toggles like invulnerability and fly mode, and a free camera.
 
-SluMAN also provides a Speedrun Mode, that provides the runners with an input display and an autosplitter (exact features might differ between games)
+Every game also has a Speedrun Mode with an input display (which can also be shown in OBS) and an autosplitter for LiveSplit. Features differ a little between games.
 
 ## Supported games
-- Sly Cooper and the Thievius Raccoonus (NPUA80663)
-- Sly 2: Band of Thieves (NPHA80175, NPEA00342; NPUA80664)
-- Sly 3: Honor Among Thieves (NPEA00343)
-- Sly Cooper: Thieves in Time (BCES01284, NPEA00429)
-- Bentley's Hackpack (NPEA00427)
+| Game | Versions |
+|------|----------|
+| Sly Cooper and the Thievius Raccoonus | NPUA80663 |
+| Sly 2: Band of Thieves | NPUA80664, NPEA00342, NPHA80175 |
+| Sly 3: Honor Among Thieves | NPEA00343 |
+| Sly Cooper: Thieves in Time | BCES01284, NPEA00429 |
+| Bentley's Hackpack | NPEA00427 |
 
 ## Setup
-To use SluMAN, follow these steps:
 ### Install SluMAN
-Get the latest version of SluMAN from here: [Download](https://github.com/knuutti/SluMAN/releases/latest). Download the SluMAN.zip file and extract it to a destination you want. You only need to do the installation once: the program automatically checks for updates when a new release is published.
-### PS3 setup
-First, make sure you have `webMAN MOD` installed on a jailbroken PS3 using either a console with custom firmware or a HEN-enabled console.
-It's important that you have the full version of webMAN MOD, which can be done by holding L1 while running the installer.
+Download `SluMAN.zip` from the [latest release](https://github.com/knuutti/SluMAN/releases/latest) and extract it anywhere. You only need to do this once: SluMAN checks for updates itself when a new release is published.
 
-Make sure your PC and PS3 are connected to the same network.
-Then, to connect SluMAN to your PS3, you need to IP address from your PS3. This can be done by going into Settings > System Settings > System Information on your console.
+### PS3
+1. Install the full version of `webMAN MOD` on a jailbroken PS3 (custom firmware or HEN). To get the full version, hold L1 while running the installer.
+2. Connect your PC and PS3 to the same network.
+3. Find the PS3's IP address in Settings > System Settings > System Information.
+4. Enter the IP address in SluMAN, start the game and click **Attach**.
 
-Input the IP address and insert it into the SluMAN.exe application on your PC.
-Then all you need to do is run a game, and click Attach!
+### RPCS3
+Start the game in RPCS3, then run `SluMAN.exe` and click **RPCS3**.
 
-### RPCS3 setup
-Just run `SluMAN.exe`, then while your game is open in RPCS3, click the `RPCS3` button. 
+Some features need RPCS3's PPU decoder set to Interpreter: the free camera in Sly 2, Sly 3, Sly 4 and Bentley's Hackpack, and loading levels and jobs in Sly 4 and Bentley's Hackpack. Set it in `Configuration > CPU > PPU Decoder > Interpreter (static)`, then **Apply & Save**. Otherwise keep the default, `Recompiler (LLVM)`.
 
-Some features require you to run RPCS3 on Interpreter (static) mode. These features include
-- Freecam for Sly 2, Sly 3, Sly 4 and Bentley's Hackpack
-- Loading and game-state related functions in Sly 4 and Bentley's Hackpack, such as loading maps or jobs.
+## Contributing
+Bug reports and feature requests are welcome and can be issued in the [SluMAN Development Discord](http://slyspeedruns.com/discord/sluman). Direct code changes are welcome as pull requests (target `master` branch).
 
-You can change the mode to Interpreter by going `Configuration -> CPU -> PPU Decoder -> Select Interpreter (static) -> Apply & Save`. The default mode is the `Recompiler (LLVM)` which is recommended option if you don't need the functionalities mentioned above.
+### Building
+SluMAN is a .NET Framework 4.7.2 WinForms app for Windows (x64 only).
 
-## Run files
-A run file sets up the save a Sly 2 or Sly 3 run starts from. You make it once, in Practice Mode's **Run Files** tab, and keep it in an anchor file slot; during a run you load the anchor file in game, not from SluMAN.
+1. Open `SluMAN.sln` in Visual Studio with the .NET desktop development workload installed.
+2. Build with the **Release | x64** configuration.
+3. The build goes to `SluMAN\bin\x64\Release\`. Run `SluMAN.exe` from there.
 
-1. Start a new game.
-2. In Practice Mode, open the **Run Files** tab, pick the run file and click **Load**.
-3. Save over your anchor file slot.
-
-The gadgets a run file loads with are saved in the **Gadgets** tab, under Run file gadgets.
-
-## Your files
-SluMAN keeps your settings, saved positions, watchlists, split routes and warp locations in `%APPDATA%\SluMAN`, so they don't depend on where you extracted SluMAN and updates never touch them. **Tools → Open User Data Folder** opens it.
-
-The first time a new version starts, it copies these files over from the SluMAN folder, if you have them there. The originals stay where they were.
-
-To keep everything next to `SluMAN.exe` instead, for example on a USB stick, create an empty file named `portable.txt` in the SluMAN folder.
-
-## Input display in OBS
-SluMAN serves the input display as a web page that OBS can show with a transparent background, so no chroma key is needed.
-
-1. In SluMAN, open the Input Display, right-click it and choose **Copy OBS URL**. The default URL is `http://127.0.0.1:9674/pad`.
-2. In OBS, add a **Browser Source** and paste the URL.
-3. Set the width and height to the skin's size. SluMAN shows it when you copy the URL; DS3 skins are 800 × 558.
-
-The page follows the skin chosen in SluMAN. To give a source its own skin, add `?skin=` and the folder name from `controllerskins`, for example `http://127.0.0.1:9674/pad?skin=Compact`. The pad turns grey while SluMAN isn't running and comes back when it starts again.
-
-The page is only reachable from your own PC, so it needs no firewall rule. **Serve for OBS** and **Change OBS Port...** are in the same right-click menu.
-
-## Your own input display skins
-A skin is a folder holding a `skin.txt` and its sprite sheet; `defaultSkin.txt` in the SluMAN folder explains the format. Put your own skins in `controllerskins` in your user data folder (`%APPDATA%\SluMAN\controllerskins`, or `controllerskins-user` in the SluMAN folder for a portable copy), where updates don't touch them. They show up in the Input Display next to the ones SluMAN ships with, and one with the same name as a shipped skin is used instead of it.
-
-Each button can have a part drawn while it's held (`cross`) and, optionally, one drawn while it isn't (`crossReleased`). Skins without released parts show the released buttons in their base image.
-
-To make one without writing `skin.txt` by hand, right-click the Input Display and choose **Create Skin...**. It opens the skin editor in your browser: open a PNG holding the controller and every button and stick (released and pressed), crop each part out of it, place the parts on the controller, and save. Clicking a sprite crops it to its pixels, and **Live** shows your controller on the skin as you press it. The skin is saved to your skins folder and can be used right away, in the Input Display and in OBS. **Edit This Skin...** in the same menu opens the skin you're using; SluMAN's own skins open as a copy to save under a new name.
+Local builds show as a dev build and don't check for updates.
 
 ## Acknowledgements
 This project is a fork of [racman](https://github.com/MichaelRelaxen/racman). Huge thank you for the work of the racman and [Ratchetron](https://github.com/bordplate/Ratchetron) developers, without your contributions this project would not be possible!
 
-Sly 1 Practice Mode's level and entrance loading, cutscene skipping, world states and player position use addresses found by [SlyMultiTrainer](https://github.com/NiV-L-A/SlyMultiTrainer) by NiV-L-A. Thank you!
-
-Sly 4 support is built on [SLY4-DEBUG-MENU](https://github.com/gg3502/SLY4-DEBUG-MENU) by gg3502. Its research into the game's tunables, episodes, jobs and goals made SluMAN's Sly 4 Tunables and Jobs tabs possible, and the goal lists are generated from it. Thank you!
+Sly 1 Practice Mode uses addresses found by [SlyMultiTrainer](https://github.com/NiV-L-A/SlyMultiTrainer) by NiV-L-A, and Sly 4 support is built on [SLY4-DEBUG-MENU](https://github.com/gg3502/SLY4-DEBUG-MENU) by gg3502. Thank you!
 
 Licenses for code and data from other projects are in [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt), which is also included in the SluMAN download.
