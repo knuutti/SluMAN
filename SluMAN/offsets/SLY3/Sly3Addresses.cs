@@ -70,6 +70,9 @@ namespace SluMAN
         public uint gameSpeed { get; private set; }
         public uint mtcTimerValue { get; private set; }
         public uint pauseLock { get; private set; }
+        // 0 in play, non-zero with the pause menu open, as Sly 2's. Not found yet (0): the
+        // cutscene skip's window then runs in wall time, paused or not.
+        public uint pauseMenuState { get; private set; }
         public uint guardAIAddress { get; private set; }
         public uint deathBarriersPointer { get; private set; }
         public uint cameraPointer { get; private set; }

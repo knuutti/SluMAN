@@ -51,7 +51,7 @@ namespace SluMAN
                 FirstCommand = 12,
                 Commands = new uint[] { 70, 82, 91, 95 },
                 CaseCode = new uint[] { 0x78630020, 0x81240008, 0x8062D554, 0x8062D554 },
-            });
+            }, addr.pauseMenuState != 0 ? IsPauseMenuOpen : (Func<bool>)null);
 
             this.maps = new MapData[]
             {
@@ -1341,6 +1341,15 @@ namespace SluMAN
         }
 
         protected override Action ComboSkipCutscene => SkipCinematic;
+
+        /// <summary>
+        /// Whether the pause menu is open: pauseMenuState is 0 in play. Only used where the
+        /// version has the address.
+        /// </summary>
+        private bool IsPauseMenuOpen()
+        {
+            return ReadUInt(sly3.addr.pauseMenuState) != 0;
+        }
 
         private AutoSkipper autoSkipper;
 
