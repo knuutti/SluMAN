@@ -40,6 +40,7 @@ namespace SluMAN
         private readonly ComboBox charmsComboBox = new ComboBox();
         private readonly CheckBox freezeLivesCheckBox = new CheckBox();
         private readonly CheckBox freezeCharmsCheckBox = new CheckBox();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly CheckBox flyModeCheckBox = new CheckBox();
         private readonly CheckBox infiniteJumpCheckBox = new CheckBox();
@@ -105,6 +106,7 @@ namespace SluMAN
 
             session = new GameSession(this, game, gameNameId, "Sly 1", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.BindAutosplitter(autosplitterCheckBox);
             session.Reconnected += session_Reconnected;
             session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
 
@@ -181,7 +183,11 @@ namespace SluMAN
                     (sender, e) => Toggle(freezeLivesCheckBox, () => game.SetLivesFrozen(freezeLivesCheckBox.Checked))),
                 PracticeLayout.Toggle(freezeCharmsCheckBox, "Freeze Gold Charm",
                     (sender, e) => Toggle(freezeCharmsCheckBox, () => game.SetCharmsFrozen(freezeCharmsCheckBox.Checked))),
+                PracticeLayout.Toggle(autosplitterCheckBox, "Autosplitter", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+            layout.ToolTip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/sly1-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter. Off each time Practice Mode opens.");
 
             ToolTip tip = layout.ToolTip;
             tip.SetToolTip(entranceComboBox,

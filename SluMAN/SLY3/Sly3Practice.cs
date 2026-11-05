@@ -61,6 +61,7 @@ namespace SluMAN
         private readonly CheckBox autoSkipCheckBox = new CheckBox();
         private readonly CheckBox guardAICheckBox = new CheckBox();
         private readonly CheckBox deathBarriersCheckBox = new CheckBox();
+        private readonly CheckBox autosplitterCheckBox = new CheckBox();
         private readonly CheckBox alwaysOnTopCheckBox = new CheckBox();
         private readonly Label mapValueLabel = new Label();
         private readonly Label coinsValueLabel = new Label();
@@ -109,6 +110,7 @@ namespace SluMAN
 
             session = new GameSession(this, game, gameNameId, "Sly 3", false);
             session.BindAlwaysOnTop(alwaysOnTopCheckBox);
+            session.BindAutosplitter(autosplitterCheckBox);
             session.Reconnected += session_Reconnected;
 
             session.FillPracticeToolsMenu(toolsMenu, () => practiceTabs.Show(MemoryTab));
@@ -207,7 +209,11 @@ namespace SluMAN
                     (sender, e) => ApplyToggle(guardAICheckBox, () => game.SetGuardAI(guardAICheckBox.Checked))),
                 PracticeLayout.Toggle(deathBarriersCheckBox, "Disable Death Barriers",
                     (sender, e) => ApplyToggle(deathBarriersCheckBox, () => game.SetDeathBarriers(deathBarriersCheckBox.Checked))),
+                PracticeLayout.Toggle(autosplitterCheckBox, "Autosplitter", null),
                 PracticeLayout.Toggle(alwaysOnTopCheckBox, "Always On Top", null));
+            layout.ToolTip.SetToolTip(autosplitterCheckBox,
+                "Shares the game state with LiveSplit. Load autosplitters/sly3-autosplitter.asl\n" +
+                "in LiveSplit's Scriptable Auto Splitter. Off each time Practice Mode opens.");
 
             layout.ToolTip.SetToolTip(flyModeCheckBox, "Holds the character's height: R1 rises, L1 sinks, R2 speeds up horizontal movement.");
         }
