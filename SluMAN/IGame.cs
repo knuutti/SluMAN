@@ -12,7 +12,10 @@ namespace SluMAN
     {
         public IPS3API api { get; }
 
-        public bool inputCheck = true;
+        // The buttons held at the last combo check, and those that belong to a combo that fired
+        // and are still held (RunCombos).
+        private int previousComboInput = 0;
+        private int consumedComboButtons = 0;
 
         public int pid;
 
@@ -308,67 +311,76 @@ namespace SluMAN
         public virtual void LoadGame() { }
 
         /// <summary>
-        /// Runs the action whose combo matches the pad right now. A combo fires once per press:
-        /// after one fires, nothing else fires until every button is released.
+        /// Runs the action whose combo was just completed. A combo fires when its last button is
+        /// pressed while the rest are held; other buttons held at the same time don't stop it
+        /// (holding R1 and pressing Select fires a Select combo). When one press completes
+        /// several, the one with the most buttons fires (L2 + R2 + Select over Select). A combo
+        /// that fired fires again only after one of its buttons is released and pressed again,
+        /// and no combo that shares a button with it fires while that button stays held.
         /// </summary>
         protected void RunCombos()
         {
             int input = Inputs.RawInputs;
+            int previous = previousComboInput;
+            previousComboInput = input;
+            consumedComboButtons &= input;
 
-            if (input == 0)
-            {
-                inputCheck = true;
-                return;
-            }
-
-            if (!combosActive || !ConfigureCombos.combosEnabled || ConfigureCombos.capturing || !inputCheck)
+            if (input == 0 || !combosActive || !ConfigureCombos.combosEnabled || ConfigureCombos.capturing)
             {
                 return;
             }
 
-            Action action = null;
-            string actionName = "";
+            int[] combos = new int[]
+            {
+                ConfigureCombos.saveCombo,
+                ConfigureCombos.loadCombo,
+                ConfigureCombos.loadGameCombo,
+                ComboSkipCutscene != null ? ConfigureCombos.skipCutsceneCombo : 0,
+            };
+            Action[] actions = new Action[] { SavePosition, LoadPosition, LoadGame, ComboSkipCutscene };
+            string[] names = new string[] { "Save position", "Load position", "Load game", "Skip cutscene" };
 
-            if (input == ConfigureCombos.saveCombo)
+            int chosen = -1;
+            for (int i = 0; i < combos.Length; i++)
             {
-                action = SavePosition;
-                actionName = "Save position";
+                int combo = combos[i];
+                bool completed = combo != 0
+                    && (input & combo) == combo
+                    && (previous & combo) != combo
+                    && (consumedComboButtons & combo) == 0;
+                if (completed && (chosen < 0 || CountButtons(combo) > CountButtons(combos[chosen])))
+                {
+                    chosen = i;
+                }
             }
-            else if (input == ConfigureCombos.loadCombo)
-            {
-                action = LoadPosition;
-                actionName = "Load position";
-            }
-            else if (input == ConfigureCombos.loadGameCombo)
-            {
-                action = LoadGame;
-                actionName = "Load game";
-            }
-
-            else if (input == ConfigureCombos.skipCutsceneCombo && ComboSkipCutscene != null)
-            {
-                action = ComboSkipCutscene;
-                actionName = "Skip cutscene";
-            }
-
-            if (action == null)
+            if (chosen < 0)
             {
                 return;
             }
 
-            // Cleared before the action runs: an action that shows a dialog keeps the message loop,
+            // Set before the action runs: an action that shows a dialog keeps the message loop,
             // and this timer, running while the pad is still held.
-            inputCheck = false;
+            consumedComboButtons |= combos[chosen];
 
             try
             {
-                action();
-                Console.WriteLine($"Combo: {actionName}");
+                actions[chosen]();
+                Console.WriteLine($"Combo: {names[chosen]}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Combo {actionName} failed: {ex.Message}");
+                Console.WriteLine($"Combo {names[chosen]} failed: {ex.Message}");
             }
+        }
+
+        private static int CountButtons(int mask)
+        {
+            int count = 0;
+            for (; mask != 0; mask &= mask - 1)
+            {
+                count++;
+            }
+            return count;
         }
 
         /// <summary>

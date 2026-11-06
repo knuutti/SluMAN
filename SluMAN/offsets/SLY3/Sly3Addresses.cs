@@ -70,6 +70,10 @@ namespace SluMAN
         public uint gameSpeed { get; private set; }
         public uint mtcTimerValue { get; private set; }
         public uint pauseLock { get; private set; }
+        // The pause menu's screen object and the UI manager's list of active screens (the
+        // manager is at 0x6D2F60, the list's header at +0x8A0): sly3.IsPauseMenuOpen.
+        public uint pauseScreen { get; private set; }
+        public uint activeScreenList { get; private set; }
         public uint guardAIAddress { get; private set; }
         public uint deathBarriersPointer { get; private set; }
         public uint cameraPointer { get; private set; }
@@ -229,7 +233,9 @@ namespace SluMAN
                 currentMap = 0x78D398,
                 gameSpeed = 0x5898B8,
                 mtcTimerValue = 0x7DAB2C,
-                pauseLock = 0x5EC6C4,
+                pauseLock = 0x5EC6C4, // A count of locks on pausing ("may it pause"), not whether it is
+                pauseScreen = 0x6D3580,
+                activeScreenList = 0x6D3800,
                 guardAIAddress = 0x5EC6CC,
                 deathBarriersPointer = 0x78C6E4,
                 cameraPointer = 0x78CE2C,

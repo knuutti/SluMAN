@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 
 namespace SluMAN
@@ -29,21 +30,32 @@ namespace SluMAN
         }
 
         private const int WindowMs = 500; // About the PS4 release's 30 checks a press.
+        // While the game is paused the script doesn't run, so paused time doesn't count towards
+        // the window (a combo with Start in it pauses the game on the same press). It's checked
+        // this often, and the window closes after this long whatever the pause flag says.
+        private const int PausePollMs = 50;
+        private const int MaxHoldMs = 30000;
         private const uint ChunkSize = 1024; // A single read is limited to about 2 KB.
 
         private readonly IGame game;
         private readonly Code code;
+        private readonly Func<bool> isPaused;
         private readonly object windowLock = new object();
+        private readonly Stopwatch held = new Stopwatch(); // Since the window opened.
+        private readonly Stopwatch running = new Stopwatch(); // Unpaused time since then.
         private Timer timer;
         private uint table;
         private uint returnTrueEntry;
         private uint[] entries;
         private bool open;
 
-        public SeqeSkipWindow(IGame game, Code code)
+        /// <param name="isPaused">Whether the game is paused, or null if the game has no flag
+        /// for it, in which case the window lasts WindowMs whatever happens.</param>
+        public SeqeSkipWindow(IGame game, Code code, Func<bool> isPaused = null)
         {
             this.game = game;
             this.code = code;
+            this.isPaused = isPaused;
         }
 
         /// <summary>
@@ -64,7 +76,9 @@ namespace SluMAN
                     timer = new Timer(timer_Tick);
                 }
                 // Before the writes: a window that only partly opened still has to close.
-                timer.Change(WindowMs, Timeout.Infinite);
+                held.Restart();
+                running.Restart();
+                timer.Change(isPaused == null ? WindowMs : PausePollMs, Timeout.Infinite);
                 if (!open)
                 {
                     open = true;
@@ -95,6 +109,8 @@ namespace SluMAN
                 }
                 open = false;
                 timer.Change(Timeout.Infinite, Timeout.Infinite);
+                held.Stop();
+                running.Stop();
             }
         }
 
@@ -102,12 +118,58 @@ namespace SluMAN
         {
             try
             {
+                if (KeepOpen())
+                {
+                    return;
+                }
                 Close();
             }
             catch (Exception ex)
             {
                 // A game reset puts the table back by itself.
                 Console.WriteLine($"Cutscene skip couldn't close: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Counts the window's time only while the game runs, and sets the timer again if it has
+        /// some left. True if it stays open.
+        /// </summary>
+        private bool KeepOpen()
+        {
+            if (isPaused == null)
+            {
+                return false;
+            }
+            lock (windowLock)
+            {
+                if (!open || held.ElapsedMilliseconds >= MaxHoldMs)
+                {
+                    return false;
+                }
+                bool paused;
+                try
+                {
+                    paused = isPaused();
+                }
+                catch
+                {
+                    paused = false;
+                }
+                if (paused)
+                {
+                    running.Stop();
+                }
+                else
+                {
+                    running.Start();
+                }
+                if (running.ElapsedMilliseconds >= WindowMs)
+                {
+                    return false;
+                }
+                timer.Change(PausePollMs, Timeout.Infinite);
+                return true;
             }
         }
 

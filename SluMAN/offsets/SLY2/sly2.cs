@@ -48,7 +48,7 @@ namespace SluMAN
                 FirstCommand = 3,
                 Commands = new uint[] { 59, 69, 82 },
                 CaseCode = new uint[] { 0x807C00A0, 0x809F0010, 0x807C0068 },
-            });
+            }, IsPauseMenuOpen);
 
             this.maps = new MapData[]
             {
@@ -1568,6 +1568,17 @@ namespace SluMAN
         }
 
         protected override Action ComboSkipCutscene => SkipCinematic;
+
+        /// <summary>
+        /// Whether the game is paused. pauseMenuState is really the input targets (g_grfjoyt),
+        /// which the game works out from its state flags (g_grfusr, 4 bytes before): 7 in play,
+        /// 0 in a cutscene, 4 with the player locked out, and 5 with the pause bit set, in a
+        /// cutscene or not (found statically in the KOR EBOOT; checked in game: not yet).
+        /// </summary>
+        private bool IsPauseMenuOpen()
+        {
+            return ReadUInt(sly2.addr.pauseMenuState) == 5;
+        }
 
         private AutoSkipper autoSkipper;
 
