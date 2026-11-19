@@ -4,6 +4,21 @@ SluMAN is a speedrun tool for the Sly Cooper games on PS3 and RPCS3. It connects
 
 Every game also has a Speedrun Mode with an input display (which can also be shown in OBS) and an autosplitter for LiveSplit. Features differ a little between games.
 
+## AI usage
+<table>
+  <tr>
+    <td align="center" width="64">
+      <a href="https://github.com/knuutti/knuutti#ai-usage-labels"><img src="https://raw.githubusercontent.com/knuutti/knuutti/main/assets/ai-assisted.png" alt="AI Assisted" width="48" height="48"/></a>
+    </td>
+    <td>
+      <b>AI Assisted</b>: Human-led project where AI writes substantial parts of the code under my direction, review and testing.
+      The project started as a fork of the [racman](https://github.com/MichaelRelaxen/racman) project, and during 2026 the development transitioned to AI-driven agentic development where almost 100% of the new code is written by AI.
+    </td>
+  </tr>
+</table>
+
+See the [AI usage label definitions](https://github.com/knuutti/knuutti#ai-usage-labels) for details.
+
 ## Supported games
 | Game | Versions |
 |------|----------|
