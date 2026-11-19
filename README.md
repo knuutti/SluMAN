@@ -12,7 +12,7 @@ Every game also has a Speedrun Mode with an input display (which can also be sho
     </td>
     <td>
       <b>AI Assisted</b>: Human-led project where AI writes substantial parts of the code under my direction, review and testing.
-      The project started as a fork of the [racman](https://github.com/MichaelRelaxen/racman) project, and during 2026 the development transitioned to AI-driven agentic development where almost 100% of the new code is written by AI.
+      The project started as a fork of the <a href="https://github.com/MichaelRelaxen/racman">racman</a> project, and during 2026 the development transitioned to AI-driven agentic development where almost 100% of the new code is written by AI.
     </td>
   </tr>
 </table>
